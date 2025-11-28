@@ -1,0 +1,206 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Used for migrations (bypasses connection pooler)
+}
+
+// ============================================
+// AUTH.JS REQUIRED MODELS
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  emailVerified DateTime?
+  name          String?
+  username      String?   @unique
+  image         String?
+  password      String?   // For credentials auth (hashed)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Auth.js relations
+  accounts      Account[]
+  sessions      Session[]
+  
+  // App relations
+  stats         UserStats?
+  trainingSessions TrainingSession[]
+  problemAttempts  ProblemAttempt[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// USER STATISTICS
+// ============================================
+
+model UserStats {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  
+  // Overall stats
+  totalProblems     Int      @default(0)
+  totalCorrect      Int      @default(0)
+  totalTimePlayed   Int      @default(0) // in seconds
+  longestStreak     Int      @default(0)
+  currentStreak     Int      @default(0)
+  
+  // Per-operation stats (stored as JSON for flexibility)
+  additionStats     Json     @default("{\"total\": 0, \"correct\": 0, \"avgTime\": 0}")
+  subtractionStats  Json     @default("{\"total\": 0, \"correct\": 0, \"avgTime\": 0}")
+  multiplicationStats Json   @default("{\"total\": 0, \"correct\": 0, \"avgTime\": 0}")
+  divisionStats     Json     @default("{\"total\": 0, \"correct\": 0, \"avgTime\": 0}")
+  
+  // Ranking
+  rating            Int      @default(1000) // ELO-style rating
+  rank              Int?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_stats")
+}
+
+// ============================================
+// TRAINING SESSIONS
+// ============================================
+
+model TrainingSession {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  // Session config
+  gameMode        String    // "timed", "practice", "learning"
+  difficulty      String    // "easy", "medium", "hard", "expert"
+  operations      String[]  // ["+", "-", "×", "÷"]
+  
+  // Session results
+  totalProblems   Int       @default(0)
+  correctAnswers  Int       @default(0)
+  duration        Int       @default(0) // in seconds
+  averageTime     Float     @default(0) // avg time per problem
+  bestStreak      Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts        ProblemAttempt[]
+
+  @@map("training_sessions")
+}
+
+// ============================================
+// PROBLEM ATTEMPTS (for detailed analytics)
+// ============================================
+
+model ProblemAttempt {
+  id              String    @id @default(cuid())
+  userId          String
+  sessionId       String?
+  
+  // Problem details
+  operandA        Int
+  operandB        Int
+  operation       String    // "+", "-", "×", "÷"
+  correctAnswer   Int
+  userAnswer      Int?
+  
+  // Result
+  isCorrect       Boolean
+  timeTaken       Float     // in seconds
+  
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session         TrainingSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, operation])
+  @@index([userId, createdAt])
+  @@map("problem_attempts")
+}
+
+// ============================================
+// LEADERBOARD (denormalized for fast queries)
+// ============================================
+
+model LeaderboardEntry {
+  id              String    @id @default(cuid())
+  
+  // User info (denormalized for fast queries)
+  userId          String    @unique
+  username        String
+  image           String?
+  
+  // Stats
+  rating          Int       @default(1000)
+  totalProblems   Int       @default(0)
+  accuracy        Float     @default(0)
+  avgTime         Float     @default(0)
+  
+  // Ranking
+  rank            Int?
+  
+  updatedAt       DateTime  @updatedAt
+
+  @@index([rating(sort: Desc)])
+  @@index([rank])
+  @@map("leaderboard")
+}

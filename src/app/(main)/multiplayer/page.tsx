@@ -127,10 +127,10 @@ export default function MultiplayerPage() {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {matchState === "lobby" && (
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-8 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 space-y-6">
               {/* Quick Match */}
               <Card>
                 <CardContent className="p-6">
@@ -189,7 +189,7 @@ export default function MultiplayerPage() {
             </div>
 
             {/* Online Players */}
-            <Card className="col-span-4">
+            <Card className="lg:col-span-4">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Users className="w-4 h-4" />

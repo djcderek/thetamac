@@ -20,6 +20,7 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  Tooltip,
 } from "recharts";
 import Link from "next/link";
 
@@ -50,6 +51,29 @@ const skillsData = [
   { name: "Division", value: 65 },
 ];
 
+// Simple tooltip that matches the page aesthetic
+const SimpleTooltip = ({ 
+  active, 
+  payload, 
+  label,
+  suffix = ""
+}: { 
+  active?: boolean; 
+  payload?: Array<{ value: number }>; 
+  label?: string;
+  suffix?: string;
+}) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-popover border border-border rounded-md shadow-md px-3 py-2">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm font-semibold font-mono">{payload[0].value}{suffix}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function Dashboard() {
   return (
     <div className="min-h-screen">
@@ -62,9 +86,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -123,19 +147,23 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Performance Chart */}
-          <Card className="col-span-8">
+          <Link href="/stats/performance" className="lg:col-span-8 block">
+            <Card className="h-full hover:bg-secondary/30 transition-colors cursor-pointer">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Performance</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium">Performance</CardTitle>
+                <p className="text-xs text-muted-foreground">Accuracy this week →</p>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={performanceData}>
+                  <AreaChart data={performanceData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                     <defs>
                       <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="currentColor" stopOpacity={0.1} />
+                        <stop offset="5%" stopColor="currentColor" stopOpacity={0.15} />
                         <stop offset="95%" stopColor="currentColor" stopOpacity={0} />
                       </linearGradient>
                     </defs>
@@ -152,7 +180,9 @@ export default function Dashboard() {
                       tickLine={false}
                       axisLine={false}
                       domain={[60, 100]}
+                      tickFormatter={(value) => `${value}%`}
                     />
+                    <Tooltip content={<SimpleTooltip suffix="%" />} />
                     <Area
                       type="monotone"
                       dataKey="score"
@@ -160,42 +190,69 @@ export default function Dashboard() {
                       strokeWidth={2}
                       fill="url(#scoreGradient)"
                       className="text-foreground"
+                      dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }}
+                      activeDot={{ r: 5, fill: "hsl(var(--foreground))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Avg: <span className="font-mono font-medium text-foreground">84%</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Peak: <span className="font-mono font-medium text-foreground">94%</span> (Sun)
+                </p>
+              </div>
             </CardContent>
           </Card>
+          </Link>
 
           {/* Skills */}
-          <Card className="col-span-4">
+          <Link href="/stats/skills" className="lg:col-span-4 block">
+            <Card className="h-full hover:bg-secondary/30 transition-colors cursor-pointer">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Skills</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium">Skills</CardTitle>
+                <p className="text-xs text-muted-foreground">Accuracy by type →</p>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {skillsData.map((skill) => (
-                  <div key={skill.name} className="space-y-2">
+                  <div key={skill.name} className="space-y-2 group cursor-default">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{skill.name}</span>
+                      <span className="text-muted-foreground group-hover:text-foreground transition-colors">{skill.name}</span>
                       <span className="font-medium font-mono">{skill.value}%</span>
                     </div>
                     <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-foreground rounded-full"
+                        className="h-full bg-foreground rounded-full transition-all duration-300"
                         style={{ width: `${skill.value}%` }}
                       />
                     </div>
                   </div>
                 ))}
               </div>
+              <div className="mt-4 pt-3 border-t border-border">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Overall accuracy</span>
+                  <span className="font-mono font-semibold">
+                    {Math.round(skillsData.reduce((a, b) => a + b.value, 0) / skillsData.length)}%
+                  </span>
+                </div>
+              </div>
             </CardContent>
           </Card>
+          </Link>
 
           {/* Weekly Activity */}
-          <Card className="col-span-5">
+          <Card className="lg:col-span-5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">This Week</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium">This Week</CardTitle>
+                <p className="text-xs text-muted-foreground">Problems solved</p>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="h-[160px]">
@@ -208,6 +265,10 @@ export default function Dashboard() {
                       tickLine={false}
                       axisLine={false}
                     />
+                    <Tooltip 
+                      content={<SimpleTooltip />} 
+                      cursor={{ fill: "hsl(var(--secondary))", opacity: 0.5 }}
+                    />
                     <Bar
                       dataKey="problems"
                       fill="currentColor"
@@ -217,32 +278,43 @@ export default function Dashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Total: <span className="font-mono font-medium text-foreground">{weeklyActivity.reduce((a, b) => a + b.problems, 0)}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Daily avg: <span className="font-mono font-medium text-foreground">{Math.round(weeklyActivity.reduce((a, b) => a + b.problems, 0) / 7)}</span>
+                </p>
+              </div>
             </CardContent>
           </Card>
 
           {/* Quick Actions */}
-          <Card className="col-span-7">
+          <Card className="lg:col-span-7 flex flex-col">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Quick Start</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium">Quick Start</CardTitle>
+                <p className="text-xs text-muted-foreground">Jump into action</p>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-3">
-                <Link href="/training">
-                  <div className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group">
+            <CardContent className="flex-1 flex">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                <Link href="/training" className="block">
+                  <div className="h-full p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group flex flex-col">
                     <Brain className="w-5 h-5 mb-3 text-muted-foreground group-hover:text-foreground transition-colors" />
                     <p className="font-medium text-sm">Practice</p>
                     <p className="text-xs text-muted-foreground mt-1">Start a training session</p>
                   </div>
                 </Link>
-                <Link href="/training">
-                  <div className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <Link href="/training" className="block">
+                  <div className="h-full p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group flex flex-col">
                     <Target className="w-5 h-5 mb-3 text-muted-foreground group-hover:text-foreground transition-colors" />
                     <p className="font-medium text-sm">Daily Challenge</p>
                     <p className="text-xs text-muted-foreground mt-1">Complete for bonus XP</p>
                   </div>
                 </Link>
-                <Link href="/multiplayer">
-                  <div className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <Link href="/multiplayer" className="block">
+                  <div className="h-full p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group flex flex-col">
                     <Swords className="w-5 h-5 mb-3 text-muted-foreground group-hover:text-foreground transition-colors" />
                     <p className="font-medium text-sm">1v1 Match</p>
                     <p className="text-xs text-muted-foreground mt-1">Challenge a player</p>

@@ -1,0 +1,1443 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import {
+  RotateCcw,
+  Play,
+  Square,
+  Timer,
+  Zap,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  GraduationCap,
+  Lightbulb,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Info,
+} from "lucide-react";
+
+type Operation = "+" | "-" | "×" | "÷";
+type Difficulty = "easy" | "medium" | "hard" | "expert";
+type GameMode = "timed" | "practice" | "learning";
+
+interface Problem {
+  a: number;
+  b: number;
+  operation: Operation;
+  answer: number;
+}
+
+interface OperationRange {
+  min: number;
+  max: number;
+}
+
+interface MathTip {
+  title: string;
+  description: string;
+  steps: string[];
+  technique: string;
+}
+
+type OperationRanges = Record<Operation, OperationRange>;
+
+interface DifficultySettings {
+  label: string;
+  addSubMax: number;
+  mulDivMax: number;
+  timeLimit: number;
+  description: string;
+}
+
+const difficultyConfig: Record<Difficulty, DifficultySettings> = {
+  easy: { 
+    label: "Easy",
+    addSubMax: 20, 
+    mulDivMax: 10,
+    timeLimit: 12,
+    description: "Numbers 1-20 for +/−, 1-10 for ×/÷"
+  },
+  medium: { 
+    label: "Medium",
+    addSubMax: 50, 
+    mulDivMax: 12,
+    timeLimit: 10,
+    description: "Numbers 1-50 for +/−, 1-12 for ×/÷"
+  },
+  hard: { 
+    label: "Hard",
+    addSubMax: 100, 
+    mulDivMax: 15,
+    timeLimit: 8,
+    description: "Numbers 1-100 for +/−, 1-15 for ×/÷"
+  },
+  expert: { 
+    label: "Expert",
+    addSubMax: 200, 
+    mulDivMax: 20,
+    timeLimit: 6,
+    description: "Numbers 1-200 for +/−, 1-20 for ×/÷"
+  },
+};
+
+const defaultRanges: OperationRanges = {
+  "+": { min: 1, max: 100 },
+  "-": { min: 1, max: 100 },
+  "×": { min: 1, max: 12 },
+  "÷": { min: 1, max: 12 },
+};
+
+const timedModeLimits = [60, 120, 180, 300];
+
+// ============================================
+// MENTAL MATH TIPS SYSTEM
+// Inspired by Arthur Benjamin's "Secrets of Mental Math"
+// ============================================
+
+function getAdditionTip(a: number, b: number): MathTip {
+  const answer = a + b;
+  
+  // Check for complements of 10
+  if (a % 10 + b % 10 === 10 && a >= 10 && b >= 10) {
+    const tensA = Math.floor(a / 10);
+    const tensB = Math.floor(b / 10);
+    return {
+      title: "Complements of 10",
+      technique: "When ones digits add to 10, carry becomes automatic",
+      description: `Notice that ${a % 10} + ${b % 10} = 10. This means the ones digit is 0 and you carry 1.`,
+      steps: [
+        `Ones: ${a % 10} + ${b % 10} = 10 → write 0, carry 1`,
+        `Tens: ${tensA} + ${tensB} + 1 (carry) = ${tensA + tensB + 1}`,
+        `Answer: ${answer}`,
+      ],
+    };
+  }
+
+  // Round and adjust
+  const nearestTenB = Math.round(b / 10) * 10;
+  const adjustment = nearestTenB - b;
+  if (Math.abs(adjustment) <= 3 && Math.abs(adjustment) > 0 && b >= 10) {
+    return {
+      title: "Round and Adjust",
+      technique: "Round one number to make addition easier, then adjust",
+      description: `Round ${b} to ${nearestTenB} for easier math, then ${adjustment > 0 ? "subtract" : "add"} ${Math.abs(adjustment)}.`,
+      steps: [
+        `Round: ${b} → ${nearestTenB} (${adjustment > 0 ? "+" : ""}${adjustment})`,
+        `Add rounded: ${a} + ${nearestTenB} = ${a + nearestTenB}`,
+        `Adjust: ${a + nearestTenB} ${adjustment > 0 ? "-" : "+"} ${Math.abs(adjustment)} = ${answer}`,
+      ],
+    };
+  }
+
+  // Left-to-right addition (for larger numbers)
+  if (a >= 10 || b >= 10) {
+    // Handle 3-digit numbers
+    if (a >= 100 || b >= 100) {
+      const hundredsA = Math.floor(a / 100) * 100;
+      const tensA = Math.floor((a % 100) / 10) * 10;
+      const onesA = a % 10;
+      const hundredsB = Math.floor(b / 100) * 100;
+      const tensB = Math.floor((b % 100) / 10) * 10;
+      const onesB = b % 10;
+      return {
+        title: "Left-to-Right Addition",
+        technique: "Start with hundreds, then tens, then ones—like reading!",
+        description: "Add from the largest column first. This gives you the big picture immediately.",
+        steps: [
+          `Add hundreds: ${hundredsA} + ${hundredsB} = ${hundredsA + hundredsB}`,
+          `Add tens to total: ${hundredsA + hundredsB} + ${tensA + tensB} = ${hundredsA + hundredsB + tensA + tensB}`,
+          `Add ones to total: ${hundredsA + hundredsB + tensA + tensB} + ${onesA + onesB} = ${answer}`,
+        ],
+      };
+    }
+    
+    // 2-digit numbers
+    const tensA = Math.floor(a / 10) * 10;
+    const onesA = a % 10;
+    const tensB = Math.floor(b / 10) * 10;
+    const onesB = b % 10;
+    return {
+      title: "Left-to-Right Addition",
+      technique: "Add tens first, then add ones to that total",
+      description: "Unlike school math, adding left-to-right is faster because you get the big picture first.",
+      steps: [
+        `Add tens: ${tensA} + ${tensB} = ${tensA + tensB}`,
+        `Add ones to total: ${tensA + tensB} + ${onesA} + ${onesB} = ${answer}`,
+      ],
+    };
+  }
+
+  // Simple addition for small numbers
+  return {
+    title: "Basic Addition",
+    technique: "For small numbers, direct computation is fastest",
+    description: "When both numbers are small, just add directly—speed comes with memorization.",
+    steps: [
+      `Simply add: ${a} + ${b} = ${answer}`,
+    ],
+  };
+}
+
+function getSubtractionTip(a: number, b: number): MathTip {
+  const answer = a - b;
+
+  // Subtraction by Complements - for messy numbers close to round numbers
+  const nearestHundred = Math.round(b / 100) * 100;
+  const hundredDiff = nearestHundred - b;
+  if (nearestHundred > 0 && Math.abs(hundredDiff) <= 15 && Math.abs(hundredDiff) > 0 && b >= 50) {
+    return {
+      title: "Subtraction by Complements",
+      technique: "Subtract the nearest easy number, then add back the difference",
+      description: `Instead of subtracting ${b}, subtract ${nearestHundred} (easier!), then add back ${Math.abs(hundredDiff)}.`,
+      steps: [
+        `Find easy number: ${nearestHundred} is close to ${b}`,
+        `Subtract easy number: ${a} - ${nearestHundred} = ${a - nearestHundred}`,
+        `Add back difference: ${a - nearestHundred} + ${Math.abs(hundredDiff)} = ${answer}`,
+      ],
+    };
+  }
+
+  // Round and adjust for smaller numbers
+  const nearestTenB = Math.round(b / 10) * 10;
+  const adjustment = nearestTenB - b;
+  if (Math.abs(adjustment) <= 3 && Math.abs(adjustment) > 0 && b >= 10 && b < 50) {
+    return {
+      title: "Round and Adjust",
+      technique: "Round the subtracted number, then compensate",
+      description: `Round ${b} to ${nearestTenB}, subtract, then ${adjustment > 0 ? "add" : "subtract"} ${Math.abs(adjustment)}.`,
+      steps: [
+        `Round: ${b} → ${nearestTenB} (difference: ${Math.abs(adjustment)})`,
+        `Subtract rounded: ${a} - ${nearestTenB} = ${a - nearestTenB}`,
+        `Adjust: ${a - nearestTenB} ${adjustment > 0 ? "+" : "-"} ${Math.abs(adjustment)} = ${answer}`,
+      ],
+    };
+  }
+
+  // The "Split" Subtraction - subtract tens then ones
+  if (a >= 10 && b >= 10) {
+    const tensB = Math.floor(b / 10) * 10;
+    const onesB = b % 10;
+    
+    return {
+      title: "The Split Subtraction",
+      technique: "Subtract the tens digit first, then subtract the ones digit",
+      description: `Break ${b} into ${tensB} and ${onesB}. Subtract each part step by step.`,
+      steps: [
+        `Subtract tens: ${a} - ${tensB} = ${a - tensB}`,
+        `Subtract ones: ${a - tensB} - ${onesB} = ${answer}`,
+      ],
+    };
+  }
+
+  // Add-up method (think: what do I add to b to get a?)
+  if (b > 5 && a - b < 15) {
+    return {
+      title: "Add-Up Method",
+      technique: "Instead of subtracting, think: 'What do I add to get there?'",
+      description: `Think: "${b} + ? = ${a}" This is often easier than subtraction.`,
+      steps: [
+        `From ${b}, how far to ${a}?`,
+        `${b} + ${answer} = ${a}`,
+        `Answer: ${answer}`,
+      ],
+    };
+  }
+
+  // Simple subtraction
+  return {
+    title: "Basic Subtraction",
+    technique: "For simple cases, direct computation works well",
+    description: "Practice makes this automatic—visualize the number line.",
+    steps: [
+      `Calculate: ${a} - ${b} = ${answer}`,
+    ],
+  };
+}
+
+function getMultiplicationTip(a: number, b: number): MathTip {
+  const answer = a * b;
+  
+  // Multiplying by 11
+  if (b === 11 && a >= 10 && a <= 99) {
+    const tens = Math.floor(a / 10);
+    const ones = a % 10;
+    const middle = tens + ones;
+    if (middle < 10) {
+      return {
+        title: "The 11 Trick",
+        technique: "Separate the digits, add them together, put the sum in the middle",
+        description: `For ${a} × 11: split into ${tens} and ${ones}, add to get ${middle}, place in middle.`,
+        steps: [
+          `Split ${a} into digits: ${tens} and ${ones}`,
+          `Add them: ${tens} + ${ones} = ${middle}`,
+          `Put sum in middle: ${tens}${middle}${ones} = ${answer}`,
+        ],
+      };
+    } else {
+      return {
+        title: "The 11 Trick (with carry)",
+        technique: "Add digits in middle; if ≥10, carry the 1 to the left digit",
+        description: `The middle sum ${middle} is ≥10, so we carry the 1.`,
+        steps: [
+          `Split ${a}: ${tens} and ${ones}`,
+          `Middle: ${tens} + ${ones} = ${middle} (≥10, so carry 1)`,
+          `Result: ${tens + 1}${middle % 10}${ones} = ${answer}`,
+        ],
+      };
+    }
+  }
+  
+  if (a === 11 && b >= 10 && b <= 99) {
+    const tens = Math.floor(b / 10);
+    const ones = b % 10;
+    const middle = tens + ones;
+    if (middle < 10) {
+      return {
+        title: "The 11 Trick",
+        technique: "Separate the digits, add them together, put the sum in the middle",
+        description: `For ${b} × 11: split into ${tens} and ${ones}, add to get ${middle}, place in middle.`,
+        steps: [
+          `Split ${b} into digits: ${tens} and ${ones}`,
+          `Add them: ${tens} + ${ones} = ${middle}`,
+          `Put sum in middle: ${tens}${middle}${ones} = ${answer}`,
+        ],
+      };
+    }
+  }
+
+  // Squaring numbers ending in 5
+  if (a === b && a % 10 === 5 && a >= 15) {
+    const tens = Math.floor(a / 10);
+    return {
+      title: "Squaring Numbers Ending in 5",
+      technique: "Multiply tens digit by (tens digit + 1), then append 25",
+      description: `For ${a}²: ${tens} × ${tens + 1} = ${tens * (tens + 1)}, then put 25 at the end.`,
+      steps: [
+        `Take the tens digit: ${tens}`,
+        `Multiply by next number: ${tens} × ${tens + 1} = ${tens * (tens + 1)}`,
+        `Append 25: ${tens * (tens + 1)}25 = ${answer}`,
+      ],
+    };
+  }
+
+  // Squaring numbers ending in 1
+  if (a === b && a % 10 === 1 && a >= 11) {
+    const roundDown = a - 1; // nearest number ending in 0
+    const roundDownSquared = roundDown * roundDown;
+    return {
+      title: "Squaring Numbers Ending in 1",
+      technique: "Square the nearest round number, add it, then add the original",
+      description: `For ${a}²: square ${roundDown}, add ${roundDown}, then add ${a}.`,
+      steps: [
+        `Square nearest 10: ${roundDown}² = ${roundDownSquared}`,
+        `Add the round number: ${roundDownSquared} + ${roundDown} = ${roundDownSquared + roundDown}`,
+        `Add original: ${roundDownSquared + roundDown} + ${a} = ${answer}`,
+      ],
+    };
+  }
+
+  // Squaring any 2-digit number (The Duplex/Distance Method)
+  if (a === b && a >= 10 && a <= 99) {
+    const nearestTen = Math.round(a / 10) * 10;
+    const distance = a - nearestTen;
+    const otherFactor = a - distance; // or nearestTen
+    const adjustedFactor = a + distance; // goes the opposite direction
+    // Actually: (a - d)(a + d) + d² = a² - d² + d² = a²
+    // So: round to nearest 10, adjust other factor opposite, multiply, add distance²
+    const baseFactor = nearestTen;
+    const distanceFromBase = a - baseFactor;
+    const otherNum = a + distanceFromBase; // if a=23, base=20, dist=3, other=26
+    // Wait, let me reconsider: For 23², we want 20 × 26 + 3² = 520 + 9 = 529
+    // baseFactor = 20, a = 23, distanceFromBase = 3, otherNum = 26
+    if (Math.abs(distanceFromBase) > 0 && Math.abs(distanceFromBase) <= 5) {
+      return {
+        title: "The Duplex Method",
+        technique: "Round to nearest 10, adjust other factor opposite direction, multiply, add distance²",
+        description: `Round ${a} to ${baseFactor}. Move the other factor to ${otherNum}. Multiply, then add ${Math.abs(distanceFromBase)}².`,
+        steps: [
+          `Round ${a} to ${baseFactor} (distance: ${Math.abs(distanceFromBase)})`,
+          `Adjust opposite: ${a} + ${Math.abs(distanceFromBase)} = ${otherNum}`,
+          `Multiply: ${baseFactor} × ${otherNum} = ${baseFactor * otherNum}`,
+          `Add distance²: ${baseFactor * otherNum} + ${distanceFromBase * distanceFromBase} = ${answer}`,
+        ],
+      };
+    }
+  }
+
+  // Multiplying numbers "close together" (same tens digit or close)
+  const tensA = Math.floor(a / 10) * 10;
+  const tensB = Math.floor(b / 10) * 10;
+  if (tensA === tensB && tensA >= 10 && a !== b) {
+    const base = tensA;
+    const onesA = a % 10;
+    const onesB = b % 10;
+    // Method: (base + onesA)(base + onesB) = base² + base(onesA + onesB) + onesA × onesB
+    // Or: Add ones of second to first, multiply by base, add product of ones
+    // 23 × 27: (23 + 7) × 20 + 3 × 7 = 30 × 20 + 21 = 600 + 21 = 621
+    const step1 = a + onesB; // add ones of b to a
+    const step2 = step1 * base; // multiply by base
+    const step3 = onesA * onesB; // product of ones
+    return {
+      title: "Numbers Close Together",
+      technique: "Add the ones digit of one number to the other, multiply by the base, add product of ones",
+      description: `Both numbers share base ${base}. Add ${onesB} to ${a}, multiply by ${base}, add ${onesA} × ${onesB}.`,
+      steps: [
+        `Add ones of ${b} to ${a}: ${a} + ${onesB} = ${step1}`,
+        `Multiply by base ${base}: ${step1} × ${base} = ${step2}`,
+        `Add product of ones: ${onesA} × ${onesB} = ${step3}`,
+        `Total: ${step2} + ${step3} = ${answer}`,
+      ],
+    };
+  }
+
+  // Multiplying by 5
+  if (b === 5 || a === 5) {
+    const other = b === 5 ? a : b;
+    const half = other / 2;
+    return {
+      title: "Multiply by 5",
+      technique: "Cut the number in half, then multiply by 10",
+      description: `${other} × 5 = (${other} ÷ 2) × 10 = ${half} × 10 = ${answer}`,
+      steps: [
+        `Halve the number: ${other} ÷ 2 = ${half}`,
+        `Multiply by 10: ${half} × 10 = ${answer}`,
+      ],
+    };
+  }
+
+  // Multiplying by 9
+  if (b === 9 || a === 9) {
+    const other = b === 9 ? a : b;
+    return {
+      title: "Multiply by 9",
+      technique: "Multiply by 10, then subtract the original number",
+      description: `${other} × 9 = (${other} × 10) - ${other} = ${other * 10} - ${other}`,
+      steps: [
+        `Multiply by 10: ${other} × 10 = ${other * 10}`,
+        `Subtract original: ${other * 10} - ${other} = ${answer}`,
+      ],
+    };
+  }
+  
+  // Multiplying by 4
+  if (b === 4 || a === 4) {
+    const other = b === 4 ? a : b;
+    return {
+      title: "Multiply by 4",
+      technique: "Double the number, then double it again",
+      description: `${other} × 4 = double(double(${other}))`,
+      steps: [
+        `First double: ${other} × 2 = ${other * 2}`,
+        `Double again: ${other * 2} × 2 = ${answer}`,
+      ],
+    };
+  }
+
+  // Distributive property (breaking apart)
+  if (a >= 10 || b >= 10) {
+    const larger = Math.max(a, b);
+    const smaller = Math.min(a, b);
+    const tens = Math.floor(larger / 10) * 10;
+    const ones = larger % 10;
+    
+    if (ones > 0) {
+      return {
+        title: "Break Apart (Distributive)",
+        technique: "Split one number into tens and ones, multiply separately",
+        description: `${smaller} × ${larger} = ${smaller} × ${tens} + ${smaller} × ${ones}`,
+        steps: [
+          `Break ${larger} into ${tens} + ${ones}`,
+          `${smaller} × ${tens} = ${smaller * tens}`,
+          `${smaller} × ${ones} = ${smaller * ones}`,
+          `Add: ${smaller * tens} + ${smaller * ones} = ${answer}`,
+        ],
+      };
+    }
+  }
+
+  // Basic multiplication
+  return {
+    title: "Basic Multiplication",
+    technique: "Use your times tables—memorization is key!",
+    description: `${a} × ${b} = ${answer}. Practice until these become instant recall.`,
+    steps: [
+      `${a} × ${b} = ${answer}`,
+    ],
+  };
+}
+
+function getDivisionTip(a: number, b: number): MathTip {
+  const answer = a / b;
+
+  // Dividing by 5
+  if (b === 5) {
+    return {
+      title: "Divide by 5",
+      technique: "Multiply by 2, then divide by 10 (move decimal left)",
+      description: `${a} ÷ 5 = (${a} × 2) ÷ 10 = ${a * 2} ÷ 10 = ${answer}`,
+      steps: [
+        `Double the number: ${a} × 2 = ${a * 2}`,
+        `Divide by 10: ${a * 2} ÷ 10 = ${answer}`,
+      ],
+    };
+  }
+
+  // Dividing by 4
+  if (b === 4) {
+    return {
+      title: "Divide by 4",
+      technique: "Halve the number twice",
+      description: `${a} ÷ 4 = (${a} ÷ 2) ÷ 2`,
+      steps: [
+        `First half: ${a} ÷ 2 = ${a / 2}`,
+        `Second half: ${a / 2} ÷ 2 = ${answer}`,
+      ],
+    };
+  }
+
+  // Dividing by 9
+  if (b === 9) {
+    return {
+      title: "Divide by 9",
+      technique: "Think of the inverse multiplication using the ×9 trick",
+      description: `Think: "What × 9 = ${a}?" Check: ${answer} × 9 = ${answer} × 10 - ${answer} = ${a}`,
+      steps: [
+        `Think: ? × 9 = ${a}`,
+        `Verify: ${answer} × 10 = ${answer * 10}`,
+        `Subtract: ${answer * 10} - ${answer} = ${a} ✓`,
+      ],
+    };
+  }
+
+  // Factor method
+  if (b >= 6 && b <= 12) {
+    return {
+      title: "Inverse Multiplication",
+      technique: "Think of division as finding the missing factor",
+      description: `Think: "${b} × ? = ${a}". If you know ${b} × ${answer} = ${a}, you have your answer!`,
+      steps: [
+        `Reframe: ${b} × ? = ${a}`,
+        `From times tables: ${b} × ${answer} = ${a}`,
+        `Answer: ${answer}`,
+      ],
+    };
+  }
+
+  // Basic division
+  return {
+    title: "Basic Division",
+    technique: "Use multiplication facts in reverse",
+    description: `${a} ÷ ${b} = ${answer}. Think: "${b} × ${answer} = ${a}"`,
+    steps: [
+      `${a} ÷ ${b} = ${answer}`,
+    ],
+  };
+}
+
+function getTipForProblem(problem: Problem): MathTip {
+  switch (problem.operation) {
+    case "+":
+      return getAdditionTip(problem.a, problem.b);
+    case "-":
+      return getSubtractionTip(problem.a, problem.b);
+    case "×":
+      return getMultiplicationTip(problem.a, problem.b);
+    case "÷":
+      return getDivisionTip(problem.a, problem.b);
+    default:
+      return {
+        title: "Basic Calculation",
+        technique: "Standard arithmetic",
+        description: "Calculate step by step.",
+        steps: [`${problem.a} ${problem.operation} ${problem.b} = ${problem.answer}`],
+      };
+  }
+}
+
+// ============================================
+
+// Shuffle array using Fisher-Yates algorithm
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function generateProblem(
+  operation: Operation,
+  difficulty: Difficulty,
+  useAdvanced: boolean,
+  ranges: OperationRanges
+): Problem {
+  let a: number, b: number, answer: number;
+
+  if (useAdvanced) {
+    const range = ranges[operation];
+    const min = range.min;
+    const max = range.max;
+
+    switch (operation) {
+      case "+":
+        a = Math.floor(Math.random() * (max - min + 1)) + min;
+        b = Math.floor(Math.random() * (max - min + 1)) + min;
+        answer = a + b;
+        break;
+      case "-":
+        a = Math.floor(Math.random() * (max - min + 1)) + min;
+        b = Math.floor(Math.random() * Math.min(a - min + 1, max - min + 1)) + min;
+        if (b > a) [a, b] = [b, a];
+        answer = a - b;
+        break;
+      case "×":
+        a = Math.floor(Math.random() * (max - min + 1)) + min;
+        b = Math.floor(Math.random() * (max - min + 1)) + min;
+        answer = a * b;
+        break;
+      case "÷":
+        b = Math.floor(Math.random() * (max - min + 1)) + min;
+        answer = Math.floor(Math.random() * (max - min + 1)) + min;
+        a = b * answer;
+        break;
+      default:
+        a = 1;
+        b = 1;
+        answer = 2;
+    }
+  } else {
+    const config = difficultyConfig[difficulty];
+    const addSubMax = config.addSubMax;
+    const mulDivMax = config.mulDivMax;
+
+    switch (operation) {
+      case "+":
+        a = Math.floor(Math.random() * addSubMax) + 1;
+        b = Math.floor(Math.random() * addSubMax) + 1;
+        answer = a + b;
+        break;
+      case "-":
+        a = Math.floor(Math.random() * addSubMax) + 1;
+        b = Math.floor(Math.random() * a) + 1;
+        answer = a - b;
+        break;
+      case "×":
+        a = Math.floor(Math.random() * mulDivMax) + 1;
+        b = Math.floor(Math.random() * mulDivMax) + 1;
+        answer = a * b;
+        break;
+      case "÷":
+        b = Math.floor(Math.random() * mulDivMax) + 1;
+        answer = Math.floor(Math.random() * mulDivMax) + 1;
+        a = b * answer;
+        break;
+      default:
+        a = 1;
+        b = 1;
+        answer = 2;
+    }
+  }
+
+  return { a, b, operation, answer };
+}
+
+export default function TrainingPage() {
+  const [selectedOperations, setSelectedOperations] = useState<Operation[]>(["+", "-", "×", "÷"]);
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  const [gameMode, setGameMode] = useState<GameMode>("timed");
+  const [timedModeLimit, setTimedModeLimit] = useState(120);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [operationRanges, setOperationRanges] = useState<OperationRanges>(defaultRanges);
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const [userAnswer, setUserAnswer] = useState("");
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [streak, setStreak] = useState(0);
+  const [totalSolved, setTotalSolved] = useState(0);
+  const [totalCorrect, setTotalCorrect] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [overallTimeLeft, setOverallTimeLeft] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [avgTime, setAvgTime] = useState(0);
+  const [times, setTimes] = useState<number[]>([]);
+  const [startTime, setStartTime] = useState<number>(0);
+  
+  // Learning mode state
+  const [showTip, setShowTip] = useState(true);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const [tipExpanded, setTipExpanded] = useState(true);
+  
+  // Operation queue for even distribution
+  const operationQueueRef = useRef<Operation[]>([]);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Get next operation from queue, refilling with shuffled operations when empty
+  const getNextOperation = useCallback(() => {
+    if (operationQueueRef.current.length === 0) {
+      operationQueueRef.current = shuffleArray([...selectedOperations]);
+    }
+    return operationQueueRef.current.shift()!;
+  }, [selectedOperations]);
+
+  const operations: { op: Operation; label: string }[] = [
+    { op: "+", label: "Add" },
+    { op: "-", label: "Subtract" },
+    { op: "×", label: "Multiply" },
+    { op: "÷", label: "Divide" },
+  ];
+
+  const toggleOperation = (op: Operation) => {
+    setSelectedOperations((prev) => {
+      if (prev.includes(op)) {
+        if (prev.length === 1) return prev; // Must have at least one
+        return prev.filter((o) => o !== op);
+      }
+      return [...prev, op];
+    });
+  };
+
+  const updateRange = (op: Operation, field: "min" | "max", value: number) => {
+    setOperationRanges((prev) => ({
+      ...prev,
+      [op]: { ...prev[op], [field]: value },
+    }));
+  };
+
+  const startNewProblem = useCallback(() => {
+    const nextOperation = getNextOperation();
+    const newProblem = generateProblem(nextOperation, difficulty, showAdvanced, operationRanges);
+    setProblem(newProblem);
+    setUserAnswer("");
+    setIsCorrect(null);
+    setHasAnswered(false);
+    if (gameMode === "practice") {
+      setTimeLeft(difficultyConfig[difficulty].timeLimit);
+    }
+    setStartTime(Date.now());
+    inputRef.current?.focus();
+  }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges]);
+
+  const startTraining = () => {
+    // Reset operation queue for fresh even distribution
+    operationQueueRef.current = shuffleArray([...selectedOperations]);
+    
+    setIsPlaying(true);
+    setIsGameOver(false);
+    setStreak(0);
+    setTotalSolved(0);
+    setTotalCorrect(0);
+    setTimes([]);
+    setAvgTime(0);
+    setShowTip(true);
+    setTipExpanded(true);
+    if (gameMode === "timed") {
+      setOverallTimeLeft(timedModeLimit);
+    }
+    startNewProblem();
+  };
+
+  const stopTraining = () => {
+    setIsPlaying(false);
+    setProblem(null);
+    setIsGameOver(false);
+    setHasAnswered(false);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!problem || !isPlaying) return;
+
+    const answerNum = parseInt(userAnswer);
+    const correct = answerNum === problem.answer;
+    const timeTaken = (Date.now() - startTime) / 1000;
+
+    if (gameMode === "learning") {
+      // Learning mode: show solution breakdown after answering
+      setIsCorrect(correct);
+      setHasAnswered(true);
+      setTotalSolved((prev) => prev + 1);
+      
+      if (correct) {
+        setTotalCorrect((prev) => prev + 1);
+        setStreak((prev) => prev + 1);
+        setTimes((prev) => {
+          const newTimes = [...prev, timeTaken];
+          setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
+          return newTimes;
+        });
+      } else {
+        setStreak(0);
+      }
+      // Don't auto-advance - let user study the solution
+    } else if (gameMode === "timed") {
+      // Timed mode: only move on if correct, no penalty for wrong
+      if (correct) {
+        setIsCorrect(true);
+        setTotalSolved((prev) => prev + 1);
+        setTotalCorrect((prev) => prev + 1);
+        setStreak((prev) => prev + 1);
+        setTimes((prev) => {
+          const newTimes = [...prev, timeTaken];
+          setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
+          return newTimes;
+        });
+        setTimeout(() => {
+          startNewProblem();
+        }, 200);
+      } else {
+        // Wrong answer in Timed mode: just clear and let them try again
+        setUserAnswer("");
+        setIsCorrect(false);
+        setTimeout(() => setIsCorrect(null), 300);
+      }
+    } else {
+      // Practice mode: original behavior
+      setIsCorrect(correct);
+      setTotalSolved((prev) => prev + 1);
+
+      if (correct) {
+        setTotalCorrect((prev) => prev + 1);
+        setStreak((prev) => prev + 1);
+        setTimes((prev) => {
+          const newTimes = [...prev, timeTaken];
+          setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
+          return newTimes;
+        });
+      } else {
+        setStreak(0);
+      }
+
+      setTimeout(() => {
+        startNewProblem();
+      }, 600);
+    }
+  };
+
+  // Practice mode per-question timer
+  useEffect(() => {
+    if (!isPlaying || gameMode !== "practice" || timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setIsCorrect(false);
+          setStreak(0);
+          setTotalSolved((p) => p + 1);
+          setTimeout(() => startNewProblem(), 600);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isPlaying, gameMode, timeLeft, startNewProblem]);
+
+  // Timed mode overall timer
+  useEffect(() => {
+    if (!isPlaying || gameMode !== "timed" || overallTimeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setOverallTimeLeft((prev) => {
+        if (prev <= 1) {
+          setIsPlaying(false);
+          setIsGameOver(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isPlaying, gameMode, overallTimeLeft]);
+
+  const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const currentTip = problem ? getTipForProblem(problem) : null;
+  const currentConfig = difficultyConfig[difficulty];
+
+  // Get difficulty badge color
+  const getDifficultyColor = (d: Difficulty) => {
+    switch (d) {
+      case "easy": return "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
+      case "medium": return "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30";
+      case "hard": return "text-orange-600 dark:text-orange-400 bg-orange-500/10 border-orange-500/30";
+      case "expert": return "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/30";
+    }
+  };
+
+  return (
+    <div className="min-h-screen">
+      <div className="border-b border-border">
+        <div className="px-6 py-4">
+          <h1 className="text-lg font-semibold">Training</h1>
+          <p className="text-sm text-muted-foreground">
+            Practice mental math at your own pace
+          </p>
+        </div>
+      </div>
+
+      <div className="p-4 md:p-6">
+        <div className="max-w-2xl mx-auto">
+          {/* Game Over Screen for Timed Mode */}
+          {isGameOver && (
+            <Card>
+              <CardContent className="p-4 md:p-8">
+                <div className="text-center space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-semibold mb-2">Time&apos;s Up!</h2>
+                    <p className="text-muted-foreground">Great session!</p>
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border mt-2 ${getDifficultyColor(difficulty)}`}>
+                      {currentConfig.label} difficulty
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-lg bg-secondary/50">
+                      <p className="text-4xl font-mono font-bold">{totalSolved}</p>
+                      <p className="text-sm text-muted-foreground">Problems Solved</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-secondary/50">
+                      <p className="text-4xl font-mono font-bold">{streak}</p>
+                      <p className="text-sm text-muted-foreground">Best Streak</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-secondary/50">
+                      <p className="text-4xl font-mono font-bold">{avgTime > 0 ? avgTime.toFixed(1) : "0"}s</p>
+                      <p className="text-sm text-muted-foreground">Avg Time</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 justify-center">
+                    <Button onClick={startTraining} size="lg">
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Play Again
+                    </Button>
+                    <Button variant="outline" onClick={stopTraining} size="lg">
+                      Change Settings
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!isPlaying && !isGameOver ? (
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="space-y-6">
+                  {/* Game Mode Selection */}
+                  <div>
+                    <label className="text-sm font-medium mb-3 block">Game Mode</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setGameMode("timed")}
+                        className={`p-4 rounded-lg border text-left transition-colors ${
+                          gameMode === "timed"
+                            ? "border-foreground bg-secondary"
+                            : "border-border hover:bg-secondary/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Zap className="w-4 h-4" />
+                          <span className="font-medium">Timed</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          Race the clock
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setGameMode("practice")}
+                        className={`p-4 rounded-lg border text-left transition-colors ${
+                          gameMode === "practice"
+                            ? "border-foreground bg-secondary"
+                            : "border-border hover:bg-secondary/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Timer className="w-4 h-4" />
+                          <span className="font-medium">Practice</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          Per-question timer
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setGameMode("learning")}
+                        className={`p-4 rounded-lg border text-left transition-colors ${
+                          gameMode === "learning"
+                            ? "border-foreground bg-secondary"
+                            : "border-border hover:bg-secondary/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <GraduationCap className="w-4 h-4" />
+                          <span className="font-medium">Learning</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          Tips & tricks
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Learning Mode Description */}
+                  {gameMode === "learning" && (
+                    <div className="p-4 rounded-lg bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-amber-500/20">
+                          <Lightbulb className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-amber-900 dark:text-amber-100 mb-1">
+                            Learn Mental Math Secrets
+                          </h3>
+                          <p className="text-sm text-amber-800/80 dark:text-amber-200/80">
+                            Get expert tips inspired by Arthur Benjamin&apos;s &ldquo;Secrets of Mental Math&rdquo; 
+                            and other proven techniques. See step-by-step breakdowns for every problem!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Operation Selection - Multi-select */}
+                  <div>
+                    <label className="text-sm font-medium mb-3 block">
+                      Operations <span className="text-muted-foreground font-normal">(select multiple)</span>
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {operations.map(({ op, label }) => (
+                        <button
+                          key={op}
+                          onClick={() => toggleOperation(op)}
+                          className={`p-4 rounded-lg border text-center transition-colors ${
+                            selectedOperations.includes(op)
+                              ? "border-foreground bg-secondary"
+                              : "border-border hover:bg-secondary/50"
+                          }`}
+                        >
+                          <span className="text-2xl font-mono block mb-1">{op}</span>
+                          <span className="text-xs text-muted-foreground">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Difficulty Selection - Always visible, shows what it affects */}
+                  {!showAdvanced && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="text-sm font-medium">Difficulty</label>
+                        {gameMode === "practice" && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Info className="w-3 h-3" />
+                            Affects number range & time per question
+                          </span>
+                        )}
+                        {gameMode !== "practice" && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Info className="w-3 h-3" />
+                            Affects number range
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {(["easy", "medium", "hard", "expert"] as Difficulty[]).map((d) => {
+                          const config = difficultyConfig[d];
+                          return (
+                            <button
+                              key={d}
+                              onClick={() => setDifficulty(d)}
+                              className={`py-3 px-3 rounded-lg border text-center transition-colors ${
+                                difficulty === d
+                                  ? `border-2 ${getDifficultyColor(d)}`
+                                  : "border-border hover:bg-secondary/50"
+                              }`}
+                            >
+                              <span className={`text-sm font-medium capitalize block ${difficulty === d ? "" : ""}`}>
+                                {d}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground block mt-0.5">
+                                +/− ≤{config.addSubMax}, ×/÷ ≤{config.mulDivMax}
+                              </span>
+                              {gameMode === "practice" && (
+                                <span className="text-[10px] text-muted-foreground block">
+                                  {config.timeLimit}s per question
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Advanced Settings */}
+                  <div>
+                    <button
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Custom Ranges
+                      {showAdvanced ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+
+                    {showAdvanced && (
+                      <div className="mt-4 space-y-4 p-4 rounded-lg border border-border bg-secondary/30">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            Custom ranges override difficulty presets
+                          </p>
+                          <button
+                            onClick={() => {
+                              setShowAdvanced(false);
+                            }}
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Use difficulty presets instead
+                          </button>
+                        </div>
+                        {operations.map(({ op, label }) => (
+                          <div key={op} className="flex items-center gap-3">
+                            <span className="w-20 text-sm font-medium">{label}</span>
+                            <div className="flex items-center gap-2 flex-1">
+                              <Input
+                                type="number"
+                                value={operationRanges[op].min}
+                                onChange={(e) => updateRange(op, "min", parseInt(e.target.value) || 1)}
+                                className="w-20 h-8 text-center text-sm"
+                                min={1}
+                              />
+                              <span className="text-muted-foreground">to</span>
+                              <Input
+                                type="number"
+                                value={operationRanges[op].max}
+                                onChange={(e) => updateRange(op, "max", parseInt(e.target.value) || 1)}
+                                className="w-20 h-8 text-center text-sm"
+                                min={1}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        {gameMode === "practice" && (
+                          <div className="pt-2 border-t border-border">
+                            <p className="text-xs text-muted-foreground">
+                              Time per question: <span className="font-medium">{currentConfig.timeLimit}s</span> (based on {difficulty} difficulty)
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Timed Mode Time Selection */}
+                  {gameMode === "timed" && (
+                    <div>
+                      <label className="text-sm font-medium mb-3 block">Session Duration</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {timedModeLimits.map((time) => (
+                          <button
+                            key={time}
+                            onClick={() => setTimedModeLimit(time)}
+                            className={`py-2 px-3 rounded-lg border text-sm transition-colors ${
+                              timedModeLimit === time
+                                ? "border-foreground bg-secondary font-medium"
+                                : "border-border hover:bg-secondary/50"
+                            }`}
+                          >
+                            {formatTime(time)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Summary of settings */}
+                  <div className="p-3 rounded-lg bg-secondary/30 border border-border">
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-medium text-foreground">Session summary: </span>
+                        {showAdvanced ? (
+                          <span>Custom ranges • </span>
+                        ) : (
+                          <span className="capitalize">{difficulty} difficulty • </span>
+                        )}
+                        {gameMode === "timed" && <span>{formatTime(timedModeLimit)} session • </span>}
+                        {gameMode === "practice" && <span>{currentConfig.timeLimit}s per question • </span>}
+                        {gameMode === "learning" && <span>No time limit • </span>}
+                        <span>{selectedOperations.join(" ")}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Start Button */}
+                  <Button onClick={startTraining} className="w-full" size="lg">
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Training
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : isPlaying && (
+            <div className="space-y-6">
+              {/* Header with difficulty badge */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {gameMode === "learning" ? (
+                    <>
+                      <GraduationCap className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm font-medium">Learning Mode</span>
+                    </>
+                  ) : gameMode === "timed" ? (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      <span className="text-sm font-medium">Timed Mode</span>
+                    </>
+                  ) : (
+                    <>
+                      <Timer className="w-4 h-4" />
+                      <span className="text-sm font-medium">Practice Mode</span>
+                    </>
+                  )}
+                  {!showAdvanced && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getDifficultyColor(difficulty)}`}>
+                      {currentConfig.label}
+                    </span>
+                  )}
+                </div>
+                {gameMode === "learning" && (
+                  <button
+                    onClick={() => setShowTip(!showTip)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showTip ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {showTip ? "Hide Tips" : "Show Tips"}
+                  </button>
+                )}
+              </div>
+
+              {/* Timer - Only for timed and practice modes */}
+              {gameMode === "practice" ? (
+                <>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Time remaining</span>
+                    <span className="font-mono">{timeLeft}s</span>
+                  </div>
+                  <Progress
+                    value={(timeLeft / currentConfig.timeLimit) * 100}
+                    className="h-1"
+                  />
+                </>
+              ) : gameMode === "timed" ? (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Time remaining</span>
+                    <span className={`font-mono text-lg font-semibold ${overallTimeLeft <= 10 ? "text-destructive" : ""}`}>
+                      {formatTime(overallTimeLeft)}
+                    </span>
+                  </div>
+                  <Progress
+                    value={(overallTimeLeft / timedModeLimit) * 100}
+                    className="h-2"
+                  />
+                </>
+              ) : (
+                // Learning mode - show number ranges info
+                <div className="text-xs text-muted-foreground text-center">
+                  Take your time — no timer in learning mode
+                </div>
+              )}
+
+              {/* Tip Card - Before problem in Learning mode */}
+              {gameMode === "learning" && showTip && currentTip && !hasAnswered && (
+                <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5">
+                  <CardContent className="p-4">
+                    <button
+                      onClick={() => setTipExpanded(!tipExpanded)}
+                      className="w-full flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="w-4 h-4 text-amber-500" />
+                        <span className="font-medium text-amber-900 dark:text-amber-100">
+                          {currentTip.title}
+                        </span>
+                      </div>
+                      {tipExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </button>
+                    
+                    {tipExpanded && (
+                      <div className="mt-3 space-y-3">
+                        <div className="flex items-start gap-2 text-sm">
+                          <Sparkles className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                          <p className="text-amber-800 dark:text-amber-200 font-medium">
+                            {currentTip.technique}
+                          </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground pl-6">
+                          {currentTip.description}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Problem Display */}
+              <Card className={`transition-colors ${
+                isCorrect === true ? "border-success" : isCorrect === false ? "border-destructive" : ""
+              }`}>
+                <CardContent className="p-12">
+                  {problem && (
+                    <div className="text-center">
+                      <div className="text-6xl font-mono font-semibold tracking-wide mb-8">
+                        {problem.a} {problem.operation} {problem.b}
+                      </div>
+
+                      <form onSubmit={handleSubmit}>
+                        <Input
+                          ref={inputRef}
+                          type="number"
+                          value={userAnswer}
+                          onChange={(e) => setUserAnswer(e.target.value)}
+                          placeholder="?"
+                          className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
+                          autoFocus
+                          disabled={gameMode === "learning" && hasAnswered}
+                        />
+                      </form>
+
+                      {isCorrect === false && gameMode === "practice" && (
+                        <p className="text-sm text-muted-foreground mt-4">
+                          Answer: <span className="font-mono font-medium text-foreground">{problem.answer}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Solution Breakdown - After answering in Learning mode */}
+              {gameMode === "learning" && hasAnswered && currentTip && (
+                <Card className={`${isCorrect ? "border-success/50 bg-success/5" : "border-destructive/50 bg-destructive/5"}`}>
+                  <CardContent className="p-5">
+                    <div className="space-y-4">
+                      {/* Result header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isCorrect ? (
+                            <>
+                              <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center">
+                                <span className="text-success text-sm">✓</span>
+                              </div>
+                              <span className="font-medium text-success">Correct!</span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-6 h-6 rounded-full bg-destructive/20 flex items-center justify-center">
+                                <span className="text-destructive text-sm">✗</span>
+                              </div>
+                              <span className="font-medium text-destructive">
+                                Incorrect — Answer: <span className="font-mono">{problem?.answer}</span>
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Step-by-step breakdown */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium flex items-center gap-2">
+                          <Lightbulb className="w-4 h-4 text-amber-500" />
+                          Step-by-Step: {currentTip.title}
+                        </h4>
+                        <div className="space-y-2 pl-6">
+                          {currentTip.steps.map((step, index) => (
+                            <div key={index} className="flex items-start gap-2 text-sm">
+                              <span className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center text-xs font-medium flex-shrink-0">
+                                {index + 1}
+                              </span>
+                              <span className="font-mono text-muted-foreground">{step}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Next button */}
+                      <Button onClick={startNewProblem} className="w-full mt-2">
+                        Next Problem
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Stats */}
+              <div className={`grid gap-4 ${gameMode === "learning" ? "grid-cols-3" : `grid-cols-2 ${gameMode === "practice" ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}`}>
+                <div className="text-center p-3 rounded-lg bg-secondary/50">
+                  <p className="text-2xl font-mono font-semibold">{totalSolved}</p>
+                  <p className="text-xs text-muted-foreground">Solved</p>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-secondary/50">
+                  <p className="text-2xl font-mono font-semibold">{streak}</p>
+                  <p className="text-xs text-muted-foreground">Streak</p>
+                </div>
+                {(gameMode === "practice" || gameMode === "learning") && (
+                  <div className="text-center p-3 rounded-lg bg-secondary/50">
+                    <p className="text-2xl font-mono font-semibold">{accuracy}%</p>
+                    <p className="text-xs text-muted-foreground">Accuracy</p>
+                  </div>
+                )}
+                {gameMode !== "learning" && (
+                  <div className="text-center p-3 rounded-lg bg-secondary/50">
+                    <p className="text-2xl font-mono font-semibold">{avgTime > 0 ? avgTime.toFixed(1) : "0"}s</p>
+                    <p className="text-xs text-muted-foreground">Avg Time</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Controls */}
+              <div className="flex justify-center gap-3">
+                <Button variant="outline" onClick={stopTraining}>
+                  <Square className="w-4 h-4 mr-2" />
+                  Stop
+                </Button>
+                {!hasAnswered && (
+                  <Button variant="outline" onClick={startNewProblem}>
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Skip
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

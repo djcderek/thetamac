@@ -50,7 +50,7 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <div className="max-w-3xl mx-auto space-y-6">
           {/* Period Tabs */}
           <Tabs defaultValue="all" className="w-full">
@@ -62,7 +62,7 @@ export default function LeaderboardPage() {
           </Tabs>
 
           {/* Top 3 */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Second */}
             <Card className="text-center">
               <CardContent className="pt-6">
@@ -102,8 +102,8 @@ export default function LeaderboardPage() {
 
           {/* Rankings Table */}
           <Card>
-            <CardContent className="p-0">
-              <table className="w-full">
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full min-w-[500px]">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground w-16">Rank</th>

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SessionProvider } from "@/components/auth/session-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,16 +30,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <ThemeProvider defaultTheme="dark" storageKey="thetamac-theme">
-          <TooltipProvider>
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <main className="flex-1 ml-[240px]">
-                {children}
-              </main>
-            </div>
-          </TooltipProvider>
-        </ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider defaultTheme="dark" storageKey="thetamac-theme">
+            <TooltipProvider>
+              {children}
+            </TooltipProvider>
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );
