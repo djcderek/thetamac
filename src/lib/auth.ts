@@ -82,13 +82,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   providers,
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger, session, account, profile }) {
       // Initial sign in
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
         token.picture = user.image;
+        
+        // If signing in with OAuth (like Google), update the user record in DB to ensure we have the latest image/name
+        if (account?.provider === "google" || account?.provider === "github") {
+           try {
+             // We can't use 'db' directly inside the edge runtime if this was edge, 
+             // but this is nodejs runtime so it's fine.
+             // However, to be safe and strictly follow NextAuth patterns, 
+             // usually the adapter handles user creation/updates.
+             // But sometimes the image URL expires or changes on the provider side.
+             
+             // Force update user info from profile if available
+             if (profile) {
+               // profile.picture for Google, profile.avatar_url for GitHub typically
+               const image = (profile as any).picture || (profile as any).avatar_url || user.image;
+               const name = profile.name || user.name;
+               
+               // Update token immediately
+               token.picture = image;
+               token.name = name;
+             }
+           } catch (e) {
+             console.error("Error updating user info in JWT callback", e);
+           }
+        }
       }
 
       // Handle update trigger (e.g., after profile update)
@@ -108,9 +132,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return session;
     },
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       // Allow OAuth without email verification
       if (account?.provider !== "credentials") {
+        // Optional: Update user in database on every sign in to keep profile fresh
+        if (user.email) {
+           try {
+             const image = (profile as any)?.picture || (profile as any)?.avatar_url || user.image;
+             const name = profile?.name || user.name;
+             
+             await db.user.update({
+               where: { email: user.email },
+               data: {
+                 name: name,
+                 image: image,
+               }
+             });
+           } catch (e) {
+             console.error("Failed to update user on sign in", e);
+             // Don't block sign in
+           }
+        }
         return true;
       }
 
@@ -149,4 +191,3 @@ export async function verifyPassword(
 ): Promise<boolean> {
   return bcrypt.compare(password, hashedPassword);
 }
-

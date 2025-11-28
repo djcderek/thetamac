@@ -25,6 +25,9 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // User settings
+  settings      UserSettings?
+
   // Auth.js relations
   accounts      Account[]
   sessions      Session[]
@@ -35,6 +38,24 @@ model User {
   problemAttempts  ProblemAttempt[]
 
   @@map("users")
+}
+
+model UserSettings {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  
+  soundEnabled      Boolean  @default(true)
+  notificationsEnabled Boolean @default(true)
+  autoAdvance       Boolean  @default(true)
+  
+  defaultDifficulty String   @default("Medium")
+  defaultTimer      String   @default("10s")
+  
+  theme             String   @default("system") // "light", "dark", "system"
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
 }
 
 model Account {

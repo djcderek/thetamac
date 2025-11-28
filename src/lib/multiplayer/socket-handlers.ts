@@ -231,69 +231,81 @@ async function endRound(
   const game = activeGames.get(roomId);
   if (!game) return;
 
-  // Clear timer
-  if (game.roundTimer) {
-    clearTimeout(game.roundTimer);
-    game.roundTimer = null;
+  // Prevent processing if game is not playing (avoid double processing)
+  if (game.gameState.status !== "playing") {
+    console.log(`[EndRound] Skipping endRound for ${roomId} - Status is ${game.gameState.status}`);
+    return;
   }
 
-  // Process round results
-  const { newState, result } = processRoundEnd(game.gameState, game.answers);
-  game.gameState = newState;
+  try {
+    // Clear timer
+    if (game.roundTimer) {
+      clearTimeout(game.roundTimer);
+      game.roundTimer = null;
+    }
 
-  // Save round to database
-  if (game.dbMatchId && game.gameState.currentProblem) {
-    const player1 = game.gameState.players[0];
-    const player2 = game.gameState.players[1];
-    const player1Answer = game.answers.get(player1.id);
-    const player2Answer = game.answers.get(player2.id);
+    // Process round results
+    const { newState, result } = processRoundEnd(game.gameState, game.answers);
+    game.gameState = newState;
 
-    try {
-      await db.matchRound.create({
-        data: {
-          matchId: game.dbMatchId,
-          roundNumber: game.gameState.currentRound,
-          operandA: game.gameState.currentProblem.a,
-          operandB: game.gameState.currentProblem.b,
-          operation: game.gameState.currentProblem.operation,
-          correctAnswer: result.correctAnswer,
-          player1Answer: player1Answer?.answer ?? null,
-          player2Answer: player2Answer?.answer ?? null,
-          player1TimeMs: player1Answer?.timeMs ?? null,
-          player2TimeMs: player2Answer?.timeMs ?? null,
+    // Save round to database
+    if (game.dbMatchId && game.gameState.currentProblem) {
+      const player1 = game.gameState.players[0];
+      const player2 = game.gameState.players[1];
+      const player1Answer = game.answers.get(player1.id);
+      const player2Answer = game.answers.get(player2.id);
+
+      try {
+        await db.matchRound.create({
+          data: {
+            matchId: game.dbMatchId,
+            roundNumber: game.gameState.currentRound,
+            operandA: game.gameState.currentProblem.a,
+            operandB: game.gameState.currentProblem.b,
+            operation: game.gameState.currentProblem.operation,
+            correctAnswer: result.correctAnswer,
+            player1Answer: player1Answer?.answer ?? null,
+            player2Answer: player2Answer?.answer ?? null,
+            player1TimeMs: player1Answer?.timeMs ?? null,
+            player2TimeMs: player2Answer?.timeMs ?? null,
+            winnerId: result.winnerId,
+          },
+        });
+      } catch (error) {
+        console.error("Failed to save round to database:", error);
+      }
+    }
+
+    // Send results to each player with their specific time
+    for (const player of game.gameState.players) {
+      const socket = io.sockets.sockets.get(player.socketId);
+      if (socket) {
+        const otherPlayer = game.gameState.players.find(p => p.id !== player.id)!;
+        socket.emit("game:round_result", {
           winnerId: result.winnerId,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to save round to database:", error);
+          correctAnswer: result.correctAnswer,
+          scores: result.scores,
+          yourTime: result.playerTimes[player.id],
+          opponentTime: result.playerTimes[otherPlayer.id],
+        });
+      }
     }
-  }
 
-  // Send results to each player with their specific time
-  for (const player of game.gameState.players) {
-    const socket = io.sockets.sockets.get(player.socketId);
-    if (socket) {
-      const otherPlayer = game.gameState.players.find(p => p.id !== player.id)!;
-      socket.emit("game:round_result", {
-        winnerId: result.winnerId,
-        correctAnswer: result.correctAnswer,
-        scores: result.scores,
-        yourTime: result.playerTimes[player.id],
-        opponentTime: result.playerTimes[otherPlayer.id],
-      });
+    // Check if game is over
+    const { isOver, winnerId } = checkGameOver(game.gameState);
+    
+    if (isOver) {
+      endGame(io, roomId, winnerId);
+    } else {
+      // Start next round after delay
+      setTimeout(() => {
+        startRound(io, roomId);
+      }, 2000);
     }
-  }
-
-  // Check if game is over
-  const { isOver, winnerId } = checkGameOver(game.gameState);
-  
-  if (isOver) {
-    endGame(io, roomId, winnerId);
-  } else {
-    // Start next round after delay
-    setTimeout(() => {
-      startRound(io, roomId);
-    }, 2000);
+  } catch (error) {
+    console.error(`[EndRound] Error in endRound for ${roomId}:`, error);
+    // Force end game on error to prevent stuck state
+    endGame(io, roomId, null, "disconnected"); // Treat as disconnect/aborted
   }
 }
 
@@ -304,8 +316,12 @@ async function endGame(
   status: "completed" | "forfeit" | "disconnected" = "completed",
   forfeitedBy?: string
 ) {
+  console.log(`[EndGame] Ending game ${roomId}, Winner: ${winnerId}`);
   const game = activeGames.get(roomId);
-  if (!game) return;
+  if (!game) {
+    console.log(`[EndGame] Game ${roomId} not found`);
+    return;
+  }
 
   game.gameState.status = "game_over";
   game.gameState.winner = winnerId;
@@ -394,6 +410,7 @@ async function endGame(
       socket.leave(roomId);
     }
     // Clear socket-to-room mapping immediately so players can rejoin matchmaking
+    console.log(`[EndGame] Removing socket ${player.socketId} from room ${roomId}`);
     socketToRoom.delete(player.socketId);
   }
 
@@ -457,12 +474,25 @@ export function setupMultiplayerHandlers(
       const existingRoomId = socketToRoom.get(socket.id);
       if (existingRoomId) {
         const existingGame = activeGames.get(existingRoomId);
+        
+        // DEBUG LOGGING
+        console.log(`[Matchmaking] Socket ${socket.id} already in room ${existingRoomId}`);
+        if (existingGame) {
+          console.log(`[Matchmaking] Game status: ${existingGame.gameState.status}`);
+        } else {
+          console.log(`[Matchmaking] Game not found in activeGames`);
+        }
+
         // Only block if the game exists and is not over
-        if (existingGame && existingGame.gameState.status !== "game_over") {
+        // We also check if there is a winner, which implies game over even if status is weird
+        const isGameOver = existingGame?.gameState.status === "game_over" || !!existingGame?.gameState.winner;
+        
+        if (existingGame && !isGameOver) {
           socket.emit("matchmaking:error", "Already in a game");
           return;
         }
         // Game is over or doesn't exist, clean up the stale mapping
+        console.log(`[Matchmaking] Cleaning up stale mapping for socket ${socket.id}`);
         socket.leave(existingRoomId);
         socketToRoom.delete(socket.id);
       }

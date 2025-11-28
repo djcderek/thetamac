@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/components/theme-provider";
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon, Monitor, Loader2, Edit2, X, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface SettingToggleProps {
   label: string;
@@ -41,9 +45,151 @@ function SettingToggle({ label, description, enabled, onToggle }: SettingToggleP
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [autoAdvance, setAutoAdvance] = useState(true);
+  const { data: session, update: updateSession } = useSession();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
+
+  // Profile State
+  const [profile, setProfile] = useState({
+    name: "",
+    email: "",
+    image: ""
+  });
+  
+  // Temp avatar URL for editing
+  const [tempAvatar, setTempAvatar] = useState("");
+
+  // Settings State
+  const [settings, setSettings] = useState({
+    soundEnabled: true,
+    notificationsEnabled: true,
+    autoAdvance: true,
+    defaultDifficulty: "Medium",
+    defaultTimer: "10s"
+  });
+
+  // Fetch initial data
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await fetch("/api/settings");
+        if (res.ok) {
+          const data = await res.json();
+          setProfile({
+            name: data.profile.name || session?.user?.name || "",
+            email: data.profile.email || session?.user?.email || "",
+            image: data.profile.image || session?.user?.image || ""
+          });
+          setSettings({
+            soundEnabled: data.settings.soundEnabled,
+            notificationsEnabled: data.settings.notificationsEnabled,
+            autoAdvance: data.settings.autoAdvance,
+            defaultDifficulty: data.settings.defaultDifficulty,
+            defaultTimer: data.settings.defaultTimer
+          });
+          // Sync theme if it was stored in DB
+          if (data.settings.theme && data.settings.theme !== theme) {
+            setTheme(data.settings.theme);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch settings", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchData();
+  }, [session, theme, setTheme]);
+
+  // Update helper
+  const updateSettings = async (newSettings: Partial<typeof settings>) => {
+    // Optimistic update
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
+
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "settings",
+          data: newSettings
+        })
+      });
+    } catch (error) {
+      console.error("Failed to update settings", error);
+      // Revert on error would go here
+    }
+  };
+
+  const updateTheme = async (newTheme: string) => {
+    setTheme(newTheme);
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "settings",
+          data: { theme: newTheme }
+        })
+      });
+    } catch (error) {
+      console.error("Failed to update theme preference", error);
+    }
+  };
+
+  const handleProfileSave = async () => {
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "profile",
+          data: { 
+            name: profile.name, 
+            // Don't send email, it's disabled
+            image: profile.image 
+          }
+        })
+      });
+      
+      if (res.ok) {
+        // Update client-side session to reflect changes immediately
+        await updateSession({
+          ...session,
+          user: {
+            ...session?.user,
+            name: profile.name,
+            image: profile.image
+            // email not updated
+          }
+        });
+        router.refresh(); 
+      }
+    } catch (error) {
+      console.error("Failed to save profile", error);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+  
+  const handleAvatarSave = () => {
+    if (tempAvatar) {
+      setProfile({ ...profile, image: tempAvatar });
+    }
+    setIsAvatarDialogOpen(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -65,10 +211,58 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarFallback>JD</AvatarFallback>
-                </Avatar>
-                <Button variant="outline" size="sm">Change</Button>
+                <div className="relative group">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={profile.image} referrerPolicy="no-referrer" />
+                    <AvatarFallback>{profile.name?.substring(0, 2).toUpperCase() || "User"}</AvatarFallback>
+                  </Avatar>
+                  
+                  <Dialog open={isAvatarDialogOpen} onOpenChange={setIsAvatarDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        size="icon" 
+                        variant="secondary" 
+                        className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setTempAvatar(profile.image || "")}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Update Profile Picture</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="flex justify-center mb-4">
+                           <Avatar className="h-20 w-20">
+                              <AvatarImage src={tempAvatar} referrerPolicy="no-referrer" />
+                              <AvatarFallback>Preview</AvatarFallback>
+                           </Avatar>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Image URL</Label>
+                          <Input 
+                            placeholder="https://example.com/avatar.jpg" 
+                            value={tempAvatar}
+                            onChange={(e) => setTempAvatar(e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Paste a URL to an image.
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAvatarDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleAvatarSave}>Save</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                
+                <div className="flex flex-col">
+                  <span className="font-medium">Profile Picture</span>
+                  <span className="text-xs text-muted-foreground">Click the pencil icon to change</span>
+                </div>
               </div>
 
               <Separator />
@@ -76,16 +270,29 @@ export default function SettingsPage() {
               <div className="grid gap-4">
                 <div>
                   <label className="text-sm font-medium mb-2 block">Display Name</label>
-                  <Input defaultValue="John Doe" />
+                  <Input 
+                    value={profile.name} 
+                    onChange={(e) => setProfile({...profile, name: e.target.value})}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Email</label>
-                  <Input defaultValue="john@example.com" />
+                  <Input 
+                    value={profile.email} 
+                    disabled
+                    className="bg-muted text-muted-foreground opacity-100"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Email address cannot be changed.
+                  </p>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button>Save</Button>
+                <Button onClick={handleProfileSave} disabled={isSavingProfile}>
+                  {isSavingProfile ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Save Changes
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -102,7 +309,7 @@ export default function SettingsPage() {
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   <button
-                    onClick={() => setTheme("light")}
+                    onClick={() => updateTheme("light")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
                       theme === "light"
                         ? "border-foreground bg-secondary"
@@ -113,7 +320,7 @@ export default function SettingsPage() {
                     <span className="text-sm font-medium">Light</span>
                   </button>
                   <button
-                    onClick={() => setTheme("dark")}
+                    onClick={() => updateTheme("dark")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
                       theme === "dark"
                         ? "border-foreground bg-secondary"
@@ -124,7 +331,7 @@ export default function SettingsPage() {
                     <span className="text-sm font-medium">Dark</span>
                   </button>
                   <button
-                    onClick={() => setTheme("system")}
+                    onClick={() => updateTheme("system")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
                       theme === "system"
                         ? "border-foreground bg-secondary"
@@ -148,20 +355,20 @@ export default function SettingsPage() {
               <SettingToggle
                 label="Sound Effects"
                 description="Play sounds for correct/incorrect answers"
-                enabled={soundEnabled}
-                onToggle={() => setSoundEnabled(!soundEnabled)}
+                enabled={settings.soundEnabled}
+                onToggle={() => updateSettings({ soundEnabled: !settings.soundEnabled })}
               />
               <SettingToggle
                 label="Notifications"
                 description="Get notified about challenges"
-                enabled={notificationsEnabled}
-                onToggle={() => setNotificationsEnabled(!notificationsEnabled)}
+                enabled={settings.notificationsEnabled}
+                onToggle={() => updateSettings({ notificationsEnabled: !settings.notificationsEnabled })}
               />
               <SettingToggle
                 label="Auto-advance"
                 description="Automatically show next problem"
-                enabled={autoAdvance}
-                onToggle={() => setAutoAdvance(!autoAdvance)}
+                enabled={settings.autoAdvance}
+                onToggle={() => updateSettings({ autoAdvance: !settings.autoAdvance })}
               />
             </CardContent>
           </Card>
@@ -178,8 +385,9 @@ export default function SettingsPage() {
                   {["Easy", "Medium", "Hard", "Expert"].map((diff) => (
                     <Button
                       key={diff}
-                      variant={diff === "Medium" ? "default" : "outline"}
+                      variant={settings.defaultDifficulty === diff ? "default" : "outline"}
                       size="sm"
+                      onClick={() => updateSettings({ defaultDifficulty: diff })}
                     >
                       {diff}
                     </Button>
@@ -192,8 +400,9 @@ export default function SettingsPage() {
                   {["5s", "8s", "10s", "15s"].map((time) => (
                     <Button
                       key={time}
-                      variant={time === "10s" ? "default" : "outline"}
+                      variant={settings.defaultTimer === time ? "default" : "outline"}
                       size="sm"
+                      onClick={() => updateSettings({ defaultTimer: time })}
                     >
                       {time}
                     </Button>
