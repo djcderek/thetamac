@@ -8,10 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Swords,
-  Users,
   Play,
   Circle,
   Wifi,
@@ -25,6 +23,13 @@ import {
 } from "lucide-react";
 import { useSocket } from "@/hooks/use-socket";
 import Link from "next/link";
+
+interface MultiplayerStats {
+  wins: number;
+  matches: number;
+  rating: number;
+  avgTime: number | null;
+}
 
 export default function MultiplayerPage() {
   const { data: session, status } = useSession();
@@ -45,6 +50,54 @@ export default function MultiplayerPage() {
   const [roundStartTime, setRoundStartTime] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState(10);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [stats, setStats] = useState<MultiplayerStats>({
+    wins: 0,
+    matches: 0,
+    rating: 1000,
+    avgTime: null,
+  });
+  const [statsLoading, setStatsLoading] = useState(!!session?.user);
+
+  // Fetch user's multiplayer stats
+  useEffect(() => {
+    if (!session?.user) return;
+    
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("/api/user/multiplayer-stats");
+        const data = await res.json();
+        if (!data.error) {
+          setStats(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch multiplayer stats:", err);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    
+    fetchStats();
+  }, [session?.user]);
+
+  // Refetch stats when game ends
+  useEffect(() => {
+    if (gameplay.status !== "game_over" || !session?.user) return;
+    
+    // Delay slightly to allow server to update database
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/user/multiplayer-stats");
+        const data = await res.json();
+        if (!data.error) {
+          setStats(data);
+        }
+      } catch (err) {
+        console.error("Failed to refetch multiplayer stats:", err);
+      }
+    }, 1000);
+    
+    return () => clearTimeout(timeout);
+  }, [gameplay.status, session?.user]);
 
   // Reset answer when new round starts
   useEffect(() => {
@@ -80,7 +133,7 @@ export default function MultiplayerPage() {
     joinMatchmaking(
       session.user.id || "guest",
       session.user.name || "Player",
-      1000 // Default rating, could be fetched from user stats
+      stats.rating // Use real rating from database
     );
   };
 
@@ -432,7 +485,7 @@ export default function MultiplayerPage() {
                   <AvatarFallback>{getInitials(session.user.name || "You")}</AvatarFallback>
                 </Avatar>
                 <p className="font-medium">{session.user.name || "You"}</p>
-                <p className="text-xs text-muted-foreground">Rating: 1000</p>
+                <p className="text-xs text-muted-foreground">Rating: {stats.rating}</p>
               </div>
               <span className="text-2xl font-bold text-muted-foreground">VS</span>
               <div className="text-center">
@@ -567,7 +620,7 @@ export default function MultiplayerPage() {
                   <div>
                     <p className="font-medium text-sm">Find a Match</p>
                     <p className="text-xs text-muted-foreground">
-                      Click "Find Match" to be paired with another player
+                      Click &quot;Find Match&quot; to be paired with another player
                     </p>
                   </div>
                 </div>
@@ -602,28 +655,36 @@ export default function MultiplayerPage() {
             <Card>
               <CardContent className="p-4 text-center">
                 <Trophy className="w-5 h-5 mx-auto mb-2 text-amber-500" />
-                <p className="text-2xl font-mono font-bold">0</p>
+                <p className="text-2xl font-mono font-bold">
+                  {statsLoading ? "—" : stats.wins}
+                </p>
                 <p className="text-xs text-muted-foreground">Wins</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Swords className="w-5 h-5 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-2xl font-mono font-bold">0</p>
+                <p className="text-2xl font-mono font-bold">
+                  {statsLoading ? "—" : stats.matches}
+                </p>
                 <p className="text-xs text-muted-foreground">Matches</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Zap className="w-5 h-5 mx-auto mb-2 text-violet-500" />
-                <p className="text-2xl font-mono font-bold">1000</p>
+                <p className="text-2xl font-mono font-bold">
+                  {statsLoading ? "—" : stats.rating}
+                </p>
                 <p className="text-xs text-muted-foreground">Rating</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
                 <Clock className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                <p className="text-2xl font-mono font-bold">—</p>
+                <p className="text-2xl font-mono font-bold">
+                  {statsLoading ? "—" : stats.avgTime !== null ? `${stats.avgTime}s` : "—"}
+                </p>
                 <p className="text-xs text-muted-foreground">Avg Time</p>
               </CardContent>
             </Card>

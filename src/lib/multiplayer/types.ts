@@ -59,6 +59,7 @@ export interface ClientToServerEvents {
   // Game
   "game:submit_answer": (data: { answer: number; timeMs: number }) => void;
   "game:forfeit": () => void;
+  "game:leave": () => void;
   "game:rematch_request": () => void;
   "game:rematch_accept": () => void;
   "game:rematch_decline": () => void;

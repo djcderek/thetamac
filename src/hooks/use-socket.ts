@@ -236,6 +236,10 @@ export function useSocket() {
   }, []);
 
   const resetGame = useCallback(() => {
+    // Tell server to clear room mapping
+    if (socketRef.current) {
+      socketRef.current.emit("game:leave");
+    }
     setMatchmaking({
       isSearching: false,
       position: 0,

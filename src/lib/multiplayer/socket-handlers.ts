@@ -19,6 +19,7 @@ import {
   checkGameOver,
   calculateRatingChange,
 } from "./game-logic";
+import { db } from "@/lib/db";
 
 // ============================================
 // SERVER STATE
@@ -33,6 +34,7 @@ const activeGames: Map<string, {
   config: GameConfig;
   answers: Map<string, { answer: number; timeMs: number }>;
   roundTimer: NodeJS.Timeout | null;
+  dbMatchId: string | null; // Database record ID
 }> = new Map();
 
 // Socket to room mapping
@@ -40,6 +42,20 @@ const socketToRoom: Map<string, string> = new Map();
 
 // Socket to player mapping
 const socketToPlayer: Map<string, { id: string; username: string }> = new Map();
+
+// Helper to get user rating from database
+async function getUserRating(userId: string): Promise<number> {
+  try {
+    const userStats = await db.userStats.findUnique({
+      where: { userId },
+      select: { rating: true },
+    });
+    return userStats?.rating ?? 1000;
+  } catch (error) {
+    console.error(`Failed to fetch rating for user ${userId}:`, error);
+    return 1000;
+  }
+}
 
 // ============================================
 // MATCHMAKING
@@ -64,7 +80,7 @@ function findMatch(entry: MatchmakingEntry): MatchmakingEntry | null {
   return null;
 }
 
-function createMatch(
+async function createMatch(
   io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
   player1Entry: MatchmakingEntry,
   player2Entry: MatchmakingEntry
@@ -113,12 +129,33 @@ function createMatch(
   socketToRoom.set(player1Entry.socketId, roomId);
   socketToRoom.set(player2Entry.socketId, roomId);
 
+  // Create match in database
+  let dbMatchId: string | null = null;
+  try {
+    const dbMatch = await db.multiplayerMatch.create({
+      data: {
+        player1Id: player1.id,
+        player2Id: player2.id,
+        player1RatingBefore: player1.rating,
+        player2RatingBefore: player2.rating,
+        totalRounds: config.rounds,
+        difficulty: config.difficulty,
+        status: "in_progress",
+      },
+    });
+    dbMatchId = dbMatch.id;
+    console.log(`Created match in database: ${dbMatchId}`);
+  } catch (error) {
+    console.error("Failed to create match in database:", error);
+  }
+
   // Store game
   activeGames.set(roomId, {
     gameState,
     config,
     answers: new Map(),
     roundTimer: null,
+    dbMatchId,
   });
 
   // Notify players
@@ -187,7 +224,7 @@ function startRound(
   }, game.config.timePerRound);
 }
 
-function endRound(
+async function endRound(
   io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
   roomId: string
 ) {
@@ -203,6 +240,34 @@ function endRound(
   // Process round results
   const { newState, result } = processRoundEnd(game.gameState, game.answers);
   game.gameState = newState;
+
+  // Save round to database
+  if (game.dbMatchId && game.gameState.currentProblem) {
+    const player1 = game.gameState.players[0];
+    const player2 = game.gameState.players[1];
+    const player1Answer = game.answers.get(player1.id);
+    const player2Answer = game.answers.get(player2.id);
+
+    try {
+      await db.matchRound.create({
+        data: {
+          matchId: game.dbMatchId,
+          roundNumber: game.gameState.currentRound,
+          operandA: game.gameState.currentProblem.a,
+          operandB: game.gameState.currentProblem.b,
+          operation: game.gameState.currentProblem.operation,
+          correctAnswer: result.correctAnswer,
+          player1Answer: player1Answer?.answer ?? null,
+          player2Answer: player2Answer?.answer ?? null,
+          player1TimeMs: player1Answer?.timeMs ?? null,
+          player2TimeMs: player2Answer?.timeMs ?? null,
+          winnerId: result.winnerId,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to save round to database:", error);
+    }
+  }
 
   // Send results to each player with their specific time
   for (const player of game.gameState.players) {
@@ -232,10 +297,12 @@ function endRound(
   }
 }
 
-function endGame(
+async function endGame(
   io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
   roomId: string,
-  winnerId: string | null
+  winnerId: string | null,
+  status: "completed" | "forfeit" | "disconnected" = "completed",
+  forfeitedBy?: string
 ) {
   const game = activeGames.get(roomId);
   if (!game) return;
@@ -262,6 +329,58 @@ function endGame(
     ratingChanges[player2.id] = loserChange;
   }
 
+  // Save match result to database
+  if (game.dbMatchId) {
+    try {
+      await db.multiplayerMatch.update({
+        where: { id: game.dbMatchId },
+        data: {
+          player1Score: game.gameState.scores[player1.id] || 0,
+          player2Score: game.gameState.scores[player2.id] || 0,
+          winnerId: winnerId,
+          isDraw: winnerId === null,
+          player1RatingChange: ratingChanges[player1.id] || 0,
+          player2RatingChange: ratingChanges[player2.id] || 0,
+          status: status,
+          forfeitedBy: forfeitedBy,
+          completedAt: new Date(),
+        },
+      });
+      console.log(`Updated match ${game.dbMatchId} in database`);
+
+      // Update player ratings in UserStats
+      const updateRating = async (userId: string, ratingChange: number) => {
+        try {
+          // First try to update existing stats
+          const updated = await db.userStats.updateMany({
+            where: { userId },
+            data: { rating: { increment: ratingChange } },
+          });
+          
+          // If no stats exist, create them with the rating change
+          if (updated.count === 0) {
+            await db.userStats.create({
+              data: { 
+                userId, 
+                rating: 1000 + ratingChange 
+              },
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to update rating for user ${userId}:`, error);
+        }
+      };
+
+      await Promise.all([
+        updateRating(player1.id, ratingChanges[player1.id] || 0),
+        updateRating(player2.id, ratingChanges[player2.id] || 0),
+      ]);
+      console.log("Updated player ratings in database");
+    } catch (error) {
+      console.error("Failed to save match result to database:", error);
+    }
+  }
+
   // Send game over to each player
   for (const player of game.gameState.players) {
     const socket = io.sockets.sockets.get(player.socketId);
@@ -271,16 +390,20 @@ function endGame(
         finalScores: game.gameState.scores,
         ratingChange: ratingChanges[player.id] || 0,
       });
+      // Leave the socket room
+      socket.leave(roomId);
     }
+    // Clear socket-to-room mapping immediately so players can rejoin matchmaking
+    socketToRoom.delete(player.socketId);
   }
 
-  // Clean up after delay (allow for rematch)
+  // Clean up game data after delay
   setTimeout(() => {
     const existingGame = activeGames.get(roomId);
     if (existingGame && existingGame.gameState.status === "game_over") {
       cleanupGame(roomId);
     }
-  }, 60000); // Keep room for 1 minute for potential rematch
+  }, 5000); // Clean up game data after 5 seconds
 }
 
 function cleanupGame(roomId: string) {
@@ -292,12 +415,7 @@ function cleanupGame(roomId: string) {
     clearTimeout(game.roundTimer);
   }
 
-  // Remove socket mappings
-  for (const player of game.gameState.players) {
-    socketToRoom.delete(player.socketId);
-  }
-
-  // Remove game
+  // Remove game data
   activeGames.delete(roomId);
 }
 
@@ -324,8 +442,8 @@ export function setupMultiplayerHandlers(
     // MATCHMAKING HANDLERS
     // ============================================
 
-    socket.on("matchmaking:join", (data) => {
-      const { userId, username, rating } = data;
+    socket.on("matchmaking:join", async (data) => {
+      const { userId, username } = data;
 
       // Store player info
       socketToPlayer.set(socket.id, { id: userId, username });
@@ -336,16 +454,27 @@ export function setupMultiplayerHandlers(
       }
 
       // Check if already in a game
-      if (socketToRoom.has(socket.id)) {
-        socket.emit("matchmaking:error", "Already in a game");
-        return;
+      const existingRoomId = socketToRoom.get(socket.id);
+      if (existingRoomId) {
+        const existingGame = activeGames.get(existingRoomId);
+        // Only block if the game exists and is not over
+        if (existingGame && existingGame.gameState.status !== "game_over") {
+          socket.emit("matchmaking:error", "Already in a game");
+          return;
+        }
+        // Game is over or doesn't exist, clean up the stale mapping
+        socket.leave(existingRoomId);
+        socketToRoom.delete(socket.id);
       }
+
+      // Fetch the user's actual rating from database
+      const actualRating = await getUserRating(userId);
 
       const entry: MatchmakingEntry = {
         socketId: socket.id,
         playerId: userId,
         username,
-        rating: rating || 1000,
+        rating: actualRating,
         joinedAt: Date.now(),
       };
 
@@ -419,7 +548,7 @@ export function setupMultiplayerHandlers(
 
       // End game with opponent as winner
       const opponent = game.gameState.players.find(p => p.id !== player.id);
-      endGame(io, roomId, opponent?.id || null);
+      endGame(io, roomId, opponent?.id || null, "forfeit", player.id);
     });
 
     socket.on("game:quick_chat", (message) => {
@@ -434,6 +563,18 @@ export function setupMultiplayerHandlers(
         from: player.username,
         message,
       });
+    });
+
+    // Leave game room (called when player returns to lobby)
+    socket.on("game:leave", () => {
+      const roomId = socketToRoom.get(socket.id);
+      if (roomId) {
+        socket.leave(roomId);
+        socketToRoom.delete(socket.id);
+        console.log(`Player left game room: ${roomId}`);
+      }
+      // Also remove from matchmaking queue if they were in it
+      matchmakingQueue.delete(socket.id);
     });
 
     // ============================================
@@ -458,7 +599,7 @@ export function setupMultiplayerHandlers(
           const player = socketToPlayer.get(socket.id);
           if (player) {
             const opponent = game.gameState.players.find(p => p.id !== player.id);
-            endGame(io, roomId, opponent?.id || null);
+            endGame(io, roomId, opponent?.id || null, "disconnected", player.id);
           }
         }
       }
