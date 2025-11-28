@@ -6,9 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // Used for migrations (bypasses connection pooler)
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============================================
@@ -203,4 +202,74 @@ model LeaderboardEntry {
   @@index([rating(sort: Desc)])
   @@index([rank])
   @@map("leaderboard")
+}
+
+// ============================================
+// MULTIPLAYER MATCHES
+// ============================================
+
+model MultiplayerMatch {
+  id              String    @id @default(cuid())
+  
+  // Players
+  player1Id       String
+  player2Id       String
+  
+  // Match details
+  player1Score    Int       @default(0)
+  player2Score    Int       @default(0)
+  winnerId        String?
+  isDraw          Boolean   @default(false)
+  
+  // Rating changes
+  player1RatingBefore Int
+  player2RatingBefore Int
+  player1RatingChange Int   @default(0)
+  player2RatingChange Int   @default(0)
+  
+  // Match config
+  totalRounds     Int       @default(10)
+  difficulty      String    @default("medium")
+  
+  // Status
+  status          String    @default("in_progress") // "in_progress", "completed", "forfeit", "disconnected"
+  forfeitedBy     String?
+  
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  
+  // Relations
+  rounds          MatchRound[]
+
+  @@index([player1Id])
+  @@index([player2Id])
+  @@index([createdAt(sort: Desc)])
+  @@map("multiplayer_matches")
+}
+
+model MatchRound {
+  id              String    @id @default(cuid())
+  matchId         String
+  roundNumber     Int
+  
+  // Problem
+  operandA        Int
+  operandB        Int
+  operation       String
+  correctAnswer   Int
+  
+  // Results
+  player1Answer   Int?
+  player2Answer   Int?
+  player1TimeMs   Int?
+  player2TimeMs   Int?
+  winnerId        String?   // null if no winner (timeout)
+  
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  match           MultiplayerMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@map("match_rounds")
 }

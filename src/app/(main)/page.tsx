@@ -1,16 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Brain,
   Flame,
   Target,
-  TrendingUp,
   Clock,
   ArrowRight,
   ArrowUpRight,
   ArrowDownRight,
+  Loader2,
 } from "lucide-react";
 import {
   AreaChart,
@@ -24,42 +24,37 @@ import {
 } from "recharts";
 import Link from "next/link";
 
-const performanceData = [
-  { day: "Mon", score: 72 },
-  { day: "Tue", score: 78 },
-  { day: "Wed", score: 85 },
-  { day: "Thu", score: 82 },
-  { day: "Fri", score: 91 },
-  { day: "Sat", score: 88 },
-  { day: "Sun", score: 94 },
-];
+interface UserStats {
+  totalProblems: number;
+  totalCorrect: number;
+  accuracy: number;
+  avgTime: number;
+  currentStreak: number;
+  longestStreak: number;
+  rating: number;
+  skills: Array<{ name: string; value: number; total: number }>;
+  weakestSkill: { name: string; value: number; total: number } | null;
+}
 
-const weeklyActivity = [
-  { day: "M", problems: 45 },
-  { day: "T", problems: 52 },
-  { day: "W", problems: 61 },
-  { day: "T", problems: 48 },
-  { day: "F", problems: 67 },
-  { day: "S", problems: 55 },
-  { day: "S", problems: 72 },
-];
+interface PerformanceData {
+  data: Array<{ day: string; date: string; score: number | null; total: number; correct: number }>;
+  summary: { average: number; peak: { score: number; day: string } | null; totalAttempts: number };
+}
 
-const skillsData = [
-  { name: "Addition", value: 92 },
-  { name: "Subtraction", value: 87 },
-  { name: "Multiplication", value: 78 },
-  { name: "Division", value: 65 },
-];
+interface ActivityData {
+  data: Array<{ day: string; date: string; problems: number }>;
+  summary: { total: number; dailyAverage: number };
+}
 
 // Simple tooltip that matches the page aesthetic
-const SimpleTooltip = ({ 
-  active, 
-  payload, 
+const SimpleTooltip = ({
+  active,
+  payload,
   label,
-  suffix = ""
-}: { 
-  active?: boolean; 
-  payload?: Array<{ value: number }>; 
+  suffix = "",
+}: {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
   label?: string;
   suffix?: string;
 }) => {
@@ -67,7 +62,10 @@ const SimpleTooltip = ({
     return (
       <div className="bg-popover border border-border rounded-md shadow-md px-3 py-2">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-semibold font-mono">{payload[0].value}{suffix}</p>
+        <p className="text-sm font-semibold font-mono">
+          {payload[0].value}
+          {suffix}
+        </p>
       </div>
     );
   }
@@ -75,6 +73,66 @@ const SimpleTooltip = ({
 };
 
 export default function Dashboard() {
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [performance, setPerformance] = useState<PerformanceData | null>(null);
+  const [activity, setActivity] = useState<ActivityData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [statsRes, performanceRes, activityRes] = await Promise.all([
+          fetch("/api/user/stats"),
+          fetch("/api/user/performance"),
+          fetch("/api/user/activity"),
+        ]);
+
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setStats(statsData);
+        }
+
+        if (performanceRes.ok) {
+          const performanceData = await performanceRes.json();
+          setPerformance(performanceData);
+        }
+
+        if (activityRes.ok) {
+          const activityData = await activityRes.json();
+          setActivity(activityData);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Fallback data for charts when no data exists
+  const performanceData = performance?.data || [];
+  const activityData = activity?.data || [];
+  const skillsData = stats?.skills || [
+    { name: "Addition", value: 0, total: 0 },
+    { name: "Subtraction", value: 0, total: 0 },
+    { name: "Multiplication", value: 0, total: 0 },
+    { name: "Division", value: 0, total: 0 },
+  ];
+
+  const hasPerformanceData = performanceData.some((d) => d.score !== null);
+  const hasActivityData = activityData.some((d) => d.problems > 0);
+  const hasSkillsData = skillsData.some((s) => s.total > 0);
+
   return (
     <div className="min-h-screen">
       <div className="border-b border-border">
@@ -94,12 +152,16 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Problems Solved</p>
-                  <p className="text-2xl font-semibold mt-1">12,847</p>
+                  <p className="text-2xl font-semibold mt-1">
+                    {stats?.totalProblems.toLocaleString() || "0"}
+                  </p>
                 </div>
-                <div className="flex items-center text-sm text-success">
-                  <ArrowUpRight className="w-4 h-4 mr-1" />
-                  12%
-                </div>
+                {stats && stats.totalProblems > 0 && (
+                  <div className="flex items-center text-sm text-success">
+                    <ArrowUpRight className="w-4 h-4 mr-1" />
+                    {stats.totalProblems}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -109,9 +171,11 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Current Streak</p>
-                  <p className="text-2xl font-semibold mt-1">156 days</p>
+                  <p className="text-2xl font-semibold mt-1">
+                    {stats?.currentStreak || 0} days
+                  </p>
                 </div>
-                <Flame className="w-5 h-5 text-warning" />
+                <Flame className={`w-5 h-5 ${stats?.currentStreak ? "text-warning" : "text-muted-foreground"}`} />
               </div>
             </CardContent>
           </Card>
@@ -121,12 +185,16 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Accuracy</p>
-                  <p className="text-2xl font-semibold mt-1">98.2%</p>
+                  <p className="text-2xl font-semibold mt-1">
+                    {stats?.accuracy || 0}%
+                  </p>
                 </div>
-                <div className="flex items-center text-sm text-success">
-                  <ArrowUpRight className="w-4 h-4 mr-1" />
-                  2.1%
-                </div>
+                {stats && stats.accuracy > 0 && (
+                  <div className="flex items-center text-sm text-success">
+                    <ArrowUpRight className="w-4 h-4 mr-1" />
+                    {stats.accuracy}%
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -136,12 +204,16 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Avg. Speed</p>
-                  <p className="text-2xl font-semibold mt-1">2.4s</p>
+                  <p className="text-2xl font-semibold mt-1">
+                    {stats?.avgTime ? `${stats.avgTime}s` : "--"}
+                  </p>
                 </div>
-                <div className="flex items-center text-sm text-success">
-                  <ArrowDownRight className="w-4 h-4 mr-1" />
-                  0.3s
-                </div>
+                {stats && stats.avgTime > 0 && (
+                  <div className="flex items-center text-sm text-success">
+                    <ArrowDownRight className="w-4 h-4 mr-1" />
+                    {stats.avgTime}s
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -151,99 +223,134 @@ export default function Dashboard() {
           {/* Performance Chart */}
           <Link href="/stats/performance" className="lg:col-span-8 block">
             <Card className="h-full hover:bg-secondary/30 transition-colors cursor-pointer">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Performance</CardTitle>
-                <p className="text-xs text-muted-foreground">Accuracy this week →</p>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[240px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={performanceData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                    <defs>
-                      <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="currentColor" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="currentColor" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis
-                      dataKey="day"
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={[60, 100]}
-                      tickFormatter={(value) => `${value}%`}
-                    />
-                    <Tooltip content={<SimpleTooltip suffix="%" />} />
-                    <Area
-                      type="monotone"
-                      dataKey="score"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      fill="url(#scoreGradient)"
-                      className="text-foreground"
-                      dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }}
-                      activeDot={{ r: 5, fill: "hsl(var(--foreground))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  Avg: <span className="font-mono font-medium text-foreground">84%</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Peak: <span className="font-mono font-medium text-foreground">94%</span> (Sun)
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium">Performance</CardTitle>
+                  <p className="text-xs text-muted-foreground">Accuracy this week →</p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[240px]">
+                  {hasPerformanceData ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={performanceData.map((d) => ({
+                          ...d,
+                          score: d.score ?? 0,
+                        }))}
+                        margin={{ top: 5, right: 5, bottom: 5, left: -20 }}
+                      >
+                        <defs>
+                          <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="currentColor" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="currentColor" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis
+                          dataKey="day"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                          domain={[0, 100]}
+                          tickFormatter={(value) => `${value}%`}
+                        />
+                        <Tooltip content={<SimpleTooltip suffix="%" />} />
+                        <Area
+                          type="monotone"
+                          dataKey="score"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          fill="url(#scoreGradient)"
+                          className="text-foreground"
+                          dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }}
+                          activeDot={{ r: 5, fill: "hsl(var(--foreground))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      <div className="text-center">
+                        <Brain className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No performance data yet</p>
+                        <p className="text-xs mt-1">Start practicing to see your progress</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    Avg:{" "}
+                    <span className="font-mono font-medium text-foreground">
+                      {performance?.summary.average || 0}%
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Peak:{" "}
+                    <span className="font-mono font-medium text-foreground">
+                      {performance?.summary.peak
+                        ? `${performance.summary.peak.score}% (${performance.summary.peak.day})`
+                        : "--"}
+                    </span>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </Link>
 
           {/* Skills */}
           <Link href="/stats/skills" className="lg:col-span-4 block">
             <Card className="h-full hover:bg-secondary/30 transition-colors cursor-pointer">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Skills</CardTitle>
-                <p className="text-xs text-muted-foreground">Accuracy by type →</p>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {skillsData.map((skill) => (
-                  <div key={skill.name} className="space-y-2 group cursor-default">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground group-hover:text-foreground transition-colors">{skill.name}</span>
-                      <span className="font-medium font-mono">{skill.value}%</span>
-                    </div>
-                    <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-foreground rounded-full transition-all duration-300"
-                        style={{ width: `${skill.value}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 pt-3 border-t border-border">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Overall accuracy</span>
-                  <span className="font-mono font-semibold">
-                    {Math.round(skillsData.reduce((a, b) => a + b.value, 0) / skillsData.length)}%
-                  </span>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium">Skills</CardTitle>
+                  <p className="text-xs text-muted-foreground">Accuracy by type →</p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {skillsData.map((skill) => (
+                    <div key={skill.name} className="space-y-2 group cursor-default">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+                          {skill.name}
+                        </span>
+                        <span className="font-medium font-mono">
+                          {skill.total > 0 ? `${skill.value}%` : "--"}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-foreground rounded-full transition-all duration-300"
+                          style={{ width: `${skill.value}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 pt-3 border-t border-border">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Overall accuracy</span>
+                    <span className="font-mono font-semibold">
+                      {hasSkillsData
+                        ? `${Math.round(
+                            skillsData
+                              .filter((s) => s.total > 0)
+                              .reduce((a, b) => a + b.value, 0) /
+                              skillsData.filter((s) => s.total > 0).length || 0
+                          )}%`
+                        : "--"}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </Link>
 
           {/* Weekly Activity */}
@@ -256,34 +363,50 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="h-[160px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyActivity} barGap={4}>
-                    <XAxis
-                      dataKey="day"
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip 
-                      content={<SimpleTooltip />} 
-                      cursor={{ fill: "hsl(var(--secondary))", opacity: 0.5 }}
-                    />
-                    <Bar
-                      dataKey="problems"
-                      fill="currentColor"
-                      radius={[4, 4, 0, 0]}
-                      className="text-foreground"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                {hasActivityData ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={activityData} barGap={4}>
+                      <XAxis
+                        dataKey="day"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <Tooltip
+                        content={<SimpleTooltip />}
+                        cursor={{ fill: "hsl(var(--secondary))", opacity: 0.5 }}
+                      />
+                      <Bar
+                        dataKey="problems"
+                        fill="currentColor"
+                        radius={[4, 4, 0, 0]}
+                        className="text-foreground"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No activity yet</p>
+                      <p className="text-xs mt-1">Complete problems to track your progress</p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                 <p className="text-xs text-muted-foreground">
-                  Total: <span className="font-mono font-medium text-foreground">{weeklyActivity.reduce((a, b) => a + b.problems, 0)}</span>
+                  Total:{" "}
+                  <span className="font-mono font-medium text-foreground">
+                    {activity?.summary.total || 0}
+                  </span>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Daily avg: <span className="font-mono font-medium text-foreground">{Math.round(weeklyActivity.reduce((a, b) => a + b.problems, 0) / 7)}</span>
+                  Daily avg:{" "}
+                  <span className="font-mono font-medium text-foreground">
+                    {activity?.summary.dailyAverage || 0}
+                  </span>
                 </p>
               </div>
             </CardContent>
@@ -332,30 +455,60 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex items-center justify-between py-2 group cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                    <Target className="w-4 h-4 text-muted-foreground" />
+              {stats?.weakestSkill && stats.weakestSkill.total > 0 ? (
+                <Link href="/training" className="block">
+                  <div className="flex items-center justify-between py-2 group cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                        <Target className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Focus on {stats.weakestSkill.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Your {stats.weakestSkill.name.toLowerCase()} accuracy is {stats.weakestSkill.value}%. Try the{" "}
+                          {stats.weakestSkill.name} module.
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Focus on Division</p>
-                    <p className="text-xs text-muted-foreground">Your division accuracy is 65%. Try the Division module.</p>
+                </Link>
+              ) : (
+                <Link href="/training" className="block">
+                  <div className="flex items-center justify-between py-2 group cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                        <Brain className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Start Practicing</p>
+                        <p className="text-xs text-muted-foreground">
+                          Begin your mental math journey with a training session.
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <div className="flex items-center justify-between py-2 group cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
+                </Link>
+              )}
+              {stats && stats.avgTime > 2 && (
+                <Link href="/training" className="block">
+                  <div className="flex items-center justify-between py-2 group cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Speed Training</p>
+                        <p className="text-xs text-muted-foreground">
+                          Your avg. time is {stats.avgTime}s. Aim for sub-2 second responses.
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Speed Training</p>
-                    <p className="text-xs text-muted-foreground">Your avg. time is 2.4s. Aim for sub-2 second responses.</p>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
+                </Link>
+              )}
             </div>
           </CardContent>
         </Card>

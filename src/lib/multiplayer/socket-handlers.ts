@@ -1,0 +1,487 @@
+import { Server, Socket } from "socket.io";
+import { randomUUID } from "crypto";
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData,
+  MatchmakingEntry,
+  GameState,
+  Player,
+  GameConfig,
+  Difficulty,
+  Operation,
+} from "./types";
+import {
+  createGameState,
+  startNewRound,
+  processRoundEnd,
+  checkGameOver,
+  calculateRatingChange,
+} from "./game-logic";
+
+// ============================================
+// SERVER STATE
+// ============================================
+
+// Matchmaking queue
+const matchmakingQueue: Map<string, MatchmakingEntry> = new Map();
+
+// Active games
+const activeGames: Map<string, {
+  gameState: GameState;
+  config: GameConfig;
+  answers: Map<string, { answer: number; timeMs: number }>;
+  roundTimer: NodeJS.Timeout | null;
+}> = new Map();
+
+// Socket to room mapping
+const socketToRoom: Map<string, string> = new Map();
+
+// Socket to player mapping
+const socketToPlayer: Map<string, { id: string; username: string }> = new Map();
+
+// ============================================
+// MATCHMAKING
+// ============================================
+
+function findMatch(entry: MatchmakingEntry): MatchmakingEntry | null {
+  const RATING_RANGE = 200; // Match within 200 rating points
+  const WAIT_TIME_EXPANSION = 50; // Expand range by 50 per second waited
+  
+  const waitTime = (Date.now() - entry.joinedAt) / 1000;
+  const expandedRange = RATING_RANGE + waitTime * WAIT_TIME_EXPANSION;
+
+  for (const [socketId, candidate] of matchmakingQueue) {
+    if (socketId === entry.socketId) continue;
+    
+    const ratingDiff = Math.abs(entry.rating - candidate.rating);
+    if (ratingDiff <= expandedRange) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function createMatch(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  player1Entry: MatchmakingEntry,
+  player2Entry: MatchmakingEntry
+) {
+  const roomId = `game_${randomUUID()}`;
+  
+  const player1: Player = {
+    id: player1Entry.playerId,
+    socketId: player1Entry.socketId,
+    username: player1Entry.username,
+    rating: player1Entry.rating,
+  };
+  
+  const player2: Player = {
+    id: player2Entry.playerId,
+    socketId: player2Entry.socketId,
+    username: player2Entry.username,
+    rating: player2Entry.rating,
+  };
+
+  const config: GameConfig = {
+    rounds: 10,
+    timePerRound: 10000, // 10 seconds
+    difficulty: "medium",
+    operations: ["+", "-", "×", "÷"],
+  };
+
+  const gameState = createGameState(roomId, player1, player2, config);
+
+  // Remove from queue
+  matchmakingQueue.delete(player1Entry.socketId);
+  matchmakingQueue.delete(player2Entry.socketId);
+
+  // Join socket room
+  const socket1 = io.sockets.sockets.get(player1Entry.socketId);
+  const socket2 = io.sockets.sockets.get(player2Entry.socketId);
+
+  if (!socket1 || !socket2) {
+    console.error("Sockets not found for matched players");
+    return;
+  }
+
+  socket1.join(roomId);
+  socket2.join(roomId);
+
+  socketToRoom.set(player1Entry.socketId, roomId);
+  socketToRoom.set(player2Entry.socketId, roomId);
+
+  // Store game
+  activeGames.set(roomId, {
+    gameState,
+    config,
+    answers: new Map(),
+    roundTimer: null,
+  });
+
+  // Notify players
+  socket1.emit("matchmaking:found", {
+    opponent: { id: player2.id, username: player2.username, rating: player2.rating },
+  });
+  socket2.emit("matchmaking:found", {
+    opponent: { id: player1.id, username: player1.username, rating: player1.rating },
+  });
+
+  // Start countdown after brief delay
+  setTimeout(() => {
+    startGameCountdown(io, roomId);
+  }, 1000);
+}
+
+function startGameCountdown(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  roomId: string
+) {
+  const game = activeGames.get(roomId);
+  if (!game) return;
+
+  game.gameState.status = "countdown";
+  
+  let countdown = 3;
+  
+  const countdownInterval = setInterval(() => {
+    io.to(roomId).emit("game:countdown", { seconds: countdown });
+    
+    countdown--;
+    
+    if (countdown < 0) {
+      clearInterval(countdownInterval);
+      startRound(io, roomId);
+    }
+  }, 1000);
+}
+
+function startRound(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  roomId: string
+) {
+  const game = activeGames.get(roomId);
+  if (!game) return;
+
+  // Clear previous answers
+  game.answers.clear();
+
+  // Start new round
+  game.gameState = startNewRound(
+    game.gameState,
+    game.config.difficulty,
+    game.config.operations
+  );
+
+  // Emit to both players
+  io.to(roomId).emit("game:new_round", {
+    round: game.gameState.currentRound,
+    problem: game.gameState.currentProblem!,
+  });
+
+  // Set round timer
+  game.roundTimer = setTimeout(() => {
+    endRound(io, roomId);
+  }, game.config.timePerRound);
+}
+
+function endRound(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  roomId: string
+) {
+  const game = activeGames.get(roomId);
+  if (!game) return;
+
+  // Clear timer
+  if (game.roundTimer) {
+    clearTimeout(game.roundTimer);
+    game.roundTimer = null;
+  }
+
+  // Process round results
+  const { newState, result } = processRoundEnd(game.gameState, game.answers);
+  game.gameState = newState;
+
+  // Send results to each player with their specific time
+  for (const player of game.gameState.players) {
+    const socket = io.sockets.sockets.get(player.socketId);
+    if (socket) {
+      const otherPlayer = game.gameState.players.find(p => p.id !== player.id)!;
+      socket.emit("game:round_result", {
+        winnerId: result.winnerId,
+        correctAnswer: result.correctAnswer,
+        scores: result.scores,
+        yourTime: result.playerTimes[player.id],
+        opponentTime: result.playerTimes[otherPlayer.id],
+      });
+    }
+  }
+
+  // Check if game is over
+  const { isOver, winnerId } = checkGameOver(game.gameState);
+  
+  if (isOver) {
+    endGame(io, roomId, winnerId);
+  } else {
+    // Start next round after delay
+    setTimeout(() => {
+      startRound(io, roomId);
+    }, 2000);
+  }
+}
+
+function endGame(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  roomId: string,
+  winnerId: string | null
+) {
+  const game = activeGames.get(roomId);
+  if (!game) return;
+
+  game.gameState.status = "game_over";
+  game.gameState.winner = winnerId;
+
+  const player1 = game.gameState.players[0];
+  const player2 = game.gameState.players[1];
+
+  // Calculate rating changes
+  let ratingChanges: Record<string, number> = {};
+  
+  if (winnerId) {
+    const winner = game.gameState.players.find(p => p.id === winnerId)!;
+    const loser = game.gameState.players.find(p => p.id !== winnerId)!;
+    const { winnerChange, loserChange } = calculateRatingChange(winner.rating, loser.rating);
+    ratingChanges[winner.id] = winnerChange;
+    ratingChanges[loser.id] = loserChange;
+  } else {
+    // Draw
+    const { winnerChange, loserChange } = calculateRatingChange(player1.rating, player2.rating, true);
+    ratingChanges[player1.id] = winnerChange;
+    ratingChanges[player2.id] = loserChange;
+  }
+
+  // Send game over to each player
+  for (const player of game.gameState.players) {
+    const socket = io.sockets.sockets.get(player.socketId);
+    if (socket) {
+      socket.emit("game:over", {
+        winnerId,
+        finalScores: game.gameState.scores,
+        ratingChange: ratingChanges[player.id] || 0,
+      });
+    }
+  }
+
+  // Clean up after delay (allow for rematch)
+  setTimeout(() => {
+    const existingGame = activeGames.get(roomId);
+    if (existingGame && existingGame.gameState.status === "game_over") {
+      cleanupGame(roomId);
+    }
+  }, 60000); // Keep room for 1 minute for potential rematch
+}
+
+function cleanupGame(roomId: string) {
+  const game = activeGames.get(roomId);
+  if (!game) return;
+
+  // Clear timer
+  if (game.roundTimer) {
+    clearTimeout(game.roundTimer);
+  }
+
+  // Remove socket mappings
+  for (const player of game.gameState.players) {
+    socketToRoom.delete(player.socketId);
+  }
+
+  // Remove game
+  activeGames.delete(roomId);
+}
+
+// ============================================
+// SOCKET HANDLER SETUP
+// ============================================
+
+export function setupMultiplayerHandlers(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+) {
+  // Broadcast online count every 5 seconds
+  setInterval(() => {
+    const count = io.sockets.sockets.size;
+    io.emit("online_count", count);
+  }, 5000);
+
+  io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) => {
+    console.log(`Client connected: ${socket.id}`);
+
+    // Emit initial online count
+    socket.emit("online_count", io.sockets.sockets.size);
+
+    // ============================================
+    // MATCHMAKING HANDLERS
+    // ============================================
+
+    socket.on("matchmaking:join", (data) => {
+      const { userId, username, rating } = data;
+
+      // Store player info
+      socketToPlayer.set(socket.id, { id: userId, username });
+
+      // Check if already in queue
+      if (matchmakingQueue.has(socket.id)) {
+        return;
+      }
+
+      // Check if already in a game
+      if (socketToRoom.has(socket.id)) {
+        socket.emit("matchmaking:error", "Already in a game");
+        return;
+      }
+
+      const entry: MatchmakingEntry = {
+        socketId: socket.id,
+        playerId: userId,
+        username,
+        rating: rating || 1000,
+        joinedAt: Date.now(),
+      };
+
+      matchmakingQueue.set(socket.id, entry);
+      
+      // Try to find a match immediately
+      const match = findMatch(entry);
+      
+      if (match) {
+        createMatch(io, entry, match);
+      } else {
+        socket.emit("matchmaking:searching", { position: matchmakingQueue.size });
+      }
+    });
+
+    socket.on("matchmaking:leave", () => {
+      matchmakingQueue.delete(socket.id);
+      socket.emit("matchmaking:cancelled");
+    });
+
+    // ============================================
+    // GAME HANDLERS
+    // ============================================
+
+    socket.on("game:submit_answer", (data) => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+
+      const game = activeGames.get(roomId);
+      if (!game || game.gameState.status !== "playing") return;
+
+      const player = socketToPlayer.get(socket.id);
+      if (!player) return;
+
+      // Don't allow duplicate answers
+      if (game.answers.has(player.id)) return;
+
+      // Record the answer
+      game.answers.set(player.id, {
+        answer: data.answer,
+        timeMs: data.timeMs,
+      });
+
+      // Notify opponent that this player answered (without revealing the answer)
+      const otherPlayer = game.gameState.players.find(p => p.id !== player.id);
+      if (otherPlayer) {
+        const otherSocket = io.sockets.sockets.get(otherPlayer.socketId);
+        if (otherSocket) {
+          otherSocket.emit("game:opponent_answered");
+        }
+      }
+
+      // If both players answered, end round early
+      if (game.answers.size === 2) {
+        endRound(io, roomId);
+      }
+    });
+
+    socket.on("game:forfeit", () => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+
+      const game = activeGames.get(roomId);
+      if (!game) return;
+
+      const player = socketToPlayer.get(socket.id);
+      if (!player) return;
+
+      // Notify both players
+      io.to(roomId).emit("game:forfeit", { forfeitedBy: player.id });
+
+      // End game with opponent as winner
+      const opponent = game.gameState.players.find(p => p.id !== player.id);
+      endGame(io, roomId, opponent?.id || null);
+    });
+
+    socket.on("game:quick_chat", (message) => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+
+      const player = socketToPlayer.get(socket.id);
+      if (!player) return;
+
+      // Broadcast to room
+      socket.to(roomId).emit("game:quick_chat", {
+        from: player.username,
+        message,
+      });
+    });
+
+    // ============================================
+    // DISCONNECT HANDLER
+    // ============================================
+
+    socket.on("disconnect", () => {
+      console.log(`Client disconnected: ${socket.id}`);
+
+      // Remove from matchmaking queue
+      matchmakingQueue.delete(socket.id);
+
+      // Handle game disconnection
+      const roomId = socketToRoom.get(socket.id);
+      if (roomId) {
+        const game = activeGames.get(roomId);
+        if (game && game.gameState.status !== "game_over") {
+          // Notify opponent
+          io.to(roomId).emit("game:opponent_disconnected");
+          
+          // End game with opponent as winner
+          const player = socketToPlayer.get(socket.id);
+          if (player) {
+            const opponent = game.gameState.players.find(p => p.id !== player.id);
+            endGame(io, roomId, opponent?.id || null);
+          }
+        }
+      }
+
+      // Clean up mappings
+      socketToRoom.delete(socket.id);
+      socketToPlayer.delete(socket.id);
+    });
+  });
+
+  // Matchmaking loop - try to match players periodically
+  setInterval(() => {
+    const entries = Array.from(matchmakingQueue.values());
+    
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (!matchmakingQueue.has(entry.socketId)) continue; // Already matched
+      
+      const match = findMatch(entry);
+      if (match && matchmakingQueue.has(match.socketId)) {
+        createMatch(io, entry, match);
+      }
+    }
+  }, 1000);
+}
+

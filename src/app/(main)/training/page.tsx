@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -650,6 +651,7 @@ function generateProblem(
 }
 
 export default function TrainingPage() {
+  const { data: authSession } = useSession();
   const [selectedOperations, setSelectedOperations] = useState<Operation[]>(["+", "-", "×", "÷"]);
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [gameMode, setGameMode] = useState<GameMode>("timed");
@@ -674,6 +676,11 @@ export default function TrainingPage() {
   const [showTip, setShowTip] = useState(true);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [tipExpanded, setTipExpanded] = useState(true);
+  
+  // Session tracking for database persistence
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionStartTimeRef = useRef<number>(0);
+  const bestStreakRef = useRef<number>(0);
   
   // Operation queue for even distribution
   const operationQueueRef = useRef<Operation[]>([]);
@@ -726,7 +733,7 @@ export default function TrainingPage() {
     inputRef.current?.focus();
   }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges]);
 
-  const startTraining = () => {
+  const startTraining = async () => {
     // Reset operation queue for fresh even distribution
     operationQueueRef.current = shuffleArray([...selectedOperations]);
     
@@ -739,13 +746,99 @@ export default function TrainingPage() {
     setAvgTime(0);
     setShowTip(true);
     setTipExpanded(true);
+    bestStreakRef.current = 0;
+    sessionStartTimeRef.current = Date.now();
+    
     if (gameMode === "timed") {
       setOverallTimeLeft(timedModeLimit);
     }
+    
+    // Create session in database if user is logged in
+    if (authSession?.user) {
+      try {
+        const response = await fetch("/api/training/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            gameMode,
+            difficulty,
+            operations: selectedOperations,
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setSessionId(data.sessionId);
+        }
+      } catch (error) {
+        console.error("Failed to create session:", error);
+      }
+    }
+    
     startNewProblem();
   };
 
+  // Record a problem attempt to the database
+  const recordAttempt = async (
+    problem: Problem,
+    userAnswerNum: number | null,
+    correct: boolean,
+    timeTaken: number
+  ) => {
+    if (!authSession?.user) return;
+    
+    try {
+      await fetch("/api/training/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          operandA: problem.a,
+          operandB: problem.b,
+          operation: problem.operation,
+          correctAnswer: problem.answer,
+          userAnswer: userAnswerNum,
+          isCorrect: correct,
+          timeTaken,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to record attempt:", error);
+    }
+  };
+
+  // End the training session and save to database
+  const endSession = async (solved: number, correct: number, bestStreak: number, avgTimeVal: number) => {
+    if (!authSession?.user || !sessionId) return;
+    
+    const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
+    
+    try {
+      await fetch("/api/training/session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          totalProblems: solved,
+          correctAnswers: correct,
+          duration,
+          averageTime: avgTimeVal,
+          bestStreak,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to end session:", error);
+    }
+    
+    setSessionId(null);
+  };
+
   const stopTraining = () => {
+    // Save session before stopping if we have data
+    if (totalSolved > 0) {
+      endSession(totalSolved, totalCorrect, bestStreakRef.current, avgTime);
+    }
+    
     setIsPlaying(false);
     setProblem(null);
     setIsGameOver(false);
@@ -766,9 +859,18 @@ export default function TrainingPage() {
       setHasAnswered(true);
       setTotalSolved((prev) => prev + 1);
       
+      // Record attempt to database
+      recordAttempt(problem, answerNum, correct, timeTaken);
+      
       if (correct) {
         setTotalCorrect((prev) => prev + 1);
-        setStreak((prev) => prev + 1);
+        setStreak((prev) => {
+          const newStreak = prev + 1;
+          if (newStreak > bestStreakRef.current) {
+            bestStreakRef.current = newStreak;
+          }
+          return newStreak;
+        });
         setTimes((prev) => {
           const newTimes = [...prev, timeTaken];
           setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
@@ -784,12 +886,22 @@ export default function TrainingPage() {
         setIsCorrect(true);
         setTotalSolved((prev) => prev + 1);
         setTotalCorrect((prev) => prev + 1);
-        setStreak((prev) => prev + 1);
+        setStreak((prev) => {
+          const newStreak = prev + 1;
+          if (newStreak > bestStreakRef.current) {
+            bestStreakRef.current = newStreak;
+          }
+          return newStreak;
+        });
         setTimes((prev) => {
           const newTimes = [...prev, timeTaken];
           setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
           return newTimes;
         });
+        
+        // Record attempt to database
+        recordAttempt(problem, answerNum, correct, timeTaken);
+        
         setTimeout(() => {
           startNewProblem();
         }, 200);
@@ -803,10 +915,19 @@ export default function TrainingPage() {
       // Practice mode: original behavior
       setIsCorrect(correct);
       setTotalSolved((prev) => prev + 1);
+      
+      // Record attempt to database
+      recordAttempt(problem, answerNum, correct, timeTaken);
 
       if (correct) {
         setTotalCorrect((prev) => prev + 1);
-        setStreak((prev) => prev + 1);
+        setStreak((prev) => {
+          const newStreak = prev + 1;
+          if (newStreak > bestStreakRef.current) {
+            bestStreakRef.current = newStreak;
+          }
+          return newStreak;
+        });
         setTimes((prev) => {
           const newTimes = [...prev, timeTaken];
           setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
@@ -832,6 +953,13 @@ export default function TrainingPage() {
           setIsCorrect(false);
           setStreak(0);
           setTotalSolved((p) => p + 1);
+          
+          // Record timeout as incorrect attempt
+          if (problem) {
+            const timeTaken = difficultyConfig[difficulty].timeLimit;
+            recordAttempt(problem, null, false, timeTaken);
+          }
+          
           setTimeout(() => startNewProblem(), 600);
           return 0;
         }
@@ -840,7 +968,8 @@ export default function TrainingPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isPlaying, gameMode, timeLeft, startNewProblem]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, gameMode, timeLeft, startNewProblem, problem, difficulty]);
 
   // Timed mode overall timer
   useEffect(() => {
@@ -859,6 +988,14 @@ export default function TrainingPage() {
 
     return () => clearInterval(timer);
   }, [isPlaying, gameMode, overallTimeLeft]);
+
+  // End session when game is over (timed mode)
+  useEffect(() => {
+    if (isGameOver && totalSolved > 0) {
+      endSession(totalSolved, totalCorrect, bestStreakRef.current, avgTime);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGameOver]);
 
   const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
 
