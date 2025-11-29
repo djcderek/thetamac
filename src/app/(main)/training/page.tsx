@@ -25,7 +25,9 @@ import {
   CornerDownLeft,
   Wand2,
   AlertCircle,
+  Target,
 } from "lucide-react";
+import Link from "next/link";
 
 type Operation = "+" | "-" | "×" | "÷";
 type Difficulty = "easy" | "medium" | "hard" | "expert";
@@ -1141,12 +1143,12 @@ export default function TrainingPage() {
 
           {!isPlaying && !isGameOver ? (
             <Card>
-              <CardContent className="p-4 md:p-6">
-                <div className="space-y-6">
-                  {/* Game Mode Selection */}
+                <CardContent className="p-4 md:p-6">
+                  <div className="space-y-6">
+                    {/* Game Mode Selection */}
                   <div>
                     <label className="text-sm font-medium mb-3 block">Game Mode</label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <button
                         onClick={() => setGameMode("timed")}
                         className={`p-4 rounded-lg border text-left transition-colors ${
@@ -1195,6 +1197,18 @@ export default function TrainingPage() {
                           Tips & tricks
                         </span>
                       </button>
+                      <Link href="/training/weak-points" className="block">
+                        <div className="p-4 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 text-left transition-colors hover:border-primary/50 hover:from-primary/10 hover:to-primary/15 h-full">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Target className="w-4 h-4 text-primary" />
+                            <span className="font-medium">Weak Points</span>
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-primary/20 text-primary font-semibold">PRO</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            Target problem areas
+                          </span>
+                        </div>
+                      </Link>
                     </div>
                   </div>
 

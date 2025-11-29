@@ -5,6 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ArrowLeft,
   TrendingUp,
   TrendingDown,
@@ -12,6 +18,7 @@ import {
   Clock,
   Zap,
   Loader2,
+  Grid3X3,
 } from "lucide-react";
 import {
   BarChart,
@@ -74,6 +81,30 @@ interface RadarData {
   value: number;
 }
 
+// Matrix cell data for a number combination
+interface MatrixCell {
+  attempts: number;
+  correct: number;
+  accuracy: number | null; // null if no attempts
+  avgTime: number | null;
+}
+
+// 16x16 matrix for numbers 0-15
+type CombinationMatrix = MatrixCell[][];
+
+interface MatrixWithStats {
+  matrix: CombinationMatrix;
+  totalProblems: number;
+  problemsInRange: number;
+}
+
+interface CombinationMatrices {
+  addition: MatrixWithStats;
+  subtraction: MatrixWithStats;
+  multiplication: MatrixWithStats;
+  division: MatrixWithStats;
+}
+
 interface SkillsData {
   skillsOverview: SkillOverview[];
   weeklyProgress: {
@@ -87,6 +118,8 @@ interface SkillsData {
   troubleSpots: TroubleSpot[];
   recommendations: Recommendation[];
   radarData: RadarData[];
+  combinationMatrices: CombinationMatrices;
+  matrixMaxNumber: number;
 }
 
 const SimpleTooltip = ({ 
@@ -170,31 +203,317 @@ function EmptyState() {
   );
 }
 
+// Get color for accuracy value - gradient from red (0%) to yellow (50%) to green (100%)
+function getAccuracyColor(accuracy: number | null, hasAttempts: boolean): string {
+  if (!hasAttempts) return "bg-secondary/30";
+  if (accuracy === null) return "bg-secondary/30";
+  
+  // Red (0%) -> Yellow (50%) -> Green (100%)
+  if (accuracy < 50) {
+    // Red to Yellow (0-50)
+    const ratio = accuracy / 50;
+    return `bg-gradient-to-br from-red-500/${Math.round(60 + ratio * 20)} to-orange-500/${Math.round(40 + ratio * 40)}`;
+  } else if (accuracy < 75) {
+    // Yellow to Light Green (50-75)
+    const ratio = (accuracy - 50) / 25;
+    return `bg-gradient-to-br from-orange-400/${Math.round(70 - ratio * 20)} to-yellow-400/${Math.round(60 + ratio * 20)}`;
+  } else {
+    // Light Green to Green (75-100)
+    const ratio = (accuracy - 75) / 25;
+    return `bg-gradient-to-br from-lime-400/${Math.round(60 + ratio * 20)} to-emerald-500/${Math.round(60 + ratio * 30)}`;
+  }
+}
+
+// Simpler, more reliable color function using Tailwind classes
+function getAccuracyBgClass(accuracy: number | null, hasAttempts: boolean): string {
+  if (!hasAttempts || accuracy === null) return "bg-secondary/40 dark:bg-secondary/20";
+  
+  if (accuracy >= 95) return "bg-emerald-500/80 dark:bg-emerald-500/70";
+  if (accuracy >= 85) return "bg-emerald-400/70 dark:bg-emerald-400/60";
+  if (accuracy >= 75) return "bg-lime-400/70 dark:bg-lime-400/50";
+  if (accuracy >= 65) return "bg-yellow-400/70 dark:bg-yellow-400/50";
+  if (accuracy >= 50) return "bg-orange-400/70 dark:bg-orange-400/50";
+  if (accuracy >= 25) return "bg-orange-500/70 dark:bg-orange-500/50";
+  return "bg-red-500/70 dark:bg-red-500/50";
+}
+
+function NumberCombinationMatrix({ 
+  matrix, 
+  operation,
+  operationSymbol,
+  totalProblems,
+  problemsInRange,
+  maxNumber,
+}: { 
+  matrix: CombinationMatrix; 
+  operation: string;
+  operationSymbol: string;
+  totalProblems: number;
+  problemsInRange: number;
+  maxNumber: number;
+}) {
+  const [viewMode, setViewMode] = useState<"accuracy" | "speed">("accuracy");
+  const numbers = Array.from({ length: maxNumber + 1 }, (_, i) => i);
+  
+  // Check if there's any data in the matrix
+  const hasAnyData = matrix.some(row => row.some(cell => cell.attempts > 0));
+  const coveragePercent = totalProblems > 0 ? Math.round((problemsInRange / totalProblems) * 100) : 0;
+  const problemsOutOfRange = totalProblems - problemsInRange;
+  
+  if (!hasAnyData) {
+    return (
+      <div className="py-8 text-center text-muted-foreground">
+        <Grid3X3 className="w-10 h-10 mx-auto mb-3 opacity-50" />
+        {totalProblems > 0 ? (
+          <>
+            <p className="text-sm">You've done <span className="font-semibold text-foreground">{totalProblems}</span> {operation.toLowerCase()} problems,</p>
+            <p className="text-sm">but none with both numbers between 0-{maxNumber}.</p>
+            <p className="text-xs mt-2 text-muted-foreground/70">
+              Try increasing the matrix size with the slider above, or practice with smaller numbers.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm">No {operation.toLowerCase()} problems attempted yet.</p>
+            <p className="text-xs mt-1">Start practicing to see your performance matrix!</p>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Calculate cell size based on matrix size
+  const getCellSize = () => {
+    if (maxNumber <= 15) return { size: "w-7 h-7", font: "text-[9px]", header: "text-[10px]" };
+    if (maxNumber <= 20) return { size: "w-6 h-6", font: "text-[8px]", header: "text-[9px]" };
+    if (maxNumber <= 30) return { size: "w-5 h-5", font: "text-[7px]", header: "text-[8px]" };
+    return { size: "w-4 h-4", font: "text-[6px]", header: "text-[7px]" };
+  };
+  
+  const cellStyle = getCellSize();
+  const showValues = maxNumber <= 20; // Only show values in cells for smaller matrices
+
+  return (
+    <div className="space-y-4">
+      {/* Coverage info banner */}
+      {problemsOutOfRange > 0 && (
+        <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border">
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{problemsInRange}</span> of{" "}
+              <span className="font-semibold text-foreground">{totalProblems}</span> problems shown
+              <span className="text-muted-foreground/70"> ({coveragePercent}% in 0-{maxNumber} range)</span>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground/70">
+            {problemsOutOfRange} problem{problemsOutOfRange !== 1 ? "s" : ""} with larger numbers not shown
+          </div>
+        </div>
+      )}
+      
+      {/* View mode toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Second operand →</span>
+        </div>
+        <div className="flex items-center gap-1 p-1 bg-secondary rounded-lg">
+          <button
+            onClick={() => setViewMode("accuracy")}
+            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+              viewMode === "accuracy"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Accuracy
+          </button>
+          <button
+            onClick={() => setViewMode("speed")}
+            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+              viewMode === "speed"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Speed
+          </button>
+        </div>
+      </div>
+      
+      {/* Matrix */}
+      <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+        <TooltipProvider delayDuration={100}>
+          <div className="inline-block min-w-full">
+            {/* Header row with second operand numbers */}
+            <div className="flex sticky top-0 bg-card z-10">
+              {/* Empty corner cell */}
+              <div className={`${cellStyle.size} flex-shrink-0`} />
+              {/* Column headers */}
+              {numbers.map(num => (
+                <div 
+                  key={`header-${num}`} 
+                  className={`${cellStyle.size} flex items-center justify-center ${cellStyle.header} font-mono text-muted-foreground flex-shrink-0`}
+                >
+                  {num}
+                </div>
+              ))}
+            </div>
+            
+            {/* Matrix rows */}
+            {numbers.map((rowNum, rowIndex) => (
+              <div key={`row-${rowNum}`} className="flex">
+                {/* Row header (first operand) */}
+                <div className={`${cellStyle.size} flex items-center justify-center ${cellStyle.header} font-mono text-muted-foreground flex-shrink-0 sticky left-0 bg-card z-10`}>
+                  {rowNum}
+                </div>
+                
+                {/* Matrix cells */}
+                {numbers.map((colNum, colIndex) => {
+                  const cell = matrix[rowIndex]?.[colIndex] || { attempts: 0, correct: 0, accuracy: null, avgTime: null };
+                  const hasAttempts = cell.attempts > 0;
+                  
+                  const bgClass = viewMode === "accuracy"
+                    ? getAccuracyBgClass(cell.accuracy, hasAttempts)
+                    : hasAttempts
+                      ? cell.avgTime! <= 1 
+                        ? "bg-emerald-500/70 dark:bg-emerald-500/60"
+                        : cell.avgTime! <= 2
+                          ? "bg-lime-400/60 dark:bg-lime-400/50"
+                          : cell.avgTime! <= 3
+                            ? "bg-yellow-400/60 dark:bg-yellow-400/50"
+                            : cell.avgTime! <= 5
+                              ? "bg-orange-400/60 dark:bg-orange-400/50"
+                              : "bg-red-500/60 dark:bg-red-500/50"
+                      : "bg-secondary/40 dark:bg-secondary/20";
+
+                  return (
+                    <UITooltip key={`cell-${rowNum}-${colNum}`}>
+                      <TooltipTrigger asChild>
+                        <div 
+                          className={`${cellStyle.size} flex items-center justify-center ${cellStyle.font} font-mono rounded-sm m-[0.5px] cursor-default transition-all hover:scale-125 hover:z-20 flex-shrink-0 ${bgClass} ${
+                            hasAttempts ? "text-foreground font-medium" : "text-muted-foreground/50"
+                          }`}
+                        >
+                          {showValues && hasAttempts ? (
+                            viewMode === "accuracy" ? cell.accuracy : (cell.avgTime?.toFixed(1) || "")
+                          ) : ""}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        <div className="font-mono font-semibold mb-1">
+                          {rowNum} {operationSymbol} {colNum}
+                        </div>
+                        {hasAttempts ? (
+                          <div className="space-y-0.5 text-muted-foreground">
+                            <div>Accuracy: <span className="text-foreground font-medium">{cell.accuracy}%</span></div>
+                            <div>Avg Time: <span className="text-foreground font-medium">{cell.avgTime?.toFixed(2)}s</span></div>
+                            <div>Attempts: <span className="text-foreground font-medium">{cell.attempts}</span> ({cell.correct} correct)</div>
+                          </div>
+                        ) : (
+                          <div className="text-muted-foreground">No attempts yet</div>
+                        )}
+                      </TooltipContent>
+                    </UITooltip>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </TooltipProvider>
+      </div>
+      
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 pt-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>First operand ↓</span>
+        </div>
+        <div className="h-3 w-px bg-border" />
+        <div className="flex items-center gap-1.5 text-xs">
+          {viewMode === "accuracy" ? (
+            <>
+              <div className="w-3 h-3 rounded-sm bg-red-500/70" />
+              <span className="text-muted-foreground">0%</span>
+              <div className="w-3 h-3 rounded-sm bg-orange-400/70" />
+              <div className="w-3 h-3 rounded-sm bg-yellow-400/70" />
+              <span className="text-muted-foreground">50%</span>
+              <div className="w-3 h-3 rounded-sm bg-lime-400/70" />
+              <div className="w-3 h-3 rounded-sm bg-emerald-500/70" />
+              <span className="text-muted-foreground">100%</span>
+            </>
+          ) : (
+            <>
+              <div className="w-3 h-3 rounded-sm bg-emerald-500/70" />
+              <span className="text-muted-foreground">≤1s</span>
+              <div className="w-3 h-3 rounded-sm bg-lime-400/60" />
+              <span className="text-muted-foreground">≤2s</span>
+              <div className="w-3 h-3 rounded-sm bg-yellow-400/60" />
+              <span className="text-muted-foreground">≤3s</span>
+              <div className="w-3 h-3 rounded-sm bg-orange-400/60" />
+              <span className="text-muted-foreground">≤5s</span>
+              <div className="w-3 h-3 rounded-sm bg-red-500/60" />
+              <span className="text-muted-foreground">&gt;5s</span>
+            </>
+          )}
+          <div className="ml-2 w-3 h-3 rounded-sm bg-secondary/40" />
+          <span className="text-muted-foreground">No data</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SkillsDashboard() {
   const [data, setData] = useState<SkillsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPerformanceScore, setShowPerformanceScore] = useState(false);
+  const [matrixSize, setMatrixSize] = useState(15);
+  const [matrixLoading, setMatrixLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchSkillsData() {
-      try {
-        const response = await fetch("/api/user/skills");
-        if (!response.ok) {
-          throw new Error("Failed to fetch skills data");
-        }
-        const skillsData = await response.json();
-        setData(skillsData);
-      } catch (err) {
-        console.error("Error fetching skills data:", err);
+  // Fetch skills data with optional matrix size
+  const fetchSkillsData = async (maxNumber: number = 15, isInitial: boolean = true) => {
+    try {
+      if (isInitial) {
+        setLoading(true);
+      } else {
+        setMatrixLoading(true);
+      }
+      
+      const response = await fetch(`/api/user/skills?maxNumber=${maxNumber}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch skills data");
+      }
+      const skillsData = await response.json();
+      setData(skillsData);
+    } catch (err) {
+      console.error("Error fetching skills data:", err);
+      if (isInitial) {
         setError("Failed to load skills data");
-      } finally {
+      }
+    } finally {
+      if (isInitial) {
         setLoading(false);
+      } else {
+        setMatrixLoading(false);
       }
     }
+  };
 
-    fetchSkillsData();
+  useEffect(() => {
+    fetchSkillsData(matrixSize, true);
   }, []);
+  
+  // Debounced matrix size change handler
+  const handleMatrixSizeChange = (newSize: number) => {
+    setMatrixSize(newSize);
+  };
+  
+  // Fetch new data when slider is released
+  const handleMatrixSizeCommit = (newSize: number) => {
+    if (newSize !== data?.matrixMaxNumber) {
+      fetchSkillsData(newSize, false);
+    }
+  };
 
   if (loading) {
     return (
@@ -497,6 +816,111 @@ export function SkillsDashboard() {
               </CardContent>
             </Card>
 
+            {/* Number Combination Matrix */}
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Grid3X3 className="w-4 h-4" />
+                    <CardTitle className="text-sm font-medium">Number Combination Matrix (0-{matrixSize})</CardTitle>
+                  </div>
+                  {matrixLoading && (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  See your accuracy and speed for every combination of numbers
+                </p>
+                
+                {/* Matrix Size Slider */}
+                <div className="mt-4 pt-3 border-t border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium">Matrix Size</label>
+                    <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded">0 – {matrixSize}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-4">5</span>
+                    <input
+                      type="range"
+                      min={5}
+                      max={50}
+                      step={5}
+                      value={matrixSize}
+                      onChange={(e) => handleMatrixSizeChange(parseInt(e.target.value))}
+                      onMouseUp={(e) => handleMatrixSizeCommit(parseInt((e.target as HTMLInputElement).value))}
+                      onTouchEnd={(e) => handleMatrixSizeCommit(parseInt((e.target as HTMLInputElement).value))}
+                      className="flex-1 h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-foreground
+                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 
+                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground [&::-webkit-slider-thumb]:cursor-pointer
+                        [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background
+                        [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full 
+                        [&::-moz-range-thumb]:bg-foreground [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-2 
+                        [&::-moz-range-thumb]:border-background"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">50</span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-muted-foreground/60">Times tables</span>
+                    <span className="text-[10px] text-muted-foreground/60">Advanced</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="multiplication" className="w-full">
+                  <TabsList className="mb-4 w-full justify-start">
+                    <TabsTrigger value="addition" className="text-xs">Addition</TabsTrigger>
+                    <TabsTrigger value="subtraction" className="text-xs">Subtraction</TabsTrigger>
+                    <TabsTrigger value="multiplication" className="text-xs">Multiplication</TabsTrigger>
+                    <TabsTrigger value="division" className="text-xs">Division</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="addition">
+                    <NumberCombinationMatrix 
+                      matrix={data?.combinationMatrices.addition?.matrix || []} 
+                      operation="Addition"
+                      operationSymbol="+"
+                      totalProblems={data?.combinationMatrices.addition?.totalProblems || 0}
+                      problemsInRange={data?.combinationMatrices.addition?.problemsInRange || 0}
+                      maxNumber={data?.matrixMaxNumber || 15}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="subtraction">
+                    <NumberCombinationMatrix 
+                      matrix={data?.combinationMatrices.subtraction?.matrix || []} 
+                      operation="Subtraction"
+                      operationSymbol="−"
+                      totalProblems={data?.combinationMatrices.subtraction?.totalProblems || 0}
+                      problemsInRange={data?.combinationMatrices.subtraction?.problemsInRange || 0}
+                      maxNumber={data?.matrixMaxNumber || 15}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="multiplication">
+                    <NumberCombinationMatrix 
+                      matrix={data?.combinationMatrices.multiplication?.matrix || []} 
+                      operation="Multiplication"
+                      operationSymbol="×"
+                      totalProblems={data?.combinationMatrices.multiplication?.totalProblems || 0}
+                      problemsInRange={data?.combinationMatrices.multiplication?.problemsInRange || 0}
+                      maxNumber={data?.matrixMaxNumber || 15}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="division">
+                    <NumberCombinationMatrix 
+                      matrix={data?.combinationMatrices.division?.matrix || []} 
+                      operation="Division"
+                      operationSymbol="÷"
+                      totalProblems={data?.combinationMatrices.division?.totalProblems || 0}
+                      problemsInRange={data?.combinationMatrices.division?.problemsInRange || 0}
+                      maxNumber={data?.matrixMaxNumber || 15}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+
             {/* Detailed Breakdown Section */}
             <div className="space-y-2">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Detailed Breakdown</h2>
@@ -645,4 +1069,5 @@ export function SkillsDashboard() {
     </div>
   );
 }
+
 

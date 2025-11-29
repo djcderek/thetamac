@@ -37,8 +37,8 @@ interface UserStats {
 }
 
 interface PerformanceData {
-  data: Array<{ day: string; date: string; score: number | null; total: number; correct: number }>;
-  summary: { average: number; peak: { score: number; day: string } | null; totalAttempts: number };
+  data: Array<{ day: string; date: string; correct: number; total: number }>;
+  summary: { totalCorrect: number; average: number; peak: { correct: number; day: string } | null; totalAttempts: number };
 }
 
 interface ActivityData {
@@ -129,7 +129,7 @@ export default function Dashboard() {
     { name: "Division", value: 0, total: 0 },
   ];
 
-  const hasPerformanceData = performanceData.some((d) => d.score !== null);
+  const hasPerformanceData = performanceData.some((d) => d.correct > 0);
   const hasActivityData = activityData.some((d) => d.problems > 0);
   const hasSkillsData = skillsData.some((s) => s.total > 0);
 
@@ -226,7 +226,7 @@ export default function Dashboard() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium">Performance</CardTitle>
-                  <p className="text-xs text-muted-foreground">Accuracy this week →</p>
+                  <p className="text-xs text-muted-foreground">Correct answers (Timed Mode) →</p>
                 </div>
               </CardHeader>
               <CardContent>
@@ -234,14 +234,11 @@ export default function Dashboard() {
                   {hasPerformanceData ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
-                        data={performanceData.map((d) => ({
-                          ...d,
-                          score: d.score ?? 0,
-                        }))}
+                        data={performanceData}
                         margin={{ top: 5, right: 5, bottom: 5, left: -20 }}
                       >
                         <defs>
-                          <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                          <linearGradient id="correctGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="currentColor" stopOpacity={0.15} />
                             <stop offset="95%" stopColor="currentColor" stopOpacity={0} />
                           </linearGradient>
@@ -258,16 +255,15 @@ export default function Dashboard() {
                           fontSize={12}
                           tickLine={false}
                           axisLine={false}
-                          domain={[0, 100]}
-                          tickFormatter={(value) => `${value}%`}
+                          domain={[0, 'auto']}
                         />
-                        <Tooltip content={<SimpleTooltip suffix="%" />} />
+                        <Tooltip content={<SimpleTooltip />} />
                         <Area
                           type="monotone"
-                          dataKey="score"
+                          dataKey="correct"
                           stroke="currentColor"
                           strokeWidth={2}
-                          fill="url(#scoreGradient)"
+                          fill="url(#correctGradient)"
                           className="text-foreground"
                           dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }}
                           activeDot={{ r: 5, fill: "hsl(var(--foreground))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
@@ -279,23 +275,23 @@ export default function Dashboard() {
                       <div className="text-center">
                         <Brain className="w-8 h-8 mx-auto mb-2 opacity-50" />
                         <p className="text-sm">No performance data yet</p>
-                        <p className="text-xs mt-1">Start practicing to see your progress</p>
+                        <p className="text-xs mt-1">Start a timed training session to see your progress</p>
                       </div>
                     </div>
                   )}
                 </div>
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                   <p className="text-xs text-muted-foreground">
-                    Avg:{" "}
+                    Total:{" "}
                     <span className="font-mono font-medium text-foreground">
-                      {performance?.summary.average || 0}%
+                      {performance?.summary.totalCorrect || 0}
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Peak:{" "}
+                    Best day:{" "}
                     <span className="font-mono font-medium text-foreground">
                       {performance?.summary.peak
-                        ? `${performance.summary.peak.score}% (${performance.summary.peak.day})`
+                        ? `${performance.summary.peak.correct} (${performance.summary.peak.day})`
                         : "--"}
                     </span>
                   </p>
@@ -455,18 +451,39 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
+              {/* Weak Point Training - shows when user has a weak skill */}
+              {stats?.weakestSkill && stats.weakestSkill.total > 0 && stats.weakestSkill.value < 90 && (
+                <Link href="/training/weak-points" className="block">
+                  <div className="flex items-center justify-between py-2 group cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                        <Target className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          Target Your Weak Spots
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-semibold">PRO</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Your {stats.weakestSkill.name.toLowerCase()} is at {stats.weakestSkill.value}%. Get personalized practice.
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Link>
+              )}
               {stats?.weakestSkill && stats.weakestSkill.total > 0 ? (
                 <Link href="/training" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                        <Target className="w-4 h-4 text-muted-foreground" />
+                        <Flame className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">Focus on {stats.weakestSkill.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          Your {stats.weakestSkill.name.toLowerCase()} accuracy is {stats.weakestSkill.value}%. Try the{" "}
-                          {stats.weakestSkill.name} module.
+                          Practice {stats.weakestSkill.name.toLowerCase()} to improve from {stats.weakestSkill.value}%.
                         </p>
                       </div>
                     </div>

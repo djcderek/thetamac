@@ -9,7 +9,18 @@ interface OperationStats {
   avgTime: number;
 }
 
-export async function GET() {
+// Matrix cell data for a number combination
+interface MatrixCell {
+  attempts: number;
+  correct: number;
+  accuracy: number | null; // null if no attempts
+  avgTime: number | null;
+}
+
+// 16x16 matrix for numbers 0-15
+type CombinationMatrix = MatrixCell[][];
+
+export async function GET(request: Request) {
   try {
     const session = await auth();
 
@@ -18,6 +29,11 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+    
+    // Get maxNumber from query params (default 15, max 50)
+    const { searchParams } = new URL(request.url);
+    const maxNumberParam = parseInt(searchParams.get("maxNumber") || "15", 10);
+    const MAX_NUMBER = Math.min(Math.max(maxNumberParam, 5), 50); // Clamp between 5 and 50
 
     const user = await db.user.findUnique({
       where: { id: userId },
@@ -393,6 +409,107 @@ export async function GET() {
       });
     }
 
+    // Calculate combination matrices for each operation (0-MAX_NUMBER)
+    const operations = ["+", "-", "×", "÷"] as const;
+    
+    // Initialize matrices
+    const initializeMatrix = (): { attempts: number; correct: number; totalTime: number }[][] => {
+      const matrix: { attempts: number; correct: number; totalTime: number }[][] = [];
+      for (let i = 0; i <= MAX_NUMBER; i++) {
+        matrix[i] = [];
+        for (let j = 0; j <= MAX_NUMBER; j++) {
+          matrix[i][j] = { attempts: 0, correct: 0, totalTime: 0 };
+        }
+      }
+      return matrix;
+    };
+
+    const matrices: Record<string, { attempts: number; correct: number; totalTime: number }[][]> = {
+      "+": initializeMatrix(),
+      "-": initializeMatrix(),
+      "×": initializeMatrix(),
+      "÷": initializeMatrix(),
+    };
+
+    // Get ALL attempts to count totals by operation
+    const allAttemptsForMatrix = await db.problemAttempt.findMany({
+      where: { userId },
+      select: {
+        operandA: true,
+        operandB: true,
+        operation: true,
+        isCorrect: true,
+        timeTaken: true,
+      },
+    });
+
+    // Track total counts and in-range counts per operation
+    const matrixStats: Record<string, { total: number; inRange: number }> = {
+      "+": { total: 0, inRange: 0 },
+      "-": { total: 0, inRange: 0 },
+      "×": { total: 0, inRange: 0 },
+      "÷": { total: 0, inRange: 0 },
+    };
+
+    // Populate matrices and count stats
+    for (const attempt of allAttemptsForMatrix) {
+      const { operandA, operandB, operation, isCorrect, timeTaken } = attempt;
+      
+      // Count total for this operation
+      if (matrixStats[operation]) {
+        matrixStats[operation].total++;
+      }
+      
+      // Check if within 0-15 range
+      const inRange = operandA >= 0 && operandA <= MAX_NUMBER && 
+                      operandB >= 0 && operandB <= MAX_NUMBER;
+      
+      if (inRange && matrices[operation]) {
+        matrixStats[operation].inRange++;
+        const cell = matrices[operation][operandA][operandB];
+        cell.attempts++;
+        cell.totalTime += timeTaken;
+        if (isCorrect) {
+          cell.correct++;
+        }
+      }
+    }
+
+    // Convert to final format with calculated accuracy and avgTime
+    const convertMatrix = (rawMatrix: { attempts: number; correct: number; totalTime: number }[][]): CombinationMatrix => {
+      return rawMatrix.map(row => 
+        row.map(cell => ({
+          attempts: cell.attempts,
+          correct: cell.correct,
+          accuracy: cell.attempts > 0 ? Math.round((cell.correct / cell.attempts) * 100) : null,
+          avgTime: cell.attempts > 0 ? Math.round((cell.totalTime / cell.attempts) * 100) / 100 : null,
+        }))
+      );
+    };
+
+    const combinationMatrices = {
+      addition: {
+        matrix: convertMatrix(matrices["+"]),
+        totalProblems: matrixStats["+"].total,
+        problemsInRange: matrixStats["+"].inRange,
+      },
+      subtraction: {
+        matrix: convertMatrix(matrices["-"]),
+        totalProblems: matrixStats["-"].total,
+        problemsInRange: matrixStats["-"].inRange,
+      },
+      multiplication: {
+        matrix: convertMatrix(matrices["×"]),
+        totalProblems: matrixStats["×"].total,
+        problemsInRange: matrixStats["×"].inRange,
+      },
+      division: {
+        matrix: convertMatrix(matrices["÷"]),
+        totalProblems: matrixStats["÷"].total,
+        problemsInRange: matrixStats["÷"].inRange,
+      },
+    };
+
     return NextResponse.json({
       skillsOverview: skillsWithTrend,
       weeklyProgress,
@@ -404,6 +521,8 @@ export async function GET() {
         skill: s.name,
         value: s.accuracy,
       })),
+      combinationMatrices,
+      matrixMaxNumber: MAX_NUMBER,
     });
   } catch (error) {
     console.error("Error fetching skills data:", error);
