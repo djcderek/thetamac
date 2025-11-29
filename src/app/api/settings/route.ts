@@ -108,13 +108,34 @@ export async function PATCH(req: Request) {
     const userId = user.id;
 
     if (type === "profile") {
-      // Update user profile
+      const updateData: {
+        name?: string;
+        image?: string;
+      } = {};
+
+      if (data && typeof data.name === "string") {
+        updateData.name = data.name;
+      }
+
+      if (data && typeof data.image === "string") {
+        updateData.image = data.image;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return NextResponse.json(
+          { error: "No valid profile fields provided" },
+          { status: 400 }
+        );
+      }
+
       const updatedUser = await db.user.update({
         where: { id: userId },
-        data: {
-          name: data.name,
-          email: data.email
-        }
+        data: updateData,
+        select: {
+          name: true,
+          email: true,
+          image: true,
+        },
       });
       return NextResponse.json({ success: true, user: updatedUser });
     } 

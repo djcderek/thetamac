@@ -22,11 +22,15 @@ import {
   EyeOff,
   Sparkles,
   Info,
+  CornerDownLeft,
+  Wand2,
+  AlertCircle,
 } from "lucide-react";
 
 type Operation = "+" | "-" | "×" | "÷";
 type Difficulty = "easy" | "medium" | "hard" | "expert";
 type GameMode = "timed" | "practice" | "learning";
+type SubmitMode = "manual" | "auto";
 
 interface Problem {
   a: number;
@@ -96,6 +100,7 @@ const defaultRanges: OperationRanges = {
 };
 
 const timedModeLimits = [60, 120, 180, 300];
+const practiceTimerOptions = [5, 8, 10, 12, 15, 20, 30];
 
 // ============================================
 // MENTAL MATH TIPS SYSTEM
@@ -656,6 +661,8 @@ export default function TrainingPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [gameMode, setGameMode] = useState<GameMode>("timed");
   const [timedModeLimit, setTimedModeLimit] = useState(120);
+  const [practiceTimerLimit, setPracticeTimerLimit] = useState(10);
+  const [submitMode, setSubmitMode] = useState<SubmitMode>("manual");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [operationRanges, setOperationRanges] = useState<OperationRanges>(defaultRanges);
   const [problem, setProblem] = useState<Problem | null>(null);
@@ -727,7 +734,7 @@ export default function TrainingPage() {
     setIsCorrect(null);
     setHasAnswered(false);
     if (gameMode === "practice") {
-      setTimeLeft(difficultyConfig[difficulty].timeLimit);
+      setTimeLeft(practiceTimerLimit);
     }
     setStartTime(Date.now());
     inputRef.current?.focus();
@@ -847,10 +854,22 @@ export default function TrainingPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!problem || !isPlaying) return;
+    if (!problem || !isPlaying || hasAnswered) return;
 
     const answerNum = parseInt(userAnswer);
     const correct = answerNum === problem.answer;
+    
+    // In auto-submit mode, correct answers are handled by the effect
+    // Incorrect answers just clear the input (no tracking)
+    if (submitMode === "auto") {
+      if (correct) return; // Already handled by effect
+      // Wrong answer - just clear and let them try again
+      setUserAnswer("");
+      setIsCorrect(false);
+      setTimeout(() => setIsCorrect(null), 300);
+      return;
+    }
+    
     const timeTaken = (Date.now() - startTime) / 1000;
 
     if (gameMode === "learning") {
@@ -881,10 +900,14 @@ export default function TrainingPage() {
       }
       // Don't auto-advance - let user study the solution
     } else if (gameMode === "timed") {
-      // Timed mode: only move on if correct, no penalty for wrong
+      // Timed mode: track all attempts for accuracy
+      setIsCorrect(correct);
+      setTotalSolved((prev) => prev + 1);
+      
+      // Record attempt to database
+      recordAttempt(problem, answerNum, correct, timeTaken);
+      
       if (correct) {
-        setIsCorrect(true);
-        setTotalSolved((prev) => prev + 1);
         setTotalCorrect((prev) => prev + 1);
         setStreak((prev) => {
           const newStreak = prev + 1;
@@ -899,16 +922,13 @@ export default function TrainingPage() {
           return newTimes;
         });
         
-        // Record attempt to database
-        recordAttempt(problem, answerNum, correct, timeTaken);
-        
         setTimeout(() => {
           startNewProblem();
         }, 200);
       } else {
-        // Wrong answer in Timed mode: just clear and let them try again
+        // Wrong answer in Timed mode: reset streak, clear input, try again
+        setStreak(0);
         setUserAnswer("");
-        setIsCorrect(false);
         setTimeout(() => setIsCorrect(null), 300);
       }
     } else {
@@ -956,7 +976,7 @@ export default function TrainingPage() {
           
           // Record timeout as incorrect attempt
           if (problem) {
-            const timeTaken = difficultyConfig[difficulty].timeLimit;
+            const timeTaken = practiceTimerLimit;
             recordAttempt(problem, null, false, timeTaken);
           }
           
@@ -996,6 +1016,46 @@ export default function TrainingPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGameOver]);
+
+  // Auto-submit when correct answer is typed
+  useEffect(() => {
+    if (!isPlaying || !problem || submitMode !== "auto" || hasAnswered) return;
+    
+    const answerNum = parseInt(userAnswer);
+    if (!isNaN(answerNum) && answerNum === problem.answer) {
+      // Correct answer typed - auto submit
+      const timeTaken = (Date.now() - startTime) / 1000;
+      
+      setIsCorrect(true);
+      setTotalSolved((prev) => prev + 1);
+      setTotalCorrect((prev) => prev + 1);
+      setStreak((prev) => {
+        const newStreak = prev + 1;
+        if (newStreak > bestStreakRef.current) {
+          bestStreakRef.current = newStreak;
+        }
+        return newStreak;
+      });
+      setTimes((prev) => {
+        const newTimes = [...prev, timeTaken];
+        setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
+        return newTimes;
+      });
+      
+      // Record attempt to database (only correct attempts in auto mode)
+      if (authSession?.user && sessionId) {
+        recordAttempt(problem, answerNum, true, timeTaken);
+      }
+      
+      if (gameMode === "learning") {
+        setHasAnswered(true);
+      } else {
+        setTimeout(() => {
+          startNewProblem();
+        }, 200);
+      }
+    }
+  }, [userAnswer, problem, isPlaying, submitMode, hasAnswered, startTime, gameMode, authSession, sessionId, startNewProblem]);
 
   const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
 
@@ -1044,13 +1104,19 @@ export default function TrainingPage() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className={`grid grid-cols-1 gap-4 ${submitMode === "manual" ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
                     <div className="p-4 rounded-lg bg-secondary/50">
                       <p className="text-4xl font-mono font-bold">{totalSolved}</p>
                       <p className="text-sm text-muted-foreground">Problems Solved</p>
                     </div>
+                    {submitMode === "manual" && (
+                      <div className="p-4 rounded-lg bg-secondary/50">
+                        <p className="text-4xl font-mono font-bold">{accuracy}%</p>
+                        <p className="text-sm text-muted-foreground">Accuracy</p>
+                      </div>
+                    )}
                     <div className="p-4 rounded-lg bg-secondary/50">
-                      <p className="text-4xl font-mono font-bold">{streak}</p>
+                      <p className="text-4xl font-mono font-bold">{bestStreakRef.current}</p>
                       <p className="text-sm text-muted-foreground">Best Streak</p>
                     </div>
                     <div className="p-4 rounded-lg bg-secondary/50">
@@ -1180,18 +1246,10 @@ export default function TrainingPage() {
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <label className="text-sm font-medium">Difficulty</label>
-                        {gameMode === "practice" && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Info className="w-3 h-3" />
-                            Affects number range & time per question
-                          </span>
-                        )}
-                        {gameMode !== "practice" && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Info className="w-3 h-3" />
-                            Affects number range
-                          </span>
-                        )}
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Info className="w-3 h-3" />
+                          Affects number range
+                        </span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {(["easy", "medium", "hard", "expert"] as Difficulty[]).map((d) => {
@@ -1212,11 +1270,6 @@ export default function TrainingPage() {
                               <span className="text-[10px] text-muted-foreground block mt-0.5">
                                 +/− ≤{config.addSubMax}, ×/÷ ≤{config.mulDivMax}
                               </span>
-                              {gameMode === "practice" && (
-                                <span className="text-[10px] text-muted-foreground block">
-                                  {config.timeLimit}s per question
-                                </span>
-                              )}
                             </button>
                           );
                         })}
@@ -1276,13 +1329,6 @@ export default function TrainingPage() {
                             </div>
                           </div>
                         ))}
-                        {gameMode === "practice" && (
-                          <div className="pt-2 border-t border-border">
-                            <p className="text-xs text-muted-foreground">
-                              Time per question: <span className="font-medium">{currentConfig.timeLimit}s</span> (based on {difficulty} difficulty)
-                            </p>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1309,6 +1355,77 @@ export default function TrainingPage() {
                     </div>
                   )}
 
+                  {/* Practice Mode Timer Selection */}
+                  {gameMode === "practice" && (
+                    <div>
+                      <label className="text-sm font-medium mb-3 block">Time Per Question</label>
+                      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                        {practiceTimerOptions.map((time) => (
+                          <button
+                            key={time}
+                            onClick={() => setPracticeTimerLimit(time)}
+                            className={`py-2 px-3 rounded-lg border text-sm transition-colors ${
+                              practiceTimerLimit === time
+                                ? "border-foreground bg-secondary font-medium"
+                                : "border-border hover:bg-secondary/50"
+                            }`}
+                          >
+                            {time}s
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submission Mode Selection */}
+                  <div>
+                    <label className="text-sm font-medium mb-3 block">Answer Submission</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setSubmitMode("manual")}
+                        className={`p-4 rounded-lg border text-left transition-colors ${
+                          submitMode === "manual"
+                            ? "border-foreground bg-secondary"
+                            : "border-border hover:bg-secondary/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <CornerDownLeft className="w-4 h-4" />
+                          <span className="font-medium">Press Enter</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          Submit with Enter key
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setSubmitMode("auto")}
+                        className={`p-4 rounded-lg border text-left transition-colors ${
+                          submitMode === "auto"
+                            ? "border-foreground bg-secondary"
+                            : "border-border hover:bg-secondary/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Wand2 className="w-4 h-4" />
+                          <span className="font-medium">Auto-submit</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          Submit when correct
+                        </span>
+                      </button>
+                    </div>
+                    {submitMode === "auto" && (
+                      <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-xs text-amber-800 dark:text-amber-200">
+                            <span className="font-medium">Note:</span> Accuracy data will not be tracked in auto-submit mode since incorrect attempts are not recorded.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Summary of settings */}
                   <div className="p-3 rounded-lg bg-secondary/30 border border-border">
                     <div className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -1321,8 +1438,9 @@ export default function TrainingPage() {
                           <span className="capitalize">{difficulty} difficulty • </span>
                         )}
                         {gameMode === "timed" && <span>{formatTime(timedModeLimit)} session • </span>}
-                        {gameMode === "practice" && <span>{currentConfig.timeLimit}s per question • </span>}
+                        {gameMode === "practice" && <span>{practiceTimerLimit}s per question • </span>}
                         {gameMode === "learning" && <span>No time limit • </span>}
+                        <span>{submitMode === "auto" ? "Auto-submit" : "Press Enter"} • </span>
                         <span>{selectedOperations.join(" ")}</span>
                       </div>
                     </div>
@@ -1382,7 +1500,7 @@ export default function TrainingPage() {
                     <span className="font-mono">{timeLeft}s</span>
                   </div>
                   <Progress
-                    value={(timeLeft / currentConfig.timeLimit) * 100}
+                    value={(timeLeft / practiceTimerLimit) * 100}
                     className="h-1"
                   />
                 </>
@@ -1535,7 +1653,13 @@ export default function TrainingPage() {
               )}
 
               {/* Stats */}
-              <div className={`grid gap-4 ${gameMode === "learning" ? "grid-cols-3" : `grid-cols-2 ${gameMode === "practice" ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}`}>
+              <div className={`grid gap-4 ${
+                submitMode === "auto" 
+                  ? "grid-cols-2 sm:grid-cols-3" 
+                  : gameMode === "learning" 
+                    ? "grid-cols-3" 
+                    : "grid-cols-2 sm:grid-cols-4"
+              }`}>
                 <div className="text-center p-3 rounded-lg bg-secondary/50">
                   <p className="text-2xl font-mono font-semibold">{totalSolved}</p>
                   <p className="text-xs text-muted-foreground">Solved</p>
@@ -1544,7 +1668,7 @@ export default function TrainingPage() {
                   <p className="text-2xl font-mono font-semibold">{streak}</p>
                   <p className="text-xs text-muted-foreground">Streak</p>
                 </div>
-                {(gameMode === "practice" || gameMode === "learning") && (
+                {submitMode === "manual" && (
                   <div className="text-center p-3 rounded-lg bg-secondary/50">
                     <p className="text-2xl font-mono font-semibold">{accuracy}%</p>
                     <p className="text-xs text-muted-foreground">Accuracy</p>
@@ -1557,6 +1681,14 @@ export default function TrainingPage() {
                   </div>
                 )}
               </div>
+
+              {/* Auto-submit indicator */}
+              {submitMode === "auto" && (
+                <div className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+                  <Wand2 className="w-3 h-3" />
+                  Auto-submit enabled • Accuracy not tracked
+                </div>
+              )}
 
               {/* Controls */}
               <div className="flex justify-center gap-3">

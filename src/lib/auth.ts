@@ -6,6 +6,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import type { Provider } from "next-auth/providers";
+import { isPremiumStatus } from "./subscription";
 
 // Build providers array dynamically based on available credentials
 const providers: Provider[] = [
@@ -102,8 +103,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
              // Force update user info from profile if available
              if (profile) {
                // profile.picture for Google, profile.avatar_url for GitHub typically
-               const image = (profile as any).picture || (profile as any).avatar_url || user.image;
-               const name = profile.name || user.name;
+               const image =
+                 getProfileString(profile, "picture") ||
+                 getProfileString(profile, "avatar_url") ||
+                 user.image;
+               const name =
+                 getProfileString(profile, "name") || user.name;
                
                // Update token immediately
                token.picture = image;
@@ -121,6 +126,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.picture = session.image;
       }
 
+      const userId = (user?.id as string) ?? (token.id as string | undefined);
+
+      if (userId) {
+        const billingUser = await db.user.findUnique({
+          where: { id: userId },
+          select: {
+            isPremium: true,
+            subscriptionStatus: true,
+            subscriptionPlan: true,
+            subscriptionCurrentPeriodEnd: true,
+            stripeCustomerId: true,
+            stripeSubscriptionId: true,
+          },
+        });
+
+        if (billingUser) {
+          const premiumStatus =
+            billingUser.isPremium ||
+            isPremiumStatus(billingUser.subscriptionStatus);
+
+          token.isPremium = premiumStatus;
+          token.subscriptionStatus = billingUser.subscriptionStatus;
+          token.subscriptionPlan = billingUser.subscriptionPlan;
+          token.subscriptionCurrentPeriodEnd =
+            billingUser.subscriptionCurrentPeriodEnd?.toISOString() ?? null;
+          token.stripeCustomerId = billingUser.stripeCustomerId;
+          token.stripeSubscriptionId = billingUser.stripeSubscriptionId;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -129,6 +164,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.email = token.email as string;
         session.user.name = token.name as string;
         session.user.image = token.picture as string;
+        session.user.isPremium = Boolean(token.isPremium);
+        session.user.subscriptionStatus =
+          (token.subscriptionStatus as string | null) ?? null;
+        session.user.subscriptionPlan =
+          (token.subscriptionPlan as string | null) ?? null;
+        session.user.subscriptionCurrentPeriodEnd =
+          (token.subscriptionCurrentPeriodEnd as string | null) ?? null;
+        session.user.stripeCustomerId =
+          (token.stripeCustomerId as string | null) ?? null;
+        session.user.stripeSubscriptionId =
+          (token.stripeSubscriptionId as string | null) ?? null;
       }
       return session;
     },
@@ -138,8 +184,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Optional: Update user in database on every sign in to keep profile fresh
         if (user.email) {
            try {
-             const image = (profile as any)?.picture || (profile as any)?.avatar_url || user.image;
-             const name = profile?.name || user.name;
+            const image =
+              getProfileString(profile, "picture") ||
+              getProfileString(profile, "avatar_url") ||
+              user.image;
+            const name = getProfileString(profile, "name") || user.name;
              
              await db.user.update({
                where: { email: user.email },
@@ -190,4 +239,15 @@ export async function verifyPassword(
   hashedPassword: string
 ): Promise<boolean> {
   return bcrypt.compare(password, hashedPassword);
+}
+
+function getProfileString(
+  profile: unknown,
+  key: string
+): string | undefined {
+  if (!profile || typeof profile !== "object") {
+    return undefined;
+  }
+  const value = (profile as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
 }

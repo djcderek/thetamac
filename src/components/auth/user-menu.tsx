@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -12,7 +13,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { User, LogOut, Settings, BarChart3 } from "lucide-react";
+import {
+  User,
+  LogOut,
+  Settings,
+  BarChart3,
+  CreditCard,
+  Sparkles,
+} from "lucide-react";
 
 interface UserMenuProps {
   collapsed?: boolean;
@@ -20,6 +28,63 @@ interface UserMenuProps {
 
 export function UserMenu({ collapsed = false }: UserMenuProps) {
   const { data: session, status } = useSession();
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(
+    session?.user?.image || undefined
+  );
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAvatar = async () => {
+      if (!session?.user) return;
+
+      if (session.user.image) {
+        setAvatarUrl(session.user.image);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/settings", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data?.profile?.image) {
+          setAvatarUrl(data.profile.image);
+        }
+      } catch (error) {
+        console.error("Failed to load avatar", error);
+      }
+    };
+
+    loadAvatar();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.user]);
+
+  const handleManageBilling = async () => {
+    try {
+      setBillingLoading(true);
+      const response = await fetch("/api/billing/portal", {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.url) {
+        throw new Error(data?.error || "Unable to open billing portal.");
+      }
+      window.location.href = data.url;
+    } catch (error) {
+      console.error("Failed to open billing portal", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to open billing portal."
+      );
+    } finally {
+      setBillingLoading(false);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -69,7 +134,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
           }`}
         >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={session.user.image || undefined} alt={session.user.name || "User"} />
+            <AvatarImage src={avatarUrl || undefined} alt={session.user.name || "User"} />
             <AvatarFallback className="text-xs bg-primary text-primary-foreground">
               {initials}
             </AvatarFallback>
@@ -91,6 +156,27 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
             <p className="text-xs text-muted-foreground">{session.user.email}</p>
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {session.user.isPremium ? (
+          <DropdownMenuItem
+            onClick={handleManageBilling}
+            className="cursor-pointer"
+            disabled={billingLoading}
+          >
+            <CreditCard className="mr-2 h-4 w-4" />
+            {billingLoading ? "Opening..." : "Manage billing"}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link
+              href="/stats/performance?upgrade=1"
+              className="cursor-pointer text-primary"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Upgrade to Pro
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/stats/performance" className="cursor-pointer">

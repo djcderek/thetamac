@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/components/theme-provider";
-import { Sun, Moon, Monitor, Loader2, Edit2, X, Check } from "lucide-react";
+import { Sun, Moon, Monitor, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -50,6 +50,8 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile State
   const [profile, setProfile] = useState({
@@ -60,6 +62,7 @@ export default function SettingsPage() {
   
   // Temp avatar URL for editing
   const [tempAvatar, setTempAvatar] = useState("");
+  const MAX_AVATAR_FILE_SIZE = 2 * 1024 * 1024; // 2MB limit for inline storage
 
   // Settings State
   const [settings, setSettings] = useState({
@@ -102,6 +105,38 @@ export default function SettingsPage() {
     }
     fetchData();
   }, [session, theme, setTheme]);
+
+  const updateProfileImageValue = async (image: string) => {
+    setIsUploadingAvatar(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "profile",
+          data: { image },
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update profile image");
+      }
+
+      setProfile((prev) => ({ ...prev, image }));
+
+      await updateSession({
+        ...session,
+        user: {
+          ...session?.user,
+          image,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to update profile image", error);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   // Update helper
   const updateSettings = async (newSettings: Partial<typeof settings>) => {
@@ -148,26 +183,19 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "profile",
-          data: { 
-            name: profile.name, 
-            // Don't send email, it's disabled
-            image: profile.image 
-          }
-        })
+          data: { name: profile.name },
+        }),
       });
-      
+
       if (res.ok) {
-        // Update client-side session to reflect changes immediately
         await updateSession({
           ...session,
           user: {
             ...session?.user,
             name: profile.name,
-            image: profile.image
-            // email not updated
-          }
+          },
         });
-        router.refresh(); 
+        router.refresh();
       }
     } catch (error) {
       console.error("Failed to save profile", error);
@@ -175,12 +203,40 @@ export default function SettingsPage() {
       setIsSavingProfile(false);
     }
   };
-  
-  const handleAvatarSave = () => {
-    if (tempAvatar) {
-      setProfile({ ...profile, image: tempAvatar });
+
+  const handleAvatarSave = async () => {
+    if (!tempAvatar.trim()) {
+      return;
     }
+    await updateProfileImageValue(tempAvatar.trim());
     setIsAvatarDialogOpen(false);
+  };
+
+  const handleAvatarFileSelect = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_FILE_SIZE) {
+      alert("Please choose an image smaller than 2MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const result = reader.result as string;
+      await updateProfileImageValue(result);
+    };
+    reader.onerror = () => {
+      console.error("Failed to read file");
+    };
+    reader.readAsDataURL(file);
+
+    event.target.value = "";
   };
 
   if (isLoading) {
@@ -210,58 +266,90 @@ export default function SettingsPage() {
               <CardTitle className="text-sm font-medium">Profile</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="relative group">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarFileSelect}
+              />
+
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="relative">
                   <Avatar className="h-16 w-16">
                     <AvatarImage src={profile.image} referrerPolicy="no-referrer" />
-                    <AvatarFallback>{profile.name?.substring(0, 2).toUpperCase() || "User"}</AvatarFallback>
+                    <AvatarFallback>
+                      {profile.name?.substring(0, 2).toUpperCase() || "User"}
+                    </AvatarFallback>
                   </Avatar>
-                  
+                  {isUploadingAvatar && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                      <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
+                  >
+                    {isUploadingAvatar ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      "Upload photo"
+                    )}
+                  </Button>
+
                   <Dialog open={isAvatarDialogOpen} onOpenChange={setIsAvatarDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button 
-                        size="icon" 
-                        variant="secondary" 
-                        className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         onClick={() => setTempAvatar(profile.image || "")}
                       >
-                        <Edit2 className="h-3 w-3" />
+                        Use image URL
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Update Profile Picture</DialogTitle>
+                        <DialogTitle>Use Image URL</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
-                        <div className="flex justify-center mb-4">
-                           <Avatar className="h-20 w-20">
-                              <AvatarImage src={tempAvatar} referrerPolicy="no-referrer" />
-                              <AvatarFallback>Preview</AvatarFallback>
-                           </Avatar>
+                        <div className="flex justify-center">
+                          <Avatar className="h-20 w-20">
+                            <AvatarImage src={tempAvatar} referrerPolicy="no-referrer" />
+                            <AvatarFallback>Preview</AvatarFallback>
+                          </Avatar>
                         </div>
                         <div className="space-y-2">
-                          <Label>Image URL</Label>
-                          <Input 
-                            placeholder="https://example.com/avatar.jpg" 
+                          <Label htmlFor="avatar-url">Image URL</Label>
+                          <Input
+                            id="avatar-url"
+                            placeholder="https://example.com/avatar.jpg"
                             value={tempAvatar}
                             onChange={(e) => setTempAvatar(e.target.value)}
                           />
                           <p className="text-xs text-muted-foreground">
-                            Paste a URL to an image.
+                            Paste a link to any image hosted online.
                           </p>
                         </div>
                       </div>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAvatarDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleAvatarSave}>Save</Button>
+                        <Button variant="outline" onClick={() => setIsAvatarDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAvatarSave} disabled={!tempAvatar.trim()}>
+                          Save
+                        </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
-                </div>
-                
-                <div className="flex flex-col">
-                  <span className="font-medium">Profile Picture</span>
-                  <span className="text-xs text-muted-foreground">Click the pencil icon to change</span>
                 </div>
               </div>
 

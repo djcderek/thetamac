@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { userHasPremiumAccess } from "@/lib/subscription";
 
 interface OperationStats {
   total: number;
@@ -17,6 +18,21 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        isPremium: true,
+        subscriptionStatus: true,
+      },
+    });
+
+    if (!userHasPremiumAccess(user)) {
+      return NextResponse.json(
+        { error: "Premium subscription required." },
+        { status: 402 }
+      );
+    }
 
     // Get user stats for operation-level data
     let userStats = await db.userStats.findUnique({

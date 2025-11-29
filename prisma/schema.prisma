@@ -25,6 +25,15 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Billing
+  stripeCustomerId         String?  @unique
+  stripeSubscriptionId     String?  @unique
+  subscriptionStatus       String?
+  subscriptionPlan         SubscriptionPlan?
+  subscriptionCurrentPeriodEnd DateTime?
+  premiumSince             DateTime?
+  isPremium                Boolean  @default(false)
+
   // User settings
   settings      UserSettings?
 
@@ -195,6 +204,11 @@ model ProblemAttempt {
   @@index([userId, operation])
   @@index([userId, createdAt])
   @@map("problem_attempts")
+}
+
+enum SubscriptionPlan {
+  MONTHLY
+  YEARLY
 }
 
 // ============================================
