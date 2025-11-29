@@ -83,3 +83,4 @@ export default async function WeakPointsPage() {
   return <WeakPointsDashboard />;
 }
 
+
