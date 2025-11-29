@@ -15,7 +15,7 @@ declare module "next-auth" {
       subscriptionCurrentPeriodEnd: string | null;
       stripeCustomerId: string | null;
       stripeSubscriptionId: string | null;
-    } & DefaultSession["user"];
+    };
   }
 
   interface User extends DefaultUser {

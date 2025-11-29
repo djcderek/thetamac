@@ -6,7 +6,9 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import type { Provider } from "next-auth/providers";
+import type { Adapter } from "next-auth/adapters";
 import { isPremiumStatus } from "./subscription";
+import { SubscriptionPlan } from "@prisma/client";
 
 // Build providers array dynamically based on available credentials
 const providers: Provider[] = [
@@ -19,7 +21,7 @@ const providers: Provider[] = [
     },
     async authorize(credentials) {
       if (!credentials?.email || !credentials?.password) {
-        throw new Error("Email and password are required");
+        return null;
       }
 
       const email = credentials.email as string;
@@ -28,17 +30,30 @@ const providers: Provider[] = [
       // Find user by email
       const user = await db.user.findUnique({
         where: { email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          image: true,
+          password: true,
+          isPremium: true,
+          subscriptionStatus: true,
+          subscriptionPlan: true,
+          subscriptionCurrentPeriodEnd: true,
+          stripeCustomerId: true,
+          stripeSubscriptionId: true,
+        },
       });
 
       if (!user || !user.password) {
-        throw new Error("Invalid email or password");
+        return null;
       }
 
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
 
       if (!isValidPassword) {
-        throw new Error("Invalid email or password");
+        return null;
       }
 
       return {
@@ -46,6 +61,12 @@ const providers: Provider[] = [
         email: user.email,
         name: user.name,
         image: user.image,
+        isPremium: user.isPremium,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionPlan: user.subscriptionPlan,
+        subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
       };
     },
   }),
@@ -71,7 +92,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(db) as Adapter,
   secret: process.env.AUTH_SECRET || "development-secret-change-in-production",
   session: {
     strategy: "jwt", // Use JWT for credentials provider compatibility
@@ -168,9 +189,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.subscriptionStatus =
           (token.subscriptionStatus as string | null) ?? null;
         session.user.subscriptionPlan =
-          (token.subscriptionPlan as string | null) ?? null;
-        session.user.subscriptionCurrentPeriodEnd =
-          (token.subscriptionCurrentPeriodEnd as string | null) ?? null;
+          (token.subscriptionPlan as SubscriptionPlan | null) ?? null;
+        (session.user as { subscriptionCurrentPeriodEnd: string | null }).subscriptionCurrentPeriodEnd =
+          token.subscriptionCurrentPeriodEnd ?? null;
         session.user.stripeCustomerId =
           (token.stripeCustomerId as string | null) ?? null;
         session.user.stripeSubscriptionId =
