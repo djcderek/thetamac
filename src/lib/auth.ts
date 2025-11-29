@@ -178,30 +178,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return session;
     },
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       // Allow OAuth without email verification
       if (account?.provider !== "credentials") {
-        // Optional: Update user in database on every sign in to keep profile fresh
-        if (user.email) {
-           try {
-            const image =
-              getProfileString(profile, "picture") ||
-              getProfileString(profile, "avatar_url") ||
-              user.image;
-            const name = getProfileString(profile, "name") || user.name;
-             
-             await db.user.update({
-               where: { email: user.email },
-               data: {
-                 name: name,
-                 image: image,
-               }
-             });
-           } catch (e) {
-             console.error("Failed to update user on sign in", e);
-             // Don't block sign in
-           }
-        }
+        // The PrismaAdapter handles user creation/update automatically
+        // We just need to allow the sign in to proceed
         return true;
       }
 
