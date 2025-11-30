@@ -19,6 +19,11 @@ import {
   Trophy,
   Clock,
   Flame,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  CornerDownLeft,
+  Wand2,
 } from "lucide-react";
 
 interface Problem {
@@ -85,6 +90,7 @@ function FocusedTrainingContent() {
   // Mistakes to retry
   const [mistakes, setMistakes] = useState<Problem[]>([]);
   const [isRetryRound, setIsRetryRound] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -403,34 +409,63 @@ function FocusedTrainingContent() {
                   These are specifically chosen based on your weak areas.
                 </p>
 
-                {/* Submission Mode Selection */}
-                <div className="mb-6">
-                  <label className="text-sm font-medium mb-3 block">Submission Mode</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setSubmitMode("manual")}
-                      className={`p-3 rounded-lg border text-center transition-colors ${
-                        submitMode === "manual"
-                          ? "border-foreground bg-secondary"
-                          : "border-border hover:bg-secondary/50"
-                      }`}
-                    >
-                      <span className="font-medium text-sm">Press Enter</span>
-                      <span className="text-xs text-muted-foreground block">Submit with Enter key</span>
-                    </button>
-                    <button
-                      onClick={() => setSubmitMode("auto")}
-                      className={`p-3 rounded-lg border text-center transition-colors ${
-                        submitMode === "auto"
-                          ? "border-foreground bg-secondary"
-                          : "border-border hover:bg-secondary/50"
-                      }`}
-                    >
-                      <span className="font-medium text-sm">Auto-submit</span>
-                      <span className="text-xs text-muted-foreground block">Submit when correct</span>
-                    </button>
+                {/* Settings summary - clickable to expand */}
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 transition-colors text-left mb-6"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Settings className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>
+                        <span className="font-medium text-foreground">Settings: </span>
+                        {submitMode === "auto" ? "Auto-submit" : "Press Enter to submit"}
+                      </span>
+                    </div>
+                    {showSettings ? (
+                      <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    )}
                   </div>
-                </div>
+                </button>
+
+                {/* Collapsible Settings Section */}
+                {showSettings && (
+                  <div className="mb-6 p-4 rounded-lg border border-border bg-secondary/20 text-left">
+                    <label className="text-sm font-medium mb-3 block">Submission Mode</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setSubmitMode("manual")}
+                        className={`p-3 rounded-lg border text-center transition-colors ${
+                          submitMode === "manual"
+                            ? "border-foreground bg-secondary"
+                            : "border-border hover:bg-secondary/50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <CornerDownLeft className="w-4 h-4" />
+                          <span className="font-medium text-sm">Press Enter</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground block">Submit with Enter key</span>
+                      </button>
+                      <button
+                        onClick={() => setSubmitMode("auto")}
+                        className={`p-3 rounded-lg border text-center transition-colors ${
+                          submitMode === "auto"
+                            ? "border-foreground bg-secondary"
+                            : "border-border hover:bg-secondary/50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <Wand2 className="w-4 h-4" />
+                          <span className="font-medium text-sm">Auto-submit</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground block">Submit when correct</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <Button onClick={startTraining} size="lg" className="w-full">
                   <Play className="w-4 h-4 mr-2" />

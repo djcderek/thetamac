@@ -666,6 +666,7 @@ export default function TrainingPage() {
   const [practiceTimerLimit, setPracticeTimerLimit] = useState(10);
   const [submitMode, setSubmitMode] = useState<SubmitMode>("manual");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [operationRanges, setOperationRanges] = useState<OperationRanges>(defaultRanges);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [userAnswer, setUserAnswer] = useState("");
@@ -1232,233 +1233,248 @@ export default function TrainingPage() {
                     </div>
                   )}
 
-                  {/* Operation Selection - Multi-select */}
-                  <div>
-                    <label className="text-sm font-medium mb-3 block">
-                      Operations <span className="text-muted-foreground font-normal">(select multiple)</span>
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {operations.map(({ op, label }) => (
-                        <button
-                          key={op}
-                          onClick={() => toggleOperation(op)}
-                          className={`p-4 rounded-lg border text-center transition-colors ${
-                            selectedOperations.includes(op)
-                              ? "border-foreground bg-secondary"
-                              : "border-border hover:bg-secondary/50"
-                          }`}
-                        >
-                          <span className="text-2xl font-mono block mb-1">{op}</span>
-                          <span className="text-xs text-muted-foreground">{label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Difficulty Selection - Always visible, shows what it affects */}
-                  {!showAdvanced && (
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <label className="text-sm font-medium">Difficulty</label>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Info className="w-3 h-3" />
-                          Affects number range
-                        </span>
+                  {/* Summary of settings - clickable to expand */}
+                  <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 transition-colors text-left"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <Settings className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-medium text-foreground">Settings: </span>
+                          {showAdvanced ? (
+                            <span>Custom ranges • </span>
+                          ) : (
+                            <span className="capitalize">{difficulty} difficulty • </span>
+                          )}
+                          {gameMode === "timed" && <span>{formatTime(timedModeLimit)} session • </span>}
+                          {gameMode === "practice" && <span>{practiceTimerLimit}s per question • </span>}
+                          {gameMode === "learning" && <span>No time limit • </span>}
+                          <span>{submitMode === "auto" ? "Auto-submit" : "Press Enter"} • </span>
+                          <span>{selectedOperations.join(" ")}</span>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {(["easy", "medium", "hard", "expert"] as Difficulty[]).map((d) => {
-                          const config = difficultyConfig[d];
-                          return (
+                      {showSettings ? (
+                        <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Collapsible Settings Section */}
+                  {showSettings && (
+                    <div className="space-y-6 p-4 rounded-lg border border-border bg-secondary/20">
+                      {/* Operation Selection - Multi-select */}
+                      <div>
+                        <label className="text-sm font-medium mb-3 block">
+                          Operations <span className="text-muted-foreground font-normal">(select multiple)</span>
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {operations.map(({ op, label }) => (
                             <button
-                              key={d}
-                              onClick={() => setDifficulty(d)}
-                              className={`py-3 px-3 rounded-lg border text-center transition-colors ${
-                                difficulty === d
-                                  ? `border-2 ${getDifficultyColor(d)}`
+                              key={op}
+                              onClick={() => toggleOperation(op)}
+                              className={`p-4 rounded-lg border text-center transition-colors ${
+                                selectedOperations.includes(op)
+                                  ? "border-foreground bg-secondary"
                                   : "border-border hover:bg-secondary/50"
                               }`}
                             >
-                              <span className={`text-sm font-medium capitalize block ${difficulty === d ? "" : ""}`}>
-                                {d}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground block mt-0.5">
-                                +/− ≤{config.addSubMax}, ×/÷ ≤{config.mulDivMax}
-                              </span>
+                              <span className="text-2xl font-mono block mb-1">{op}</span>
+                              <span className="text-xs text-muted-foreground">{label}</span>
                             </button>
-                          );
-                        })}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* Advanced Settings */}
-                  <div>
-                    <button
-                      onClick={() => setShowAdvanced(!showAdvanced)}
-                      className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Settings className="w-4 h-4" />
-                      Custom Ranges
-                      {showAdvanced ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
+                      {/* Difficulty Selection - Always visible, shows what it affects */}
+                      {!showAdvanced && (
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <label className="text-sm font-medium">Difficulty</label>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Info className="w-3 h-3" />
+                              Affects number range
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {(["easy", "medium", "hard", "expert"] as Difficulty[]).map((d) => {
+                              const config = difficultyConfig[d];
+                              return (
+                                <button
+                                  key={d}
+                                  onClick={() => setDifficulty(d)}
+                                  className={`py-3 px-3 rounded-lg border text-center transition-colors ${
+                                    difficulty === d
+                                      ? `border-2 ${getDifficultyColor(d)}`
+                                      : "border-border hover:bg-secondary/50"
+                                  }`}
+                                >
+                                  <span className={`text-sm font-medium capitalize block ${difficulty === d ? "" : ""}`}>
+                                    {d}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground block mt-0.5">
+                                    +/− ≤{config.addSubMax}, ×/÷ ≤{config.mulDivMax}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
-                    </button>
 
-                    {showAdvanced && (
-                      <div className="mt-4 space-y-4 p-4 rounded-lg border border-border bg-secondary/30">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-muted-foreground">
-                            Custom ranges override difficulty presets
-                          </p>
+                      {/* Advanced Settings */}
+                      <div>
+                        <button
+                          onClick={() => setShowAdvanced(!showAdvanced)}
+                          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Settings className="w-4 h-4" />
+                          Custom Ranges
+                          {showAdvanced ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </button>
+
+                        {showAdvanced && (
+                          <div className="mt-4 space-y-4 p-4 rounded-lg border border-border bg-secondary/30">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-muted-foreground">
+                                Custom ranges override difficulty presets
+                              </p>
+                              <button
+                                onClick={() => {
+                                  setShowAdvanced(false);
+                                }}
+                                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                Use difficulty presets instead
+                              </button>
+                            </div>
+                            {operations.map(({ op, label }) => (
+                              <div key={op} className="flex items-center gap-3">
+                                <span className="w-20 text-sm font-medium">{label}</span>
+                                <div className="flex items-center gap-2 flex-1">
+                                  <Input
+                                    type="number"
+                                    value={operationRanges[op].min}
+                                    onChange={(e) => updateRange(op, "min", parseInt(e.target.value) || 1)}
+                                    className="w-20 h-8 text-center text-sm"
+                                    min={1}
+                                  />
+                                  <span className="text-muted-foreground">to</span>
+                                  <Input
+                                    type="number"
+                                    value={operationRanges[op].max}
+                                    onChange={(e) => updateRange(op, "max", parseInt(e.target.value) || 1)}
+                                    className="w-20 h-8 text-center text-sm"
+                                    min={1}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Timed Mode Time Selection */}
+                      {gameMode === "timed" && (
+                        <div>
+                          <label className="text-sm font-medium mb-3 block">Session Duration</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {timedModeLimits.map((time) => (
+                              <button
+                                key={time}
+                                onClick={() => setTimedModeLimit(time)}
+                                className={`py-2 px-3 rounded-lg border text-sm transition-colors ${
+                                  timedModeLimit === time
+                                    ? "border-foreground bg-secondary font-medium"
+                                    : "border-border hover:bg-secondary/50"
+                                }`}
+                              >
+                                {formatTime(time)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Practice Mode Timer Selection */}
+                      {gameMode === "practice" && (
+                        <div>
+                          <label className="text-sm font-medium mb-3 block">Time Per Question</label>
+                          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                            {practiceTimerOptions.map((time) => (
+                              <button
+                                key={time}
+                                onClick={() => setPracticeTimerLimit(time)}
+                                className={`py-2 px-3 rounded-lg border text-sm transition-colors ${
+                                  practiceTimerLimit === time
+                                    ? "border-foreground bg-secondary font-medium"
+                                    : "border-border hover:bg-secondary/50"
+                                }`}
+                              >
+                                {time}s
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Submission Mode Selection */}
+                      <div>
+                        <label className="text-sm font-medium mb-3 block">Answer Submission</label>
+                        <div className="grid grid-cols-2 gap-2">
                           <button
-                            onClick={() => {
-                              setShowAdvanced(false);
-                            }}
-                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={() => setSubmitMode("manual")}
+                            className={`p-4 rounded-lg border text-left transition-colors ${
+                              submitMode === "manual"
+                                ? "border-foreground bg-secondary"
+                                : "border-border hover:bg-secondary/50"
+                            }`}
                           >
-                            Use difficulty presets instead
+                            <div className="flex items-center gap-2 mb-1">
+                              <CornerDownLeft className="w-4 h-4" />
+                              <span className="font-medium">Press Enter</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              Submit with Enter key
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setSubmitMode("auto")}
+                            className={`p-4 rounded-lg border text-left transition-colors ${
+                              submitMode === "auto"
+                                ? "border-foreground bg-secondary"
+                                : "border-border hover:bg-secondary/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <Wand2 className="w-4 h-4" />
+                              <span className="font-medium">Auto-submit</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              Submit when correct
+                            </span>
                           </button>
                         </div>
-                        {operations.map(({ op, label }) => (
-                          <div key={op} className="flex items-center gap-3">
-                            <span className="w-20 text-sm font-medium">{label}</span>
-                            <div className="flex items-center gap-2 flex-1">
-                              <Input
-                                type="number"
-                                value={operationRanges[op].min}
-                                onChange={(e) => updateRange(op, "min", parseInt(e.target.value) || 1)}
-                                className="w-20 h-8 text-center text-sm"
-                                min={1}
-                              />
-                              <span className="text-muted-foreground">to</span>
-                              <Input
-                                type="number"
-                                value={operationRanges[op].max}
-                                onChange={(e) => updateRange(op, "max", parseInt(e.target.value) || 1)}
-                                className="w-20 h-8 text-center text-sm"
-                                min={1}
-                              />
+                        {submitMode === "auto" && (
+                          <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            <div className="flex items-start gap-2">
+                              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                              <p className="text-xs text-amber-800 dark:text-amber-200">
+                                <span className="font-medium">Note:</span> Accuracy data will not be tracked in auto-submit mode since incorrect attempts are not recorded.
+                              </p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Timed Mode Time Selection */}
-                  {gameMode === "timed" && (
-                    <div>
-                      <label className="text-sm font-medium mb-3 block">Session Duration</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {timedModeLimits.map((time) => (
-                          <button
-                            key={time}
-                            onClick={() => setTimedModeLimit(time)}
-                            className={`py-2 px-3 rounded-lg border text-sm transition-colors ${
-                              timedModeLimit === time
-                                ? "border-foreground bg-secondary font-medium"
-                                : "border-border hover:bg-secondary/50"
-                            }`}
-                          >
-                            {formatTime(time)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Practice Mode Timer Selection */}
-                  {gameMode === "practice" && (
-                    <div>
-                      <label className="text-sm font-medium mb-3 block">Time Per Question</label>
-                      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                        {practiceTimerOptions.map((time) => (
-                          <button
-                            key={time}
-                            onClick={() => setPracticeTimerLimit(time)}
-                            className={`py-2 px-3 rounded-lg border text-sm transition-colors ${
-                              practiceTimerLimit === time
-                                ? "border-foreground bg-secondary font-medium"
-                                : "border-border hover:bg-secondary/50"
-                            }`}
-                          >
-                            {time}s
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Submission Mode Selection */}
-                  <div>
-                    <label className="text-sm font-medium mb-3 block">Answer Submission</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setSubmitMode("manual")}
-                        className={`p-4 rounded-lg border text-left transition-colors ${
-                          submitMode === "manual"
-                            ? "border-foreground bg-secondary"
-                            : "border-border hover:bg-secondary/50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <CornerDownLeft className="w-4 h-4" />
-                          <span className="font-medium">Press Enter</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          Submit with Enter key
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => setSubmitMode("auto")}
-                        className={`p-4 rounded-lg border text-left transition-colors ${
-                          submitMode === "auto"
-                            ? "border-foreground bg-secondary"
-                            : "border-border hover:bg-secondary/50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Wand2 className="w-4 h-4" />
-                          <span className="font-medium">Auto-submit</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          Submit when correct
-                        </span>
-                      </button>
-                    </div>
-                    {submitMode === "auto" && (
-                      <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                          <p className="text-xs text-amber-800 dark:text-amber-200">
-                            <span className="font-medium">Note:</span> Accuracy data will not be tracked in auto-submit mode since incorrect attempts are not recorded.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Summary of settings */}
-                  <div className="p-3 rounded-lg bg-secondary/30 border border-border">
-                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                      <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <span className="font-medium text-foreground">Session summary: </span>
-                        {showAdvanced ? (
-                          <span>Custom ranges • </span>
-                        ) : (
-                          <span className="capitalize">{difficulty} difficulty • </span>
                         )}
-                        {gameMode === "timed" && <span>{formatTime(timedModeLimit)} session • </span>}
-                        {gameMode === "practice" && <span>{practiceTimerLimit}s per question • </span>}
-                        {gameMode === "learning" && <span>No time limit • </span>}
-                        <span>{submitMode === "auto" ? "Auto-submit" : "Press Enter"} • </span>
-                        <span>{selectedOperations.join(" ")}</span>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Start Button */}
                   <Button onClick={startTraining} className="w-full" size="lg">

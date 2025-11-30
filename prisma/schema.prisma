@@ -308,3 +308,97 @@ model MatchRound {
   @@index([matchId])
   @@map("match_rounds")
 }
+
+// ============================================
+// MATH RACERS
+// ============================================
+
+model RaceMatch {
+  id              String    @id @default(cuid())
+  
+  // Race config
+  trackLength     Int       @default(50)  // meters to finish
+  difficulty      String    @default("medium")
+  maxPlayers      Int       @default(5)
+  
+  // Status
+  status          String    @default("waiting") // "waiting", "countdown", "racing", "finished"
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  
+  // Relations
+  players         RacePlayer[]
+  events          RaceEvent[]
+
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("race_matches")
+}
+
+model RacePlayer {
+  id              String    @id @default(cuid())
+  raceId          String
+  userId          String
+  
+  // Player info (denormalized for performance)
+  username        String
+  ratingBefore    Int
+  
+  // Race state
+  lane            Int       @default(3)   // 1-5, starts in middle
+  position        Int       @default(0)   // meters from start
+  isStunned       Boolean   @default(false)
+  stunUntil       DateTime?
+  
+  // Results
+  finishPosition  Int?      // 1st, 2nd, 3rd, etc. (null if DNF)
+  finishTime      Int?      // ms from race start to finish
+  ratingChange    Int       @default(0)
+  
+  // Stats
+  problemsSolved  Int       @default(0)
+  bumpsGiven      Int       @default(0)
+  bumpsReceived   Int       @default(0)
+  boostsUsed      Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  race            RaceMatch @relation(fields: [raceId], references: [id], onDelete: Cascade)
+
+  @@unique([raceId, userId])
+  @@index([raceId])
+  @@index([userId])
+  @@map("race_players")
+}
+
+model RaceEvent {
+  id              String    @id @default(cuid())
+  raceId          String
+  playerId        String    // The player who triggered the event
+  
+  eventType       String    // "move_forward", "lane_change", "boost", "bump", "stun", "finish"
+  
+  // Event details (JSON for flexibility)
+  details         Json      @default("{}")
+  
+  // Problem that was solved (if applicable)
+  operandA        Int?
+  operandB        Int?
+  operation       String?
+  correctAnswer   Int?
+  userAnswer      Int?
+  timeTaken       Float?    // seconds
+  
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  race            RaceMatch @relation(fields: [raceId], references: [id], onDelete: Cascade)
+
+  @@index([raceId])
+  @@index([playerId])
+  @@map("race_events")
+}

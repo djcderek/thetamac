@@ -3,6 +3,7 @@ import { parse } from "url";
 import next from "next";
 import { Server as SocketServer } from "socket.io";
 import { setupMultiplayerHandlers } from "./src/lib/multiplayer/socket-handlers";
+import { setupRacingHandlers } from "./src/lib/racing/socket-handlers";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -25,12 +26,17 @@ app.prepare().then(() => {
     transports: ["websocket", "polling"],
   });
 
-  // Setup multiplayer game handlers
+  // Setup multiplayer game handlers (1v1 mode)
   setupMultiplayerHandlers(io);
+  
+  // Setup Math Racers game handlers (5-player racing mode)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setupRacingHandlers(io as any);
 
   httpServer.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
     console.log(`> Socket.io server running`);
+    console.log(`> Math Racers mode enabled`);
   });
 });
 

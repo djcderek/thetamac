@@ -13,6 +13,7 @@ import {
   PanelLeft,
   X,
   Menu,
+  Flag,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -22,6 +23,7 @@ const navigation = [
   { name: "Training", href: "/training", icon: Brain },
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Multiplayer", href: "/multiplayer", icon: Swords },
+  { name: "Racing", href: "/racing", icon: Flag },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
 ];
 
