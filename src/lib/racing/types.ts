@@ -59,6 +59,11 @@ export interface RacePlayer {
   username: string;
   rating: number;
   
+  // Cosmetics
+  selectedSkin?: string;
+  selectedTrail?: string;
+  selectedVehicle?: string;
+  
   // Race state
   lane: number;           // 1-5
   position: number;       // meters from start (0 to trackLength)
@@ -250,6 +255,9 @@ export interface RaceServerToClientEvents {
       rating: number;
       lane: number;
       position: number;
+      selectedSkin?: string;
+      selectedTrail?: string;
+      selectedVehicle?: string;
     }>;
     config: RaceConfig;
     yourProblems: PlayerProblems;
@@ -319,6 +327,7 @@ export interface RaceServerToClientEvents {
       };
     }>;
     yourRatingChange: number;
+    coinsEarned?: number;
   }) => void;
   
   "race:player_disconnected": (data: { playerId: string }) => void;
@@ -370,4 +379,3 @@ export interface RaceSocketData {
   raceId: string | null;
   lobbyId: string | null;
 }
-

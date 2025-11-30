@@ -4,6 +4,7 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Force new instance if schema changed
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({

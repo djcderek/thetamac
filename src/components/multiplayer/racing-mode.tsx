@@ -418,10 +418,10 @@ function getOrdinal(n: number): string {
 }
 
 // ============================================
-// MAIN PAGE COMPONENT
+// RACING MODE COMPONENT
 // ============================================
 
-export default function RacingPage() {
+export function RacingMode() {
   const { data: session, status } = useSession();
   const {
     isConnected,
@@ -448,7 +448,7 @@ export default function RacingPage() {
   // Auth loading
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -457,7 +457,7 @@ export default function RacingPage() {
   // Not signed in
   if (!session?.user) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-[calc(100vh-200px)]">
         <div className="border-b border-border">
           <div className="px-6 py-4">
             <h1 className="text-lg font-semibold">Math Racers</h1>
@@ -487,7 +487,7 @@ export default function RacingPage() {
   // Results screen
   if (result) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-[calc(100vh-200px)]">
         <div className="border-b border-border">
           <div className="px-6 py-4">
             <h1 className="text-lg font-semibold">Race Complete</h1>
@@ -514,7 +514,7 @@ export default function RacingPage() {
   // Racing screen
   if (race.inRace && race.status === "racing") {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-[calc(100vh-200px)]">
         <div className="border-b border-border">
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
@@ -594,7 +594,7 @@ export default function RacingPage() {
   // Countdown screen
   if (race.inRace && race.status === "countdown") {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-[calc(100vh-200px)]">
         <div className="border-b border-border">
           <div className="px-6 py-4">
             <h1 className="text-lg font-semibold">Get Ready!</h1>
@@ -634,7 +634,7 @@ export default function RacingPage() {
   // Lobby screen
   if (lobby.inLobby) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-[calc(100vh-200px)]">
         <div className="border-b border-border">
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
@@ -740,7 +740,7 @@ export default function RacingPage() {
   // Queue screen
   if (queue.inQueue) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-[calc(100vh-200px)]">
         <div className="border-b border-border">
           <div className="px-6 py-4 flex items-center justify-between">
             <div>
@@ -786,7 +786,7 @@ export default function RacingPage() {
 
   // Default lobby screen
   return (
-    <div className="min-h-screen">
+    <div className="min-h-[calc(100vh-200px)]">
       <div className="border-b border-border">
         <div className="px-6 py-4 flex items-center justify-between">
           <div>

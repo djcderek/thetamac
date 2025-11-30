@@ -41,6 +41,8 @@ interface RacePlayerState {
   isStunned: boolean;
   hasShield: boolean;
   speedBoostActive: boolean;
+  selectedSkin?: string;
+  selectedTrail?: string;
 }
 
 interface RaceState {
@@ -76,6 +78,7 @@ interface RaceResult {
     };
   }>;
   myRatingChange: number;
+  coinsEarned?: number;
 }
 
 interface ActionFeedback {
@@ -370,9 +373,9 @@ export function useRaceSocket() {
       });
     });
 
-    socket.on("race:finished", ({ results, yourRatingChange }) => {
+    socket.on("race:finished", ({ results, yourRatingChange, coinsEarned }) => {
       setRace(prev => ({ ...prev, status: "finished" }));
-      setResult({ results, myRatingChange: yourRatingChange });
+      setResult({ results, myRatingChange: yourRatingChange, coinsEarned });
     });
 
     socket.on("race:player_disconnected", ({ playerId }) => {

@@ -34,6 +34,10 @@ model User {
   premiumSince             DateTime?
   isPremium                Boolean  @default(false)
 
+  // Economy & Cosmetics
+  coins                    Int      @default(0)
+  items                    UserItem[]
+
   // User settings
   settings      UserSettings?
 
@@ -353,6 +357,10 @@ model RacePlayer {
   isStunned       Boolean   @default(false)
   stunUntil       DateTime?
   
+  // Cosmetics
+  selectedSkin    String?
+  selectedTrail   String?
+  
   // Results
   finishPosition  Int?      // 1st, 2nd, 3rd, etc. (null if DNF)
   finishTime      Int?      // ms from race start to finish
@@ -401,4 +409,40 @@ model RaceEvent {
   @@index([raceId])
   @@index([playerId])
   @@map("race_events")
+}
+
+// ============================================
+// SHOP & COSMETICS
+// ============================================
+
+model ShopItem {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  cost        Int
+  type        String    // "skin", "trail"
+  assetId     String    // identifier for the game logic/renderer
+  imageUrl    String?
+  isProOnly   Boolean   @default(true)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  owners      UserItem[]
+  
+  @@map("shop_items")
+}
+
+model UserItem {
+  id        String    @id @default(cuid())
+  userId    String
+  itemId    String
+  purchasedAt DateTime @default(now())
+  isEquipped Boolean  @default(false)
+  
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item      ShopItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, itemId])
+  @@map("user_items")
 }

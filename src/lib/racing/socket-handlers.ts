@@ -191,8 +191,35 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
   // Convert lobby players to matchmaking entries
   const entries: RaceMatchmakingEntry[] = lobby.players;
   
+  // Fetch cosmetics
+  const playerIds = entries.map(e => e.playerId);
+  const userItems = await db.userItem.findMany({
+    where: {
+      userId: { in: playerIds },
+      isEquipped: true
+    },
+    include: { item: true }
+  });
+
+  const playerCosmetics: Record<string, { skin?: string, trail?: string, vehicle?: string }> = {};
+  userItems.forEach(ui => {
+      if (!playerCosmetics[ui.userId]) playerCosmetics[ui.userId] = {};
+      if (ui.item.type === 'skin') playerCosmetics[ui.userId].skin = ui.item.assetId;
+      if (ui.item.type === 'trail') playerCosmetics[ui.userId].trail = ui.item.assetId;
+      if (ui.item.type === 'vehicle') playerCosmetics[ui.userId].vehicle = ui.item.assetId;
+  });
+
   // Create race state
   const state = createRaceState(raceId, entries, lobby.config);
+  
+  // Apply cosmetics
+  state.players.forEach(p => {
+    if (playerCosmetics[p.id]) {
+        p.selectedSkin = playerCosmetics[p.id].skin;
+        p.selectedTrail = playerCosmetics[p.id].trail;
+        p.selectedVehicle = playerCosmetics[p.id].vehicle;
+    }
+  });
   
   // Move sockets from lobby to race room
   for (const entry of entries) {
@@ -232,6 +259,9 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
             ratingBefore: player.rating,
             lane: player.lane,
             position: player.position,
+            selectedSkin: player.selectedSkin,
+            selectedTrail: player.selectedTrail,
+            // selectedVehicle: player.selectedVehicle, // Not persisting to DB yet to avoid migration requirement
           },
         })
       )
@@ -262,6 +292,9 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
           rating: p.rating,
           lane: p.lane,
           position: p.position,
+          selectedSkin: p.selectedSkin,
+          selectedTrail: p.selectedTrail,
+          selectedVehicle: p.selectedVehicle,
         })),
         config: state.config,
         yourProblems: player.problems,
@@ -433,9 +466,25 @@ async function endRace(io: RaceServer, raceId: string) {
   for (const player of race.state.players) {
     const socket = io.sockets.sockets.get(player.socketId);
     if (socket) {
+      let coinsEarned = 10; // Participation
+      if (player.finishPosition === 1) coinsEarned += 40;
+      else if (player.finishPosition === 2) coinsEarned += 20;
+      else if (player.finishPosition === 3) coinsEarned += 10;
+
+      // Award coins
+      try {
+        await db.user.update({
+          where: { id: player.id },
+          data: { coins: { increment: coinsEarned } }
+        });
+      } catch (err) {
+        console.error(`[Race] Failed to award coins to ${player.id}:`, err);
+      }
+
       socket.emit("race:finished", {
         results,
         yourRatingChange: ratingChanges[player.id] || 0,
+        coinsEarned,
       });
     }
   }
