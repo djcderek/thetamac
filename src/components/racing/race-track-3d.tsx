@@ -1,13 +1,13 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import {
   Stars,
   PerspectiveCamera,
 } from "@react-three/drei";
 import { TrackObstacle, TrackDrop } from "@/lib/racing/types";
-import { Flag, Zap } from "lucide-react";
+import { Flag } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   Car,
@@ -17,6 +17,9 @@ import {
   GameCamera,
   EnvironmentScenery,
 } from "./race-track-scene";
+
+// Visibility culling distance in meters
+const VISIBILITY_DISTANCE = 100;
 
 // ============================================
 // TYPES
@@ -33,6 +36,7 @@ interface RaceTrack3DProps {
     selectedSkin?: string;
     selectedTrail?: string;
     selectedVehicle?: string;
+    selectedWheel?: string;
   }>;
   trackLength: number;
   myPlayerId: string;
@@ -140,25 +144,47 @@ function SceneContent({
   myPosition,
   getPlayerColor
 }: RaceTrack3DProps & { getPlayerColor: (id: string, index: number) => string }) {
+  // Filter obstacles and drops based on visibility distance for performance
+  const visibleObstacles = useMemo(() => {
+    return obstacles.filter(obs => {
+      const distance = Math.abs(obs.position - myPosition);
+      return distance < VISIBILITY_DISTANCE;
+    });
+  }, [obstacles, myPosition]);
+
+  const visibleDrops = useMemo(() => {
+    return drops.filter(drop => {
+      if (drop.collected) return false;
+      const distance = Math.abs(drop.position - myPosition);
+      return distance < VISIBILITY_DISTANCE;
+    });
+  }, [drops, myPosition]);
+
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={60} />
       
-      Lighting
-      <ambientLight intensity={0.5} />
+      {/* Lighting */}
+      <ambientLight intensity={0.65} color="#e2e8f0" />
+      <hemisphereLight
+        args={["#f8fafc", "#0f172a", 0.9]}
+        position={[0, 60, 0]}
+      />
       <directionalLight 
-        position={[20, 50, 10]} 
-        intensity={1.5} 
+        position={[-30, 80, 40]} 
+        intensity={1.6} 
+        color="#fff7ed"
         castShadow 
         shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.001}
       >
-        <orthographicCamera attach="shadow-camera" args={[-50, 50, 200, -200]} />
+        <orthographicCamera attach="shadow-camera" args={[-60, 60, 220, -220]} />
       </directionalLight>
       
-      {/* Environment */}
-      <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-      <fog attach="fog" args={["#111827", 10, 60]} />
-      <EnvironmentScenery length={trackLength} />
+      {/* Environment - Reduced star count for performance */}
+      <Stars radius={100} depth={50} count={500} factor={4} saturation={0} fade speed={1} />
+      <fog attach="fog" args={["#0f172a", 8, 140]} />
+      <EnvironmentScenery length={trackLength} myPosition={myPosition} />
       
       {/* Track Elements */}
       <Track length={trackLength} />
@@ -178,11 +204,12 @@ function SceneContent({
           skin={player.selectedSkin}
           trail={player.selectedTrail}
           vehicleType={player.selectedVehicle}
+          wheel={player.selectedWheel}
         />
       ))}
 
-      {/* Obstacles */}
-      {obstacles.map((obs) => (
+      {/* Obstacles - Only render visible ones */}
+      {visibleObstacles.map((obs) => (
         <Obstacle 
           key={obs.id} 
           type={obs.type} 
@@ -191,8 +218,8 @@ function SceneContent({
         />
       ))}
 
-      {/* Drops */}
-      {drops.map((drop) => (
+      {/* Drops - Only render visible ones */}
+      {visibleDrops.map((drop) => (
         <Drop 
           key={drop.id} 
           type={drop.type} 

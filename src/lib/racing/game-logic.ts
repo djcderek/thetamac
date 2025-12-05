@@ -32,7 +32,11 @@ export const DEFAULT_RACE_CONFIG: RaceConfig = {
   wrongAnswerPenalty: 1500, // 1.5 second cooldown
   obstacleCount: 15,        // Reduced density for 500m
   dropCount: 12,            // Drops for 500m
+  coinDropCount: 10,        // Coin pickups on track
+  baseSpeed: 2,           // 3x base speed to keep races moving
 };
+
+const COIN_DROP_VALUE = 5;
 
 // ============================================
 // PROBLEM GENERATION
@@ -127,7 +131,7 @@ export function generatePlayerProblems(
 // ============================================
 
 const OBSTACLE_TYPES: ObstacleType[] = ["barrier", "oil_slick", "cone", "pothole"];
-const DROP_TYPES: DropType[] = ["speed_boost", "shield", "freeze_others", "magnet"];
+const DROP_TYPES: DropType[] = ["speed_boost", "shield", "freeze_others", "magnet", "coin"];
 
 export function generateTrackObstacles(config: RaceConfig): TrackObstacle[] {
   const obstacles: TrackObstacle[] = [];
@@ -164,8 +168,23 @@ export function generateTrackDrops(config: RaceConfig): TrackDrop[] {
   const minPosition = 8; // Don't place drops in first 8 meters
   const maxPosition = config.trackLength - 3; // Or last 3 meters
   
+  // Guaranteed coin drops
+  for (let i = 0; i < config.coinDropCount; i++) {
+    const lane = Math.floor(Math.random() * 5) + 1; // 1-5
+    const position = minPosition + Math.random() * (maxPosition - minPosition);
+    drops.push({
+      id: randomUUID(),
+      type: "coin",
+      lane,
+      position: Math.round(position * 10) / 10,
+      collected: false,
+      collectedBy: null,
+    });
+  }
+
+  // Powerup drops (exclude coin when picking random type)
   for (let i = 0; i < config.dropCount; i++) {
-    const type = DROP_TYPES[Math.floor(Math.random() * DROP_TYPES.length)];
+    const type = DROP_TYPES[Math.floor(Math.random() * (DROP_TYPES.length - 1))]; // exclude coin
     const lane = Math.floor(Math.random() * 5) + 1; // 1-5
     const position = minPosition + Math.random() * (maxPosition - minPosition);
     
@@ -196,6 +215,7 @@ export const DROP_EFFECTS: Record<DropType, { duration: number; description: str
   shield: { duration: 10000, description: "Block one obstacle or bump" },
   freeze_others: { duration: 3000, description: "Stun all other players for 3 seconds" },
   magnet: { duration: 8000, description: "Auto-collect nearby drops" },
+  coin: { duration: 0, description: "Collect coins" },
 };
 
 // ============================================
@@ -227,6 +247,8 @@ export function createRacePlayer(
     wrongAnswers: 0,
     dropsCollected: 0,
     obstacleHits: 0,
+    coinPickups: 0,
+    coinsEarned: 0,
     finishPosition: null,
     finishTime: null,
   };
@@ -436,17 +458,27 @@ function processMove(state: RaceState, player: RacePlayer, action: "forward" | "
   }
   
   // Check for drop collection
-  let dropCollectedInfo: { type: DropType; effectDuration: number } | undefined;
+  let dropCollectedInfo: { dropId: string; type: DropType; effectDuration: number; coinValue?: number } | undefined;
   const dropCollected = checkDropCollection(player, state.drops, previousPosition);
   if (dropCollected) {
     // Handle specific drops
     if (dropCollected.drop.type === "speed_boost") {
       // Instant burst instead of duration
       player.position = Math.min(player.position + 5, state.config.trackLength);
-      dropCollectedInfo = { type: "speed_boost", effectDuration: 0 };
+      dropCollectedInfo = { dropId: dropCollected.drop.id, type: "speed_boost", effectDuration: 0 };
+    } else if (dropCollected.drop.type === "coin") {
+      player.coinPickups++;
+      player.coinsEarned += dropCollected.coinValue ?? COIN_DROP_VALUE;
+      dropCollectedInfo = {
+        dropId: dropCollected.drop.id,
+        type: "coin",
+        effectDuration: 0,
+        coinValue: dropCollected.coinValue ?? COIN_DROP_VALUE,
+      };
     } else {
       applyDropEffect(player, dropCollected.drop, state.players);
       dropCollectedInfo = { 
+        dropId: dropCollected.drop.id,
         type: dropCollected.drop.type, 
         effectDuration: DROP_EFFECTS[dropCollected.drop.type].duration 
       };
@@ -653,6 +685,7 @@ export interface ObstacleCollision {
 export interface DropCollection {
   drop: TrackDrop;
   effectDuration: number;
+  coinValue?: number;
 }
 
 export function checkObstacleCollision(
@@ -721,9 +754,11 @@ export function checkDropCollection(
       player.dropsCollected++;
       
       const effects = DROP_EFFECTS[drop.type];
+      const coinValue = drop.type === "coin" ? COIN_DROP_VALUE : undefined;
       return {
         drop,
         effectDuration: effects.duration,
+        coinValue,
       };
     }
   }
@@ -797,6 +832,7 @@ export function gameTick(
       dropId?: string;
       dropType?: DropType;
       effectDuration?: number;
+      coinValue?: number;
       
       // Finish data
       position?: number;
@@ -804,9 +840,6 @@ export function gameTick(
     };
   }>;
 } {
-  // In discrete mode, gameTick mainly handles timers (stuns, countdowns)
-  // It DOES NOT move players automatically anymore.
-  
   const events: Array<{ 
     type: "finish" | "obstacle" | "drop"; 
     playerId: string; 
@@ -824,6 +857,9 @@ export function gameTick(
   }> = [];
   const now = Date.now();
 
+  // Calculate base movement for this tick
+  const baseMovement = (state.config.baseSpeed || 0.2) * (deltaTimeMs / 1000);
+
   state.players.forEach(player => {
     // Skip finished players
     if (player.finishPosition !== null) return;
@@ -832,6 +868,77 @@ export function gameTick(
     if (player.isStunned && now >= player.stunEndTime) {
       player.isStunned = false;
       player.invulnerableEndTime = now + 2000; // 2 seconds invulnerability after stun
+    }
+
+    // Apply base speed movement (only if not stunned)
+    if (!player.isStunned) {
+      const previousPosition = player.position;
+      player.position = Math.min(
+        player.position + baseMovement,
+        state.config.trackLength
+      );
+
+      // Check for obstacle collision during base movement
+      const obstacleHit = checkObstacleCollision(player, state.obstacles, previousPosition);
+      if (obstacleHit) {
+        player.isStunned = true;
+        player.stunEndTime = now + obstacleHit.stunDuration;
+        player.position = Math.max(0, player.position - obstacleHit.pushback);
+        player.obstacleHits++;
+        
+        events.push({
+          type: "obstacle",
+          playerId: player.id,
+          data: {
+            obstacleId: obstacleHit.obstacle.id,
+            obstacleType: obstacleHit.obstacle.type,
+            stunDuration: obstacleHit.stunDuration,
+            pushback: obstacleHit.pushback,
+          },
+        });
+      }
+
+      // Check for drop collection during base movement
+      const dropCollected = checkDropCollection(player, state.drops, previousPosition);
+      if (dropCollected) {
+        if (dropCollected.drop.type === "speed_boost") {
+          // Instant burst
+          player.position = Math.min(player.position + 5, state.config.trackLength);
+        } else if (dropCollected.drop.type === "coin") {
+          player.coinPickups++;
+          player.coinsEarned += dropCollected.coinValue ?? COIN_DROP_VALUE;
+        } else {
+          applyDropEffect(player, dropCollected.drop, state.players);
+        }
+        
+        events.push({
+          type: "drop",
+          playerId: player.id,
+          data: {
+            dropId: dropCollected.drop.id,
+            dropType: dropCollected.drop.type,
+            effectDuration: dropCollected.effectDuration,
+            ...(dropCollected.coinValue ? { coinValue: dropCollected.coinValue } : {}),
+          },
+        });
+      }
+
+      // Check for finish
+      if (player.position >= state.config.trackLength && player.finishPosition === null) {
+        const finishPosition = state.finishOrder.length + 1;
+        player.finishPosition = finishPosition;
+        player.finishTime = now - state.startTime;
+        state.finishOrder.push(player.id);
+        
+        events.push({
+          type: "finish",
+          playerId: player.id,
+          data: {
+            position: finishPosition,
+            time: player.finishTime,
+          },
+        });
+      }
     }
   });
 

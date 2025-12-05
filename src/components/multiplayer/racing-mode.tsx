@@ -75,6 +75,12 @@ function ProblemPanel({
     forwardRef.current?.focus();
   }, []);
 
+  // Focus forward when new forward problem arrives (race start or refresh)
+  useEffect(() => {
+    forwardRef.current?.focus();
+    forwardRef.current?.select();
+  }, [problems?.forward?.id]);
+
   const handleSubmit = (action: ActionType) => {
     if (!problems || isStunned || isOnCooldown) return;
     
@@ -99,12 +105,48 @@ function ProblemPanel({
                 action === "boost" ? boostRef :
                 forwardRef;
     ref.current?.focus();
+    ref.current?.select();
+  };
+
+  const focusInput = (action: ActionType) => {
+    const ref = action === "left" ? leftRef :
+                action === "right" ? rightRef :
+                action === "boost" ? boostRef :
+                forwardRef;
+    ref.current?.focus();
+    ref.current?.select();
   };
 
   const handleKeyDown = (action: ActionType) => (e: React.KeyboardEvent) => {
+    const key = e.key;
+    const lower = key.toLowerCase();
+
     if (e.key === "Enter") {
       e.preventDefault();
       handleSubmit(action);
+      return;
+    }
+
+    // Arrow-key navigation between inputs
+    if (key === "ArrowLeft" || lower === "a") {
+      e.preventDefault();
+      if (currentLane > 1 && problems?.left) focusInput("left");
+      return;
+    }
+    if (key === "ArrowRight" || lower === "d") {
+      e.preventDefault();
+      if (currentLane < 5 && problems?.right) focusInput("right");
+      return;
+    }
+    if (key === "ArrowUp" || lower === "w") {
+      e.preventDefault();
+      focusInput("forward");
+      return;
+    }
+    if (key === "ArrowDown" || lower === "s") {
+      e.preventDefault();
+      focusInput("boost");
+      return;
     }
   };
 
@@ -160,7 +202,9 @@ function ProblemPanel({
                   <div className="flex gap-1">
                     <Input
                       ref={leftRef}
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={answers.left}
                       onChange={e => setAnswers(prev => ({ ...prev, left: e.target.value }))}
                       onKeyDown={handleKeyDown("left")}
@@ -192,7 +236,9 @@ function ProblemPanel({
             <div className="flex gap-1">
               <Input
                 ref={forwardRef}
-                type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                 value={answers.forward}
                 onChange={e => setAnswers(prev => ({ ...prev, forward: e.target.value }))}
                 onKeyDown={handleKeyDown("forward")}
@@ -221,7 +267,9 @@ function ProblemPanel({
                   <div className="flex gap-1">
                     <Input
                       ref={rightRef}
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={answers.right}
                       onChange={e => setAnswers(prev => ({ ...prev, right: e.target.value }))}
                       onKeyDown={handleKeyDown("right")}
@@ -261,7 +309,9 @@ function ProblemPanel({
             <div className="flex items-center gap-2">
               <Input
                 ref={boostRef}
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={answers.boost}
                 onChange={e => setAnswers(prev => ({ ...prev, boost: e.target.value }))}
                 onKeyDown={handleKeyDown("boost")}
@@ -774,12 +824,12 @@ export function RacingMode() {
                   <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                     <span className="text-sm font-semibold">1</span>
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">Solve to Move</p>
-                    <p className="text-xs text-muted-foreground">
-                      Solve the forward problem to advance 1 meter
-                    </p>
-                  </div>
+                <div>
+                  <p className="font-medium text-sm">Solve to Move</p>
+                  <p className="text-xs text-muted-foreground">
+                    Solve the forward problem to advance 1 meter
+                  </p>
+                </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
@@ -807,12 +857,12 @@ export function RacingMode() {
                   <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                     <span className="text-sm font-semibold">4</span>
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">Boost!</p>
-                    <p className="text-xs text-muted-foreground">
-                      Solve harder boost problems to move 3 meters
-                    </p>
-                  </div>
+                <div>
+                  <p className="font-medium text-sm">Boost!</p>
+                  <p className="text-xs text-muted-foreground">
+                    Solve harder boost problems to move 3 meters
+                  </p>
+                </div>
                 </div>
               </div>
             </CardContent>

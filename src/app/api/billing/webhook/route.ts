@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe";
-import { updateUserSubscription } from "@/lib/subscription";
+import { isPremiumStatus, updateUserSubscription } from "@/lib/subscription";
 import { db } from "@/lib/db";
 import Stripe from "stripe";
 
@@ -15,6 +15,8 @@ async function findUserIdByCustomer(customerId: string) {
   });
   return user?.id ?? null;
 }
+
+const PRO_SIGNUP_BONUS = 500;
 
 async function syncSubscription(subscription: Stripe.Subscription) {
   const customerId = subscription.customer as string;
@@ -42,6 +44,24 @@ async function syncSubscription(subscription: Stripe.Subscription) {
       null,
     currentPeriodEnd: subscription.current_period_end,
   });
+
+  // Grant one-time signup credits when a user becomes premium for the first time.
+  if (isPremiumStatus(subscription.status)) {
+    const result = await db.user.updateMany({
+      where: { id: userId, proSignupCreditGranted: false },
+      data: {
+        coins: { increment: PRO_SIGNUP_BONUS },
+        proSignupCreditGranted: true,
+      },
+    });
+
+    if (result.count > 0) {
+      console.info(
+        `Granted ${PRO_SIGNUP_BONUS} signup credits to user`,
+        userId
+      );
+    }
+  }
 }
 
 export async function POST(request: Request) {

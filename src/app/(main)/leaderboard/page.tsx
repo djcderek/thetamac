@@ -12,6 +12,8 @@ import {
   Loader2,
 } from "lucide-react";
 
+type Mode = "duel" | "racing";
+
 interface LeaderboardEntry {
   rank: number;
   id: string;
@@ -20,7 +22,7 @@ interface LeaderboardEntry {
   image?: string | null;
   level: number;
   score: number;
-  accuracy: number;
+  accuracy: number | null;
   change: "up" | "down" | "same";
   isYou?: boolean;
 }
@@ -30,12 +32,13 @@ export default function LeaderboardPage() {
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState("all");
+  const [mode, setMode] = useState<Mode>("duel");
 
   useEffect(() => {
     async function fetchLeaderboard() {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/leaderboard?period=${period}`);
+        const res = await fetch(`/api/leaderboard?period=${period}&mode=${mode}`);
         if (res.ok) {
           const data = await res.json();
           setLeaderboardData(data.leaderboard);
@@ -49,7 +52,7 @@ export default function LeaderboardPage() {
     }
 
     fetchLeaderboard();
-  }, [period]);
+  }, [period, mode]);
 
   const topThree = leaderboardData.slice(0, 3);
   // Reorder top 3 for visual display: 2nd, 1st, 3rd
@@ -62,12 +65,18 @@ export default function LeaderboardPage() {
   const restOfLeaderboard = leaderboardData.slice(3);
 
   const getScoreLabel = () => {
+    const base = mode === "racing" ? "Race Rating" : "Rating";
     switch (period) {
-      case "all": return "Rating";
+      case "all": return base;
       case "weekly": return "Rating Gain";
       case "daily": return "Rating Gain";
       default: return "Score";
     }
+  };
+
+  const formatAccuracy = (value: number | null) => {
+    if (value === null || Number.isNaN(value)) return "—";
+    return `${value}%`;
   };
 
   return (
@@ -77,17 +86,32 @@ export default function LeaderboardPage() {
           <div>
             <h1 className="text-lg font-semibold">Leaderboard</h1>
             <p className="text-sm text-muted-foreground">
-              Global rankings
+              Global rankings by multiplayer mode
             </p>
           </div>
           {userRank && (
-            <Badge variant="outline">Your Rank: #{userRank.rank}</Badge>
+            <Badge variant="outline">
+              Your {mode === "duel" ? "Duel" : "Racing"} Rank: #{userRank.rank}
+            </Badge>
           )}
         </div>
       </div>
 
       <div className="p-4 md:p-6">
         <div className="max-w-3xl mx-auto space-y-6">
+          {/* Mode Tabs */}
+          <Tabs
+            defaultValue="duel"
+            value={mode}
+            className="w-full"
+            onValueChange={(value) => setMode(value as Mode)}
+          >
+            <TabsList>
+              <TabsTrigger value="duel">Duel Mode</TabsTrigger>
+              <TabsTrigger value="racing">Racing Mode</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           {/* Period Tabs */}
           <Tabs defaultValue="all" className="w-full" onValueChange={setPeriod}>
             <TabsList>
@@ -190,7 +214,7 @@ export default function LeaderboardPage() {
                               </span>
                             </td>
                             <td className="p-4 text-right">
-                              <span className="font-mono text-sm">{entry.accuracy}%</span>
+                              <span className="font-mono text-sm">{formatAccuracy(entry.accuracy)}</span>
                             </td>
                             <td className="p-4 text-right">
                               {entry.change === "up" && <ArrowUp className="w-4 h-4 text-success inline" />}
@@ -232,7 +256,7 @@ export default function LeaderboardPage() {
                                 </span>
                               </td>
                               <td className="p-4 text-right">
-                                <span className="font-mono text-sm">{userRank.accuracy}%</span>
+                              <span className="font-mono text-sm">{formatAccuracy(userRank.accuracy)}</span>
                               </td>
                               <td className="p-4 text-right">
                                 <Minus className="w-4 h-4 text-muted-foreground inline" />

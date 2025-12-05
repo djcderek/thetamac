@@ -5,6 +5,15 @@ import { OrbitControls, PerspectiveCamera, Environment, Sparkles } from "@react-
 import { useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 
+const VEHICLE_REAR_OFFSETS: Record<string, number> = {
+  car_truck: 1.55,
+  car_sport: 1.15,
+  car_jeep: 0.95,
+  default: 1.05,
+};
+const BOOST_TRAIL_OFFSET = 0.9;
+const FLAT_TRAIL_OFFSET = 1.6;
+
 interface ItemPreview3DProps {
   type: "skin" | "trail" | "vehicle" | "wheel" | "base";
   assetId?: string; 
@@ -25,6 +34,9 @@ function CarModel({
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const fireTrailRef = useRef<THREE.Group>(null);
+  const fireOuterMatRef = useRef<THREE.MeshBasicMaterial>(null);
+  const fireInnerMatRef = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -41,6 +53,20 @@ function CarModel({
             const pulse = (Math.sin(state.clock.elapsedTime * 3) + 1) / 2; // 0 to 1
             materialRef.current.emissiveIntensity = 0.5 + pulse * 0.5;
         }
+    }
+
+    if (trail === 'trail_fire' && fireTrailRef.current) {
+      const t = state.clock.elapsedTime;
+      const flicker = 0.85 + Math.sin(t * 17) * 0.12 + Math.sin(t * 29) * 0.08;
+      const scaleX = 0.95 + Math.sin(t * 9) * 0.08;
+      const scaleY = 1.15 + Math.sin(t * 13) * 0.18;
+      const scaleZ = 0.95 + Math.sin(t * 11) * 0.12;
+
+      fireTrailRef.current.scale.set(scaleX, scaleY, scaleZ);
+      fireTrailRef.current.rotation.y = 0;
+
+      if (fireOuterMatRef.current) fireOuterMatRef.current.opacity = 0.55 * flicker;
+      if (fireInnerMatRef.current) fireInnerMatRef.current.opacity = 0.75 * flicker;
     }
   });
 
@@ -87,6 +113,10 @@ function CarModel({
       metalness = 0.6;
       roughness = 0.2;
   }
+
+  const vehicleRear = VEHICLE_REAR_OFFSETS[vehicleType] ?? VEHICLE_REAR_OFFSETS.default;
+  const boostAttachZ = vehicleRear + BOOST_TRAIL_OFFSET;
+  const flatTrailZ = vehicleRear + FLAT_TRAIL_OFFSET;
 
   // Vehicle Geometry Selection
   const renderVehicleBody = () => {
@@ -345,20 +375,20 @@ function CarModel({
 
       {/* Effects */}
       {trail === 'trail_fire' && (
-        <group position={[0, 0.2, 1.5]}>
+        <group ref={fireTrailRef} position={[0, 0.2, boostAttachZ]}>
            <mesh rotation={[Math.PI / 2, 0, 0]}>
              <coneGeometry args={[0.4, 1.5, 8]} />
-             <meshBasicMaterial color="#ef4444" transparent opacity={0.6} />
+             <meshBasicMaterial ref={fireOuterMatRef} color="#ef4444" transparent opacity={0.6} />
            </mesh>
            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.5]}>
              <coneGeometry args={[0.2, 1, 8]} />
-             <meshBasicMaterial color="#fbbf24" transparent opacity={0.8} />
+             <meshBasicMaterial ref={fireInnerMatRef} color="#fbbf24" transparent opacity={0.8} />
            </mesh>
         </group>
       )}
 
       {trail === 'trail_neon' && (
-        <group position={[0, 0.1, 1.2]}>
+        <group position={[0, 0.1, flatTrailZ]}>
            <mesh rotation={[Math.PI / 2, 0, 0]}>
              <planeGeometry args={[1, 3]} />
              <meshBasicMaterial color="#06b6d4" transparent opacity={0.4} side={THREE.DoubleSide} />
@@ -368,7 +398,7 @@ function CarModel({
 
       {/* New Boosts */}
       {trail === 'trail_pixel' && (
-        <group position={[0, 0.2, 1.5]}>
+        <group position={[0, 0.2, boostAttachZ]}>
            {/* Pixel chunks */}
            {[0, 0.4, 0.8, 1.2].map((z, i) => {
               // Use deterministic values based on index instead of random
@@ -384,13 +414,13 @@ function CarModel({
       )}
       
       {trail === 'trail_lightning' && (
-        <group position={[0, 0.2, 1.5]}>
+        <group position={[0, 0.2, boostAttachZ]}>
            <Sparkles count={30} scale={[0.5, 0.5, 2]} size={6} speed={2} color="#eab308" />
         </group>
       )}
       
       {trail === 'trail_rainbow' && (
-        <group position={[0, 0.1, 1.2]}>
+        <group position={[0, 0.1, flatTrailZ]}>
             {/* Multi-colored trail strips */}
            <mesh position={[-0.2, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
              <planeGeometry args={[0.2, 3]} />

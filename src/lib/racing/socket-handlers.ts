@@ -73,7 +73,7 @@ const socketToPlayer: Map<string, { id: string; username: string }> = new Map();
 const MIN_PLAYERS_TO_START = 2;
 const MAX_PLAYERS = 5;
 const LOBBY_COUNTDOWN_SECONDS = 10;
-const GAME_LOOP_INTERVAL_MS = 500; // Reduced frequency to 2Hz for bandwidth optimization
+const GAME_LOOP_INTERVAL_MS = 100; // Faster tick (10Hz) for smoother client motion
 const DISCONNECT_GRACE_PERIOD_MS = 15000; // 15 seconds to reconnect
 
 // ============================================
@@ -223,6 +223,7 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
       p.selectedSkin = entry.cosmetics.equippedSkin || undefined;
       p.selectedTrail = entry.cosmetics.equippedTrail || undefined;
       p.selectedVehicle = entry.cosmetics.equippedVehicle || undefined;
+      p.selectedWheel = entry.cosmetics.equippedWheel || undefined;
     }
   });
   
@@ -301,6 +302,7 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
           selectedSkin: p.selectedSkin,
           selectedTrail: p.selectedTrail,
           selectedVehicle: p.selectedVehicle,
+          selectedWheel: p.selectedWheel,
         })),
         config: state.config,
         yourProblems: player.problems,
@@ -373,9 +375,22 @@ function startGameLoop(io: RaceServer, raceId: string) {
     const { state, events } = gameTick(currentRace.state, deltaTime);
     currentRace.state = state;
 
-    // Process events from tick (e.g. expired stuns)
+    // Process events from tick (drop collection during base movement, finishes, obstacles)
     events.forEach(event => {
-       // Reserved for future tick-based events
+      if (event.type === "drop") {
+        const playerState = currentRace.state.players.find(p => p.id === event.playerId);
+        io.to(raceId).emit("race:drop_collected", {
+          playerId: event.playerId,
+          dropId: event.data.dropId || "",
+          dropType: event.data.dropType!,
+          effectDuration: event.data.effectDuration ?? 0,
+          coinValue: event.data.coinValue,
+          coinsEarnedTotal: playerState?.coinsEarned,
+        });
+        io.to(raceId).emit("race:drops_update", {
+          drops: currentRace.state.drops,
+        });
+      }
     });
     
     // Broadcast state update to sync timers and catch any drift
@@ -392,6 +407,12 @@ function startGameLoop(io: RaceServer, raceId: string) {
   
   race.gameLoop = gameLoop;
 }
+
+const PLACEMENT_REWARDS: Record<number, number> = {
+  1: 30,
+  2: 20,
+  3: 10,
+};
 
 async function endRace(io: RaceServer, raceId: string) {
   const race = activeRaces.get(raceId);
@@ -428,10 +449,9 @@ async function endRace(io: RaceServer, raceId: string) {
   for (const player of race.state.players) {
     const socket = io.sockets.sockets.get(player.socketId);
     if (socket) {
-      let coinsEarned = 10; // Participation
-      if (player.finishPosition === 1) coinsEarned += 40;
-      else if (player.finishPosition === 2) coinsEarned += 20;
-      else if (player.finishPosition === 3) coinsEarned += 10;
+      const placementReward =
+        player.finishPosition ? PLACEMENT_REWARDS[player.finishPosition] ?? 0 : 0;
+      const coinsEarned = (player.coinsEarned || 0) + placementReward;
 
       // Award coins
       try {
@@ -560,10 +580,14 @@ export function setupRacingHandlers(io: RaceServer) {
       // 1. Check for active race rejoin (Reconnection)
       for (const [raceId, race] of activeRaces) {
         const playerIndex = race.state.players.findIndex(p => p.id === userId);
-        if (playerIndex !== -1 && race.state.status !== "finished") {
+        const player = playerIndex !== -1 ? race.state.players[playerIndex] : null;
+        
+        // Only reconnect if:
+        // - Player is in the race
+        // - Race is not finished
+        // - Player has not already finished their race (allow them to start a new one)
+        if (player && race.state.status !== "finished" && player.finishPosition === null) {
           console.log(`[Race] Player ${username} rejoining active race ${raceId}`);
-          
-          const player = race.state.players[playerIndex];
           
           // Clear disconnect timeout if any
           if (race.disconnectTimeouts.has(userId)) {
@@ -590,6 +614,7 @@ export function setupRacingHandlers(io: RaceServer) {
               selectedSkin: p.selectedSkin,
               selectedTrail: p.selectedTrail,
               selectedVehicle: p.selectedVehicle,
+          selectedWheel: p.selectedWheel,
             })),
             config: race.state.config,
             yourProblems: player.problems,
@@ -786,22 +811,27 @@ export function setupRacingHandlers(io: RaceServer) {
         
         // If player collected a drop
         if (result.dropCollected) {
+          const racePlayerAfter = race.state.players.find(p => p.id === player.id);
           io.to(raceId).emit("race:drop_collected", {
             playerId: player.id,
-            dropId: "",
+            dropId: result.dropCollected.dropId,
             dropType: result.dropCollected.type,
             effectDuration: result.dropCollected.effectDuration,
+            coinValue: result.dropCollected.coinValue,
+            coinsEarnedTotal: racePlayerAfter?.coinsEarned,
           });
           
           io.to(raceId).emit("race:drops_update", {
             drops: race.state.drops,
           });
           
-          socket.emit("race:powerup_activated", {
-            playerId: player.id,
-            powerupType: result.dropCollected.type,
-            duration: result.dropCollected.effectDuration,
-          });
+          if (result.dropCollected.type !== "coin") {
+            socket.emit("race:powerup_activated", {
+              playerId: player.id,
+              powerupType: result.dropCollected.type,
+              duration: result.dropCollected.effectDuration,
+            });
+          }
         }
         
         // Check for finish
@@ -903,14 +933,33 @@ export function setupRacingHandlers(io: RaceServer) {
       // Mark player as DNF
       race.state = handlePlayerDisconnect(race.state, player.id);
       
-      socket.to(raceId).emit("race:player_disconnected", { playerId: player.id });
+      // Get the player's finish position after forfeit
+      const racePlayer = race.state.players.find(p => p.id === player.id);
+      const finishPosition = racePlayer?.finishPosition || race.state.players.length;
       
-      socket.leave(raceId);
-      socketToRace.delete(socket.id);
+      // Notify the forfeiting player of their finish
+      socket.emit("race:player_finished", {
+        playerId: player.id,
+        position: finishPosition,
+        time: 0, // DNF
+      });
       
+      // Notify other players that this player forfeited
+      socket.to(raceId).emit("race:player_finished", {
+        playerId: player.id,
+        position: finishPosition,
+        time: 0, // DNF
+      });
+      
+      // Check if race is over
       if (checkRaceOver(race.state)) {
+        // End race - this will send results to all players including the forfeiter
         endRace(io, raceId);
       }
+      
+      // Don't remove the player from the room yet - they need to receive race:finished
+      // The cleanup will happen in cleanupRace after the race ends
+      // Just mark that they've forfeited by keeping them in the room but with finishPosition set
     });
     
     socket.on("race:leave", () => {

@@ -33,6 +33,7 @@ model User {
   subscriptionCurrentPeriodEnd DateTime?
   premiumSince             DateTime?
   isPremium                Boolean  @default(false)
+  proSignupCreditGranted   Boolean  @default(false)
 
   // Economy & Cosmetics
   coins                    Int      @default(0)

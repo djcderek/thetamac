@@ -48,6 +48,8 @@ interface RacePlayerState {
   hasShield: boolean;
   selectedSkin?: string;
   selectedTrail?: string;
+  selectedVehicle?: string;
+  selectedWheel?: string;
 }
 
 interface RaceState {
@@ -148,7 +150,8 @@ export function useRaceSocket() {
     update();
     
     if (cooldownUntil > Date.now()) {
-      const interval = setInterval(update, 100);
+      // Reduced from 100ms to 250ms for better performance
+      const interval = setInterval(update, 250);
       return () => clearInterval(interval);
     }
   }, [cooldownUntil]);
@@ -261,6 +264,8 @@ export function useRaceSocket() {
     });
 
     socket.on("race:start", ({ raceId, players, config, yourProblems, obstacles, drops }) => {
+      // Clear queue state to ensure consistent state (especially during reconnection)
+      setQueue({ inQueue: false, playersInQueue: 0, estimatedWait: 0 });
       setLobby({
         inLobby: false,
         lobbyId: null,
@@ -372,7 +377,7 @@ export function useRaceSocket() {
       setCooldownUntil(Date.now() + cooldownMs);
     });
 
-    socket.on("race:drop_collected", ({ playerId, dropId, dropType, effectDuration }) => {
+    socket.on("race:drop_collected", ({ playerId, dropId, dropType, effectDuration, coinValue, coinsEarnedTotal }) => {
       setRace(prev => ({
         ...prev,
         drops: prev.drops.map(d => 
@@ -381,7 +386,12 @@ export function useRaceSocket() {
       }));
       // Add feedback if it's the current player
       if (playerId === myPlayerIdRef.current) {
-        addFeedback("success", `Collected ${dropType.replace("_", " ")}!`);
+        if (dropType === "coin" && coinValue) {
+          const total = coinsEarnedTotal ?? 0;
+          addFeedback("success", `Collected ${coinValue} coins! (${total} this race)`);
+        } else {
+          addFeedback("success", `Collected ${dropType.replace("_", " ")}!`);
+        }
       }
     });
 

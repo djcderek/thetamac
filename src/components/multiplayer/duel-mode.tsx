@@ -58,6 +58,13 @@ export function DuelMode() {
   });
   const [statsLoading, setStatsLoading] = useState(!!session?.user);
 
+  const focusInput = () => {
+    // Use rAF to ensure the element is mounted before focusing
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
   // Fetch user's multiplayer stats
   useEffect(() => {
     if (!session?.user) return;
@@ -106,9 +113,16 @@ export function DuelMode() {
       setAnswerSubmitted(false);
       setRoundStartTime(Date.now());
       setTimeLeft(10);
-      inputRef.current?.focus();
+      focusInput();
     }
   }, [gameplay.status, gameplay.problem?.id]);
+
+  // Keep the answer box focused while playing (helps after clicks elsewhere)
+  useEffect(() => {
+    if (gameplay.status === "playing" && !answerSubmitted) {
+      focusInput();
+    }
+  }, [gameplay.status, answerSubmitted]);
 
   // Countdown timer for current round
   useEffect(() => {
@@ -394,7 +408,7 @@ export function DuelMode() {
                             value={userAnswer}
                             onChange={(e) => setUserAnswer(e.target.value)}
                             placeholder="?"
-                            className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
+                            className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             autoFocus
                             disabled={answerSubmitted}
                           />

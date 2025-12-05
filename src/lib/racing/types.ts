@@ -10,7 +10,7 @@ export type Difficulty = "easy" | "medium" | "hard" | "expert";
 // ============================================
 
 export type ObstacleType = "barrier" | "oil_slick" | "cone" | "pothole";
-export type DropType = "speed_boost" | "shield" | "freeze_others" | "magnet";
+export type DropType = "speed_boost" | "shield" | "freeze_others" | "magnet" | "coin";
 
 export interface TrackObstacle {
   id: string;
@@ -63,6 +63,7 @@ export interface RacePlayer {
   selectedSkin?: string;
   selectedTrail?: string;
   selectedVehicle?: string;
+  selectedWheel?: string;
   
   // Race state
   lane: number;           // 1-5
@@ -88,6 +89,8 @@ export interface RacePlayer {
   wrongAnswers: number;
   dropsCollected: number;
   obstacleHits: number;
+  coinPickups: number;
+  coinsEarned: number;
   
   // Finish state
   finishPosition: number | null;
@@ -112,6 +115,8 @@ export interface RaceConfig {
   wrongAnswerPenalty: number; // ms cooldown (default: 1500)
   obstacleCount: number;     // number of obstacles on track (default: 8)
   dropCount: number;         // number of drops on track (default: 6)
+  coinDropCount: number;     // number of coin drops on track
+  baseSpeed: number;         // meters per second automatic movement (default: 0.2)
 }
 
 export interface RaceState {
@@ -153,8 +158,10 @@ export interface ActionResult {
     stunDuration: number;
   };
   dropCollected?: {
+    dropId: string;
     type: DropType;
     effectDuration: number;
+    coinValue?: number;
   };
   
   // Finish
@@ -273,6 +280,7 @@ export interface RaceServerToClientEvents {
       selectedSkin?: string;
       selectedTrail?: string;
       selectedVehicle?: string;
+      selectedWheel?: string;
     }>;
     config: RaceConfig;
     yourProblems: PlayerProblems;
@@ -358,6 +366,8 @@ export interface RaceServerToClientEvents {
     dropId: string;
     dropType: DropType;
     effectDuration: number;
+    coinValue?: number;
+    coinsEarnedTotal?: number;
   }) => void;
   
   "race:drops_update": (data: {
