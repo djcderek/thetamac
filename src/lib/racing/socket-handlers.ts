@@ -8,8 +8,6 @@ import type {
   RaceMatchmakingEntry,
   RaceLobby,
   RaceState,
-  RaceConfig,
-  ActionType,
 } from "./types";
 import {
   DEFAULT_RACE_CONFIG,
@@ -60,6 +58,7 @@ const activeRaces: Map<string, {
   gameLoop: NodeJS.Timeout | null;
   countdownTimer: NodeJS.Timeout | null;
   dbRaceId: string | null;
+  disconnectTimeouts: Map<string, NodeJS.Timeout>; // userId -> timeout
 }> = new Map();
 
 // Socket to race/lobby mapping
@@ -74,7 +73,8 @@ const socketToPlayer: Map<string, { id: string; username: string }> = new Map();
 const MIN_PLAYERS_TO_START = 2;
 const MAX_PLAYERS = 5;
 const LOBBY_COUNTDOWN_SECONDS = 10;
-const GAME_LOOP_INTERVAL_MS = 100; // Update state every 100ms
+const GAME_LOOP_INTERVAL_MS = 500; // Reduced frequency to 2Hz for bandwidth optimization
+const DISCONNECT_GRACE_PERIOD_MS = 15000; // 15 seconds to reconnect
 
 // ============================================
 // HELPER FUNCTIONS
@@ -126,6 +126,11 @@ function addPlayerToLobby(
   entry: RaceMatchmakingEntry,
   socket: RaceSocket
 ) {
+  // Check if player is already in lobby (prevent duplicates)
+  if (lobby.players.some(p => p.playerId === entry.playerId)) {
+    return;
+  }
+
   lobby.players.push(entry);
   socketToLobby.set(socket.id, lobby.lobbyId);
   
@@ -139,6 +144,7 @@ function addPlayerToLobby(
       id: p.playerId,
       username: p.username,
       rating: p.rating,
+      cosmetics: p.cosmetics,
     })),
     config: lobby.config,
   });
@@ -149,6 +155,7 @@ function addPlayerToLobby(
       id: entry.playerId,
       username: entry.username,
       rating: entry.rating,
+      cosmetics: entry.cosmetics,
     },
     totalPlayers: lobby.players.length,
   });
@@ -168,6 +175,21 @@ function startLobbyCountdown(io: RaceServer, lobby: RaceLobby) {
   });
   
   const countdownInterval = setInterval(() => {
+    // Check if lobby still exists
+    if (!activeLobbies.has(lobby.lobbyId)) {
+      clearInterval(countdownInterval);
+      return;
+    }
+
+    // Check if players dropped below min
+    if (lobby.players.length < MIN_PLAYERS_TO_START) {
+      lobby.countdownStarted = false;
+      lobby.startCountdown = LOBBY_COUNTDOWN_SECONDS;
+      io.to(lobby.lobbyId).emit("race:error", "Waiting for more players...");
+      clearInterval(countdownInterval);
+      return;
+    }
+
     lobby.startCountdown--;
     
     if (lobby.startCountdown <= 0) {
@@ -190,34 +212,17 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
   
   // Convert lobby players to matchmaking entries
   const entries: RaceMatchmakingEntry[] = lobby.players;
-  
-  // Fetch cosmetics
-  const playerIds = entries.map(e => e.playerId);
-  const userItems = await db.userItem.findMany({
-    where: {
-      userId: { in: playerIds },
-      isEquipped: true
-    },
-    include: { item: true }
-  });
-
-  const playerCosmetics: Record<string, { skin?: string, trail?: string, vehicle?: string }> = {};
-  userItems.forEach(ui => {
-      if (!playerCosmetics[ui.userId]) playerCosmetics[ui.userId] = {};
-      if (ui.item.type === 'skin') playerCosmetics[ui.userId].skin = ui.item.assetId;
-      if (ui.item.type === 'trail') playerCosmetics[ui.userId].trail = ui.item.assetId;
-      if (ui.item.type === 'vehicle') playerCosmetics[ui.userId].vehicle = ui.item.assetId;
-  });
 
   // Create race state
   const state = createRaceState(raceId, entries, lobby.config);
   
-  // Apply cosmetics
+  // Apply cosmetics from entry (already fetched when joining queue)
   state.players.forEach(p => {
-    if (playerCosmetics[p.id]) {
-        p.selectedSkin = playerCosmetics[p.id].skin;
-        p.selectedTrail = playerCosmetics[p.id].trail;
-        p.selectedVehicle = playerCosmetics[p.id].vehicle;
+    const entry = entries.find(e => e.playerId === p.id);
+    if (entry?.cosmetics) {
+      p.selectedSkin = entry.cosmetics.equippedSkin || undefined;
+      p.selectedTrail = entry.cosmetics.equippedTrail || undefined;
+      p.selectedVehicle = entry.cosmetics.equippedVehicle || undefined;
     }
   });
   
@@ -261,7 +266,7 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
             position: player.position,
             selectedSkin: player.selectedSkin,
             selectedTrail: player.selectedTrail,
-            // selectedVehicle: player.selectedVehicle, // Not persisting to DB yet to avoid migration requirement
+            selectedVehicle: player.selectedVehicle,
           },
         })
       )
@@ -278,6 +283,7 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
     gameLoop: null,
     countdownTimer: null,
     dbRaceId,
+    disconnectTimeouts: new Map(),
   });
   
   // Send start event to all players with their specific problems
@@ -351,7 +357,7 @@ function startGameLoop(io: RaceServer, raceId: string) {
   
   let lastTickTime = Date.now();
 
-  // Game loop - broadcast state updates periodically
+  // Game loop - primarily for timers now
   const gameLoop = setInterval(() => {
     const currentRace = activeRaces.get(raceId);
     if (!currentRace || currentRace.state.status !== "racing") {
@@ -363,65 +369,21 @@ function startGameLoop(io: RaceServer, raceId: string) {
     const deltaTime = now - lastTickTime;
     lastTickTime = now;
     
-    // Run game tick
+    // Run game tick (updates timers)
     const { state, events } = gameTick(currentRace.state, deltaTime);
     currentRace.state = state;
 
-    // Process events from tick
+    // Process events from tick (e.g. expired stuns)
     events.forEach(event => {
-      if (event.type === "obstacle") {
-        io.to(raceId).emit("race:obstacle_hit", {
-          playerId: event.playerId,
-          obstacleId: "",
-          obstacleType: event.data.obstacleType,
-          stunDuration: event.data.stunDuration,
-          pushback: event.data.pushback,
-        });
-      } else if (event.type === "drop") {
-        io.to(raceId).emit("race:drop_collected", {
-          playerId: event.playerId,
-          dropId: "",
-          dropType: event.data.dropType,
-          effectDuration: event.data.effectDuration,
-        });
-        io.to(raceId).emit("race:drops_update", {
-          drops: currentRace.state.drops,
-        });
-        const socket = io.sockets.sockets.get(currentRace.state.players.find(p => p.id === event.playerId)?.socketId || "");
-        if (socket) {
-          socket.emit("race:powerup_activated", {
-            playerId: event.playerId,
-            powerupType: event.data.dropType,
-            duration: event.data.effectDuration,
-          });
-        }
-      } else if (event.type === "finish") {
-        io.to(raceId).emit("race:player_finished", {
-          playerId: event.playerId,
-          position: event.data.position,
-          time: event.data.time,
-        });
-        
-        // Save finish event to database
-        if (currentRace.dbRaceId) {
-          db.raceEvent.create({
-            data: {
-              raceId: currentRace.dbRaceId,
-              playerId: event.playerId,
-              eventType: "finish",
-              details: { position: event.data.position },
-            },
-          }).catch(err => console.error("[Race] Failed to save finish event:", err));
-        }
-      }
+       // Reserved for future tick-based events
     });
     
-    // Broadcast state update
+    // Broadcast state update to sync timers and catch any drift
     io.to(raceId).emit("race:state_update", {
       players: getRaceSnapshot(currentRace.state),
     });
     
-    // Check if race is over
+    // Check if race is over (timeout safety)
     if (checkRaceOver(currentRace.state)) {
       clearInterval(gameLoop);
       endRace(io, raceId);
@@ -562,6 +524,11 @@ function cleanupRace(raceId: string) {
   if (race.gameLoop) clearInterval(race.gameLoop);
   if (race.countdownTimer) clearInterval(race.countdownTimer);
   
+  // Clear disconnect timeouts
+  for (const timeout of race.disconnectTimeouts.values()) {
+    clearTimeout(timeout);
+  }
+  
   // Clear socket mappings
   for (const player of race.state.players) {
     socketToRace.delete(player.socketId);
@@ -585,12 +552,63 @@ export function setupRacingHandlers(io: RaceServer) {
     // ========================================
     
     socket.on("race:join_queue", async (data) => {
-      const { userId, username } = data;
+      const { userId, username, cosmetics } = data;
       
       // Store player info
       socketToPlayer.set(socket.id, { id: userId, username });
       
-      // Check if already in a race or lobby
+      // 1. Check for active race rejoin (Reconnection)
+      for (const [raceId, race] of activeRaces) {
+        const playerIndex = race.state.players.findIndex(p => p.id === userId);
+        if (playerIndex !== -1 && race.state.status !== "finished") {
+          console.log(`[Race] Player ${username} rejoining active race ${raceId}`);
+          
+          const player = race.state.players[playerIndex];
+          
+          // Clear disconnect timeout if any
+          if (race.disconnectTimeouts.has(userId)) {
+            clearTimeout(race.disconnectTimeouts.get(userId));
+            race.disconnectTimeouts.delete(userId);
+          }
+          
+          // Update socket ID
+          player.socketId = socket.id;
+          
+          // Update mappings
+          socketToRace.set(socket.id, raceId);
+          socket.join(raceId);
+          
+          // Send current state
+          socket.emit("race:start", {
+            raceId,
+            players: race.state.players.map(p => ({
+              id: p.id,
+              username: p.username,
+              rating: p.rating,
+              lane: p.lane,
+              position: p.position,
+              selectedSkin: p.selectedSkin,
+              selectedTrail: p.selectedTrail,
+              selectedVehicle: p.selectedVehicle,
+            })),
+            config: race.state.config,
+            yourProblems: player.problems,
+            obstacles: race.state.obstacles,
+            drops: race.state.drops,
+          });
+          
+          // Send sync update immediately
+          socket.emit("race:state_update", {
+            players: getRaceSnapshot(race.state),
+          });
+          
+          return;
+        }
+      }
+      
+      // 2. Regular Join Logic
+      
+      // Check if already in a race or lobby (by socket ID)
       if (socketToRace.has(socket.id) || socketToLobby.has(socket.id)) {
         socket.emit("race:error", "Already in a race or lobby");
         return;
@@ -611,6 +629,7 @@ export function setupRacingHandlers(io: RaceServer) {
         username,
         rating,
         joinedAt: Date.now(),
+        cosmetics,
       };
       
       // Try to find or create a lobby
@@ -619,7 +638,7 @@ export function setupRacingHandlers(io: RaceServer) {
       if (lobby) {
         addPlayerToLobby(io, lobby, entry, socket);
       } else {
-        // Add to queue (shouldn't happen often)
+        // Add to queue
         raceQueue.set(socket.id, entry);
         socket.emit("race:queue_update", {
           playersInQueue: raceQueue.size,
@@ -699,7 +718,7 @@ export function setupRacingHandlers(io: RaceServer) {
         const racePlayer = race.state.players.find(p => p.id === player.id);
         const hasFinished = racePlayer?.finishPosition !== null;
         
-        // Emit result to the acting player (with their new problems if not finished)
+        // Emit result to the acting player
         socket.emit("race:action_result", {
           playerId: player.id,
           action,
@@ -711,7 +730,7 @@ export function setupRacingHandlers(io: RaceServer) {
           yourNewProblems: hasFinished ? null : racePlayer?.problems,
         });
         
-        // Broadcast to other players (without problems)
+        // Broadcast to other players
         socket.to(raceId).emit("race:action_result", {
           playerId: player.id,
           action,
@@ -734,17 +753,17 @@ export function setupRacingHandlers(io: RaceServer) {
               stunDuration: race.state.config.stunDuration,
             });
             
-            // Send new problems to bumped player (they need fresh ones after stun)
+            // Send new problems to bumped player
             const bumpedSocket = io.sockets.sockets.get(bumpedPlayer.socketId);
             if (bumpedSocket) {
-              // Regenerate problems for bumped player
               bumpedPlayer.problems = generatePlayerProblems(
                 bumpedPlayer.lane,
                 race.state.config
               );
+              
               bumpedSocket.emit("race:action_result", {
                 playerId: bumpedPlayer.id,
-                action: "forward", // Dummy action
+                action: "forward", // Dummy action type for client update
                 success: true,
                 newLane: bumpedPlayer.lane,
                 newPosition: bumpedPlayer.position,
@@ -754,32 +773,30 @@ export function setupRacingHandlers(io: RaceServer) {
           }
         }
         
-        // If player hit an obstacle, notify everyone
+        // If player hit an obstacle
         if (result.obstacleHit) {
           io.to(raceId).emit("race:obstacle_hit", {
             playerId: player.id,
-            obstacleId: "", // We don't track individual obstacle IDs in the result currently
+            obstacleId: "", 
             obstacleType: result.obstacleHit.type,
             stunDuration: result.obstacleHit.stunDuration,
-            pushback: 0, // Could be added to the result
+            pushback: 0, 
           });
         }
         
-        // If player collected a drop, notify everyone
+        // If player collected a drop
         if (result.dropCollected) {
           io.to(raceId).emit("race:drop_collected", {
             playerId: player.id,
-            dropId: "", // We could track this in the result
+            dropId: "",
             dropType: result.dropCollected.type,
             effectDuration: result.dropCollected.effectDuration,
           });
           
-          // Also send updated drops state
           io.to(raceId).emit("race:drops_update", {
             drops: race.state.drops,
           });
           
-          // Notify about powerup activation
           socket.emit("race:powerup_activated", {
             playerId: player.id,
             powerupType: result.dropCollected.type,
@@ -795,9 +812,7 @@ export function setupRacingHandlers(io: RaceServer) {
             time: race.state.players.find(p => p.id === player.id)?.finishTime || 0,
           });
           
-          // Check if race is over immediately after someone finishes
           if (checkRaceOver(race.state)) {
-            // Stop the game loop - endRace will be called
             if (race.gameLoop) {
               clearInterval(race.gameLoop);
               race.gameLoop = null;
@@ -805,7 +820,7 @@ export function setupRacingHandlers(io: RaceServer) {
             endRace(io, raceId);
           }
           
-          // Save finish event to database
+          // Save finish event
           if (race.dbRaceId) {
             db.raceEvent.create({
               data: {
@@ -818,7 +833,7 @@ export function setupRacingHandlers(io: RaceServer) {
           }
         }
         
-        // Save action event to database
+        // Save action event
         if (race.dbRaceId) {
           const racePlayerObj = race.state.players.find(p => p.id === player.id);
           const problem = racePlayerObj?.problems[action === "forward" ? "forward" : action === "boost" ? "boost" : action === "left" ? "left" : "right"];
@@ -843,17 +858,14 @@ export function setupRacingHandlers(io: RaceServer) {
           }).catch(err => console.error("[Race] Failed to save action event:", err));
         }
       } else {
-        // Handle different error types
+        // Handle errors
         const errorType = result.error;
         
         if (errorType === "Player already finished") {
-          // Player finished - don't send wrong answer, just ignore
           console.log(`[Race] Player ${player.id} already finished, ignoring action`);
         } else if (errorType === "Player is stunned") {
-          // Stunned - don't count as wrong answer
           socket.emit("race:error", "You are stunned!");
         } else if (errorType === "Problem mismatch") {
-          // Problem ID mismatch - likely a race condition, send new problems
           console.log(`[Race] Problem mismatch for player ${player.id}, sending fresh problems`);
           const racePlayer = race.state.players.find(p => p.id === player.id);
           if (racePlayer) {
@@ -867,14 +879,12 @@ export function setupRacingHandlers(io: RaceServer) {
             });
           }
         } else if (errorType === "Wrong answer") {
-          // Actual wrong answer - send cooldown
           socket.emit("race:wrong_answer", {
             playerId: player.id,
             action,
             cooldownMs: race.state.config.wrongAnswerPenalty,
           });
         } else {
-          // Other errors (invalid lane, etc)
           socket.emit("race:error", errorType || "Invalid action");
         }
       }
@@ -893,14 +903,11 @@ export function setupRacingHandlers(io: RaceServer) {
       // Mark player as DNF
       race.state = handlePlayerDisconnect(race.state, player.id);
       
-      // Notify others
       socket.to(raceId).emit("race:player_disconnected", { playerId: player.id });
       
-      // Leave room
       socket.leave(raceId);
       socketToRace.delete(socket.id);
       
-      // Check if race should end
       if (checkRaceOver(race.state)) {
         endRace(io, raceId);
       }
@@ -919,7 +926,7 @@ export function setupRacingHandlers(io: RaceServer) {
       const raceId = socketToRace.get(socket.id);
       if (raceId) {
         socket.leave(raceId);
-        socketToRace.delete(socket.id); // Fixed: was incorrectly deleting raceId
+        socketToRace.delete(socket.id);
       }
     });
     
@@ -959,17 +966,29 @@ export function setupRacingHandlers(io: RaceServer) {
       const raceId = socketToRace.get(socket.id);
       if (raceId) {
         const race = activeRaces.get(raceId);
-        if (race && race.state.status === "racing") {
-          const player = socketToPlayer.get(socket.id);
-          if (player) {
+        const player = socketToPlayer.get(socket.id);
+        
+        if (race && player && race.state.status === "racing") {
+          // Instead of immediate DNF, wait for grace period
+          console.log(`[Race] Player ${player.username} disconnected from race ${raceId}, waiting for reconnect...`);
+          
+          const timeout = setTimeout(() => {
+            if (race.state.status === "finished") return;
+            
+            console.log(`[Race] Player ${player.username} timed out, marking DNF`);
             race.state = handlePlayerDisconnect(race.state, player.id);
             io.to(raceId).emit("race:player_disconnected", { playerId: player.id });
+            
+            race.disconnectTimeouts.delete(player.id);
             
             if (checkRaceOver(race.state)) {
               endRace(io, raceId);
             }
-          }
+          }, DISCONNECT_GRACE_PERIOD_MS);
+          
+          race.disconnectTimeouts.set(player.id, timeout);
         }
+        
         socketToRace.delete(socket.id);
       }
       
@@ -980,7 +999,6 @@ export function setupRacingHandlers(io: RaceServer) {
   
   // Periodic queue processing
   setInterval(() => {
-    // Try to move queued players into lobbies
     for (const [socketId, entry] of raceQueue) {
       const socket = io.sockets.sockets.get(socketId);
       if (!socket) {
@@ -996,4 +1014,3 @@ export function setupRacingHandlers(io: RaceServer) {
     }
   }, 2000);
 }
-

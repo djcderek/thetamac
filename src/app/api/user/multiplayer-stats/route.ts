@@ -36,7 +36,7 @@ export async function GET() {
 
     // Calculate stats
     let wins = 0;
-    let totalMatches = matches.length;
+    const totalMatches = matches.length;
     let totalTimeMs = 0;
     let totalRoundsWithTime = 0;
 

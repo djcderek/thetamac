@@ -159,7 +159,7 @@ export default function SettingsPage() {
     }
   };
 
-  const updateTheme = async (newTheme: string) => {
+  const updateTheme = async (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
     try {
       await fetch("/api/settings", {

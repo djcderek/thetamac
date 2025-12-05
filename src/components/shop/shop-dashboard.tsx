@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ShoppingBag, Check, Coins } from "lucide-react";
 import ItemPreview3D from "./item-preview-3d";
 
+import { GarageDisplay } from "./garage-display";
+
 interface ShopItem {
   id: string;
   name: string;
@@ -25,12 +27,14 @@ interface ShopData {
   equippedSkinId: string | null;
   equippedTrailId: string | null;
   equippedVehicleId: string | null;
+  equippedWheelId: string | null;
 }
 
 export function ShopDashboard() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ShopData | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [garageCategory, setGarageCategory] = useState<string>("vehicle");
 
   useEffect(() => {
     fetchShop();
@@ -98,11 +102,14 @@ export function ShopDashboard() {
         if (!prev) return null;
         const isSkin = type === "skin";
         const isVehicle = type === "vehicle";
+        const isWheel = type === "wheel";
+        const isTrail = type === "trail";
         return {
           ...prev,
           equippedSkinId: isSkin ? (action === "equip" ? itemId : null) : prev.equippedSkinId,
-          equippedTrailId: (!isSkin && !isVehicle) ? (action === "equip" ? itemId : null) : prev.equippedTrailId,
+          equippedTrailId: isTrail ? (action === "equip" ? itemId : null) : prev.equippedTrailId,
           equippedVehicleId: isVehicle ? (action === "equip" ? itemId : null) : prev.equippedVehicleId,
+          equippedWheelId: isWheel ? (action === "equip" ? itemId : null) : prev.equippedWheelId,
         };
       });
     } catch (error) {
@@ -118,8 +125,29 @@ export function ShopDashboard() {
 
   if (!data || !data.items) return <div>Failed to load shop. Please try again later.</div>;
 
-  const ownedItems = data.items.filter(i => data.ownedItemIds.includes(i.id));
   const shopItems = data.items.filter(i => !data.ownedItemIds.includes(i.id));
+  
+  // Helper to get currently equipped assets
+  const getEquippedItem = (type: string) => {
+      if (type === 'vehicle') return data.items.find(i => i.id === data.equippedVehicleId);
+      if (type === 'skin') return data.items.find(i => i.id === data.equippedSkinId);
+      if (type === 'trail') return data.items.find(i => i.id === data.equippedTrailId);
+      if (type === 'wheel') return data.items.find(i => i.id === data.equippedWheelId);
+      return null;
+  };
+
+  const equippedVehicleAsset = getEquippedItem('vehicle')?.assetId;
+  const equippedSkinAsset = getEquippedItem('skin')?.assetId;
+  const equippedTrailAsset = getEquippedItem('trail')?.assetId;
+  const equippedWheelAsset = getEquippedItem('wheel')?.assetId;
+
+  // Filter owned items by category for the garage list
+  const getGarageItems = (category: string) => {
+    return data.items.filter(i => 
+        data.ownedItemIds.includes(i.id) && 
+        i.type === category
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -147,9 +175,9 @@ export function ShopDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {shopItems.map((item) => (
                 <Card key={item.id} className="overflow-hidden">
-                  <div className={`h-32 bg-muted flex items-center justify-center relative overflow-hidden ${item.type === 'skin' ? 'bg-gradient-to-br from-sky-100 to-indigo-100 dark:from-sky-900/20 dark:to-indigo-900/20' : item.type === 'vehicle' ? 'bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/20 dark:to-teal-900/20' : 'bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/20 dark:to-red-900/20'}`}>
+                  <div className={`h-32 bg-muted flex items-center justify-center relative overflow-hidden ${item.type === 'skin' ? 'bg-gradient-to-br from-sky-100 to-indigo-100 dark:from-sky-900/20 dark:to-indigo-900/20' : item.type === 'vehicle' ? 'bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/20 dark:to-teal-900/20' : item.type === 'wheel' ? 'bg-gradient-to-br from-slate-100 to-zinc-100 dark:from-slate-900/20 dark:to-zinc-900/20' : 'bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/20 dark:to-red-900/20'}`}>
                     <div className="absolute inset-0">
-                      <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle"} assetId={item.assetId} />
+                      <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
                     </div>
                   </div>
                   <CardHeader>
@@ -166,7 +194,7 @@ export function ShopDashboard() {
                         disabled={actionLoading === item.id || data.userCoins < item.cost}
                     >
                         {actionLoading === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag className="w-4 h-4" />}
-                        Buy for {item.cost}
+                        {item.cost === 0 ? "Free" : `Buy for ${item.cost}`}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -176,67 +204,123 @@ export function ShopDashboard() {
         </TabsContent>
         
         <TabsContent value="inventory" className="mt-6">
-            {ownedItems.length === 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card className="overflow-hidden border-primary ring-1 ring-primary">
-                        <div className="h-32 bg-muted flex items-center justify-center relative overflow-hidden">
-                            <div className="absolute inset-0">
-                                <ItemPreview3D type="base" />
-                            </div>
-                        </div>
-                        <CardHeader>
-                            <CardTitle>Base Vehicle</CardTitle>
-                            <CardDescription>Standard issued racing vehicle</CardDescription>
-                        </CardHeader>
-                        <CardFooter>
-                            <Button variant="secondary" className="w-full gap-2" disabled>
-                                <Check className="w-4 h-4" />
-                                Equipped
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
+                {/* Left: Display Room */}
+                <div className="lg:col-span-2 h-full rounded-xl overflow-hidden border bg-neutral-950 shadow-2xl">
+                    <GarageDisplay 
+                        equippedSkin={equippedSkinAsset} 
+                        equippedTrail={equippedTrailAsset} 
+                        equippedVehicle={equippedVehicleAsset}
+                        equippedWheel={equippedWheelAsset}
+                    />
+                </div>
+
+                {/* Right: Customization Panel */}
+                <div className="lg:col-span-1 h-full flex flex-col bg-card rounded-xl border shadow-sm overflow-hidden">
+                    <div className="p-4 border-b bg-muted/40">
+                        <h3 className="font-semibold mb-4">Customize</h3>
+                        <Tabs value={garageCategory} onValueChange={setGarageCategory} className="w-full">
+                            <TabsList className="grid w-full grid-cols-4">
+                                <TabsTrigger value="vehicle">Vehicle</TabsTrigger>
+                                <TabsTrigger value="skin">Decal</TabsTrigger>
+                                <TabsTrigger value="trail">Boost</TabsTrigger>
+                                <TabsTrigger value="wheel">Wheels</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {/* Default/None Option for Skins/Trails if applicable */}
+                        {(garageCategory === 'skin' || garageCategory === 'trail' || garageCategory === 'wheel') && (
+                             <Button
+                                variant="outline"
+                                className={`w-full justify-start h-auto py-3 px-4 ${(!data.equippedSkinId && garageCategory === 'skin') || (!data.equippedTrailId && garageCategory === 'trail') || (!data.equippedWheelId && garageCategory === 'wheel') ? 'border-primary bg-primary/5' : ''}`}
+                                onClick={() => {
+                                    if (garageCategory === 'skin' && data.equippedSkinId) handleEquip(data.equippedSkinId, 'skin', 'unequip');
+                                    if (garageCategory === 'trail' && data.equippedTrailId) handleEquip(data.equippedTrailId, 'trail', 'unequip');
+                                    if (garageCategory === 'wheel' && data.equippedWheelId) handleEquip(data.equippedWheelId, 'wheel', 'unequip');
+                                }}
+                             >
+                                <div className="flex items-center gap-3 w-full">
+                                    <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                                        <span className="text-xs text-muted-foreground">None</span>
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <div className="font-medium">Default / None</div>
+                                        <div className="text-xs text-muted-foreground">Remove customization</div>
+                                    </div>
+                                    {((garageCategory === 'skin' && !data.equippedSkinId) || (garageCategory === 'trail' && !data.equippedTrailId) || (garageCategory === 'wheel' && !data.equippedWheelId)) && (
+                                        <Check className="w-4 h-4 text-primary" />
+                                    )}
+                                </div>
+                             </Button>
+                        )}
+
+                        {/* Base Vehicle Option (always owned) */}
+                        {garageCategory === 'vehicle' && (
+                            <Button
+                                variant="outline"
+                                className={`w-full justify-start h-auto py-3 px-4 ${!data.equippedVehicleId ? 'border-primary bg-primary/5' : ''}`}
+                                onClick={() => {
+                                    if (data.equippedVehicleId) handleEquip(data.equippedVehicleId, 'vehicle', 'unequip');
+                                }}
+                            >
+                                <div className="flex items-center gap-3 w-full">
+                                    <div className="w-12 h-12 rounded bg-muted flex items-center justify-center overflow-hidden">
+                                         <ItemPreview3D type="base" />
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <div className="font-medium">Base Vehicle</div>
+                                        <div className="text-xs text-muted-foreground">Standard Issue</div>
+                                    </div>
+                                    {!data.equippedVehicleId && <Check className="w-4 h-4 text-primary" />}
+                                </div>
                             </Button>
-                        </CardFooter>
-                    </Card>
-                    <div className="col-span-full text-center py-12 text-muted-foreground">
-                        You don't own any custom items yet. Visit the shop to upgrade!
+                        )}
+
+                        {getGarageItems(garageCategory).map((item) => {
+                            let isEquipped = false;
+                            if (item.type === 'skin') isEquipped = data.equippedSkinId === item.id;
+                            if (item.type === 'trail') isEquipped = data.equippedTrailId === item.id;
+                            if (item.type === 'vehicle') isEquipped = data.equippedVehicleId === item.id;
+                            if (item.type === 'wheel') isEquipped = data.equippedWheelId === item.id;
+
+                            return (
+                                <Button
+                                    key={item.id}
+                                    variant="outline"
+                                    className={`w-full justify-start h-auto py-3 px-4 ${isEquipped ? 'border-primary bg-primary/5' : ''}`}
+                                    onClick={() => !isEquipped && handleEquip(item.id, item.type, 'equip')}
+                                    disabled={actionLoading === item.id}
+                                >
+                                    <div className="flex items-center gap-3 w-full">
+                                    <div className={`w-12 h-12 rounded flex items-center justify-center overflow-hidden relative shrink-0 ${item.type === 'skin' ? 'bg-indigo-100 dark:bg-indigo-900/20' : item.type === 'vehicle' ? 'bg-emerald-100 dark:bg-emerald-900/20' : item.type === 'wheel' ? 'bg-slate-100 dark:bg-slate-900/20' : 'bg-orange-100 dark:bg-orange-900/20'}`}>
+                                        <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
+                                    </div>
+                                        <div className="text-left flex-1 min-w-0">
+                                            <div className="font-medium truncate">{item.name}</div>
+                                            <div className="text-xs text-muted-foreground truncate">{item.description}</div>
+                                        </div>
+                                        {isEquipped ? (
+                                            <Check className="w-4 h-4 text-primary shrink-0" />
+                                        ) : actionLoading === item.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                                        ) : null}
+                                    </div>
+                                </Button>
+                            );
+                        })}
+                        
+                        {getGarageItems(garageCategory).length === 0 && garageCategory !== 'vehicle' && (
+                            <div className="text-center py-8 text-muted-foreground text-sm">
+                                No items in this category.
+                                <br />
+                                Visit the shop to get more!
+                            </div>
+                        )}
                     </div>
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {ownedItems.map((item) => {
-                    let isEquipped = false;
-                    if (item.type === 'skin') isEquipped = data.equippedSkinId === item.id;
-                    if (item.type === 'trail') isEquipped = data.equippedTrailId === item.id;
-                    if (item.type === 'vehicle') isEquipped = data.equippedVehicleId === item.id;
-
-                    return (
-                        <Card key={item.id} className={`overflow-hidden ${isEquipped ? 'border-primary ring-1 ring-primary' : ''}`}>
-                        <div className={`h-32 bg-muted flex items-center justify-center relative overflow-hidden ${item.type === 'skin' ? 'bg-gradient-to-br from-sky-100 to-indigo-100 dark:from-sky-900/20 dark:to-indigo-900/20' : item.type === 'vehicle' ? 'bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/20 dark:to-teal-900/20' : 'bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/20 dark:to-red-900/20'}`}>
-                            <div className="absolute inset-0">
-                                <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle"} assetId={item.assetId} />
-                            </div>
-                        </div>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle>{item.name}</CardTitle>
-                                {item.isProOnly && <Badge variant="secondary" className="bg-gradient-to-r from-amber-200 to-yellow-400 text-yellow-900 border-0">PRO</Badge>}
-                            </div>
-                            <CardDescription>{item.description}</CardDescription>
-                        </CardHeader>
-                        <CardFooter>
-                            <Button 
-                                variant={isEquipped ? "secondary" : "default"}
-                                className="w-full gap-2" 
-                                onClick={() => handleEquip(item.id, item.type, isEquipped ? "unequip" : "equip")}
-                                disabled={actionLoading === item.id}
-                            >
-                                {actionLoading === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEquipped ? <Check className="w-4 h-4" /> : null)}
-                                {isEquipped ? "Equipped" : "Equip"}
-                            </Button>
-                        </CardFooter>
-                        </Card>
-                    );
-                })}
-                </div>
-            )}
+            </div>
         </TabsContent>
       </Tabs>
     </div>

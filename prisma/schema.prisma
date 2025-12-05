@@ -267,7 +267,7 @@ model MultiplayerMatch {
   player2RatingChange Int   @default(0)
   
   // Match config
-  totalRounds     Int       @default(10)
+  totalRounds     Int       @default(1)
   difficulty      String    @default("medium")
   
   // Status
@@ -360,6 +360,7 @@ model RacePlayer {
   // Cosmetics
   selectedSkin    String?
   selectedTrail   String?
+  selectedVehicle String?
   
   // Results
   finishPosition  Int?      // 1st, 2nd, 3rd, etc. (null if DNF)
@@ -420,7 +421,7 @@ model ShopItem {
   name        String
   description String?
   cost        Int
-  type        String    // "skin", "trail"
+  type        String    // "skin", "trail", "vehicle", "wheel"
   assetId     String    // identifier for the game logic/renderer
   imageUrl    String?
   isProOnly   Boolean   @default(true)

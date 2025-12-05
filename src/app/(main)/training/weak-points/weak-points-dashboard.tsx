@@ -200,7 +200,7 @@ function GoodJobState() {
         <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-success" />
         <h3 className="text-xl font-semibold mb-2">Great Work!</h3>
         <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-          You're performing well across all operations! Keep practicing to maintain your skills and tackle harder problems.
+          You&apos;re performing well across all operations! Keep practicing to maintain your skills and tackle harder problems.
         </p>
         <Link href="/training">
           <Button size="lg">

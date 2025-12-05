@@ -1,12 +1,12 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Environment, Stars, Sparkles } from "@react-three/drei";
-import { useRef } from "react";
+import { OrbitControls, PerspectiveCamera, Environment, Sparkles } from "@react-three/drei";
+import { useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 
 interface ItemPreview3DProps {
-  type: "skin" | "trail" | "vehicle" | "base";
+  type: "skin" | "trail" | "vehicle" | "wheel" | "base";
   assetId?: string; 
 }
 
@@ -14,11 +14,13 @@ function CarModel({
   color = "#3b82f6", 
   skin, 
   trail,
+  wheel,
   vehicleType = "car_standard"
 }: { 
   color?: string; 
   skin?: string; 
   trail?: string;
+  wheel?: string;
   vehicleType?: string;
 }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -101,6 +103,39 @@ function CarModel({
                     <boxGeometry args={[1.3, 0.5, 1.4]} />
                     <meshStandardMaterial color={displayColor} roughness={roughness} metalness={metalness} emissive={emissive} wireframe={wireframe} transparent={transparent} opacity={opacity} />
                 </mesh>
+                {/* Windows */}
+                <mesh position={[0, 0.75, -0.38]}>
+                    <boxGeometry args={[1.32, 0.3, 1.0]} />
+                    <meshStandardMaterial color="#111" roughness={0.1} metalness={0.9} />
+                </mesh>
+                {/* Front Windshield */}
+                <mesh position={[0, 0.75, -1.01]}>
+                    <boxGeometry args={[1.1, 0.3, 0.05]} />
+                    <meshStandardMaterial color="#111" roughness={0.1} metalness={0.9} />
+                </mesh>
+                {/* Headlights (Round) */}
+                <mesh position={[-0.45, 0.4, -1.01]} rotation={[Math.PI/2, 0, 0]}>
+                    <cylinderGeometry args={[0.12, 0.12, 0.05, 16]} />
+                    <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={2} />
+                </mesh>
+                <mesh position={[0.45, 0.4, -1.01]} rotation={[Math.PI/2, 0, 0]}>
+                    <cylinderGeometry args={[0.12, 0.12, 0.05, 16]} />
+                    <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={2} />
+                </mesh>
+                {/* Grill */}
+                <mesh position={[0, 0.25, -1.01]}>
+                    <boxGeometry args={[0.5, 0.2, 0.05]} />
+                    <meshStandardMaterial color="#222" roughness={0.8} />
+                </mesh>
+                {/* Tail lights */}
+                <mesh position={[-0.5, 0.4, 1.51]}>
+                    <boxGeometry args={[0.2, 0.3, 0.05]} />
+                    <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2} />
+                </mesh>
+                <mesh position={[0.5, 0.4, 1.51]}>
+                    <boxGeometry args={[0.2, 0.3, 0.05]} />
+                    <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2} />
+                </mesh>
             </>
         );
     } else if (vehicleType === 'car_jeep') {
@@ -111,16 +146,39 @@ function CarModel({
                     <boxGeometry args={[1.1, 0.6, 1.8]} />
                     <meshStandardMaterial ref={materialRef} color={displayColor} roughness={roughness} metalness={metalness} emissive={emissive} wireframe={wireframe} transparent={transparent} opacity={opacity} />
                 </mesh>
-                {/* Roll Cage */}
-                <mesh position={[0, 1.0, -0.2]}>
+                {/* Roll Cage - Taller */}
+                <mesh position={[0, 1.2, -0.2]}>
                     <boxGeometry args={[1.0, 0.05, 1.0]} />
                     <meshStandardMaterial color="#111" />
                 </mesh>
-                {/* Supports */}
-                <mesh position={[-0.5, 0.8, -0.7]} rotation={[0,0,0]}><cylinderGeometry args={[0.03, 0.03, 0.6]} /><meshStandardMaterial color="#111" /></mesh>
-                <mesh position={[0.5, 0.8, -0.7]} rotation={[0,0,0]}><cylinderGeometry args={[0.03, 0.03, 0.6]} /><meshStandardMaterial color="#111" /></mesh>
-                <mesh position={[-0.5, 0.8, 0.3]} rotation={[0,0,0]}><cylinderGeometry args={[0.03, 0.03, 0.6]} /><meshStandardMaterial color="#111" /></mesh>
-                <mesh position={[0.5, 0.8, 0.3]} rotation={[0,0,0]}><cylinderGeometry args={[0.03, 0.03, 0.6]} /><meshStandardMaterial color="#111" /></mesh>
+                {/* Supports - Taller */}
+                <mesh position={[-0.5, 0.85, -0.7]} rotation={[0,0,0]}><cylinderGeometry args={[0.03, 0.03, 0.7]} /><meshStandardMaterial color="#111" /></mesh>
+                <mesh position={[0.5, 0.85, -0.7]} rotation={[0,0,0]}><cylinderGeometry args={[0.03, 0.03, 0.7]} /><meshStandardMaterial color="#111" /></mesh>
+                <mesh position={[-0.5, 0.85, 0.3]} rotation={[0,0,0]}><cylinderGeometry args={[0.03, 0.03, 0.7]} /><meshStandardMaterial color="#111" /></mesh>
+                <mesh position={[0.5, 0.85, 0.3]} rotation={[0,0,0]}><cylinderGeometry args={[0.03, 0.03, 0.7]} /><meshStandardMaterial color="#111" /></mesh>
+                {/* Headlights (Round) */}
+                <mesh position={[-0.35, 0.55, -0.91]} rotation={[Math.PI/2, 0, 0]}>
+                    <cylinderGeometry args={[0.1, 0.1, 0.05, 16]} />
+                    <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={2} />
+                </mesh>
+                <mesh position={[0.35, 0.55, -0.91]} rotation={[Math.PI/2, 0, 0]}>
+                    <cylinderGeometry args={[0.1, 0.1, 0.05, 16]} />
+                    <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={2} />
+                </mesh>
+                {/* Grill */}
+                <mesh position={[0, 0.55, -0.91]}>
+                    <boxGeometry args={[0.4, 0.2, 0.05]} />
+                    <meshStandardMaterial color="#222" roughness={0.8} />
+                </mesh>
+                {/* Tail lights */}
+                <mesh position={[-0.4, 0.5, 0.91]}>
+                    <boxGeometry args={[0.15, 0.25, 0.05]} />
+                    <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2} />
+                </mesh>
+                <mesh position={[0.4, 0.5, 0.91]}>
+                    <boxGeometry args={[0.15, 0.25, 0.05]} />
+                    <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2} />
+                </mesh>
             </>
         );
     } else if (vehicleType === 'car_sport') {
@@ -141,6 +199,25 @@ function CarModel({
                     <boxGeometry args={[1.4, 0.05, 0.3]} />
                     <meshStandardMaterial color={displayColor} />
                 </mesh>
+                {/* Headlights - Standard Sport */}
+                <mesh position={[-0.45, 0.4, -1.11]}>
+                    <boxGeometry args={[0.35, 0.1, 0.05]} />
+                    <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={2} />
+                </mesh>
+                <mesh position={[0.45, 0.4, -1.11]}>
+                    <boxGeometry args={[0.35, 0.1, 0.05]} />
+                    <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={2} />
+                </mesh>
+                {/* Low Grill */}
+                <mesh position={[0, 0.2, -1.11]}>
+                    <boxGeometry args={[0.6, 0.1, 0.05]} />
+                    <meshStandardMaterial color="#111" roughness={0.5} />
+                </mesh>
+                {/* Tail light strip */}
+                <mesh position={[0, 0.4, 1.11]}>
+                    <boxGeometry args={[1.1, 0.05, 0.05]} />
+                    <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2} />
+                </mesh>
             </>
         );
     }
@@ -156,32 +233,110 @@ function CarModel({
                 <boxGeometry args={[0.8, 0.4, 1]} />
                 <meshStandardMaterial color="#111" roughness={0.2} />
             </mesh>
+            {/* Headlights */}
+            <mesh position={[-0.4, 0.5, -1.01]}>
+                <boxGeometry args={[0.2, 0.1, 0.05]} />
+                <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={2} />
+            </mesh>
+            <mesh position={[0.4, 0.5, -1.01]}>
+                <boxGeometry args={[0.2, 0.1, 0.05]} />
+                <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={2} />
+            </mesh>
+            {/* Grill */}
+            <mesh position={[0, 0.3, -1.01]}>
+                <boxGeometry args={[0.5, 0.15, 0.05]} />
+                <meshStandardMaterial color="#222" roughness={0.8} />
+            </mesh>
+            {/* Tail lights */}
+             <mesh position={[-0.4, 0.55, 1.01]}>
+                <boxGeometry args={[0.25, 0.1, 0.05]} />
+                <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2} />
+            </mesh>
+            <mesh position={[0.4, 0.55, 1.01]}>
+                <boxGeometry args={[0.25, 0.1, 0.05]} />
+                <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={2} />
+            </mesh>
         </>
     );
   };
+
+  // Wheel positions
+  const wheelPositions: [number, number, number][] = [
+      [-0.6, 0.2, -0.6], [0.6, 0.2, -0.6], // Front
+      [-0.6, 0.2, 0.6], [0.6, 0.2, 0.6]   // Rear
+  ];
 
   return (
     <group ref={groupRef}>
       {renderVehicleBody()}
 
       {/* Wheels */}
-      {/* Adjust wheel positions based on vehicle type if needed, keeping standard for now */}
-      {/* FL */} <mesh position={[-0.6, 0.2, -0.6]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.3, 0.3, 0.3, 16]} />
-        <meshStandardMaterial color="#111" />
-      </mesh>
-      {/* FR */} <mesh position={[0.6, 0.2, -0.6]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.3, 0.3, 0.3, 16]} />
-        <meshStandardMaterial color="#111" />
-      </mesh>
-      {/* RL */} <mesh position={[-0.6, 0.2, 0.6]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.35, 0.35, 0.35, 16]} />
-        <meshStandardMaterial color="#111" />
-      </mesh>
-      {/* RR */} <mesh position={[0.6, 0.2, 0.6]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.35, 0.35, 0.35, 16]} />
-        <meshStandardMaterial color="#111" />
-      </mesh>
+      {wheelPositions.map((pos, i) => {
+          const isRear = i > 1;
+          // Adjust size for offroad
+          const scale = wheel === 'wheel_offroad' ? 1.2 : 1;
+          
+          return (
+            <group key={i} position={pos} scale={scale}>
+                {/* Wheel Geometry based on type */}
+                {wheel === 'wheel_spinner' ? (
+                    <group rotation={[0, 0, Math.PI / 2]}>
+                         {/* Tire */}
+                        <mesh>
+                            <cylinderGeometry args={[0.3, 0.3, 0.3, 16]} />
+                            <meshStandardMaterial color="#111" />
+                        </mesh>
+                        {/* Chrome Rim */}
+                        <mesh position={[0, 0.16, 0]}>
+                             <cylinderGeometry args={[0.2, 0.2, 0.02, 16]} />
+                             <meshStandardMaterial color="#e2e8f0" metalness={1} roughness={0.1} />
+                        </mesh>
+                         {/* Spinner Element - simplified */}
+                         <mesh position={[0, 0.17, 0]} rotation={[0, Math.PI/4, 0]}>
+                             <boxGeometry args={[0.3, 0.05, 0.02]} />
+                             <meshStandardMaterial color="#e2e8f0" metalness={1} roughness={0.1} />
+                        </mesh>
+                    </group>
+                ) : wheel === 'wheel_offroad' ? (
+                    <group rotation={[0, 0, Math.PI / 2]}>
+                        {/* Big Tire */}
+                        <mesh>
+                            <cylinderGeometry args={[0.35, 0.35, 0.4, 8]} />
+                            <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
+                        </mesh>
+                        {/* Rim */}
+                        <mesh position={[0, 0.21, 0]}>
+                             <cylinderGeometry args={[0.15, 0.15, 0.02, 6]} />
+                             <meshStandardMaterial color="#555" metalness={0.5} />
+                        </mesh>
+                    </group>
+                ) : wheel === 'wheel_future' ? (
+                     <group rotation={[0, 0, Math.PI / 2]}>
+                        {/* Tire */}
+                        <mesh>
+                            <cylinderGeometry args={[0.3, 0.3, 0.3, 24]} />
+                            <meshStandardMaterial color="#000" />
+                        </mesh>
+                        {/* Neon Rim */}
+                        <mesh position={[0, 0.16, 0]}>
+                             <torusGeometry args={[0.2, 0.02, 8, 24]} />
+                             <meshStandardMaterial color="#06b6d4" emissive="#06b6d4" emissiveIntensity={2} />
+                        </mesh>
+                        <mesh position={[0, 0.16, 0]}>
+                             <circleGeometry args={[0.1]} />
+                             <meshStandardMaterial color="#000" />
+                        </mesh>
+                    </group>
+                ) : (
+                    // Standard / Default
+                    <mesh rotation={[0, 0, Math.PI / 2]}>
+                        <cylinderGeometry args={[0.3, 0.3, 0.3, 16]} />
+                        <meshStandardMaterial color="#111" />
+                    </mesh>
+                )}
+            </group>
+          );
+      })}
       
       {/* Skin Specific Effects */}
       {skin === 'skin_galactic' && (
@@ -210,41 +365,134 @@ function CarModel({
            </mesh>
         </group>
       )}
+
+      {/* New Boosts */}
+      {trail === 'trail_pixel' && (
+        <group position={[0, 0.2, 1.5]}>
+           {/* Pixel chunks */}
+           {[0, 0.4, 0.8, 1.2].map((z, i) => {
+              // Use deterministic values based on index instead of random
+              const offset = (i % 2 === 0 ? 1 : -1) * 0.1;
+              return (
+                <mesh key={i} position={[offset, -offset, z]}>
+                   <boxGeometry args={[0.2, 0.2, 0.2]} />
+                   <meshBasicMaterial color="#22c55e" transparent opacity={0.8 - (z/2)} />
+                </mesh>
+              );
+           })}
+        </group>
+      )}
+      
+      {trail === 'trail_lightning' && (
+        <group position={[0, 0.2, 1.5]}>
+           <Sparkles count={30} scale={[0.5, 0.5, 2]} size={6} speed={2} color="#eab308" />
+        </group>
+      )}
+      
+      {trail === 'trail_rainbow' && (
+        <group position={[0, 0.1, 1.2]}>
+            {/* Multi-colored trail strips */}
+           <mesh position={[-0.2, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+             <planeGeometry args={[0.2, 3]} />
+             <meshBasicMaterial color="#ef4444" transparent opacity={0.6} side={THREE.DoubleSide} />
+           </mesh>
+           <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+             <planeGeometry args={[0.2, 3]} />
+             <meshBasicMaterial color="#22c55e" transparent opacity={0.6} side={THREE.DoubleSide} />
+           </mesh>
+           <mesh position={[0.2, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+             <planeGeometry args={[0.2, 3]} />
+             <meshBasicMaterial color="#3b82f6" transparent opacity={0.6} side={THREE.DoubleSide} />
+           </mesh>
+        </group>
+      )}
     </group>
   );
 }
 
 export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  
   const isSkin = type === 'skin';
   const isTrail = type === 'trail';
   const isVehicle = type === 'vehicle';
+  const isWheel = type === 'wheel';
   const isBase = type === 'base';
   
   const skinId = (isSkin || isBase) ? assetId : undefined;
   const trailId = isTrail ? assetId : undefined;
-  // If previewing a vehicle, use that ID. If previewing a skin/trail, use standard car or maybe eventually currently equipped
+  const wheelId = isWheel ? assetId : undefined;
   const vehicleType = isVehicle ? assetId : "car_standard"; 
 
-  return (
-    <div className="w-full h-full">
-      <Canvas shadows dpr={[1, 2]}>
-        <PerspectiveCamera makeDefault position={[3, 3, 3]} fov={50} />
-        <ambientLight intensity={0.7} />
-        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} castShadow intensity={1.5} />
-        <pointLight position={[-10, -10, -10]} intensity={0.5} />
-        
-        <group position={[0, -0.5, 0]}>
-            <CarModel 
-                skin={skinId} 
-                trail={trailId}
-                vehicleType={vehicleType} 
-                color={isBase ? "#94a3b8" : undefined} // Default gray for base
-            />
-        </group>
+  // Use Intersection Observer to only render Canvas when visible
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-        <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={4} />
-        <Environment preset="city" />
-      </Canvas>
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setIsVisible(entry.isIntersecting);
+        });
+      },
+      { 
+        threshold: 0.1,
+        rootMargin: '50px' // Start loading slightly before entering viewport
+      }
+    );
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // Get color for the 2D placeholder based on type
+  const getPlaceholderColor = () => {
+    if (isSkin) {
+      if (assetId === 'car_red') return 'bg-red-500';
+      if (assetId === 'car_blue') return 'bg-blue-500';
+      if (assetId === 'car_gold') return 'bg-amber-400';
+      if (assetId === 'skin_galactic') return 'bg-indigo-950';
+      if (assetId === 'skin_glitch') return 'bg-green-500';
+      if (assetId === 'skin_lava') return 'bg-red-800';
+      if (assetId === 'skin_ice') return 'bg-sky-200';
+      if (assetId === 'skin_rainbow') return 'bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500';
+      return 'bg-blue-500';
+    }
+    if (isTrail) return 'bg-orange-500';
+    if (isVehicle) return 'bg-emerald-500';
+    if (isWheel) return 'bg-slate-500';
+    return 'bg-slate-400';
+  };
+
+  return (
+    <div ref={containerRef} className="w-full h-full">
+      {isVisible ? (
+        <Canvas shadows dpr={[1, 2]}>
+          <PerspectiveCamera makeDefault position={[3, 3, 3]} fov={50} />
+          <ambientLight intensity={0.7} />
+          <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} castShadow intensity={1.5} />
+          <pointLight position={[-10, -10, -10]} intensity={0.5} />
+          
+          <group position={[0, -0.5, 0]}>
+              <CarModel 
+                  skin={skinId} 
+                  trail={trailId}
+                  wheel={wheelId}
+                  vehicleType={vehicleType} 
+                  color={isBase ? "#94a3b8" : undefined} // Default gray for base
+              />
+          </group>
+
+          <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={4} />
+          <Environment preset="city" />
+        </Canvas>
+      ) : (
+        // Placeholder when not visible - lightweight 2D fallback
+        <div className={`w-full h-full flex items-center justify-center ${getPlaceholderColor()} opacity-30 animate-pulse`}>
+          <div className="w-8 h-8 border-2 border-white/50 rounded" />
+        </div>
+      )}
     </div>
   );
 }

@@ -330,7 +330,7 @@ async function endGame(
   const player2 = game.gameState.players[1];
 
   // Calculate rating changes
-  let ratingChanges: Record<string, number> = {};
+  const ratingChanges: Record<string, number> = {};
   
   if (winnerId) {
     const winner = game.gameState.players.find(p => p.id === winnerId)!;

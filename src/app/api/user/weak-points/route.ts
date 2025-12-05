@@ -209,10 +209,15 @@ export async function GET() {
       })
       .slice(0, 15);
 
-    // Find slowest problems - include problems that take longer than average
-    const avgOverallTime = attempts.reduce((sum, a) => sum + a.timeTaken, 0) / attempts.length;
+    // Find slowest problems - compare against operation-specific average
     const slowestProblems = allProblemStats
-      .filter((p) => p.avgTime > avgOverallTime * 1.2) // 20% slower than average
+      .filter((p) => {
+        const opStats = operationStatsMap.get(p.operation);
+        if (!opStats || opStats.attempts === 0) return false;
+        
+        const opAvgTime = opStats.totalTime / opStats.attempts;
+        return p.avgTime > opAvgTime * 1.2; // 20% slower than operation average
+      })
       .sort((a, b) => b.avgTime - a.avgTime)
       .slice(0, 10);
 

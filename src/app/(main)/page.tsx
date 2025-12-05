@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
+  Lock,
 } from "lucide-react";
 import {
   AreaChart,
@@ -23,6 +24,8 @@ import {
   Tooltip,
 } from "recharts";
 import Link from "next/link";
+import { useAuth } from "@/hooks/use-auth";
+import { ChartPaywall } from "@/components/billing/chart-paywall";
 
 interface UserStats {
   totalProblems: number;
@@ -73,6 +76,8 @@ const SimpleTooltip = ({
 };
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const isPremium = user?.isPremium;
   const [stats, setStats] = useState<UserStats | null>(null);
   const [performance, setPerformance] = useState<PerformanceData | null>(null);
   const [activity, setActivity] = useState<ActivityData | null>(null);
@@ -231,7 +236,9 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="h-[240px]">
-                  {hasPerformanceData ? (
+                  {!isPremium ? (
+                    <ChartPaywall title="Performance History" />
+                  ) : hasPerformanceData ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
                         data={performanceData}
@@ -311,7 +318,12 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {skillsData.map((skill) => (
+                  {!isPremium ? (
+                    <div className="h-[200px]">
+                       <ChartPaywall title="Skill Breakdown" />
+                    </div>
+                  ) : (
+                    skillsData.map((skill) => (
                     <div key={skill.name} className="space-y-2 group cursor-default">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground group-hover:text-foreground transition-colors">
@@ -328,13 +340,19 @@ export default function Dashboard() {
                         />
                       </div>
                     </div>
-                  ))}
+                  ))
+                  )}
                 </div>
                 <div className="mt-4 pt-3 border-t border-border">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Overall accuracy</span>
                     <span className="font-mono font-semibold">
-                      {hasSkillsData
+                      {!isPremium ? (
+                        <span className="flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          Locked
+                        </span>
+                      ) : hasSkillsData
                         ? `${Math.round(
                             skillsData
                               .filter((s) => s.total > 0)

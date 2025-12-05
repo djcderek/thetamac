@@ -12,7 +12,7 @@ export function isPremiumStatus(status?: string | null) {
 export function userHasPremiumAccess(user?: {
   isPremium?: boolean | null;
   subscriptionStatus?: string | null;
-}) {
+} | null) {
   if (!user) return false;
   return Boolean(user.isPremium || isPremiumStatus(user.subscriptionStatus));
 }

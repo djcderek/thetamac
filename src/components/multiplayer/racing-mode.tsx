@@ -35,6 +35,7 @@ import { useRaceSocket } from "@/hooks/use-race-socket";
 import Link from "next/link";
 import type { ActionType, PlayerProblems, TrackObstacle, TrackDrop, ObstacleType, DropType } from "@/lib/racing/types";
 import RaceTrack3D from "@/components/racing/race-track-3d";
+import RaceLobby3D from "@/components/racing/race-lobby-3d";
 
 // ============================================
 // PROBLEM INPUT PANEL
@@ -64,16 +65,14 @@ function ProblemPanel({
     boost: "",
   });
   
-  const inputRefs = {
-    left: useRef<HTMLInputElement>(null),
-    forward: useRef<HTMLInputElement>(null),
-    right: useRef<HTMLInputElement>(null),
-    boost: useRef<HTMLInputElement>(null),
-  };
+  const leftRef = useRef<HTMLInputElement>(null);
+  const forwardRef = useRef<HTMLInputElement>(null);
+  const rightRef = useRef<HTMLInputElement>(null);
+  const boostRef = useRef<HTMLInputElement>(null);
 
   // Focus forward input on mount
   useEffect(() => {
-    inputRefs.forward.current?.focus();
+    forwardRef.current?.focus();
   }, []);
 
   const handleSubmit = (action: ActionType) => {
@@ -95,7 +94,11 @@ function ProblemPanel({
     setAnswers(prev => ({ ...prev, [action]: "" }));
     
     // Refocus input
-    inputRefs[action].current?.focus();
+    const ref = action === "left" ? leftRef :
+                action === "right" ? rightRef :
+                action === "boost" ? boostRef :
+                forwardRef;
+    ref.current?.focus();
   };
 
   const handleKeyDown = (action: ActionType) => (e: React.KeyboardEvent) => {
@@ -156,7 +159,7 @@ function ProblemPanel({
                   </div>
                   <div className="flex gap-1">
                     <Input
-                      ref={inputRefs.left}
+                      ref={leftRef}
                       type="number"
                       value={answers.left}
                       onChange={e => setAnswers(prev => ({ ...prev, left: e.target.value }))}
@@ -188,7 +191,7 @@ function ProblemPanel({
             </div>
             <div className="flex gap-1">
               <Input
-                ref={inputRefs.forward}
+                ref={forwardRef}
                 type="number"
                 value={answers.forward}
                 onChange={e => setAnswers(prev => ({ ...prev, forward: e.target.value }))}
@@ -217,7 +220,7 @@ function ProblemPanel({
                   </div>
                   <div className="flex gap-1">
                     <Input
-                      ref={inputRefs.right}
+                      ref={rightRef}
                       type="number"
                       value={answers.right}
                       onChange={e => setAnswers(prev => ({ ...prev, right: e.target.value }))}
@@ -239,7 +242,7 @@ function ProblemPanel({
       </div>
 
       {/* Boost problem */}
-      <Card className="border-amber-500/50 bg-gradient-to-r from-amber-500/10 to-orange-500/10">
+      <Card className="border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10">
         <CardContent className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -257,7 +260,7 @@ function ProblemPanel({
             </div>
             <div className="flex items-center gap-2">
               <Input
-                ref={inputRefs.boost}
+                ref={boostRef}
                 type="number"
                 value={answers.boost}
                 onChange={e => setAnswers(prev => ({ ...prev, boost: e.target.value }))}
@@ -318,7 +321,7 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
       {/* Winner banner */}
       <div className={`text-center p-6 rounded-xl ${
         isWinner 
-          ? "bg-gradient-to-br from-amber-500/20 to-yellow-500/20 border border-amber-500/30" 
+          ? "bg-linear-to-br from-amber-500/20 to-yellow-500/20 border border-amber-500/30" 
           : "bg-secondary/50"
       }`}>
         <div className={`w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center ${
@@ -540,7 +543,7 @@ export function RacingMode() {
             {/* Track visualization */}
             <RaceTrack3D
               players={race.players}
-              trackLength={race.config?.trackLength || 50}
+              trackLength={race.config?.trackLength || 500}
               myPlayerId={myPlayerId || session.user.id || ""}
               finishOrder={race.finishOrder}
               obstacles={race.obstacles || []}
@@ -631,106 +634,19 @@ export function RacingMode() {
     );
   }
 
-  // Lobby screen
+  // Lobby screen - Fortnite-style 3D showcase
   if (lobby.inLobby) {
     return (
       <div className="min-h-[calc(100vh-200px)]">
-        <div className="border-b border-border">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold">Race Lobby</h1>
-              <p className="text-sm text-muted-foreground">
-                Waiting for players...
-              </p>
-            </div>
-            <Badge variant="outline" className="text-xs">
-              {isConnected ? (
-                <>
-                  <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                  Disconnected
-                </>
-              )}
-            </Badge>
-          </div>
-        </div>
         <div className="p-4 md:p-6">
-          <div className="max-w-lg mx-auto space-y-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-secondary">
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Players Ready</p>
-                      <p className="text-sm text-muted-foreground">
-                        {lobby.players.length}/5 players
-                      </p>
-                    </div>
-                  </div>
-                  {lobby.startingIn && (
-                    <Badge className="bg-success text-success-foreground">
-                      Starting in {lobby.startingIn}s
-                    </Badge>
-                  )}
-                </div>
-
-                <Progress value={(lobby.players.length / 5) * 100} className="mb-6" />
-
-                <div className="space-y-3">
-                  {lobby.players.map((player, i) => (
-                    <div
-                      key={player.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg ${
-                        player.id === session.user.id ? "bg-primary/10 border border-primary/30" : "bg-secondary/30"
-                      }`}
-                    >
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback>
-                          {player.username.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium">
-                          {player.username}
-                          {player.id === session.user.id && (
-                            <span className="text-muted-foreground ml-1">(You)</span>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Rating: {player.rating}
-                        </p>
-                      </div>
-                      <Badge variant="secondary">Lane {i + 1}</Badge>
-                    </div>
-                  ))}
-                  
-                  {/* Empty slots */}
-                  {Array.from({ length: 5 - lobby.players.length }).map((_, i) => (
-                    <div
-                      key={`empty-${i}`}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border"
-                    >
-                      <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center">
-                        <Circle className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <p className="text-muted-foreground">Waiting for player...</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button variant="outline" onClick={leaveQueue} className="w-full">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Leave Lobby
-            </Button>
+          <div className="max-w-5xl mx-auto">
+            <RaceLobby3D
+              players={lobby.players}
+              maxPlayers={5}
+              startingIn={lobby.startingIn}
+              currentUserId={session.user.id || ""}
+              onLeave={leaveQueue}
+            />
           </div>
         </div>
       </div>
@@ -826,7 +742,7 @@ export function RacingMode() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-6">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-xl bg-linear-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
                   <Flag className="w-7 h-7 text-emerald-500" />
                 </div>
                 <div className="flex-1">
@@ -855,7 +771,7 @@ export function RacingMode() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                     <span className="text-sm font-semibold">1</span>
                   </div>
                   <div>
@@ -866,7 +782,7 @@ export function RacingMode() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                     <span className="text-sm font-semibold">2</span>
                   </div>
                   <div>
@@ -877,7 +793,7 @@ export function RacingMode() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                     <span className="text-sm font-semibold">3</span>
                   </div>
                   <div>
@@ -888,7 +804,7 @@ export function RacingMode() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                     <span className="text-sm font-semibold">4</span>
                   </div>
                   <div>
@@ -907,7 +823,7 @@ export function RacingMode() {
             <Card>
               <CardContent className="p-4 text-center">
                 <Flag className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                <p className="text-2xl font-mono font-bold">50m</p>
+                <p className="text-2xl font-mono font-bold">500m</p>
                 <p className="text-xs text-muted-foreground">Track Length</p>
               </CardContent>
             </Card>
@@ -938,4 +854,3 @@ export function RacingMode() {
     </div>
   );
 }
-

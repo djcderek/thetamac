@@ -10,6 +10,7 @@ import type {
   ActionType,
   TrackObstacle,
   TrackDrop,
+  UserCosmetics,
 } from "@/lib/racing/types";
 
 type TypedSocket = Socket<RaceServerToClientEvents, RaceClientToServerEvents>;
@@ -27,7 +28,12 @@ interface QueueState {
 interface LobbyState {
   inLobby: boolean;
   lobbyId: string | null;
-  players: Array<{ id: string; username: string; rating: number }>;
+  players: Array<{ 
+    id: string; 
+    username: string; 
+    rating: number;
+    cosmetics?: UserCosmetics;
+  }>;
   config: RaceConfig | null;
   startingIn: number | null;
 }
@@ -40,7 +46,6 @@ interface RacePlayerState {
   position: number;
   isStunned: boolean;
   hasShield: boolean;
-  speedBoostActive: boolean;
   selectedSkin?: string;
   selectedTrail?: string;
 }
@@ -131,6 +136,22 @@ export function useRaceSocket() {
   
   // Cooldown tracking for wrong answers
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
+  const [cooldownState, setCooldownState] = useState({ isOnCooldown: false, cooldownRemaining: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, cooldownUntil - now);
+      setCooldownState({ isOnCooldown: remaining > 0, cooldownRemaining: remaining });
+    };
+    
+    update();
+    
+    if (cooldownUntil > Date.now()) {
+      const interval = setInterval(update, 100);
+      return () => clearInterval(interval);
+    }
+  }, [cooldownUntil]);
 
   // Add feedback helper
   const addFeedback = useCallback((type: ActionFeedback["type"], message: string) => {
@@ -145,6 +166,37 @@ export function useRaceSocket() {
     setTimeout(() => {
       setFeedback(prev => prev.filter(f => f.timestamp !== newFeedback.timestamp));
     }, 3000);
+  }, []);
+
+  // Reset all state helper
+  const resetAllState = useCallback(() => {
+    myPlayerIdRef.current = null;
+    setMyPlayerId(null);
+    setQueue({ inQueue: false, playersInQueue: 0, estimatedWait: 0 });
+    setLobby({
+      inLobby: false,
+      lobbyId: null,
+      players: [],
+      config: null,
+      startingIn: null,
+    });
+    setRace({
+      inRace: false,
+      raceId: null,
+      status: null,
+      countdown: 0,
+      players: [],
+      config: null,
+      myProblems: null,
+      obstacles: [],
+      drops: [],
+      finishOrder: [],
+      myFinishPosition: null,
+    });
+    setResult(null);
+    setFeedback([]);
+    setError(null);
+    setCooldownUntil(0);
   }, []);
 
   // Initialize socket connection
@@ -221,7 +273,7 @@ export function useRaceSocket() {
         raceId,
         status: "countdown",
         countdown: 3,
-        players: players.map(p => ({ ...p, isStunned: false, hasShield: false, speedBoostActive: false })),
+        players: players.map(p => ({ ...p, isStunned: false, hasShield: false })),
         config,
         myProblems: yourProblems,
         obstacles,
@@ -245,7 +297,6 @@ export function useRaceSocket() {
               position: update.position,
               isStunned: update.isStunned,
               hasShield: update.hasShield,
-              speedBoostActive: update.speedBoostActive,
             };
           }
           return p;
@@ -393,48 +444,29 @@ export function useRaceSocket() {
     return () => {
       socket.disconnect();
     };
-  }, []);
-
-  // Reset all state helper
-  const resetAllState = useCallback(() => {
-    myPlayerIdRef.current = null;
-    setMyPlayerId(null);
-    setQueue({ inQueue: false, playersInQueue: 0, estimatedWait: 0 });
-    setLobby({
-      inLobby: false,
-      lobbyId: null,
-      players: [],
-      config: null,
-      startingIn: null,
-    });
-    setRace({
-      inRace: false,
-      raceId: null,
-      status: null,
-      countdown: 0,
-      players: [],
-      config: null,
-      myProblems: null,
-      obstacles: [],
-      drops: [],
-      finishOrder: [],
-      myFinishPosition: null,
-    });
-    setResult(null);
-    setFeedback([]);
-    setError(null);
-    setCooldownUntil(0);
-  }, []);
+  }, []); // Empty dependency array for resetAllState
 
   // ============================================
   // ACTIONS
   // ============================================
 
-  const joinQueue = useCallback((userId: string, username: string) => {
+  const joinQueue = useCallback(async (userId: string, username: string) => {
     if (socketRef.current) {
       myPlayerIdRef.current = userId;
       setMyPlayerId(userId);
-      socketRef.current.emit("race:join_queue", { userId, username });
+      
+      // Fetch user's equipped cosmetics
+      let cosmetics: UserCosmetics | undefined;
+      try {
+        const res = await fetch("/api/user/cosmetics");
+        if (res.ok) {
+          cosmetics = await res.json();
+        }
+      } catch (err) {
+        console.warn("Failed to fetch cosmetics:", err);
+      }
+      
+      socketRef.current.emit("race:join_queue", { userId, username, cosmetics });
       setQueue(prev => ({ ...prev, inQueue: true }));
     }
   }, []);
@@ -488,8 +520,7 @@ export function useRaceSocket() {
   // COMPUTED VALUES
   // ============================================
 
-  const isOnCooldown = Date.now() < cooldownUntil;
-  const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
+  const { isOnCooldown, cooldownRemaining } = cooldownState;
 
   // Get my player from the race
   const getMyPlayer = useCallback((myUserId: string) => {
@@ -531,4 +562,3 @@ export function useRaceSocket() {
     getLeaderboard,
   };
 }
-

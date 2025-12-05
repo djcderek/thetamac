@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
+import { isPremiumStatus } from "@/lib/subscription";
+import { Lock } from "lucide-react";
+import { PremiumPaywall } from "@/components/billing/premium-paywall";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -26,8 +29,14 @@ import {
   Wand2,
   AlertCircle,
   Target,
+  Circle,
+  Copy,
+  Divide,
+  LayoutGrid,
+  Shuffle,
 } from "lucide-react";
 import Link from "next/link";
+import { TRAINING_SKILLS, MathSkill, SkillId } from "@/lib/training-skills";
 
 type Operation = "+" | "-" | "×" | "÷";
 type Difficulty = "easy" | "medium" | "hard" | "expert";
@@ -659,6 +668,8 @@ function generateProblem(
 
 export default function TrainingPage() {
   const { data: authSession } = useSession();
+  const isPremium = isPremiumStatus(authSession?.user?.subscriptionStatus);
+  
   const [selectedOperations, setSelectedOperations] = useState<Operation[]>(["+", "-", "×", "÷"]);
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [gameMode, setGameMode] = useState<GameMode>("timed");
@@ -686,6 +697,7 @@ export default function TrainingPage() {
   const [showTip, setShowTip] = useState(true);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [tipExpanded, setTipExpanded] = useState(true);
+  const [selectedSkill, setSelectedSkill] = useState<SkillId | null>(null);
   
   // Session tracking for database persistence
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -730,6 +742,21 @@ export default function TrainingPage() {
   };
 
   const startNewProblem = useCallback(() => {
+    // If a specific skill is selected in learning mode, use that generator
+    if (gameMode === "learning" && selectedSkill) {
+      const skill = TRAINING_SKILLS.find(s => s.id === selectedSkill);
+      if (skill) {
+        const newProblem = skill.generateProblem();
+        setProblem(newProblem);
+        setUserAnswer("");
+        setIsCorrect(null);
+        setHasAnswered(false);
+        setStartTime(Date.now());
+        inputRef.current?.focus();
+        return;
+      }
+    }
+
     const nextOperation = getNextOperation();
     const newProblem = generateProblem(nextOperation, difficulty, showAdvanced, operationRanges);
     setProblem(newProblem);
@@ -741,7 +768,7 @@ export default function TrainingPage() {
     }
     setStartTime(Date.now());
     inputRef.current?.focus();
-  }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges]);
+  }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges, selectedSkill]);
 
   const startTraining = async () => {
     // Reset operation queue for fresh even distribution
@@ -1216,7 +1243,7 @@ export default function TrainingPage() {
                   {/* Learning Mode Description */}
                   {gameMode === "learning" && (
                     <div className="p-4 rounded-lg bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20">
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-amber-500/20">
                           <Lightbulb className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                         </div>
@@ -1225,46 +1252,149 @@ export default function TrainingPage() {
                             Learn Mental Math Secrets
                           </h3>
                           <p className="text-sm text-amber-800/80 dark:text-amber-200/80">
-                            Get expert tips inspired by Arthur Benjamin&apos;s &ldquo;Secrets of Mental Math&rdquo; 
-                            and other proven techniques. See step-by-step breakdowns for every problem!
+                            Get expert tips and proven techniques. See step-by-step breakdowns for every problem!
                           </p>
                         </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                          Choose a Focus:
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {/* Mixed Practice Option */}
+                          <button
+                            onClick={() => setSelectedSkill(null)}
+                            className={`p-3 rounded-lg border text-left transition-all ${
+                              selectedSkill === null
+                                ? "bg-background border-amber-500 ring-1 ring-amber-500 shadow-sm"
+                                : "bg-background/50 border-transparent hover:bg-background hover:border-amber-500/30"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className={`p-1.5 rounded-md ${selectedSkill === null ? "bg-amber-100 text-amber-700" : "bg-secondary text-muted-foreground"}`}>
+                                <Shuffle className="w-4 h-4" />
+                              </div>
+                              <span className={`font-medium ${selectedSkill === null ? "text-foreground" : "text-muted-foreground"}`}>
+                                Mixed Practice
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground pl-9">
+                              Random problems with tips as you go
+                            </p>
+                          </button>
+
+                          {/* Skill Options */}
+                          {TRAINING_SKILLS.map((skill) => {
+                            // Dynamic icon mapping
+                            const Icon = skill.iconName === "Zap" ? Zap : 
+                                         skill.iconName === "Circle" ? Circle :
+                                         skill.iconName === "Box" ? Square :
+                                         skill.iconName === "Copy" ? Copy :
+                                         skill.iconName === "Divide" ? Divide : LayoutGrid;
+                            
+                            const isLocked = !isPremium;
+
+                            return (
+                              <button
+                                key={skill.id}
+                                onClick={() => {
+                                  if (!isLocked) setSelectedSkill(skill.id);
+                                }}
+                                disabled={isLocked}
+                                className={`relative p-3 rounded-lg border text-left transition-all ${
+                                  selectedSkill === skill.id
+                                    ? "bg-background border-amber-500 ring-1 ring-amber-500 shadow-sm"
+                                    : isLocked 
+                                      ? "bg-secondary/30 border-transparent opacity-75 cursor-not-allowed"
+                                      : "bg-background/50 border-transparent hover:bg-background hover:border-amber-500/30"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className={`p-1.5 rounded-md ${
+                                    selectedSkill === skill.id 
+                                      ? "bg-amber-100 text-amber-700" 
+                                      : isLocked
+                                        ? "bg-secondary text-muted-foreground/50"
+                                        : "bg-secondary text-muted-foreground"
+                                  }`}>
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <span className={`font-medium ${
+                                    selectedSkill === skill.id 
+                                      ? "text-foreground" 
+                                      : isLocked
+                                        ? "text-muted-foreground"
+                                        : "text-muted-foreground"
+                                  }`}>
+                                    {skill.name}
+                                  </span>
+                                  {isLocked && <Lock className="w-3 h-3 text-muted-foreground ml-auto" />}
+                                </div>
+                                <p className="text-xs text-muted-foreground pl-9 truncate">
+                                  {skill.description}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Premium upsell for skills if not premium */}
+                        {!isPremium && (
+                          <div className="mt-4 p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 rounded-full bg-amber-500/20">
+                                <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                              </div>
+                              <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                                Unlock specific skill training with Theta Pro
+                              </p>
+                            </div>
+                            <Link href="/settings">
+                              <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300">
+                                Upgrade
+                              </Button>
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {/* Summary of settings - clickable to expand */}
-                  <button
-                    onClick={() => setShowSettings(!showSettings)}
-                    className="w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 transition-colors text-left"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                        <Settings className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <span className="font-medium text-foreground">Settings: </span>
-                          {showAdvanced ? (
-                            <span>Custom ranges • </span>
-                          ) : (
-                            <span className="capitalize">{difficulty} difficulty • </span>
-                          )}
-                          {gameMode === "timed" && <span>{formatTime(timedModeLimit)} session • </span>}
-                          {gameMode === "practice" && <span>{practiceTimerLimit}s per question • </span>}
-                          {gameMode === "learning" && <span>No time limit • </span>}
-                          <span>{submitMode === "auto" ? "Auto-submit" : "Press Enter"} • </span>
-                          <span>{selectedOperations.join(" ")}</span>
+                  {(!selectedSkill || gameMode !== "learning") && (
+                    <button
+                      onClick={() => setShowSettings(!showSettings)}
+                      className="w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 transition-colors text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                          <Settings className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="font-medium text-foreground">Settings: </span>
+                            {showAdvanced ? (
+                              <span>Custom ranges • </span>
+                            ) : (
+                              <span className="capitalize">{difficulty} difficulty • </span>
+                            )}
+                            {gameMode === "timed" && <span>{formatTime(timedModeLimit)} session • </span>}
+                            {gameMode === "practice" && <span>{practiceTimerLimit}s per question • </span>}
+                            {gameMode === "learning" && <span>No time limit • </span>}
+                            <span>{submitMode === "auto" ? "Auto-submit" : "Press Enter"} • </span>
+                            <span>{selectedOperations.join(" ")}</span>
+                          </div>
                         </div>
+                        {showSettings ? (
+                          <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        )}
                       </div>
-                      {showSettings ? (
-                        <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      )}
-                    </div>
-                  </button>
+                    </button>
+                  )}
 
                   {/* Collapsible Settings Section */}
-                  {showSettings && (
+                  {showSettings && (!selectedSkill || gameMode !== "learning") && (
                     <div className="space-y-6 p-4 rounded-lg border border-border bg-secondary/20">
                       {/* Operation Selection - Multi-select */}
                       <div>

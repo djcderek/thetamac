@@ -9,7 +9,7 @@ const DEFAULT_ITEMS = [
   {
     name: "Red Racer",
     description: "A classic red racing car skin.",
-    cost: 500,
+    cost: 0,
     type: "skin",
     assetId: "car_red",
     isProOnly: false,
@@ -17,7 +17,7 @@ const DEFAULT_ITEMS = [
   {
     name: "Blue Streak",
     description: "A sleek blue racing car skin.",
-    cost: 500,
+    cost: 0,
     type: "skin",
     assetId: "car_blue",
     isProOnly: false,
@@ -25,32 +25,57 @@ const DEFAULT_ITEMS = [
   {
     name: "Golden Glory",
     description: "A luxurious golden car skin for champions.",
-    cost: 2000,
+    cost: 0,
     type: "skin",
     assetId: "car_gold",
-    isProOnly: true,
+    isProOnly: false,
   },
   {
     name: "Fire Trail",
     description: "Leave a trail of fire behind you.",
-    cost: 1000,
+    cost: 0,
     type: "trail",
     assetId: "trail_fire",
-    isProOnly: true,
+    isProOnly: false,
   },
   {
     name: "Neon Trail",
     description: "A futuristic neon trail.",
-    cost: 800,
+    cost: 0,
     type: "trail",
     assetId: "trail_neon",
     isProOnly: false,
+  },
+  // New Boosts (Trails)
+  {
+    name: "Pixel Stream",
+    description: "A retro 8-bit pixelated trail.",
+    cost: 0,
+    type: "trail",
+    assetId: "trail_pixel",
+    isProOnly: false,
+  },
+  {
+    name: "Lightning Strike",
+    description: "Shock the competition with electric sparks.",
+    cost: 0,
+    type: "trail",
+    assetId: "trail_lightning",
+    isProOnly: false,
+  },
+  {
+    name: "Rainbow Road",
+    description: "Leave a colorful spectrum behind you.",
+    cost: 0,
+    type: "trail",
+    assetId: "trail_rainbow",
+    isProOnly: true,
   },
   // New Complex Skins
   {
     name: "Galactic Void",
     description: "Race through the stars with this cosmic skin.",
-    cost: 1500,
+    cost: 0,
     type: "skin",
     assetId: "skin_galactic",
     isProOnly: false,
@@ -58,7 +83,7 @@ const DEFAULT_ITEMS = [
   {
     name: "Cyber Glitch",
     description: "Tear through the matrix.",
-    cost: 1200,
+    cost: 0,
     type: "skin",
     assetId: "skin_glitch",
     isProOnly: false,
@@ -66,15 +91,15 @@ const DEFAULT_ITEMS = [
   {
     name: "Magma Flow",
     description: "Hotter than the competition.",
-    cost: 1800,
+    cost: 0,
     type: "skin",
     assetId: "skin_lava",
-    isProOnly: true,
+    isProOnly: false,
   },
   {
     name: "Ice Crystal",
     description: "Stay cool under pressure.",
-    cost: 1400,
+    cost: 0,
     type: "skin",
     assetId: "skin_ice",
     isProOnly: false,
@@ -82,34 +107,67 @@ const DEFAULT_ITEMS = [
   {
     name: "Rainbow Rush",
     description: "Taste the speed.",
-    cost: 2500,
+    cost: 0,
     type: "skin",
     assetId: "skin_rainbow",
-    isProOnly: true,
+    isProOnly: false,
   },
   // New Pro Vehicles
   {
     name: "The Beast",
     description: "A heavy-duty pickup for rough tracks.",
-    cost: 5000,
+    cost: 0,
     type: "vehicle",
     assetId: "car_truck",
-    isProOnly: true,
+    isProOnly: false,
   },
   {
     name: "Offroad King",
     description: "Conquer any terrain.",
-    cost: 4500,
+    cost: 0,
     type: "vehicle",
     assetId: "car_jeep",
-    isProOnly: true,
+    isProOnly: false,
   },
   {
     name: "Velocity X",
     description: "Aerodynamic perfection.",
-    cost: 6000,
+    cost: 0,
     type: "vehicle",
     assetId: "car_sport",
+    isProOnly: false,
+  },
+  // New Wheels Category
+  {
+    name: "Standard Rims",
+    description: "Reliable and classic.",
+    cost: 0,
+    type: "wheel",
+    assetId: "wheel_standard",
+    isProOnly: false,
+  },
+  {
+    name: "Chrome Spinners",
+    description: "Keep spinning even when you stop.",
+    cost: 0,
+    type: "wheel",
+    assetId: "wheel_spinner",
+    isProOnly: false,
+  },
+  {
+    name: "Offroad Knobbys",
+    description: "Deep treads for maximum grip.",
+    cost: 0,
+    type: "wheel",
+    assetId: "wheel_offroad",
+    isProOnly: false,
+  },
+  {
+    name: "Future Discs",
+    description: "Glowing neon discs from 2077.",
+    cost: 0,
+    type: "wheel",
+    assetId: "wheel_future",
     isProOnly: true,
   },
 ];
@@ -125,7 +183,7 @@ export async function GET() {
         throw new Error("Database client not initialized correctly");
     }
 
-    // Sync default items (create if missing)
+    // Sync default items (create if missing, update cost if different)
     for (const item of DEFAULT_ITEMS) {
       const existing = await db.shopItem.findFirst({
         where: { assetId: item.assetId },
@@ -134,6 +192,14 @@ export async function GET() {
       if (!existing) {
         await db.shopItem.create({
           data: item,
+        });
+      } else if (existing.cost !== item.cost || existing.isProOnly !== item.isProOnly) {
+        await db.shopItem.update({
+          where: { id: existing.id },
+          data: { 
+            cost: item.cost,
+            isProOnly: item.isProOnly 
+          },
         });
       }
     }
@@ -148,6 +214,7 @@ export async function GET() {
     let equippedSkinId: string | null = null;
     let equippedTrailId: string | null = null;
     let equippedVehicleId: string | null = null;
+    let equippedWheelId: string | null = null;
 
     if (userId) {
       const user = await db.user.findUnique({
@@ -177,10 +244,12 @@ export async function GET() {
         const equippedSkin = user.items.find(i => i.item.type === 'skin');
         const equippedTrail = user.items.find(i => i.item.type === 'trail');
         const equippedVehicle = user.items.find(i => i.item.type === 'vehicle');
+        const equippedWheel = user.items.find(i => i.item.type === 'wheel');
         
         if (equippedSkin) equippedSkinId = equippedSkin.itemId;
         if (equippedTrail) equippedTrailId = equippedTrail.itemId;
         if (equippedVehicle) equippedVehicleId = equippedVehicle.itemId;
+        if (equippedWheel) equippedWheelId = equippedWheel.itemId;
       }
     }
 
@@ -191,6 +260,7 @@ export async function GET() {
       equippedSkinId,
       equippedTrailId,
       equippedVehicleId,
+      equippedWheelId,
     });
   } catch (error) {
     console.error("Shop API Error:", error);

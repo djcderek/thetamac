@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useCallback, useRef, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -66,12 +66,28 @@ function calculateAnswer(a: number, b: number, operation: string): number {
   }
 }
 
-function FocusedTrainingContent() {
-  const searchParams = useSearchParams();
+function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   const { data: authSession } = useSession();
 
-  // Parse training pack from URL
-  const [problems, setProblems] = useState<Problem[]>([]);
+  // Parse problems from URL on mount
+  const [problems, setProblems] = useState<Problem[]>(() => {
+    if (packParam) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(packParam));
+        const problemsWithAnswers: Problem[] = parsed.map(
+          (p: { operandA: number; operandB: number; operation: string }) => ({
+            ...p,
+            answer: calculateAnswer(p.operandA, p.operandB, p.operation),
+          })
+        );
+        return shuffleArray(problemsWithAnswers);
+      } catch (e) {
+        console.error("Failed to parse training pack:", e);
+      }
+    }
+    return [];
+  });
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -85,7 +101,6 @@ function FocusedTrainingContent() {
   const [bestStreak, setBestStreak] = useState(0);
   const [times, setTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState(0);
-  const [sessionStartTime, setSessionStartTime] = useState(0);
 
   // Mistakes to retry
   const [mistakes, setMistakes] = useState<Problem[]>([]);
@@ -93,25 +108,6 @@ function FocusedTrainingContent() {
   const [showSettings, setShowSettings] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Parse problems from URL on mount
-  useEffect(() => {
-    const packParam = searchParams.get("pack");
-    if (packParam) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(packParam));
-        const problemsWithAnswers: Problem[] = parsed.map(
-          (p: { operandA: number; operandB: number; operation: string }) => ({
-            ...p,
-            answer: calculateAnswer(p.operandA, p.operandB, p.operation),
-          })
-        );
-        setProblems(shuffleArray(problemsWithAnswers));
-      } catch (e) {
-        console.error("Failed to parse training pack:", e);
-      }
-    }
-  }, [searchParams]);
 
   const currentProblem = problems[currentIndex];
   const progress = problems.length > 0 ? ((currentIndex) / problems.length) * 100 : 0;
@@ -127,7 +123,6 @@ function FocusedTrainingContent() {
     setTimes([]);
     setMistakes([]);
     setIsRetryRound(false);
-    setSessionStartTime(Date.now());
     setStartTime(Date.now());
     inputRef.current?.focus();
   };
@@ -241,10 +236,13 @@ function FocusedTrainingContent() {
   };
 
   // Auto-submit when correct answer is typed
-  useEffect(() => {
-    if (!isPlaying || !currentProblem || submitMode !== "auto") return;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setUserAnswer(val);
 
-    const answerNum = parseInt(userAnswer);
+    if (!isPlaying || !currentProblem || submitMode !== "auto" || isCorrect !== null) return;
+
+    const answerNum = parseInt(val);
     if (!isNaN(answerNum) && answerNum === currentProblem.answer) {
       const timeTaken = (Date.now() - startTime) / 1000;
 
@@ -265,10 +263,9 @@ function FocusedTrainingContent() {
         nextProblem();
       }, 200);
     }
-  }, [userAnswer, currentProblem, isPlaying, submitMode, startTime, bestStreak, nextProblem]);
+  };
 
   const accuracy = problems.length > 0 ? Math.round((correctCount / Math.max(currentIndex, 1)) * 100) : 0;
-  const totalTime = sessionStartTime > 0 ? Math.round((Date.now() - sessionStartTime) / 1000) : 0;
 
   if (problems.length === 0) {
     return (
@@ -521,7 +518,7 @@ function FocusedTrainingContent() {
                       ref={inputRef}
                       type="number"
                       value={userAnswer}
-                      onChange={(e) => setUserAnswer(e.target.value)}
+                      onChange={handleInputChange}
                       placeholder="?"
                       className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
                       autoFocus
@@ -568,6 +565,12 @@ function FocusedTrainingContent() {
       </div>
     </div>
   );
+}
+
+function FocusedTrainingContent() {
+  const searchParams = useSearchParams();
+  const packParam = searchParams.get("pack");
+  return <FocusedTrainingSession key={packParam} packParam={packParam} />;
 }
 
 export default function FocusedTrainingPage() {

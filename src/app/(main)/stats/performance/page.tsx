@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PerformancePage() {
   // Server-side check - always fresh from database
-  const { userId, user, isPremium } = await getCurrentUserPremiumStatus();
+  const { userId, isPremium } = await getCurrentUserPremiumStatus();
 
   // Not logged in
   if (!userId) {

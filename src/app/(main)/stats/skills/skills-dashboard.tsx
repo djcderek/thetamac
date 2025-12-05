@@ -266,7 +266,7 @@ function NumberCombinationMatrix({
         <Grid3X3 className="w-10 h-10 mx-auto mb-3 opacity-50" />
         {totalProblems > 0 ? (
           <>
-            <p className="text-sm">You've done <span className="font-semibold text-foreground">{totalProblems}</span> {operation.toLowerCase()} problems,</p>
+            <p className="text-sm">You&apos;ve done <span className="font-semibold text-foreground">{totalProblems}</span> {operation.toLowerCase()} problems,</p>
             <p className="text-sm">but none with both numbers between 0-{maxNumber}.</p>
             <p className="text-xs mt-2 text-muted-foreground/70">
               Try increasing the matrix size with the slider above, or practice with smaller numbers.

@@ -2,26 +2,43 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
+interface StatEntry {
+  total?: number;
+  correct?: number;
+}
+
+interface StatsInput {
+  totalProblems: number;
+  totalCorrect: number;
+  additionStats: unknown;
+  subtractionStats: unknown;
+  multiplicationStats: unknown;
+  divisionStats: unknown;
+}
+
 // Helper to calculate accuracy from stats
-const calculateAccuracy = (stats: any) => {
+const calculateAccuracy = (stats: StatsInput) => {
   let accuracy = 0;
   if (stats.totalProblems > 0) {
     accuracy = (stats.totalCorrect / stats.totalProblems) * 100;
   } else {
     // Try to parse JSONs if top level are 0
     try {
-      const add = typeof stats.additionStats === 'string' ? JSON.parse(stats.additionStats) : stats.additionStats;
-      const sub = typeof stats.subtractionStats === 'string' ? JSON.parse(stats.subtractionStats) : stats.subtractionStats;
-      const mul = typeof stats.multiplicationStats === 'string' ? JSON.parse(stats.multiplicationStats) : stats.multiplicationStats;
-      const div = typeof stats.divisionStats === 'string' ? JSON.parse(stats.divisionStats) : stats.divisionStats;
-      
+      const parseStat = (val: unknown) =>
+        typeof val === "string" ? JSON.parse(val) : (val as StatEntry);
+
+      const add = parseStat(stats.additionStats);
+      const sub = parseStat(stats.subtractionStats);
+      const mul = parseStat(stats.multiplicationStats);
+      const div = parseStat(stats.divisionStats);
+
       const total = (add?.total || 0) + (sub?.total || 0) + (mul?.total || 0) + (div?.total || 0);
       const correct = (add?.correct || 0) + (sub?.correct || 0) + (mul?.correct || 0) + (div?.correct || 0);
       
       if (total > 0) {
         accuracy = (correct / total) * 100;
       }
-    } catch (e) {
+    } catch {
       // ignore json parse errors
     }
   }

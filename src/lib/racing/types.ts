@@ -74,12 +74,8 @@ export interface RacePlayer {
   // Active powerups
   hasShield: boolean;     // Protects from one obstacle/bump
   shieldEndTime: number;  // When shield expires
-  speedBoostActive: boolean; // Double movement speed
-  speedBoostEndTime: number;
   
-  // Answer streak/boost
-  answerBoostActive: boolean;
-  answerBoostEndTime: number;
+  // Note: Speed boosts are now instant distance bonuses, not speed multipliers
   
   // Current problems
   problems: PlayerProblems;
@@ -113,9 +109,6 @@ export interface RaceConfig {
   pushbackDistance: number;  // meters on bump (default: 2)
   boostDistance: number;     // meters per boost (default: 3)
   forwardDistance: number;   // meters per forward solve (default: 1)
-  baseSpeed: number;         // meters per second (default: 3.0)
-  answerBoostDuration: number; // ms duration of boost after correct answer
-  answerBoostMultiplier: number; // speed multiplier from correct answer
   wrongAnswerPenalty: number; // ms cooldown (default: 1500)
   obstacleCount: number;     // number of obstacles on track (default: 8)
   dropCount: number;         // number of drops on track (default: 6)
@@ -182,6 +175,7 @@ export interface RaceMatchmakingEntry {
   username: string;
   rating: number;
   joinedAt: number;
+  cosmetics?: UserCosmetics;
 }
 
 export interface RaceLobby {
@@ -197,9 +191,20 @@ export interface RaceLobby {
 // SOCKET EVENTS - CLIENT TO SERVER
 // ============================================
 
+export interface UserCosmetics {
+  equippedSkin: string | null;
+  equippedTrail: string | null;
+  equippedVehicle: string | null;
+  equippedWheel: string | null;
+}
+
 export interface RaceClientToServerEvents {
   // Matchmaking
-  "race:join_queue": (data: { userId: string; username: string }) => void;
+  "race:join_queue": (data: { 
+    userId: string; 
+    username: string; 
+    cosmetics?: UserCosmetics;
+  }) => void;
   "race:leave_queue": () => void;
   
   // Game actions
@@ -226,12 +231,22 @@ export interface RaceServerToClientEvents {
   
   "race:lobby_joined": (data: {
     lobbyId: string;
-    players: Array<{ id: string; username: string; rating: number }>;
+    players: Array<{ 
+      id: string; 
+      username: string; 
+      rating: number;
+      cosmetics?: UserCosmetics;
+    }>;
     config: RaceConfig;
   }) => void;
   
   "race:player_joined": (data: {
-    player: { id: string; username: string; rating: number };
+    player: { 
+      id: string; 
+      username: string; 
+      rating: number;
+      cosmetics?: UserCosmetics;
+    };
     totalPlayers: number;
   }) => void;
   
@@ -272,8 +287,6 @@ export interface RaceServerToClientEvents {
       position: number;
       isStunned: boolean;
       hasShield: boolean;
-      speedBoostActive: boolean;
-      answerBoostActive: boolean;
     }>;
   }) => void;
   
@@ -360,6 +373,7 @@ export interface RaceServerToClientEvents {
   "race:powerup_expired": (data: {
     playerId: string;
     powerupType: DropType;
+    duration: number; 
   }) => void;
   
   "race:error": (error: string) => void;
