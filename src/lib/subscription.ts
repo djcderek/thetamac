@@ -1,21 +1,12 @@
 import { SubscriptionPlan } from "@prisma/client";
 import { db } from "./db";
 import { auth } from "./auth";
+import {
+  isPremiumStatus,
+  userHasPremiumAccess,
+} from "./subscription-status";
 
-const PREMIUM_STATUSES = new Set(["active", "trialing", "past_due"]);
-
-export function isPremiumStatus(status?: string | null) {
-  if (!status) return false;
-  return PREMIUM_STATUSES.has(status);
-}
-
-export function userHasPremiumAccess(user?: {
-  isPremium?: boolean | null;
-  subscriptionStatus?: string | null;
-} | null) {
-  if (!user) return false;
-  return Boolean(user.isPremium || isPremiumStatus(user.subscriptionStatus));
-}
+export { isPremiumStatus, userHasPremiumAccess };
 
 /**
  * Server-side check for premium access.

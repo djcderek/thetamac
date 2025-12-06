@@ -198,9 +198,9 @@ export function useSocket() {
   }, []);
 
   // Matchmaking actions
-  const joinMatchmaking = useCallback((userId: string, username: string, rating: number) => {
+  const joinMatchmaking = useCallback(() => {
     if (socketRef.current) {
-      socketRef.current.emit("matchmaking:join", { userId, username, rating });
+      socketRef.current.emit("matchmaking:join");
       setMatchmaking((prev) => ({ ...prev, isSearching: true }));
     }
   }, []);

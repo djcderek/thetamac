@@ -143,12 +143,8 @@ export function DuelMode() {
 
   const handleStartSearch = () => {
     if (!session?.user) return;
-    
-    joinMatchmaking(
-      session.user.id || "guest",
-      session.user.name || "Player",
-      stats.rating // Use real rating from database
-    );
+
+    joinMatchmaking();
   };
 
   const handleCancelSearch = () => {

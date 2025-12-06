@@ -1,108 +1,29 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import Credentials from "next-auth/providers/credentials";
-import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
-import bcrypt from "bcryptjs";
 import { db } from "./db";
-import type { Provider } from "next-auth/providers";
 import type { Adapter } from "next-auth/adapters";
 import { isPremiumStatus } from "./subscription";
 import { SubscriptionPlan } from "@prisma/client";
-
-// Build providers array dynamically based on available credentials
-const providers: Provider[] = [
-  // Credentials Provider for email/password (always available)
-  Credentials({
-    name: "credentials",
-    credentials: {
-      email: { label: "Email", type: "email" },
-      password: { label: "Password", type: "password" },
-    },
-    async authorize(credentials) {
-      if (!credentials?.email || !credentials?.password) {
-        return null;
-      }
-
-      const email = credentials.email as string;
-      const password = credentials.password as string;
-
-      // Find user by email
-      const user = await db.user.findUnique({
-        where: { email },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          image: true,
-          password: true,
-          isPremium: true,
-          subscriptionStatus: true,
-          subscriptionPlan: true,
-          subscriptionCurrentPeriodEnd: true,
-          stripeCustomerId: true,
-          stripeSubscriptionId: true,
-        },
-      });
-
-      if (!user || !user.password) {
-        return null;
-      }
-
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-
-      if (!isValidPassword) {
-        return null;
-      }
-
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-        isPremium: user.isPremium,
-        subscriptionStatus: user.subscriptionStatus,
-        subscriptionPlan: user.subscriptionPlan,
-        subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd,
-        stripeCustomerId: user.stripeCustomerId,
-        stripeSubscriptionId: user.stripeSubscriptionId,
-      };
-    },
-  }),
-];
-
-// Only add OAuth providers if credentials are configured
-if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-  providers.push(
-    GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    })
-  );
-}
-
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  providers.push(
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    })
-  );
-}
+import { env } from "./env";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(db) as Adapter,
-  secret: process.env.AUTH_SECRET || "development-secret-change-in-production",
+  secret: env.AUTH_SECRET,
   session: {
-    strategy: "jwt", // Use JWT for credentials provider compatibility
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: "/auth/signin",
     error: "/auth/error",
   },
-  providers,
+  providers: [
+    Google({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+    }),
+  ],
   callbacks: {
     async jwt({ token, user, trigger, session, account, profile }) {
       // Initial sign in
@@ -113,7 +34,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.picture = user.image;
         
         // If signing in with OAuth (like Google), update the user record in DB to ensure we have the latest image/name
-        if (account?.provider === "google" || account?.provider === "github") {
+        if (account?.provider === "google") {
            try {
              // We can't use 'db' directly inside the edge runtime if this was edge, 
              // but this is nodejs runtime so it's fine.
@@ -199,20 +120,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return session;
     },
-    async signIn({ user, account }) {
-      // Allow OAuth without email verification
-      if (account?.provider !== "credentials") {
-        // The PrismaAdapter handles user creation/update automatically
-        // We just need to allow the sign in to proceed
+    async signIn({ account }) {
+      if (account?.provider === "google") {
         return true;
       }
-
-      // For credentials, ensure email exists
-      if (!user.email) {
-        return false;
-      }
-
-      return true;
+      return false;
     },
   },
   events: {
@@ -227,21 +139,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
     },
   },
-  trustHost: true,
+  // Only trust host headers in non-production to avoid spoofing
+  trustHost: env.NODE_ENV !== "production",
 });
-
-// Helper function to hash passwords
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
-}
-
-// Helper function to verify password
-export async function verifyPassword(
-  password: string,
-  hashedPassword: string
-): Promise<boolean> {
-  return bcrypt.compare(password, hashedPassword);
-}
 
 function getProfileString(
   profile: unknown,

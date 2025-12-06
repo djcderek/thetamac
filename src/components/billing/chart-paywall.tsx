@@ -14,7 +14,7 @@ export function ChartPaywall({ title }: ChartPaywallProps) {
   const handleUpgradeClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push("/settings");
+    router.push("/stats/performance?upgrade=1");
   };
 
   return (

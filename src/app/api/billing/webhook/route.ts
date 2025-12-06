@@ -4,6 +4,7 @@ import { getStripeClient } from "@/lib/stripe";
 import { isPremiumStatus, updateUserSubscription } from "@/lib/subscription";
 import { db } from "@/lib/db";
 import Stripe from "stripe";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,7 +68,7 @@ async function syncSubscription(subscription: Stripe.Subscription) {
 export async function POST(request: Request) {
   const stripe = getStripeClient();
   const signature = (await headers()).get("stripe-signature");
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
 
   if (!signature || !webhookSecret) {
     return NextResponse.json(

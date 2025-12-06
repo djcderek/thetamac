@@ -16,6 +16,8 @@ const DEFAULT_BENEFITS = [
   "Detailed skill breakdowns",
   "Downloadable progress reports",
   "Early access to new training modes",
+  "500 free credits on signup",
+  "Access to pro-only items in the shop",
 ];
 
 export function PremiumPaywall({
@@ -54,7 +56,7 @@ export function PremiumPaywall({
               <p className="text-xs text-muted-foreground mb-4">
                 Billed monthly, cancel anytime.
               </p>
-              <SubscribeButton plan="monthly" label="Go monthly" />
+              <SubscribeButton plan="monthly" label="Go monthly" variant="outline" />
             </div>
             <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
               <p className="text-sm font-medium text-primary mb-1">
@@ -67,7 +69,6 @@ export function PremiumPaywall({
               <SubscribeButton
                 plan="yearly"
                 label="Go yearly"
-                variant="secondary"
               />
             </div>
           </div>

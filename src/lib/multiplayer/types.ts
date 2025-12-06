@@ -53,7 +53,7 @@ export interface MatchmakingEntry {
 // Socket Events - Client to Server
 export interface ClientToServerEvents {
   // Matchmaking
-  "matchmaking:join": (data: { userId: string; username: string; rating: number }) => void;
+  "matchmaking:join": () => void;
   "matchmaking:leave": () => void;
   
   // Game
@@ -89,6 +89,7 @@ export interface ServerToClientEvents {
   }) => void;
   "game:time_up": () => void;
   "game:opponent_answered": () => void;
+  "game:error": (error: string) => void;
   "game:over": (data: {
     winnerId: string | null;
     finalScores: Record<string, number>;

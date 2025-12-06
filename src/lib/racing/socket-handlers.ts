@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import type {
   RaceClientToServerEvents,
   RaceServerToClientEvents,
@@ -23,6 +24,13 @@ import {
   gameTick,
 } from "./game-logic";
 import { db } from "@/lib/db";
+import { authenticateSocket } from "@/lib/socket-auth";
+import {
+  createRateLimiter,
+  isPayloadTooLarge,
+  parseWithSchema,
+  safelyExecute,
+} from "../socket-guards";
 
 // ============================================
 // TYPE ALIASES FOR CLEANER CODE
@@ -65,6 +73,36 @@ const activeRaces: Map<string, {
 const socketToRace: Map<string, string> = new Map();
 const socketToLobby: Map<string, string> = new Map();
 const socketToPlayer: Map<string, { id: string; username: string }> = new Map();
+
+// ============================================
+// GUARDRAILS
+// ============================================
+
+const MAX_PAYLOAD_BYTES = 4096;
+
+const raceJoinLimiter = createRateLimiter({ limit: 4, windowMs: 10_000 });
+const raceLeaveLimiter = createRateLimiter({ limit: 8, windowMs: 10_000 });
+const raceActionLimiter = createRateLimiter({ limit: 30, windowMs: 5_000 });
+const raceForfeitLimiter = createRateLimiter({ limit: 3, windowMs: 15_000 });
+
+const cosmeticsSchema = z.object({
+  equippedSkin: z.string().max(64).nullable(),
+  equippedTrail: z.string().max(64).nullable(),
+  equippedVehicle: z.string().max(64).nullable(),
+  equippedWheel: z.string().max(64).nullable(),
+});
+
+const raceJoinQueueSchema = z
+  .object({
+    cosmetics: cosmeticsSchema.optional(),
+  })
+  .default({});
+
+const raceSubmitSchema = z.object({
+  action: z.enum(["forward", "left", "right", "boost"]),
+  answer: z.number().finite().min(-1_000_000).max(1_000_000),
+  problemId: z.string().min(1).max(128),
+});
 
 // ============================================
 // CONFIGURATION
@@ -571,412 +609,481 @@ export function setupRacingHandlers(io: RaceServer) {
     // MATCHMAKING HANDLERS
     // ========================================
     
-    socket.on("race:join_queue", async (data) => {
-      const { userId, username, cosmetics } = data;
-      
-      // Store player info
-      socketToPlayer.set(socket.id, { id: userId, username });
-      
-      // 1. Check for active race rejoin (Reconnection)
-      for (const [raceId, race] of activeRaces) {
-        const playerIndex = race.state.players.findIndex(p => p.id === userId);
-        const player = playerIndex !== -1 ? race.state.players[playerIndex] : null;
-        
-        // Only reconnect if:
-        // - Player is in the race
-        // - Race is not finished
-        // - Player has not already finished their race (allow them to start a new one)
-        if (player && race.state.status !== "finished" && player.finishPosition === null) {
-          console.log(`[Race] Player ${username} rejoining active race ${raceId}`);
-          
-          // Clear disconnect timeout if any
-          if (race.disconnectTimeouts.has(userId)) {
-            clearTimeout(race.disconnectTimeouts.get(userId));
-            race.disconnectTimeouts.delete(userId);
-          }
-          
-          // Update socket ID
-          player.socketId = socket.id;
-          
-          // Update mappings
-          socketToRace.set(socket.id, raceId);
-          socket.join(raceId);
-          
-          // Send current state
-          socket.emit("race:start", {
-            raceId,
-            players: race.state.players.map(p => ({
-              id: p.id,
-              username: p.username,
-              rating: p.rating,
-              lane: p.lane,
-              position: p.position,
-              selectedSkin: p.selectedSkin,
-              selectedTrail: p.selectedTrail,
-              selectedVehicle: p.selectedVehicle,
-          selectedWheel: p.selectedWheel,
-            })),
-            config: race.state.config,
-            yourProblems: player.problems,
-            obstacles: race.state.obstacles,
-            drops: race.state.drops,
-          });
-          
-          // Send sync update immediately
-          socket.emit("race:state_update", {
-            players: getRaceSnapshot(race.state),
-          });
-          
+    socket.on("race:join_queue", (data) => {
+      const rate = raceJoinLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("race:error", "Too many join attempts");
+        return;
+      }
+
+      if (isPayloadTooLarge(data, MAX_PAYLOAD_BYTES)) {
+        socket.emit("race:error", "Payload too large");
+        return;
+      }
+
+      const parsed = parseWithSchema(raceJoinQueueSchema, data ?? {});
+      if (!parsed.success) {
+        socket.emit("race:error", "Invalid join payload");
+        return;
+      }
+
+      const payload = parsed.data;
+
+      void safelyExecute("[Race] race:join_queue", async () => {
+        const authResult = await authenticateSocket(
+          socket.handshake.headers.cookie
+        );
+
+        if (!authResult) {
+          socket.emit("race:error", "Unauthorized");
+          socket.disconnect(true);
           return;
         }
-      }
-      
-      // 2. Regular Join Logic
-      
-      // Check if already in a race or lobby (by socket ID)
-      if (socketToRace.has(socket.id) || socketToLobby.has(socket.id)) {
-        socket.emit("race:error", "Already in a race or lobby");
-        return;
-      }
-      
-      // Check if already in queue
-      if (raceQueue.has(socket.id)) {
-        socket.emit("race:error", "Already in queue");
-        return;
-      }
-      
-      // Fetch rating
-      const rating = await getUserRating(userId);
-      
-      const entry: RaceMatchmakingEntry = {
-        socketId: socket.id,
-        playerId: userId,
-        username,
-        rating,
-        joinedAt: Date.now(),
-        cosmetics,
-      };
-      
-      // Try to find or create a lobby
-      const lobby = findOrCreateLobby(entry);
-      
-      if (lobby) {
-        addPlayerToLobby(io, lobby, entry, socket);
-      } else {
-        // Add to queue
-        raceQueue.set(socket.id, entry);
-        socket.emit("race:queue_update", {
-          playersInQueue: raceQueue.size,
-          estimatedWait: 30,
-        });
-      }
+
+        const { userId, username } = authResult;
+        const cosmetics = payload.cosmetics;
+        
+        // Store player info
+        socketToPlayer.set(socket.id, { id: userId, username });
+        
+        // 1. Check for active race rejoin (Reconnection)
+        for (const [raceId, race] of activeRaces) {
+          const playerIndex = race.state.players.findIndex(p => p.id === userId);
+          const player = playerIndex !== -1 ? race.state.players[playerIndex] : null;
+          
+          // Only reconnect if:
+          // - Player is in the race
+          // - Race is not finished
+          // - Player has not already finished their race (allow them to start a new one)
+          if (player && race.state.status !== "finished" && player.finishPosition === null) {
+            console.log(`[Race] Player ${username} rejoining active race ${raceId}`);
+            
+            // Clear disconnect timeout if any
+            if (race.disconnectTimeouts.has(userId)) {
+              clearTimeout(race.disconnectTimeouts.get(userId));
+              race.disconnectTimeouts.delete(userId);
+            }
+            
+            // Update socket ID
+            player.socketId = socket.id;
+            
+            // Update mappings
+            socketToRace.set(socket.id, raceId);
+            socket.join(raceId);
+            
+            // Send current state
+            socket.emit("race:start", {
+              raceId,
+              players: race.state.players.map(p => ({
+                id: p.id,
+                username: p.username,
+                rating: p.rating,
+                lane: p.lane,
+                position: p.position,
+                selectedSkin: p.selectedSkin,
+                selectedTrail: p.selectedTrail,
+                selectedVehicle: p.selectedVehicle,
+                selectedWheel: p.selectedWheel,
+              })),
+              config: race.state.config,
+              yourProblems: player.problems,
+              obstacles: race.state.obstacles,
+              drops: race.state.drops,
+            });
+            
+            // Send sync update immediately
+            socket.emit("race:state_update", {
+              players: getRaceSnapshot(race.state),
+            });
+            
+            return;
+          }
+        }
+        
+        // 2. Regular Join Logic
+        
+        // Check if already in a race or lobby (by socket ID)
+        if (socketToRace.has(socket.id) || socketToLobby.has(socket.id)) {
+          socket.emit("race:error", "Already in a race or lobby");
+          return;
+        }
+        
+        // Check if already in queue
+        if (raceQueue.has(socket.id)) {
+          socket.emit("race:error", "Already in queue");
+          return;
+        }
+        
+        // Fetch rating
+        const rating = await getUserRating(userId);
+        
+        const entry: RaceMatchmakingEntry = {
+          socketId: socket.id,
+          playerId: userId,
+          username,
+          rating,
+          joinedAt: Date.now(),
+          cosmetics,
+        };
+        
+        // Try to find or create a lobby
+        const lobby = findOrCreateLobby(entry);
+        
+        if (lobby) {
+          addPlayerToLobby(io, lobby, entry, socket);
+        } else {
+          // Add to queue
+          raceQueue.set(socket.id, entry);
+          socket.emit("race:queue_update", {
+            playersInQueue: raceQueue.size,
+            estimatedWait: 30,
+          });
+        }
+      });
     });
     
     socket.on("race:leave_queue", () => {
-      // Remove from queue
-      raceQueue.delete(socket.id);
-      
-      // Remove from lobby if in one
-      const lobbyId = socketToLobby.get(socket.id);
-      if (lobbyId) {
-        const lobby = activeLobbies.get(lobbyId);
-        if (lobby) {
-          lobby.players = lobby.players.filter(p => p.socketId !== socket.id);
-          socket.leave(lobbyId);
-          socketToLobby.delete(socket.id);
-          
-          // Notify other players
-          const player = socketToPlayer.get(socket.id);
-          if (player) {
-            io.to(lobbyId).emit("race:player_left", {
-              playerId: player.id,
-              totalPlayers: lobby.players.length,
-            });
-          }
-          
-          // If lobby is empty, remove it
-          if (lobby.players.length === 0) {
-            activeLobbies.delete(lobbyId);
+      const rate = raceLeaveLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("race:error", "Too many leave requests");
+        return;
+      }
+
+      void safelyExecute("[Race] race:leave_queue", () => {
+        // Remove from queue
+        raceQueue.delete(socket.id);
+        
+        // Remove from lobby if in one
+        const lobbyId = socketToLobby.get(socket.id);
+        if (lobbyId) {
+          const lobby = activeLobbies.get(lobbyId);
+          if (lobby) {
+            lobby.players = lobby.players.filter(p => p.socketId !== socket.id);
+            socket.leave(lobbyId);
+            socketToLobby.delete(socket.id);
+            
+            // Notify other players
+            const player = socketToPlayer.get(socket.id);
+            if (player) {
+              io.to(lobbyId).emit("race:player_left", {
+                playerId: player.id,
+                totalPlayers: lobby.players.length,
+              });
+            }
+            
+            // If lobby is empty, remove it
+            if (lobby.players.length === 0) {
+              activeLobbies.delete(lobbyId);
+            }
           }
         }
-      }
+      });
     });
     
     // ========================================
     // GAME ACTION HANDLERS
     // ========================================
     
-    socket.on("race:submit_answer", async (data) => {
-      const { action, answer, problemId } = data;
-      
-      const raceId = socketToRace.get(socket.id);
-      if (!raceId) {
-        socket.emit("race:error", "Not in a race");
+    socket.on("race:submit_answer", (data) => {
+      const rate = raceActionLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("race:error", "Action rate limited");
         return;
       }
-      
-      const race = activeRaces.get(raceId);
-      if (!race || race.state.status !== "racing") {
-        socket.emit("race:error", "Race not in progress");
+
+      if (isPayloadTooLarge(data, MAX_PAYLOAD_BYTES)) {
+        socket.emit("race:error", "Payload too large");
         return;
       }
-      
-      const player = socketToPlayer.get(socket.id);
-      if (!player) {
-        socket.emit("race:error", "Player not found");
+
+      const parsed = parseWithSchema(raceSubmitSchema, data);
+      if (!parsed.success) {
+        socket.emit("race:error", "Invalid action payload");
         return;
       }
-      
-      // Process the action
-      const { newState, result } = processAction(
-        race.state,
-        player.id,
-        action,
-        answer,
-        problemId
-      );
-      
-      race.state = newState;
-      
-      if (result.success) {
-        // Get the player's new problems (only if they haven't finished)
-        const racePlayer = race.state.players.find(p => p.id === player.id);
-        const hasFinished = racePlayer?.finishPosition !== null;
+
+      const { action, answer, problemId } = parsed.data;
+
+      void safelyExecute("[Race] race:submit_answer", async () => {
+        const raceId = socketToRace.get(socket.id);
+        if (!raceId) {
+          socket.emit("race:error", "Not in a race");
+          return;
+        }
         
-        // Emit result to the acting player
-        socket.emit("race:action_result", {
-          playerId: player.id,
+        const race = activeRaces.get(raceId);
+        if (!race || race.state.status !== "racing") {
+          socket.emit("race:error", "Race not in progress");
+          return;
+        }
+        
+        const player = socketToPlayer.get(socket.id);
+        if (!player) {
+          socket.emit("race:error", "Player not found");
+          return;
+        }
+        
+        // Process the action
+        const { newState, result } = processAction(
+          race.state,
+          player.id,
           action,
-          success: true,
-          newLane: result.newLane,
-          newPosition: result.newPosition,
-          bumpedPlayerId: result.bumpedPlayerId,
-          bumpedPlayerNewPosition: result.bumpedPlayerNewPosition,
-          yourNewProblems: hasFinished ? null : racePlayer?.problems,
-        });
+          answer,
+          problemId
+        );
         
-        // Broadcast to other players
-        socket.to(raceId).emit("race:action_result", {
-          playerId: player.id,
-          action,
-          success: true,
-          newLane: result.newLane,
-          newPosition: result.newPosition,
-          bumpedPlayerId: result.bumpedPlayerId,
-          bumpedPlayerNewPosition: result.bumpedPlayerNewPosition,
-        });
+        race.state = newState;
         
-        // If there was a bump, notify the bumped player
-        if (result.bumpedPlayerId) {
-          const bumpedPlayer = race.state.players.find(p => p.id === result.bumpedPlayerId);
-          if (bumpedPlayer) {
-            io.to(raceId).emit("race:player_bumped", {
-              bumperId: player.id,
-              victimId: result.bumpedPlayerId,
-              victimNewPosition: result.bumpedPlayerNewPosition!,
-              victimNewLane: bumpedPlayer.lane,
-              stunDuration: race.state.config.stunDuration,
+        if (result.success) {
+          // Get the player's new problems (only if they haven't finished)
+          const racePlayer = race.state.players.find(p => p.id === player.id);
+          const hasFinished = racePlayer?.finishPosition !== null;
+          
+          // Emit result to the acting player
+          socket.emit("race:action_result", {
+            playerId: player.id,
+            action,
+            success: true,
+            newLane: result.newLane,
+            newPosition: result.newPosition,
+            bumpedPlayerId: result.bumpedPlayerId,
+            bumpedPlayerNewPosition: result.bumpedPlayerNewPosition,
+            yourNewProblems: hasFinished ? null : racePlayer?.problems,
+          });
+          
+          // Broadcast to other players
+          socket.to(raceId).emit("race:action_result", {
+            playerId: player.id,
+            action,
+            success: true,
+            newLane: result.newLane,
+            newPosition: result.newPosition,
+            bumpedPlayerId: result.bumpedPlayerId,
+            bumpedPlayerNewPosition: result.bumpedPlayerNewPosition,
+          });
+          
+          // If there was a bump, notify the bumped player
+          if (result.bumpedPlayerId) {
+            const bumpedPlayer = race.state.players.find(p => p.id === result.bumpedPlayerId);
+            if (bumpedPlayer) {
+              io.to(raceId).emit("race:player_bumped", {
+                bumperId: player.id,
+                victimId: result.bumpedPlayerId,
+                victimNewPosition: result.bumpedPlayerNewPosition!,
+                victimNewLane: bumpedPlayer.lane,
+                stunDuration: race.state.config.stunDuration,
+              });
+              
+              // Send new problems to bumped player
+              const bumpedSocket = io.sockets.sockets.get(bumpedPlayer.socketId);
+              if (bumpedSocket) {
+                bumpedPlayer.problems = generatePlayerProblems(
+                  bumpedPlayer.lane,
+                  race.state.config
+                );
+                
+                bumpedSocket.emit("race:action_result", {
+                  playerId: bumpedPlayer.id,
+                  action: "forward", // Dummy action type for client update
+                  success: true,
+                  newLane: bumpedPlayer.lane,
+                  newPosition: bumpedPlayer.position,
+                  yourNewProblems: bumpedPlayer.problems,
+                });
+              }
+            }
+          }
+          
+          // If player hit an obstacle
+          if (result.obstacleHit) {
+            io.to(raceId).emit("race:obstacle_hit", {
+              playerId: player.id,
+              obstacleId: "", 
+              obstacleType: result.obstacleHit.type,
+              stunDuration: result.obstacleHit.stunDuration,
+              pushback: 0, 
+            });
+          }
+          
+          // If player collected a drop
+          if (result.dropCollected) {
+            const racePlayerAfter = race.state.players.find(p => p.id === player.id);
+            io.to(raceId).emit("race:drop_collected", {
+              playerId: player.id,
+              dropId: result.dropCollected.dropId,
+              dropType: result.dropCollected.type,
+              effectDuration: result.dropCollected.effectDuration,
+              coinValue: result.dropCollected.coinValue,
+              coinsEarnedTotal: racePlayerAfter?.coinsEarned,
             });
             
-            // Send new problems to bumped player
-            const bumpedSocket = io.sockets.sockets.get(bumpedPlayer.socketId);
-            if (bumpedSocket) {
-              bumpedPlayer.problems = generatePlayerProblems(
-                bumpedPlayer.lane,
-                race.state.config
-              );
-              
-              bumpedSocket.emit("race:action_result", {
-                playerId: bumpedPlayer.id,
-                action: "forward", // Dummy action type for client update
-                success: true,
-                newLane: bumpedPlayer.lane,
-                newPosition: bumpedPlayer.position,
-                yourNewProblems: bumpedPlayer.problems,
+            io.to(raceId).emit("race:drops_update", {
+              drops: race.state.drops,
+            });
+            
+            if (result.dropCollected.type !== "coin") {
+              socket.emit("race:powerup_activated", {
+                playerId: player.id,
+                powerupType: result.dropCollected.type,
+                duration: result.dropCollected.effectDuration,
               });
             }
           }
-        }
-        
-        // If player hit an obstacle
-        if (result.obstacleHit) {
-          io.to(raceId).emit("race:obstacle_hit", {
-            playerId: player.id,
-            obstacleId: "", 
-            obstacleType: result.obstacleHit.type,
-            stunDuration: result.obstacleHit.stunDuration,
-            pushback: 0, 
-          });
-        }
-        
-        // If player collected a drop
-        if (result.dropCollected) {
-          const racePlayerAfter = race.state.players.find(p => p.id === player.id);
-          io.to(raceId).emit("race:drop_collected", {
-            playerId: player.id,
-            dropId: result.dropCollected.dropId,
-            dropType: result.dropCollected.type,
-            effectDuration: result.dropCollected.effectDuration,
-            coinValue: result.dropCollected.coinValue,
-            coinsEarnedTotal: racePlayerAfter?.coinsEarned,
-          });
           
-          io.to(raceId).emit("race:drops_update", {
-            drops: race.state.drops,
-          });
-          
-          if (result.dropCollected.type !== "coin") {
-            socket.emit("race:powerup_activated", {
+          // Check for finish
+          if (result.finished && result.finishPosition) {
+            io.to(raceId).emit("race:player_finished", {
               playerId: player.id,
-              powerupType: result.dropCollected.type,
-              duration: result.dropCollected.effectDuration,
+              position: result.finishPosition,
+              time: race.state.players.find(p => p.id === player.id)?.finishTime || 0,
             });
-          }
-        }
-        
-        // Check for finish
-        if (result.finished && result.finishPosition) {
-          io.to(raceId).emit("race:player_finished", {
-            playerId: player.id,
-            position: result.finishPosition,
-            time: race.state.players.find(p => p.id === player.id)?.finishTime || 0,
-          });
-          
-          if (checkRaceOver(race.state)) {
-            if (race.gameLoop) {
-              clearInterval(race.gameLoop);
-              race.gameLoop = null;
+            
+            if (checkRaceOver(race.state)) {
+              if (race.gameLoop) {
+                clearInterval(race.gameLoop);
+                race.gameLoop = null;
+              }
+              endRace(io, raceId);
             }
-            endRace(io, raceId);
+            
+            // Save finish event
+            if (race.dbRaceId) {
+              db.raceEvent.create({
+                data: {
+                  raceId: race.dbRaceId,
+                  playerId: player.id,
+                  eventType: "finish",
+                  details: { position: result.finishPosition },
+                },
+              }).catch(err => console.error("[Race] Failed to save finish event:", err));
+            }
           }
           
-          // Save finish event
+          // Save action event
           if (race.dbRaceId) {
+            const racePlayerObj = race.state.players.find(p => p.id === player.id);
+            const problem = racePlayerObj?.problems[action === "forward" ? "forward" : action === "boost" ? "boost" : action === "left" ? "left" : "right"];
+            
             db.raceEvent.create({
               data: {
                 raceId: race.dbRaceId,
                 playerId: player.id,
-                eventType: "finish",
-                details: { position: result.finishPosition },
+                eventType: result.bumpedPlayerId ? "bump" : action === "boost" ? "boost" : action === "forward" ? "move_forward" : "lane_change",
+                details: {
+                  action,
+                  newLane: result.newLane,
+                  newPosition: result.newPosition,
+                  bumpedPlayerId: result.bumpedPlayerId,
+                },
+                operandA: problem?.a,
+                operandB: problem?.b,
+                operation: problem?.operation,
+                correctAnswer: problem?.answer,
+                userAnswer: answer,
               },
-            }).catch(err => console.error("[Race] Failed to save finish event:", err));
+            }).catch(err => console.error("[Race] Failed to save action event:", err));
           }
-        }
-        
-        // Save action event
-        if (race.dbRaceId) {
-          const racePlayerObj = race.state.players.find(p => p.id === player.id);
-          const problem = racePlayerObj?.problems[action === "forward" ? "forward" : action === "boost" ? "boost" : action === "left" ? "left" : "right"];
+        } else {
+          // Handle errors
+          const errorType = result.error;
           
-          db.raceEvent.create({
-            data: {
-              raceId: race.dbRaceId,
-              playerId: player.id,
-              eventType: result.bumpedPlayerId ? "bump" : action === "boost" ? "boost" : action === "forward" ? "move_forward" : "lane_change",
-              details: {
+          if (errorType === "Player already finished") {
+            console.log(`[Race] Player ${player.id} already finished, ignoring action`);
+          } else if (errorType === "Player is stunned") {
+            socket.emit("race:error", "You are stunned!");
+          } else if (errorType === "Problem mismatch") {
+            console.log(`[Race] Problem mismatch for player ${player.id}, sending fresh problems`);
+            const racePlayer = race.state.players.find(p => p.id === player.id);
+            if (racePlayer) {
+              socket.emit("race:action_result", {
+                playerId: player.id,
                 action,
-                newLane: result.newLane,
-                newPosition: result.newPosition,
-                bumpedPlayerId: result.bumpedPlayerId,
-              },
-              operandA: problem?.a,
-              operandB: problem?.b,
-              operation: problem?.operation,
-              correctAnswer: problem?.answer,
-              userAnswer: answer,
-            },
-          }).catch(err => console.error("[Race] Failed to save action event:", err));
-        }
-      } else {
-        // Handle errors
-        const errorType = result.error;
-        
-        if (errorType === "Player already finished") {
-          console.log(`[Race] Player ${player.id} already finished, ignoring action`);
-        } else if (errorType === "Player is stunned") {
-          socket.emit("race:error", "You are stunned!");
-        } else if (errorType === "Problem mismatch") {
-          console.log(`[Race] Problem mismatch for player ${player.id}, sending fresh problems`);
-          const racePlayer = race.state.players.find(p => p.id === player.id);
-          if (racePlayer) {
-            socket.emit("race:action_result", {
+                success: false,
+                newLane: racePlayer.lane,
+                newPosition: racePlayer.position,
+                yourNewProblems: racePlayer.problems,
+              });
+            }
+          } else if (errorType === "Wrong answer") {
+            socket.emit("race:wrong_answer", {
               playerId: player.id,
               action,
-              success: false,
-              newLane: racePlayer.lane,
-              newPosition: racePlayer.position,
-              yourNewProblems: racePlayer.problems,
+              cooldownMs: race.state.config.wrongAnswerPenalty,
             });
+          } else {
+            socket.emit("race:error", errorType || "Invalid action");
           }
-        } else if (errorType === "Wrong answer") {
-          socket.emit("race:wrong_answer", {
-            playerId: player.id,
-            action,
-            cooldownMs: race.state.config.wrongAnswerPenalty,
-          });
-        } else {
-          socket.emit("race:error", errorType || "Invalid action");
         }
-      }
+      });
     });
     
     socket.on("race:forfeit", () => {
-      const raceId = socketToRace.get(socket.id);
-      if (!raceId) return;
-      
-      const race = activeRaces.get(raceId);
-      if (!race) return;
-      
-      const player = socketToPlayer.get(socket.id);
-      if (!player) return;
-      
-      // Mark player as DNF
-      race.state = handlePlayerDisconnect(race.state, player.id);
-      
-      // Get the player's finish position after forfeit
-      const racePlayer = race.state.players.find(p => p.id === player.id);
-      const finishPosition = racePlayer?.finishPosition || race.state.players.length;
-      
-      // Notify the forfeiting player of their finish
-      socket.emit("race:player_finished", {
-        playerId: player.id,
-        position: finishPosition,
-        time: 0, // DNF
-      });
-      
-      // Notify other players that this player forfeited
-      socket.to(raceId).emit("race:player_finished", {
-        playerId: player.id,
-        position: finishPosition,
-        time: 0, // DNF
-      });
-      
-      // Check if race is over
-      if (checkRaceOver(race.state)) {
-        // End race - this will send results to all players including the forfeiter
-        endRace(io, raceId);
+      const rate = raceForfeitLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("race:error", "Too many forfeits");
+        return;
       }
-      
-      // Don't remove the player from the room yet - they need to receive race:finished
-      // The cleanup will happen in cleanupRace after the race ends
-      // Just mark that they've forfeited by keeping them in the room but with finishPosition set
+
+      void safelyExecute("[Race] race:forfeit", () => {
+        const raceId = socketToRace.get(socket.id);
+        if (!raceId) return;
+        
+        const race = activeRaces.get(raceId);
+        if (!race) return;
+        
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+        
+        // Mark player as DNF
+        race.state = handlePlayerDisconnect(race.state, player.id);
+        
+        // Get the player's finish position after forfeit
+        const racePlayer = race.state.players.find(p => p.id === player.id);
+        const finishPosition = racePlayer?.finishPosition || race.state.players.length;
+        
+        // Notify the forfeiting player of their finish
+        socket.emit("race:player_finished", {
+          playerId: player.id,
+          position: finishPosition,
+          time: 0, // DNF
+        });
+        
+        // Notify other players that this player forfeited
+        socket.to(raceId).emit("race:player_finished", {
+          playerId: player.id,
+          position: finishPosition,
+          time: 0, // DNF
+        });
+        
+        // Check if race is over
+        if (checkRaceOver(race.state)) {
+          // End race - this will send results to all players including the forfeiter
+          endRace(io, raceId);
+        }
+        
+        // Don't remove the player from the room yet - they need to receive race:finished
+        // The cleanup will happen in cleanupRace after the race ends
+        // Just mark that they've forfeited by keeping them in the room but with finishPosition set
+      });
     });
     
     socket.on("race:leave", () => {
-      // Clean up all mappings
-      raceQueue.delete(socket.id);
-      
-      const lobbyId = socketToLobby.get(socket.id);
-      if (lobbyId) {
-        socket.leave(lobbyId);
-        socketToLobby.delete(socket.id);
-      }
-      
-      const raceId = socketToRace.get(socket.id);
-      if (raceId) {
-        socket.leave(raceId);
-        socketToRace.delete(socket.id);
-      }
+      void safelyExecute("[Race] race:leave", () => {
+        // Clean up all mappings
+        raceQueue.delete(socket.id);
+        
+        const lobbyId = socketToLobby.get(socket.id);
+        if (lobbyId) {
+          socket.leave(lobbyId);
+          socketToLobby.delete(socket.id);
+        }
+        
+        const raceId = socketToRace.get(socket.id);
+        if (raceId) {
+          socket.leave(raceId);
+          socketToRace.delete(socket.id);
+        }
+      });
     });
     
     // ========================================
@@ -984,65 +1091,67 @@ export function setupRacingHandlers(io: RaceServer) {
     // ========================================
     
     socket.on("disconnect", () => {
-      console.log(`[Race] Client disconnected: ${socket.id}`);
-      
-      // Remove from queue
-      raceQueue.delete(socket.id);
-      
-      // Handle lobby disconnect
-      const lobbyId = socketToLobby.get(socket.id);
-      if (lobbyId) {
-        const lobby = activeLobbies.get(lobbyId);
-        if (lobby) {
-          lobby.players = lobby.players.filter(p => p.socketId !== socket.id);
-          
-          const player = socketToPlayer.get(socket.id);
-          if (player) {
-            io.to(lobbyId).emit("race:player_left", {
-              playerId: player.id,
-              totalPlayers: lobby.players.length,
-            });
-          }
-          
-          if (lobby.players.length === 0) {
-            activeLobbies.delete(lobbyId);
-          }
-        }
-        socketToLobby.delete(socket.id);
-      }
-      
-      // Handle race disconnect
-      const raceId = socketToRace.get(socket.id);
-      if (raceId) {
-        const race = activeRaces.get(raceId);
-        const player = socketToPlayer.get(socket.id);
+      void safelyExecute("[Race] disconnect", () => {
+        console.log(`[Race] Client disconnected: ${socket.id}`);
         
-        if (race && player && race.state.status === "racing") {
-          // Instead of immediate DNF, wait for grace period
-          console.log(`[Race] Player ${player.username} disconnected from race ${raceId}, waiting for reconnect...`);
-          
-          const timeout = setTimeout(() => {
-            if (race.state.status === "finished") return;
+        // Remove from queue
+        raceQueue.delete(socket.id);
+        
+        // Handle lobby disconnect
+        const lobbyId = socketToLobby.get(socket.id);
+        if (lobbyId) {
+          const lobby = activeLobbies.get(lobbyId);
+          if (lobby) {
+            lobby.players = lobby.players.filter(p => p.socketId !== socket.id);
             
-            console.log(`[Race] Player ${player.username} timed out, marking DNF`);
-            race.state = handlePlayerDisconnect(race.state, player.id);
-            io.to(raceId).emit("race:player_disconnected", { playerId: player.id });
-            
-            race.disconnectTimeouts.delete(player.id);
-            
-            if (checkRaceOver(race.state)) {
-              endRace(io, raceId);
+            const player = socketToPlayer.get(socket.id);
+            if (player) {
+              io.to(lobbyId).emit("race:player_left", {
+                playerId: player.id,
+                totalPlayers: lobby.players.length,
+              });
             }
-          }, DISCONNECT_GRACE_PERIOD_MS);
-          
-          race.disconnectTimeouts.set(player.id, timeout);
+            
+            if (lobby.players.length === 0) {
+              activeLobbies.delete(lobbyId);
+            }
+          }
+          socketToLobby.delete(socket.id);
         }
         
-        socketToRace.delete(socket.id);
-      }
-      
-      // Clean up player mapping
-      socketToPlayer.delete(socket.id);
+        // Handle race disconnect
+        const raceId = socketToRace.get(socket.id);
+        if (raceId) {
+          const race = activeRaces.get(raceId);
+          const player = socketToPlayer.get(socket.id);
+          
+          if (race && player && race.state.status === "racing") {
+            // Instead of immediate DNF, wait for grace period
+            console.log(`[Race] Player ${player.username} disconnected from race ${raceId}, waiting for reconnect...`);
+            
+            const timeout = setTimeout(() => {
+              if (race.state.status === "finished") return;
+              
+              console.log(`[Race] Player ${player.username} timed out, marking DNF`);
+              race.state = handlePlayerDisconnect(race.state, player.id);
+              io.to(raceId).emit("race:player_disconnected", { playerId: player.id });
+              
+              race.disconnectTimeouts.delete(player.id);
+              
+              if (checkRaceOver(race.state)) {
+                endRace(io, raceId);
+              }
+            }, DISCONNECT_GRACE_PERIOD_MS);
+            
+            race.disconnectTimeouts.set(player.id, timeout);
+          }
+          
+          socketToRace.delete(socket.id);
+        }
+        
+        // Clean up player mapping
+        socketToPlayer.delete(socket.id);
+      });
     });
   });
   

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStripeClient } from "@/lib/stripe";
 import { userHasPremiumAccess } from "@/lib/subscription";
+import { env } from "@/lib/env";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -23,9 +24,7 @@ export async function POST(request: Request) {
   }
 
   const priceId =
-    plan === "yearly"
-      ? process.env.STRIPE_YEARLY_PRICE_ID
-      : process.env.STRIPE_MONTHLY_PRICE_ID;
+    plan === "yearly" ? env.STRIPE_YEARLY_PRICE_ID : env.STRIPE_MONTHLY_PRICE_ID;
 
   if (!priceId) {
     return NextResponse.json(
@@ -34,8 +33,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = env.NEXT_PUBLIC_APP_URL;
 
   try {
     const user = await db.user.findUnique({

@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -20,6 +21,13 @@ import {
   calculateRatingChange,
 } from "./game-logic";
 import { db } from "@/lib/db";
+import { authenticateSocket } from "@/lib/socket-auth";
+import {
+  createRateLimiter,
+  isPayloadTooLarge,
+  parseWithSchema,
+  safelyExecute,
+} from "../socket-guards";
 
 // ============================================
 // SERVER STATE
@@ -42,6 +50,34 @@ const socketToRoom: Map<string, string> = new Map();
 
 // Socket to player mapping
 const socketToPlayer: Map<string, { id: string; username: string }> = new Map();
+
+// ============================================
+// GUARDRAILS
+// ============================================
+
+const MAX_PAYLOAD_BYTES = 4096;
+const QUICK_CHAT_MAX_LENGTH = 240;
+
+const matchmakingJoinLimiter = createRateLimiter({ limit: 4, windowMs: 10_000 });
+const matchmakingLeaveLimiter = createRateLimiter({ limit: 6, windowMs: 10_000 });
+const submitAnswerLimiter = createRateLimiter({ limit: 20, windowMs: 10_000 }); // ~2/s
+const quickChatLimiter = createRateLimiter({ limit: 5, windowMs: 10_000 });
+const forfeitLimiter = createRateLimiter({ limit: 3, windowMs: 15_000 });
+
+const submitAnswerSchema = z.object({
+  answer: z
+    .number()
+    .finite()
+    .min(-1_000_000)
+    .max(1_000_000),
+  timeMs: z.number().int().min(0).max(120_000),
+});
+
+const quickChatSchema = z
+  .string()
+  .trim()
+  .min(1, "Message is required")
+  .max(QUICK_CHAT_MAX_LENGTH, "Message too long");
 
 // Helper to get user rating from database
 async function getUserRating(userId: string): Promise<number> {
@@ -459,70 +495,96 @@ export function setupMultiplayerHandlers(
     // MATCHMAKING HANDLERS
     // ============================================
 
-    socket.on("matchmaking:join", async (data) => {
-      const { userId, username } = data;
-
-      // Store player info
-      socketToPlayer.set(socket.id, { id: userId, username });
-
-      // Check if already in queue
-      if (matchmakingQueue.has(socket.id)) {
+    socket.on("matchmaking:join", () => {
+      const rate = matchmakingJoinLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("matchmaking:error", "Too many matchmaking requests");
         return;
       }
 
-      // Check if already in a game
-      const existingRoomId = socketToRoom.get(socket.id);
-      if (existingRoomId) {
-        const existingGame = activeGames.get(existingRoomId);
-        
-        // DEBUG LOGGING
-        console.log(`[Matchmaking] Socket ${socket.id} already in room ${existingRoomId}`);
-        if (existingGame) {
-          console.log(`[Matchmaking] Game status: ${existingGame.gameState.status}`);
-        } else {
-          console.log(`[Matchmaking] Game not found in activeGames`);
-        }
+      void safelyExecute("[Multiplayer] matchmaking:join", async () => {
+        const authResult = await authenticateSocket(
+          socket.handshake.headers.cookie
+        );
 
-        // Only block if the game exists and is not over
-        // We also check if there is a winner, which implies game over even if status is weird
-        const isGameOver = existingGame?.gameState.status === "game_over" || !!existingGame?.gameState.winner;
-        
-        if (existingGame && !isGameOver) {
-          socket.emit("matchmaking:error", "Already in a game");
+        if (!authResult) {
+          socket.emit("matchmaking:error", "Unauthorized");
+          socket.disconnect(true);
           return;
         }
-        // Game is over or doesn't exist, clean up the stale mapping
-        console.log(`[Matchmaking] Cleaning up stale mapping for socket ${socket.id}`);
-        socket.leave(existingRoomId);
-        socketToRoom.delete(socket.id);
-      }
 
-      // Fetch the user's actual rating from database
-      const actualRating = await getUserRating(userId);
+        const { userId, username } = authResult;
 
-      const entry: MatchmakingEntry = {
-        socketId: socket.id,
-        playerId: userId,
-        username,
-        rating: actualRating,
-        joinedAt: Date.now(),
-      };
+        // Store player info
+        socketToPlayer.set(socket.id, { id: userId, username });
 
-      matchmakingQueue.set(socket.id, entry);
-      
-      // Try to find a match immediately
-      const match = findMatch(entry);
-      
-      if (match) {
-        createMatch(io, entry, match);
-      } else {
-        socket.emit("matchmaking:searching", { position: matchmakingQueue.size });
-      }
+        // Check if already in queue
+        if (matchmakingQueue.has(socket.id)) {
+          return;
+        }
+
+        // Check if already in a game
+        const existingRoomId = socketToRoom.get(socket.id);
+        if (existingRoomId) {
+          const existingGame = activeGames.get(existingRoomId);
+          
+          // DEBUG LOGGING
+          console.log(`[Matchmaking] Socket ${socket.id} already in room ${existingRoomId}`);
+          if (existingGame) {
+            console.log(`[Matchmaking] Game status: ${existingGame.gameState.status}`);
+          } else {
+            console.log(`[Matchmaking] Game not found in activeGames`);
+          }
+
+          // Only block if the game exists and is not over
+          // We also check if there is a winner, which implies game over even if status is weird
+          const isGameOver = existingGame?.gameState.status === "game_over" || !!existingGame?.gameState.winner;
+          
+          if (existingGame && !isGameOver) {
+            socket.emit("matchmaking:error", "Already in a game");
+            return;
+          }
+          // Game is over or doesn't exist, clean up the stale mapping
+          console.log(`[Matchmaking] Cleaning up stale mapping for socket ${socket.id}`);
+          socket.leave(existingRoomId);
+          socketToRoom.delete(socket.id);
+        }
+
+        // Fetch the user's actual rating from database
+        const actualRating = await getUserRating(userId);
+
+        const entry: MatchmakingEntry = {
+          socketId: socket.id,
+          playerId: userId,
+          username,
+          rating: actualRating,
+          joinedAt: Date.now(),
+        };
+
+        matchmakingQueue.set(socket.id, entry);
+        
+        // Try to find a match immediately
+        const match = findMatch(entry);
+        
+        if (match) {
+          createMatch(io, entry, match);
+        } else {
+          socket.emit("matchmaking:searching", { position: matchmakingQueue.size });
+        }
+      });
     });
 
     socket.on("matchmaking:leave", () => {
-      matchmakingQueue.delete(socket.id);
-      socket.emit("matchmaking:cancelled");
+      const rate = matchmakingLeaveLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("matchmaking:error", "Too many matchmaking requests");
+        return;
+      }
+
+      void safelyExecute("[Multiplayer] matchmaking:leave", () => {
+        matchmakingQueue.delete(socket.id);
+        socket.emit("matchmaking:cancelled");
+      });
     });
 
     // ============================================
@@ -530,81 +592,131 @@ export function setupMultiplayerHandlers(
     // ============================================
 
     socket.on("game:submit_answer", (data) => {
-      const roomId = socketToRoom.get(socket.id);
-      if (!roomId) return;
+      const rate = submitAnswerLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("game:error", "Too many answers, slow down");
+        return;
+      }
 
-      const game = activeGames.get(roomId);
-      if (!game || game.gameState.status !== "playing") return;
+      if (isPayloadTooLarge(data, MAX_PAYLOAD_BYTES)) {
+        socket.emit("game:error", "Payload too large");
+        return;
+      }
 
-      const player = socketToPlayer.get(socket.id);
-      if (!player) return;
+      const parsed = parseWithSchema(submitAnswerSchema, data);
+      if (!parsed.success) {
+        socket.emit("game:error", "Invalid answer payload");
+        return;
+      }
 
-      // Don't allow duplicate answers
-      if (game.answers.has(player.id)) return;
+      void safelyExecute("[Multiplayer] game:submit_answer", () => {
+        const roomId = socketToRoom.get(socket.id);
+        if (!roomId) return;
 
-      // Record the answer
-      game.answers.set(player.id, {
-        answer: data.answer,
-        timeMs: data.timeMs,
-      });
+        const game = activeGames.get(roomId);
+        if (!game || game.gameState.status !== "playing") return;
 
-      // Notify opponent that this player answered (without revealing the answer)
-      const otherPlayer = game.gameState.players.find(p => p.id !== player.id);
-      if (otherPlayer) {
-        const otherSocket = io.sockets.sockets.get(otherPlayer.socketId);
-        if (otherSocket) {
-          otherSocket.emit("game:opponent_answered");
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+
+        // Don't allow duplicate answers
+        if (game.answers.has(player.id)) return;
+
+        // Record the answer
+        game.answers.set(player.id, {
+          answer: parsed.data.answer,
+          timeMs: parsed.data.timeMs,
+        });
+
+        // Notify opponent that this player answered (without revealing the answer)
+        const otherPlayer = game.gameState.players.find(p => p.id !== player.id);
+        if (otherPlayer) {
+          const otherSocket = io.sockets.sockets.get(otherPlayer.socketId);
+          if (otherSocket) {
+            otherSocket.emit("game:opponent_answered");
+          }
         }
-      }
 
-      // If both players answered, end round early
-      if (game.answers.size === 2) {
-        endRound(io, roomId);
-      }
+        // If both players answered, end round early
+        if (game.answers.size === 2) {
+          endRound(io, roomId);
+        }
+      });
     });
 
     socket.on("game:forfeit", () => {
-      const roomId = socketToRoom.get(socket.id);
-      if (!roomId) return;
+      const rate = forfeitLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("game:error", "Too many forfeits");
+        return;
+      }
 
-      const game = activeGames.get(roomId);
-      if (!game) return;
+      void safelyExecute("[Multiplayer] game:forfeit", () => {
+        const roomId = socketToRoom.get(socket.id);
+        if (!roomId) return;
 
-      const player = socketToPlayer.get(socket.id);
-      if (!player) return;
+        const game = activeGames.get(roomId);
+        if (!game) return;
 
-      // Notify both players
-      io.to(roomId).emit("game:forfeit", { forfeitedBy: player.id });
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
 
-      // End game with opponent as winner
-      const opponent = game.gameState.players.find(p => p.id !== player.id);
-      endGame(io, roomId, opponent?.id || null, "forfeit", player.id);
+        // Notify both players
+        io.to(roomId).emit("game:forfeit", { forfeitedBy: player.id });
+
+        // End game with opponent as winner
+        const opponent = game.gameState.players.find(p => p.id !== player.id);
+        endGame(io, roomId, opponent?.id || null, "forfeit", player.id);
+      });
     });
 
     socket.on("game:quick_chat", (message) => {
-      const roomId = socketToRoom.get(socket.id);
-      if (!roomId) return;
+      const rate = quickChatLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("game:error", "Chat rate limited");
+        return;
+      }
 
-      const player = socketToPlayer.get(socket.id);
-      if (!player) return;
+      if (isPayloadTooLarge(message, MAX_PAYLOAD_BYTES)) {
+        socket.emit("game:error", "Payload too large");
+        return;
+      }
 
-      // Broadcast to room
-      socket.to(roomId).emit("game:quick_chat", {
-        from: player.username,
-        message,
+      const parsed = parseWithSchema(quickChatSchema, message);
+      if (!parsed.success) {
+        socket.emit("game:error", "Invalid chat message");
+        return;
+      }
+
+      const safeMessage = parsed.data;
+
+      void safelyExecute("[Multiplayer] game:quick_chat", () => {
+        const roomId = socketToRoom.get(socket.id);
+        if (!roomId) return;
+
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+
+        // Broadcast to room
+        socket.to(roomId).emit("game:quick_chat", {
+          from: player.username,
+          message: safeMessage,
+        });
       });
     });
 
     // Leave game room (called when player returns to lobby)
     socket.on("game:leave", () => {
-      const roomId = socketToRoom.get(socket.id);
-      if (roomId) {
-        socket.leave(roomId);
-        socketToRoom.delete(socket.id);
-        console.log(`Player left game room: ${roomId}`);
-      }
-      // Also remove from matchmaking queue if they were in it
-      matchmakingQueue.delete(socket.id);
+      void safelyExecute("[Multiplayer] game:leave", () => {
+        const roomId = socketToRoom.get(socket.id);
+        if (roomId) {
+          socket.leave(roomId);
+          socketToRoom.delete(socket.id);
+          console.log(`Player left game room: ${roomId}`);
+        }
+        // Also remove from matchmaking queue if they were in it
+        matchmakingQueue.delete(socket.id);
+      });
     });
 
     // ============================================
@@ -612,31 +724,33 @@ export function setupMultiplayerHandlers(
     // ============================================
 
     socket.on("disconnect", () => {
-      console.log(`Client disconnected: ${socket.id}`);
+      void safelyExecute("[Multiplayer] disconnect", () => {
+        console.log(`Client disconnected: ${socket.id}`);
 
-      // Remove from matchmaking queue
-      matchmakingQueue.delete(socket.id);
+        // Remove from matchmaking queue
+        matchmakingQueue.delete(socket.id);
 
-      // Handle game disconnection
-      const roomId = socketToRoom.get(socket.id);
-      if (roomId) {
-        const game = activeGames.get(roomId);
-        if (game && game.gameState.status !== "game_over") {
-          // Notify opponent
-          io.to(roomId).emit("game:opponent_disconnected");
-          
-          // End game with opponent as winner
-          const player = socketToPlayer.get(socket.id);
-          if (player) {
-            const opponent = game.gameState.players.find(p => p.id !== player.id);
-            endGame(io, roomId, opponent?.id || null, "disconnected", player.id);
+        // Handle game disconnection
+        const roomId = socketToRoom.get(socket.id);
+        if (roomId) {
+          const game = activeGames.get(roomId);
+          if (game && game.gameState.status !== "game_over") {
+            // Notify opponent
+            io.to(roomId).emit("game:opponent_disconnected");
+            
+            // End game with opponent as winner
+            const player = socketToPlayer.get(socket.id);
+            if (player) {
+              const opponent = game.gameState.players.find(p => p.id !== player.id);
+              endGame(io, roomId, opponent?.id || null, "disconnected", player.id);
+            }
           }
         }
-      }
 
-      // Clean up mappings
-      socketToRoom.delete(socket.id);
-      socketToPlayer.delete(socket.id);
+        // Clean up mappings
+        socketToRoom.delete(socket.id);
+        socketToPlayer.delete(socket.id);
+      });
     });
   });
 

@@ -207,11 +207,7 @@ export interface UserCosmetics {
 
 export interface RaceClientToServerEvents {
   // Matchmaking
-  "race:join_queue": (data: { 
-    userId: string; 
-    username: string; 
-    cosmetics?: UserCosmetics;
-  }) => void;
+  "race:join_queue": (data: { cosmetics?: UserCosmetics }) => void;
   "race:leave_queue": () => void;
   
   // Game actions

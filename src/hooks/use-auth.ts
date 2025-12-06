@@ -15,19 +15,9 @@ export function useAuth() {
   const isAuthenticated = status === "authenticated";
   const user = session?.user;
 
-  const login = useCallback(
-    async (provider: string = "credentials", credentials?: { email: string; password: string }) => {
-      if (provider === "credentials" && credentials) {
-        return signIn("credentials", {
-          email: credentials.email,
-          password: credentials.password,
-          redirect: false,
-        });
-      }
-      return signIn(provider, { callbackUrl: "/" });
-    },
-    []
-  );
+  const login = useCallback(async (provider: string = "google") => {
+    return signIn(provider, { callbackUrl: "/" });
+  }, []);
 
   const logout = useCallback(async () => {
     await signOut({ callbackUrl: "/" });

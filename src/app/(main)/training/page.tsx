@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
-import { isPremiumStatus } from "@/lib/subscription";
+import { isPremiumStatus } from "@/lib/subscription-status";
 import { Lock } from "lucide-react";
 import { PremiumPaywall } from "@/components/billing/premium-paywall";
 import { Button } from "@/components/ui/button";

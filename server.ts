@@ -4,8 +4,9 @@ import next from "next";
 import { Server as SocketServer } from "socket.io";
 import { setupMultiplayerHandlers } from "./src/lib/multiplayer/socket-handlers";
 import { setupRacingHandlers } from "./src/lib/racing/socket-handlers";
+import { env } from "./src/lib/env";
 
-const dev = process.env.NODE_ENV !== "production";
+const dev = env.NODE_ENV !== "production";
 const hostname = "localhost";
 const port = parseInt(process.env.PORT || "3000", 10);
 
@@ -20,10 +21,12 @@ app.prepare().then(() => {
 
   const io = new SocketServer(httpServer, {
     cors: {
-      origin: dev ? "http://localhost:3000" : process.env.NEXT_PUBLIC_APP_URL,
+      origin: env.NEXT_PUBLIC_APP_URL,
       methods: ["GET", "POST"],
     },
     transports: ["websocket", "polling"],
+    // Cap inbound payloads to reduce risk from oversized client messages
+    maxHttpBufferSize: 16 * 1024, // 16kb
   });
 
   // Setup multiplayer game handlers (1v1 mode)

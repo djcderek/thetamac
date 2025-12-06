@@ -476,7 +476,7 @@ export function useRaceSocket() {
         console.warn("Failed to fetch cosmetics:", err);
       }
       
-      socketRef.current.emit("race:join_queue", { userId, username, cosmetics });
+      socketRef.current.emit("race:join_queue", { cosmetics });
       setQueue(prev => ({ ...prev, inQueue: true }));
     }
   }, []);
