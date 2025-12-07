@@ -22,7 +22,7 @@ import { UserMenu } from "@/components/auth/user-menu";
 
 const navigation = [
   { name: "Training", href: "/training", icon: Brain },
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Multiplayer", href: "/multiplayer", icon: Swords },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
   { name: "Shop", href: "/shop", icon: ShoppingBag },

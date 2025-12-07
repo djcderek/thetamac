@@ -31,7 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
         <SessionProvider>
-          <ThemeProvider defaultTheme="dark" storageKey="thetamac-theme">
+          <ThemeProvider defaultTheme="system" storageKey="thetamac-theme">
             <TooltipProvider>
               {children}
             </TooltipProvider>

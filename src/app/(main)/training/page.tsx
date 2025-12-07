@@ -1226,7 +1226,7 @@ export default function TrainingPage() {
                         </span>
                       </button>
                       <Link href="/training/weak-points" className="block">
-                        <div className="p-4 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 text-left transition-colors hover:border-primary/50 hover:from-primary/10 hover:to-primary/15 h-full">
+                        <div className="p-4 rounded-lg border border-border bg-secondary/30 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40 h-full">
                           <div className="flex items-center gap-2 mb-1">
                             <Target className="w-4 h-4 text-primary" />
                             <span className="font-medium">Weak Points</span>
