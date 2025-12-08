@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
+import { useSession } from "next-auth/react";
 import type {
   RaceClientToServerEvents,
   RaceServerToClientEvents,
@@ -99,6 +100,7 @@ interface ActionFeedback {
 // ============================================
 
 export function useRaceSocket() {
+  const { data: session } = useSession();
   const socketRef = useRef<TypedSocket | null>(null);
   const myPlayerIdRef = useRef<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -209,6 +211,12 @@ export function useRaceSocket() {
     const socket: TypedSocket = io(socketUrl, {
       transports: ["websocket", "polling"],
       autoConnect: true,
+      withCredentials: true,
+      // Pass auth info for cross-origin authentication
+      auth: session?.user ? {
+        userId: session.user.id,
+        username: session.user.name || "Player",
+      } : undefined,
     });
 
     socketRef.current = socket;
@@ -456,7 +464,7 @@ export function useRaceSocket() {
     return () => {
       socket.disconnect();
     };
-  }, []); // Empty dependency array for resetAllState
+  }, [session]); // Reconnect when session changes
 
   // ============================================
   // ACTIONS

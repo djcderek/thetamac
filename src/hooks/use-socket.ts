@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
+import { useSession } from "next-auth/react";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -38,6 +39,7 @@ interface GameplayState {
 }
 
 export function useSocket() {
+  const { data: session } = useSession();
   const socketRef = useRef<TypedSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
@@ -66,6 +68,12 @@ export function useSocket() {
     const socket: TypedSocket = io(socketUrl, {
       transports: ["websocket", "polling"],
       autoConnect: true,
+      withCredentials: true,
+      // Pass auth info for cross-origin authentication
+      auth: session?.user ? {
+        userId: session.user.id,
+        username: session.user.name || "Player",
+      } : undefined,
     });
 
     socketRef.current = socket;
@@ -197,7 +205,7 @@ export function useSocket() {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [session]);
 
   // Matchmaking actions
   const joinMatchmaking = useCallback(() => {
