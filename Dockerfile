@@ -35,7 +35,7 @@ COPY . .
 RUN npx prisma generate
 
 # Build Next.js
-RUN npm run build
+RUN SKIP_ENV_VALIDATION=true npm run build
 
 # Runner stage
 FROM base AS runner

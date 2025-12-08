@@ -22,4 +22,21 @@ const envSchema = z.object({
     .min(1, "STRIPE_YEARLY_PRICE_ID is required"),
 });
 
-export const env = envSchema.parse(process.env);
+// Allow skipping validation for build time
+const skipValidation = 
+  process.env.SKIP_ENV_VALIDATION === "true" || 
+  process.env.npm_lifecycle_event === "lint";
+
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success && !skipValidation) {
+  console.error(
+    "❌ Invalid environment variables:",
+    parsed.error.flatten().fieldErrors
+  );
+  throw new Error("Invalid environment variables");
+}
+
+export const env = parsed.success
+  ? parsed.data
+  : (process.env as unknown as z.infer<typeof envSchema>);
