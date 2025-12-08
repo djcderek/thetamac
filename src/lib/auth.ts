@@ -139,7 +139,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
     },
   },
-  // Trust host headers - required when behind a reverse proxy (Vercel, Fly.io, etc.)
+  // Trust host headers - required behind reverse proxies (Vercel, Fly.io)
   trustHost: true,
 });
 
