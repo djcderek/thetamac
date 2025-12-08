@@ -23,8 +23,8 @@ import {
   generatePlayerProblems,
   gameTick,
 } from "./game-logic";
-import { db } from "@/lib/db";
-import { authenticateSocket } from "@/lib/socket-auth";
+import { db } from "../db";
+import { authenticateSocket } from "../socket-auth";
 import {
   createRateLimiter,
   isPayloadTooLarge,
