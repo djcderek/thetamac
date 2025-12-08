@@ -206,32 +206,49 @@ export function useRaceSocket() {
 
   // Initialize socket connection
   useEffect(() => {
-    // Connect to the WebSocket server (Fly.io in production, same host in dev)
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
-    const socket: TypedSocket = io(socketUrl, {
-      transports: ["websocket", "polling"],
-      autoConnect: true,
-      withCredentials: true,
-      // Pass auth info for cross-origin authentication
-      auth: session?.user ? {
-        userId: session.user.id,
-        username: session.user.name || "Player",
-      } : undefined,
-    });
+    let socket: TypedSocket | null = null;
+    let mounted = true;
 
-    socketRef.current = socket;
+    async function initSocket() {
+      // Connect to the WebSocket server (Fly.io in production, same host in dev)
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
+      
+      // Fetch a secure token for cross-origin authentication
+      let authToken: string | undefined;
+      if (session?.user && socketUrl) {
+        try {
+          const res = await fetch("/api/auth/socket-token");
+          if (res.ok) {
+            const data = await res.json();
+            authToken = data.token;
+          }
+        } catch (err) {
+          console.warn("Failed to fetch socket token:", err);
+        }
+      }
 
-    // Connection events
-    socket.on("connect", () => {
-      console.log("[Race] Socket connected:", socket.id);
-      setIsConnected(true);
-    });
+      if (!mounted) return;
 
-    socket.on("disconnect", () => {
-      console.log("[Race] Socket disconnected");
-      setIsConnected(false);
-      resetAllState();
-    });
+      socket = io(socketUrl, {
+        transports: ["websocket", "polling"],
+        autoConnect: true,
+        withCredentials: true,
+        auth: authToken ? { token: authToken } : undefined,
+      }) as TypedSocket;
+
+      socketRef.current = socket;
+
+      // Connection events
+      socket.on("connect", () => {
+        console.log("[Race] Socket connected:", socket?.id);
+        setIsConnected(true);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("[Race] Socket disconnected");
+        setIsConnected(false);
+        resetAllState();
+      });
 
     // Queue events
     socket.on("race:queue_update", ({ playersInQueue, estimatedWait }) => {
@@ -460,11 +477,17 @@ export function useRaceSocket() {
       setError(errorMsg);
       setTimeout(() => setError(null), 5000);
     });
+    }
+
+    initSocket();
 
     return () => {
-      socket.disconnect();
+      mounted = false;
+      if (socket) {
+        socket.disconnect();
+      }
     };
-  }, [session]); // Reconnect when session changes
+  }, [session, resetAllState, addFeedback]); // Reconnect when session changes
 
   // ============================================
   // ACTIONS

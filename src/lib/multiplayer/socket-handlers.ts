@@ -505,7 +505,7 @@ export function setupMultiplayerHandlers(
       void safelyExecute("[Multiplayer] matchmaking:join", async () => {
         const authResult = await authenticateSocket(
           socket.handshake.headers.cookie,
-          socket.handshake.auth as { userId?: string; username?: string }
+          socket.handshake.auth as { token?: string }
         );
 
         if (!authResult) {

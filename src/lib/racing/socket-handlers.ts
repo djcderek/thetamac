@@ -632,7 +632,7 @@ export function setupRacingHandlers(io: RaceServer) {
       void safelyExecute("[Race] race:join_queue", async () => {
         const authResult = await authenticateSocket(
           socket.handshake.headers.cookie,
-          socket.handshake.auth as { userId?: string; username?: string }
+          socket.handshake.auth as { token?: string }
         );
 
         if (!authResult) {

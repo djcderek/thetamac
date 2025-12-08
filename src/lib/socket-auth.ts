@@ -1,4 +1,5 @@
 import { getToken } from "next-auth/jwt";
+import { jwtVerify } from "jose";
 import { env } from "./env";
 
 interface AuthResult {
@@ -7,8 +8,7 @@ interface AuthResult {
 }
 
 interface SocketAuth {
-  userId?: string;
-  username?: string;
+  token?: string;
 }
 
 export async function authenticateSocket(
@@ -16,23 +16,35 @@ export async function authenticateSocket(
   socketAuth?: SocketAuth
 ): Promise<AuthResult | null> {
   // First try cookie-based auth (same-origin)
-  const token = await getToken({
+  const sessionToken = await getToken({
     req: { headers: { cookie: cookieHeader ?? "" } } as never,
     secret: env.AUTH_SECRET,
   });
 
-  let userId = typeof token?.id === "string" ? token.id : null;
-  let username = (typeof token?.name === "string" && token.name) || "Player";
-
-  // If cookie auth failed, try socket auth (cross-origin)
-  if (!userId && socketAuth?.userId) {
-    userId = socketAuth.userId;
-    username = socketAuth.username || "Player";
+  if (sessionToken?.id && typeof sessionToken.id === "string") {
+    return {
+      userId: sessionToken.id,
+      username: (typeof sessionToken.name === "string" && sessionToken.name) || "Player",
+    };
   }
 
-  if (!userId) {
-    return null;
+  // If cookie auth failed, try socket token auth (cross-origin)
+  if (socketAuth?.token) {
+    try {
+      const secret = new TextEncoder().encode(env.AUTH_SECRET);
+      const { payload } = await jwtVerify(socketAuth.token, secret);
+      
+      if (typeof payload.userId === "string") {
+        return {
+          userId: payload.userId,
+          username: (typeof payload.username === "string" && payload.username) || "Player",
+        };
+      }
+    } catch (error) {
+      // Token verification failed (expired, invalid, etc.)
+      console.error("[SocketAuth] Token verification failed:", error);
+    }
   }
 
-  return { userId, username };
+  return null;
 }

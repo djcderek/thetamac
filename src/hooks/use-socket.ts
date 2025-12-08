@@ -63,147 +63,170 @@ export function useSocket() {
 
   // Initialize socket connection
   useEffect(() => {
-    // Connect to the WebSocket server (Fly.io in production, same host in dev)
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
-    const socket: TypedSocket = io(socketUrl, {
-      transports: ["websocket", "polling"],
-      autoConnect: true,
-      withCredentials: true,
-      // Pass auth info for cross-origin authentication
-      auth: session?.user ? {
-        userId: session.user.id,
-        username: session.user.name || "Player",
-      } : undefined,
-    });
+    let socket: TypedSocket | null = null;
+    let mounted = true;
 
-    socketRef.current = socket;
+    async function initSocket() {
+      // Connect to the WebSocket server (Fly.io in production, same host in dev)
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
+      
+      // Fetch a secure token for cross-origin authentication
+      let authToken: string | undefined;
+      if (session?.user && socketUrl) {
+        try {
+          const res = await fetch("/api/auth/socket-token");
+          if (res.ok) {
+            const data = await res.json();
+            authToken = data.token;
+          }
+        } catch (err) {
+          console.warn("Failed to fetch socket token:", err);
+        }
+      }
 
-    // Connection events
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id);
-      setIsConnected(true);
-    });
+      if (!mounted) return;
 
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
-      setIsConnected(false);
-      setMatchmaking({
-        isSearching: false,
-        position: 0,
-        opponent: null,
+      socket = io(socketUrl, {
+        transports: ["websocket", "polling"],
+        autoConnect: true,
+        withCredentials: true,
+        auth: authToken ? { token: authToken } : undefined,
+      }) as TypedSocket;
+
+      socketRef.current = socket;
+
+      // Connection events
+      socket.on("connect", () => {
+        console.log("Socket connected:", socket?.id);
+        setIsConnected(true);
       });
-      setGameplay({
-        status: "idle",
-        countdown: 0,
-        currentRound: 0,
-        problem: null,
-        scores: {},
-        roundResult: null,
-        gameResult: null,
-        opponentAnswered: false,
+
+      socket.on("disconnect", () => {
+        console.log("Socket disconnected");
+        setIsConnected(false);
+        setMatchmaking({
+          isSearching: false,
+          position: 0,
+          opponent: null,
+        });
+        setGameplay({
+          status: "idle",
+          countdown: 0,
+          currentRound: 0,
+          problem: null,
+          scores: {},
+          roundResult: null,
+          gameResult: null,
+          opponentAnswered: false,
+        });
       });
-    });
 
-    // Online count
-    socket.on("online_count", (count) => {
-      setOnlineCount(count);
-    });
-
-    // Matchmaking events
-    socket.on("matchmaking:searching", ({ position }) => {
-      setMatchmaking((prev) => ({ ...prev, isSearching: true, position }));
-    });
-
-    socket.on("matchmaking:found", ({ opponent }) => {
-      setMatchmaking({
-        isSearching: false,
-        position: 0,
-        opponent,
+      // Online count
+      socket.on("online_count", (count) => {
+        setOnlineCount(count);
       });
-      setGameplay((prev) => ({ ...prev, status: "countdown" }));
-    });
 
-    socket.on("matchmaking:cancelled", () => {
-      setMatchmaking({
-        isSearching: false,
-        position: 0,
-        opponent: null,
+      // Matchmaking events
+      socket.on("matchmaking:searching", ({ position }) => {
+        setMatchmaking((prev) => ({ ...prev, isSearching: true, position }));
       });
-    });
 
-    socket.on("matchmaking:error", (error) => {
-      console.error("Matchmaking error:", error);
-      setMatchmaking({
-        isSearching: false,
-        position: 0,
-        opponent: null,
+      socket.on("matchmaking:found", ({ opponent }) => {
+        setMatchmaking({
+          isSearching: false,
+          position: 0,
+          opponent,
+        });
+        setGameplay((prev) => ({ ...prev, status: "countdown" }));
       });
-    });
 
-    // Game events
-    socket.on("game:countdown", ({ seconds }) => {
-      setGameplay((prev) => ({ ...prev, status: "countdown", countdown: seconds }));
-    });
+      socket.on("matchmaking:cancelled", () => {
+        setMatchmaking({
+          isSearching: false,
+          position: 0,
+          opponent: null,
+        });
+      });
 
-    socket.on("game:new_round", ({ round, problem }) => {
-      setGameplay((prev) => ({
-        ...prev,
-        status: "playing",
-        currentRound: round,
-        problem,
-        roundResult: null,
-        opponentAnswered: false,
-      }));
-    });
+      socket.on("matchmaking:error", (error) => {
+        console.error("Matchmaking error:", error);
+        setMatchmaking({
+          isSearching: false,
+          position: 0,
+          opponent: null,
+        });
+      });
 
-    socket.on("game:opponent_answered", () => {
-      setGameplay((prev) => ({ ...prev, opponentAnswered: true }));
-    });
+      // Game events
+      socket.on("game:countdown", ({ seconds }) => {
+        setGameplay((prev) => ({ ...prev, status: "countdown", countdown: seconds }));
+      });
 
-    socket.on("game:round_result", (result) => {
-      setGameplay((prev) => ({
-        ...prev,
-        status: "round_end",
-        scores: result.scores,
-        roundResult: {
-          winnerId: result.winnerId,
-          correctAnswer: result.correctAnswer,
-          yourTime: result.yourTime,
-          opponentTime: result.opponentTime,
-        },
-      }));
-    });
+      socket.on("game:new_round", ({ round, problem }) => {
+        setGameplay((prev) => ({
+          ...prev,
+          status: "playing",
+          currentRound: round,
+          problem,
+          roundResult: null,
+          opponentAnswered: false,
+        }));
+      });
 
-    socket.on("game:over", (result) => {
-      setGameplay((prev) => ({
-        ...prev,
-        status: "game_over",
-        gameResult: {
-          winnerId: result.winnerId,
-          finalScores: result.finalScores,
-          ratingChange: result.ratingChange,
-        },
-      }));
-    });
+      socket.on("game:opponent_answered", () => {
+        setGameplay((prev) => ({ ...prev, opponentAnswered: true }));
+      });
 
-    socket.on("game:forfeit", ({ forfeitedBy }) => {
-      console.log("Player forfeited:", forfeitedBy);
-    });
+      socket.on("game:round_result", (result) => {
+        setGameplay((prev) => ({
+          ...prev,
+          status: "round_end",
+          scores: result.scores,
+          roundResult: {
+            winnerId: result.winnerId,
+            correctAnswer: result.correctAnswer,
+            yourTime: result.yourTime,
+            opponentTime: result.opponentTime,
+          },
+        }));
+      });
 
-    socket.on("game:opponent_disconnected", () => {
-      setGameplay((prev) => ({
-        ...prev,
-        status: "game_over",
-        gameResult: {
-          winnerId: null,
-          finalScores: prev.scores,
-          ratingChange: 0,
-        },
-      }));
-    });
+      socket.on("game:over", (result) => {
+        setGameplay((prev) => ({
+          ...prev,
+          status: "game_over",
+          gameResult: {
+            winnerId: result.winnerId,
+            finalScores: result.finalScores,
+            ratingChange: result.ratingChange,
+          },
+        }));
+      });
+
+      socket.on("game:forfeit", ({ forfeitedBy }) => {
+        console.log("Player forfeited:", forfeitedBy);
+      });
+
+      socket.on("game:opponent_disconnected", () => {
+        setGameplay((prev) => ({
+          ...prev,
+          status: "game_over",
+          gameResult: {
+            winnerId: null,
+            finalScores: prev.scores,
+            ratingChange: 0,
+          },
+        }));
+      });
+    }
+
+    initSocket();
 
     return () => {
-      socket.disconnect();
+      mounted = false;
+      if (socket) {
+        socket.disconnect();
+      }
     };
   }, [session]);
 
