@@ -139,8 +139,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
     },
   },
-  // Only trust host headers in non-production to avoid spoofing
-  trustHost: env.NODE_ENV !== "production",
+  // Trust host headers - required when behind a reverse proxy (Vercel, Fly.io, etc.)
+  trustHost: true,
 });
 
 function getProfileString(
