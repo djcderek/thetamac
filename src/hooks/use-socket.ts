@@ -61,7 +61,9 @@ export function useSocket() {
 
   // Initialize socket connection
   useEffect(() => {
-    const socket: TypedSocket = io({
+    // Connect to the WebSocket server (Fly.io in production, same host in dev)
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
+    const socket: TypedSocket = io(socketUrl, {
       transports: ["websocket", "polling"],
       autoConnect: true,
     });

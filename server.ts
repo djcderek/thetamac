@@ -50,6 +50,11 @@ httpServer.listen(port, hostname, () => {
 const allowedOrigins: string[] = [];
 if (process.env.NEXT_PUBLIC_APP_URL) {
   allowedOrigins.push(process.env.NEXT_PUBLIC_APP_URL);
+  // Also allow www version if it's a custom domain
+  const url = new URL(process.env.NEXT_PUBLIC_APP_URL);
+  if (!url.hostname.startsWith("www.")) {
+    allowedOrigins.push(`${url.protocol}//www.${url.hostname}`);
+  }
 }
 // In production, also allow Fly.io internal URLs
 if (!dev && process.env.FLY_APP_NAME) {

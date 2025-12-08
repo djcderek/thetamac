@@ -7,6 +7,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z
     .string()
     .url("NEXT_PUBLIC_APP_URL must be a valid URL"),
+  NEXT_PUBLIC_SOCKET_URL: z
+    .string()
+    .url("NEXT_PUBLIC_SOCKET_URL must be a valid URL")
+    .optional(),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
   GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
