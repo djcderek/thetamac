@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Dependencies stage
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 # Builder stage
