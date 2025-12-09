@@ -83,7 +83,9 @@ export function Car({
   
   // Memoize skin-based material properties to avoid allocating on every render
   const skinProps = useMemo(() => {
-    let displayColor = color;
+    // Default gray color when no skin is selected
+    const defaultGray = "#94a3b8"; // slate-400
+    let displayColor = skin ? color : defaultGray; // Use gray if no skin, otherwise use passed color (which should also be gray or skin-based)
     let metalness = 0.5;
     let roughness = 0.3;
     let emissive = new THREE.Color(0x000000);

@@ -66,7 +66,7 @@ const DEFAULT_ITEMS: Array<{
     cost: 450,
     type: "trail",
     assetId: "trail_lightning",
-    isProOnly: false,
+    isProOnly: true,
   },
   {
     name: "Rainbow Road",
@@ -91,7 +91,7 @@ const DEFAULT_ITEMS: Array<{
     cost: 550,
     type: "skin",
     assetId: "skin_glitch",
-    isProOnly: false,
+    isProOnly: true,
   },
   {
     name: "Magma Flow",
@@ -107,7 +107,7 @@ const DEFAULT_ITEMS: Array<{
     cost: 450,
     type: "skin",
     assetId: "skin_ice",
-    isProOnly: false,
+    isProOnly: true,
   },
   {
     name: "Rainbow Rush",
@@ -115,7 +115,7 @@ const DEFAULT_ITEMS: Array<{
     cost: 480,
     type: "skin",
     assetId: "skin_rainbow",
-    isProOnly: false,
+    isProOnly: true,
   },
   // New Pro Vehicles
   {
@@ -132,7 +132,7 @@ const DEFAULT_ITEMS: Array<{
     cost: 750,
     type: "vehicle",
     assetId: "car_jeep",
-    isProOnly: false,
+    isProOnly: true,
   },
   {
     name: "Velocity X",
@@ -140,7 +140,7 @@ const DEFAULT_ITEMS: Array<{
     cost: 1150,
     type: "vehicle",
     assetId: "car_sport",
-    isProOnly: false,
+    isProOnly: true,
   },
   // New Wheels Category
   {

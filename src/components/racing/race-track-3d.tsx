@@ -47,6 +47,31 @@ interface RaceTrack3DProps {
 }
 
 // ============================================
+// SKIN COLOR MAPPING
+// ============================================
+
+// Maps skin assetId to its display color
+const SKIN_COLORS: Record<string, string> = {
+  car_red: "#ef4444",
+  car_blue: "#3b82f6",
+  car_gold: "#fbbf24",
+  skin_galactic: "#1e1b4b",
+  skin_glitch: "#22c55e",
+  skin_lava: "#7f1d1d",
+  skin_ice: "#bae6fd",
+  skin_rainbow: "#a855f7", // Use purple as a static representation for rainbow
+};
+
+// Default gray color when no skin is selected
+const DEFAULT_CAR_COLOR = "#94a3b8"; // slate-400
+
+// Get the display color for a player's car based on their selected skin
+function getCarColorFromSkin(skin?: string): string {
+  if (!skin) return DEFAULT_CAR_COLOR;
+  return SKIN_COLORS[skin] || DEFAULT_CAR_COLOR;
+}
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -59,12 +84,6 @@ export default function RaceTrack3D({
   drops,
   myPosition,
 }: RaceTrack3DProps) {
-  
-  const getPlayerColor = (id: string, index: number) => {
-    if (id === myPlayerId) return "#3b82f6"; // blue-500
-    const colors = ["#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#06b6d4"];
-    return colors[index % colors.length];
-  };
   
   const getFinishPosition = (playerId: string) => {
     const finish = finishOrder.find(f => f.playerId === playerId);
@@ -83,7 +102,6 @@ export default function RaceTrack3D({
             obstacles={obstacles}
             drops={drops}
             myPosition={myPosition}
-            getPlayerColor={getPlayerColor}
           />
         </Suspense>
       </Canvas>
@@ -110,7 +128,6 @@ export default function RaceTrack3D({
             .slice(0, 5)
             .map((player, i) => {
               const finishPos = getFinishPosition(player.id);
-              const playerIndex = players.findIndex(p => p.id === player.id); 
               
               return (
                 <div
@@ -120,7 +137,7 @@ export default function RaceTrack3D({
                   }`}
                 >
                   <span className="font-mono w-4 text-white/50">{finishPos || i + 1}.</span>
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getPlayerColor(player.id, playerIndex) }} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCarColorFromSkin(player.selectedSkin) }} />
                   <span className="truncate max-w-[50px]">
                     {player.id === myPlayerId ? "You" : player.username.slice(0, 6)}
                   </span>
@@ -142,8 +159,7 @@ function SceneContent({
   obstacles,
   drops,
   myPosition,
-  getPlayerColor
-}: RaceTrack3DProps & { getPlayerColor: (id: string, index: number) => string }) {
+}: RaceTrack3DProps) {
   // Filter obstacles and drops based on visibility distance for performance
   const visibleObstacles = useMemo(() => {
     return obstacles.filter(obs => {
@@ -190,12 +206,12 @@ function SceneContent({
       <Track length={trackLength} />
       
       {/* Players */}
-      {players.map((player, i) => (
+      {players.map((player) => (
         <Car
           key={player.id}
           position={player.position}
           lane={player.lane}
-          color={getPlayerColor(player.id, i)}
+          color={getCarColorFromSkin(player.selectedSkin)}
           isMe={player.id === myPlayerId}
           username={player.username}
           isStunned={player.isStunned}
