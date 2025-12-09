@@ -7,13 +7,11 @@ export async function GET() {
     const session = await auth();
     
     if (!session?.user?.email) {
-      console.log("GET /api/settings: Unauthorized - No session user email");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
     const userEmail = session.user.email;
-    console.log(`GET /api/settings: Fetching settings for user ${userId} (${userEmail})`);
     
     // Fetch user settings and user profile data
     // Try finding by ID first, then fall back to email if ID mismatch (e.g. dev DB reset)
@@ -33,7 +31,7 @@ export async function GET() {
     }
 
     if (!user && userEmail) {
-      console.log(`GET /api/settings: User ID ${userId} not found, trying email ${userEmail}`);
+      // Fallback to email lookup if ID not found (handles potential DB resets)
       user = await db.user.findUnique({
         where: { email: userEmail },
         select: {
@@ -47,15 +45,8 @@ export async function GET() {
     }
 
     if (!user) {
-      console.log(`GET /api/settings: User not found in DB`);
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
-    console.log("GET /api/settings: Found user", { 
-      name: user.name, 
-      email: user.email, 
-      hasImage: !!user.image 
-    });
 
     // If settings don't exist, return defaults
     const settings = user.settings || {
