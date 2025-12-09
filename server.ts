@@ -11,21 +11,42 @@ const dev = process.env.NODE_ENV !== "production";
 const hostname = dev ? "localhost" : "0.0.0.0";
 const port = parseInt(process.env.PORT || "3000", 10);
 
+// Check if we're running in WebSocket-only mode (production on Fly.io)
+const websocketOnly = process.env.WEBSOCKET_ONLY === "true";
+// The main app URL to redirect to (Vercel)
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://thetamac.vercel.app";
+
 console.log(`> Starting server in ${dev ? "development" : "production"} mode`);
+console.log(`> WebSocket-only mode: ${websocketOnly}`);
 console.log(`> Will listen on ${hostname}:${port}`);
 
-// Create HTTP server first to respond to health checks immediately
+// Create HTTP server
 const httpServer = createServer((req, res) => {
   const parsedUrl = parse(req.url!, true);
   
-  // Health check endpoint for Fly.io - respond immediately even before Next.js is ready
+  // Health check endpoint for Fly.io - always respond
   if (parsedUrl.pathname === "/api/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }));
     return;
   }
   
-  // If Next.js isn't ready yet, return 503
+  // In WebSocket-only mode, redirect all other requests to the main app
+  if (websocketOnly) {
+    // Allow Socket.io polling transport (used as fallback when WebSocket fails)
+    if (parsedUrl.pathname?.startsWith("/socket.io")) {
+      // Let Socket.io handle these requests (handled by the io server)
+      return;
+    }
+    
+    // Redirect everything else to the main Vercel app
+    const redirectUrl = `${appUrl}${req.url}`;
+    res.writeHead(302, { Location: redirectUrl });
+    res.end();
+    return;
+  }
+  
+  // Development mode: serve Next.js app
   if (!nextReady) {
     res.writeHead(503, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "starting", message: "Server is starting up" }));
@@ -38,12 +59,16 @@ const httpServer = createServer((req, res) => {
 let nextReady = false;
 let handle: ReturnType<typeof next>["getRequestHandler"] extends () => infer R ? R : never;
 
-const app = next({ dev, hostname, port });
+// Only initialize Next.js if not in WebSocket-only mode
+const app = websocketOnly ? null : next({ dev, hostname, port });
 
 // Start listening immediately so health checks pass
 httpServer.listen(port, hostname, () => {
   console.log(`> HTTP server listening on http://${hostname}:${port}`);
   console.log(`> Health check available at /api/health`);
+  if (websocketOnly) {
+    console.log(`> WebSocket-only mode: HTTP requests will redirect to ${appUrl}`);
+  }
 });
 
 // Build allowed origins for CORS
@@ -82,20 +107,29 @@ setupMultiplayerHandlers(io);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 setupRacingHandlers(io as any);
 
-// Prepare Next.js in the background
-app.prepare().then(() => {
-  handle = app.getRequestHandler();
-  nextReady = true;
-  console.log(`> Next.js ready`);
-  console.log(`> Socket.io server running`);
+// Prepare Next.js in the background (only in dev/non-websocket-only mode)
+if (app) {
+  app.prepare().then(() => {
+    handle = app.getRequestHandler();
+    nextReady = true;
+    console.log(`> Next.js ready`);
+    console.log(`> Socket.io server running`);
+    console.log(`> Math Racers mode enabled`);
+    if (process.env.FLY_APP_NAME) {
+      console.log(`> Running on Fly.io: ${process.env.FLY_APP_NAME}`);
+    }
+  }).catch((err) => {
+    console.error("Failed to prepare Next.js:", err);
+    process.exit(1);
+  });
+} else {
+  // WebSocket-only mode - no Next.js needed
+  console.log(`> Socket.io server running (WebSocket-only mode)`);
   console.log(`> Math Racers mode enabled`);
   if (process.env.FLY_APP_NAME) {
     console.log(`> Running on Fly.io: ${process.env.FLY_APP_NAME}`);
   }
-}).catch((err) => {
-  console.error("Failed to prepare Next.js:", err);
-  process.exit(1);
-});
+}
 
 
 
