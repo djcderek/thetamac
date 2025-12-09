@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Sparkles } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera, Sparkles, Environment } from "@react-three/drei";
 import { useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 
@@ -500,11 +500,9 @@ export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
       {isVisible ? (
         <Canvas shadows dpr={[1, 2]}>
           <PerspectiveCamera makeDefault position={[3, 3, 3]} fov={50} />
-          <ambientLight intensity={1.2} />
-          <hemisphereLight args={["#ffffff", "#444444", 0.8]} />
+          <ambientLight intensity={0.7} />
           <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} castShadow intensity={1.5} />
           <pointLight position={[-10, -10, -10]} intensity={0.5} />
-          <pointLight position={[5, 5, -5]} intensity={0.3} color="#60a5fa" />
           
           <group position={[0, -0.5, 0]}>
               <CarModel 
@@ -517,6 +515,7 @@ export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
           </group>
 
           <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={4} />
+          <Environment files="/hdri/city.hdr" />
         </Canvas>
       ) : (
         // Placeholder when not visible - lightweight 2D fallback

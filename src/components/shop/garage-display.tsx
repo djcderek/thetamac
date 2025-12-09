@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, MeshReflectorMaterial, Sparkles } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera, MeshReflectorMaterial, Sparkles, Environment } from "@react-three/drei";
 import { useRef, Suspense, useMemo } from "react";
 import * as THREE from "three";
 
@@ -876,6 +876,8 @@ export function GarageDisplay({ equippedSkin, equippedTrail, equippedVehicle, eq
                 maxPolarAngle={Math.PI / 2 - 0.05} // Don't go below floor
                 target={[0, 0, 0]}
             />
+            
+            <Environment files="/hdri/warehouse.hdr" background={false} />
         </Suspense>
       </Canvas>
       
