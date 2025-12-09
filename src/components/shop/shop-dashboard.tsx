@@ -7,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ShoppingBag, Check, Coins } from "lucide-react";
 import ItemPreview3D from "./item-preview-3d";
-
 import { GarageDisplay } from "./garage-display";
+import { ThreeErrorBoundary } from "@/components/ui/three-error-boundary";
 
 interface ShopItem {
   id: string;
@@ -33,6 +33,7 @@ interface ShopData {
 export function ShopDashboard() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ShopData | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [garageCategory, setGarageCategory] = useState<string>("vehicle");
 
@@ -42,12 +43,17 @@ export function ShopDashboard() {
 
   const fetchShop = async () => {
     try {
+      setError(null);
       const res = await fetch("/api/shop");
-      if (!res.ok) throw new Error("Failed to fetch shop");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to fetch shop");
+      }
       const json = await res.json();
       setData(json);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Shop fetch error:", err);
+      setError(err instanceof Error ? err.message : "Failed to load shop");
     } finally {
       setLoading(false);
     }
@@ -123,7 +129,16 @@ export function ShopDashboard() {
     return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
-  if (!data || !data.items) return <div>Failed to load shop. Please try again later.</div>;
+  if (error || !data || !data.items) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4">
+        <div className="text-muted-foreground">{error || "Failed to load shop. Please try again later."}</div>
+        <Button variant="outline" onClick={() => { setLoading(true); fetchShop(); }}>
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   const shopItems = data.items.filter(i => !data.ownedItemIds.includes(i.id));
   
@@ -177,7 +192,9 @@ export function ShopDashboard() {
                 <Card key={item.id} className="overflow-hidden">
                   <div className={`h-32 bg-muted flex items-center justify-center relative overflow-hidden ${item.type === 'skin' ? 'bg-gradient-to-br from-sky-100 to-indigo-100 dark:from-sky-900/20 dark:to-indigo-900/20' : item.type === 'vehicle' ? 'bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/20 dark:to-teal-900/20' : item.type === 'wheel' ? 'bg-gradient-to-br from-slate-100 to-zinc-100 dark:from-slate-900/20 dark:to-zinc-900/20' : 'bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/20 dark:to-red-900/20'}`}>
                     <div className="absolute inset-0">
-                      <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
+                      <ThreeErrorBoundary>
+                        <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
+                      </ThreeErrorBoundary>
                     </div>
                   </div>
                   <CardHeader>
@@ -207,12 +224,23 @@ export function ShopDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
                 {/* Left: Display Room */}
                 <div className="lg:col-span-2 h-full rounded-xl overflow-hidden border bg-neutral-950 shadow-2xl">
-                    <GarageDisplay 
-                        equippedSkin={equippedSkinAsset} 
-                        equippedTrail={equippedTrailAsset} 
-                        equippedVehicle={equippedVehicleAsset}
-                        equippedWheel={equippedWheelAsset}
-                    />
+                    <ThreeErrorBoundary
+                        fallback={
+                            <div className="w-full h-full flex items-center justify-center bg-neutral-900">
+                                <div className="text-center p-8">
+                                    <div className="text-neutral-400 text-lg font-medium mb-2">Garage Preview Unavailable</div>
+                                    <div className="text-neutral-500 text-sm">Your browser may not support 3D graphics</div>
+                                </div>
+                            </div>
+                        }
+                    >
+                        <GarageDisplay 
+                            equippedSkin={equippedSkinAsset} 
+                            equippedTrail={equippedTrailAsset} 
+                            equippedVehicle={equippedVehicleAsset}
+                            equippedWheel={equippedWheelAsset}
+                        />
+                    </ThreeErrorBoundary>
                 </div>
 
                 {/* Right: Customization Panel */}
@@ -267,7 +295,9 @@ export function ShopDashboard() {
                             >
                                 <div className="flex items-center gap-3 w-full">
                                     <div className="w-12 h-12 rounded bg-muted flex items-center justify-center overflow-hidden">
-                                         <ItemPreview3D type="base" />
+                                         <ThreeErrorBoundary>
+                                           <ItemPreview3D type="base" />
+                                         </ThreeErrorBoundary>
                                     </div>
                                     <div className="text-left flex-1">
                                         <div className="font-medium">Base Vehicle</div>
@@ -295,7 +325,9 @@ export function ShopDashboard() {
                                 >
                                     <div className="flex items-center gap-3 w-full">
                                     <div className={`w-12 h-12 rounded flex items-center justify-center overflow-hidden relative shrink-0 ${item.type === 'skin' ? 'bg-indigo-100 dark:bg-indigo-900/20' : item.type === 'vehicle' ? 'bg-emerald-100 dark:bg-emerald-900/20' : item.type === 'wheel' ? 'bg-slate-100 dark:bg-slate-900/20' : 'bg-orange-100 dark:bg-orange-900/20'}`}>
-                                        <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
+                                        <ThreeErrorBoundary>
+                                          <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
+                                        </ThreeErrorBoundary>
                                     </div>
                                         <div className="text-left flex-1 min-w-0">
                                             <div className="font-medium truncate">{item.name}</div>

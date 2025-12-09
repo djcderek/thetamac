@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { PerspectiveCamera, Environment, MeshReflectorMaterial, Sparkles, Float } from "@react-three/drei";
+import { PerspectiveCamera, MeshReflectorMaterial, Sparkles, Float } from "@react-three/drei";
 import { useRef, Suspense, useMemo } from "react";
 import * as THREE from "three";
 import { Badge } from "@/components/ui/badge";
@@ -436,9 +436,6 @@ function LobbyScene({
         opacity={0.5}
         color="#6366f1"
       />
-
-      {/* Environment */}
-      <Environment preset="city" environmentIntensity={1.5} />
     </>
   );
 }
