@@ -675,6 +675,7 @@ export default function TrainingPage() {
   const [gameMode, setGameMode] = useState<GameMode>("timed");
   const [timedModeLimit, setTimedModeLimit] = useState(120);
   const [practiceTimerLimit, setPracticeTimerLimit] = useState(10);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [submitMode, setSubmitMode] = useState<SubmitMode>("manual");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -708,6 +709,42 @@ export default function TrainingPage() {
   const operationQueueRef = useRef<Operation[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load user settings on mount
+  useEffect(() => {
+    if (!authSession?.user || settingsLoaded) return;
+    
+    async function loadSettings() {
+      try {
+        const res = await fetch("/api/settings");
+        if (res.ok) {
+          const data = await res.json();
+          
+          // Apply default timer setting (convert "10s" -> 10)
+          if (data.settings?.defaultTimer) {
+            const timerValue = parseInt(data.settings.defaultTimer.replace("s", ""));
+            if (!isNaN(timerValue) && practiceTimerOptions.includes(timerValue)) {
+              setPracticeTimerLimit(timerValue);
+            }
+          }
+          
+          // Apply default difficulty setting (convert "Medium" -> "medium")
+          if (data.settings?.defaultDifficulty) {
+            const diffValue = data.settings.defaultDifficulty.toLowerCase() as Difficulty;
+            if (["easy", "medium", "hard", "expert"].includes(diffValue)) {
+              setDifficulty(diffValue);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load user settings:", error);
+      } finally {
+        setSettingsLoaded(true);
+      }
+    }
+    
+    loadSettings();
+  }, [authSession?.user, settingsLoaded]);
   
   // Get next operation from queue, refilling with shuffled operations when empty
   const getNextOperation = useCallback(() => {
@@ -768,7 +805,7 @@ export default function TrainingPage() {
     }
     setStartTime(Date.now());
     inputRef.current?.focus();
-  }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges, selectedSkill]);
+  }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges, selectedSkill, practiceTimerLimit]);
 
   const startTraining = async () => {
     // Reset operation queue for fresh even distribution
