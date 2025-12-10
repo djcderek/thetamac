@@ -20,17 +20,24 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkScreenSize = () => {
       const mobile = window.innerWidth < 768; // md breakpoint
+      const wasMobile = isMobile;
       setIsMobile(mobile);
-      if (mobile) {
-        setIsCollapsed(true);
+      
+      // Close drawer when switching between mobile and desktop
+      if (mobile !== wasMobile) {
         setIsOpen(false);
+      }
+      
+      // Reset collapsed state when switching to mobile
+      if (mobile && !wasMobile) {
+        setIsCollapsed(true);
       }
     };
 
     checkScreenSize();
     window.addEventListener("resize", checkScreenSize);
     return () => window.removeEventListener("resize", checkScreenSize);
-  }, []);
+  }, [isMobile]);
 
   const toggle = () => {
     if (isMobile) {
