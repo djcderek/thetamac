@@ -352,7 +352,7 @@ export function DuelMode() {
           Always rendered if game is active, OR if we want the input available in background.
           We render it 'hidden' (opacity-0) when in Lobby/Searching/MatchFound to keep Input mounted.
       */}
-      <div className={`transition-opacity duration-200 ${isGameActive ? "opacity-100 relative z-10" : "opacity-0 absolute top-0 left-0 w-full -z-10 pointer-events-none h-full overflow-hidden"}`}>
+      <div className={`transition-opacity duration-200 ${isGameActive ? "opacity-100 relative z-10" : "opacity-0 absolute top-0 left-0 w-full -z-10 h-full overflow-hidden"}`}>
         <div className="border-b border-border">
           <div className="px-4 sm:px-6 py-2 sm:py-4 flex items-center justify-between">
             <div>
@@ -480,36 +480,46 @@ export function DuelMode() {
                         </div>
 
                         <form onSubmit={handleSubmitAnswer}>
-                          <Input
-                            ref={inputRef}
-                            type="text"
-                            inputMode="decimal"
-                            pattern="[0-9]*"
-                            enterKeyHint="done"
-                            value={userAnswer}
-                            onChange={(e) => {
-                              if (!answerSubmitted) {
-                                setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""));
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                submitCurrentAnswer();
-                              }
-                            }}
-                            onFocus={(e) => {
-                                // Only scroll if we are actually playing
-                                if (isGameActive && gameplay.status !== "countdown") {
-                                    e.target.scrollIntoView({ behavior: "smooth", block: "center" });
-                                }
-                            }}
-                            placeholder="?"
-                            className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[180px] sm:max-w-[200px] mx-auto"
-                            autoFocus
-                            autoComplete="off"
-                            readOnly={false}
-                          />
+                            <div className="flex items-center gap-2 justify-center max-w-[280px] mx-auto">
+                              <Input
+                                ref={inputRef}
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*"
+                                enterKeyHint="done"
+                                value={userAnswer}
+                                onChange={(e) => {
+                                  if (!answerSubmitted) {
+                                    setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""));
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    submitCurrentAnswer();
+                                  }
+                                }}
+                                onFocus={(e) => {
+                                    // Only scroll if we are actually playing
+                                    if (isGameActive && gameplay.status !== "countdown") {
+                                        e.target.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    }
+                                }}
+                                placeholder="?"
+                                className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono w-full sm:max-w-[200px]"
+                                autoFocus
+                                autoComplete="off"
+                                readOnly={false}
+                              />
+                              <Button 
+                                type="submit" 
+                                size="icon" 
+                                className="sm:hidden h-12 w-12 shrink-0"
+                                disabled={answerSubmitted}
+                              >
+                                <Check className="w-5 h-5" />
+                              </Button>
+                            </div>
                         </form>
 
                         {answerSubmitted && (
