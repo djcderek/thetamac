@@ -61,7 +61,11 @@ export function DuelMode() {
   const focusInput = () => {
     // Use rAF to ensure the element is mounted before focusing
     requestAnimationFrame(() => {
-      inputRef.current?.focus();
+      if (inputRef.current) {
+        inputRef.current.focus();
+        // Scroll the input into view so question stays visible above keyboard
+        inputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     });
   };
 
@@ -434,13 +438,17 @@ export function DuelMode() {
                         <form onSubmit={handleSubmitAnswer}>
                           <Input
                             ref={inputRef}
-                            type="number"
+                            type="text"
                             inputMode="numeric"
+                            pattern="[0-9\-]*"
+                            enterKeyHint="done"
                             value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
+                            onFocus={(e) => e.target.scrollIntoView({ behavior: "smooth", block: "center" })}
                             placeholder="?"
-                            className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[180px] sm:max-w-[200px] mx-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[180px] sm:max-w-[200px] mx-auto"
                             autoFocus
+                            autoComplete="off"
                             disabled={answerSubmitted}
                           />
                         </form>
