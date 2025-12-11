@@ -69,12 +69,25 @@ export function DuelMode() {
 
       // PreventScroll helps avoid layout jump while still opening keyboards on mobile
       node.focus({ preventScroll: true });
+      // Keep caret at the end to avoid Safari occasionally dropping focus
+      const valueLength = node.value.length;
+      try {
+        node.setSelectionRange(valueLength, valueLength);
+      } catch {
+        // setSelectionRange can throw on unsupported input types; ignore
+      }
 
       // Give mobile keyboards the best chance to appear by nudging focus again shortly after render
       if (isSmallScreen()) {
         setTimeout(() => {
           if (document.activeElement !== node) {
             node.focus({ preventScroll: true });
+            const len = node.value.length;
+            try {
+              node.setSelectionRange(len, len);
+            } catch {
+              /* no-op */
+            }
           }
         }, 30);
       }
@@ -474,7 +487,7 @@ export function DuelMode() {
                             className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[180px] sm:max-w-[200px] mx-auto"
                             autoFocus
                             autoComplete="off"
-                            disabled={answerSubmitted}
+                            readOnly={answerSubmitted}
                           />
                         </form>
 
