@@ -71,6 +71,7 @@ export interface RacePlayer {
   isStunned: boolean;
   stunEndTime: number;    // timestamp when stun ends
   invulnerableEndTime: number; // timestamp until when player is immune to stuns
+  magnetEndTime: number;  // timestamp until magnet stays active
   
   // Active powerups
   hasShield: boolean;     // Protects from one obstacle/bump
@@ -104,7 +105,7 @@ export interface RacePlayer {
 export type RaceStatus = "waiting" | "countdown" | "racing" | "finished";
 
 export interface RaceConfig {
-  trackLength: number;       // meters to finish (default: 50)
+  trackLength: number;       // meters to finish (default: 250)
   maxPlayers: number;        // max players (default: 5)
   difficulty: Difficulty;    // base difficulty
   operations: Operation[];   // enabled operations

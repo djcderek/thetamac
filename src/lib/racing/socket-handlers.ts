@@ -69,6 +69,9 @@ const activeRaces: Map<string, {
   disconnectTimeouts: Map<string, NodeJS.Timeout>; // userId -> timeout
 }> = new Map();
 
+// Track lobby disconnect grace timers (keyed by userId)
+const lobbyDisconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
+
 // Socket to race/lobby mapping
 const socketToRace: Map<string, string> = new Map();
 const socketToLobby: Map<string, string> = new Map();
@@ -113,6 +116,7 @@ const MAX_PLAYERS = 5;
 const LOBBY_COUNTDOWN_SECONDS = 10;
 const GAME_LOOP_INTERVAL_MS = 100; // Faster tick (10Hz) for smoother client motion
 const DISCONNECT_GRACE_PERIOD_MS = 15000; // 15 seconds to reconnect
+const LOBBY_DISCONNECT_GRACE_PERIOD_MS = 10000; // Grace before removing from lobby on disconnect
 
 // ============================================
 // HELPER FUNCTIONS
@@ -251,6 +255,15 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
   // Convert lobby players to matchmaking entries
   const entries: RaceMatchmakingEntry[] = lobby.players;
 
+  // Clear any pending lobby grace timers now that the race is starting
+  for (const entry of entries) {
+    const timeout = lobbyDisconnectTimeouts.get(entry.playerId);
+    if (timeout) {
+      clearTimeout(timeout);
+      lobbyDisconnectTimeouts.delete(entry.playerId);
+    }
+  }
+
   // Create race state
   const state = createRaceState(raceId, entries, lobby.config);
   
@@ -366,13 +379,10 @@ function startRaceCountdown(io: RaceServer, raceId: string) {
       clearInterval(countdownInterval);
       return;
     }
-    
-    io.to(raceId).emit("race:countdown", {
-      seconds: currentRace.state.countdownValue,
-    });
-    
+
+    // Step the countdown first so clients don’t see a duplicated leading value
     currentRace.state = decrementCountdown(currentRace.state);
-    
+
     if (currentRace.state.status === "racing") {
       clearInterval(countdownInterval);
       currentRace.countdownTimer = null;
@@ -385,7 +395,12 @@ function startRaceCountdown(io: RaceServer, raceId: string) {
           data: { status: "racing", startedAt: new Date() },
         }).catch(err => console.error("[Race] Failed to update race status:", err));
       }
+      return;
     }
+
+    io.to(raceId).emit("race:countdown", {
+      seconds: currentRace.state.countdownValue,
+    });
   }, 1000);
   
   race.countdownTimer = countdownInterval;
@@ -701,6 +716,47 @@ export function setupRacingHandlers(io: RaceServer) {
           }
         }
         
+        // 1b. Check for active lobby rejoin (during countdown)
+        for (const [lobbyId, lobby] of activeLobbies) {
+          const playerIndex = lobby.players.findIndex(p => p.playerId === userId);
+          if (playerIndex !== -1) {
+            console.log(`[Race] Player ${username} rejoining lobby ${lobbyId}`);
+            
+            // Clear pending disconnect timeout
+            const pendingTimeout = lobbyDisconnectTimeouts.get(userId);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              lobbyDisconnectTimeouts.delete(userId);
+            }
+            
+            // Update socket mappings
+            socketToLobby.set(socket.id, lobbyId);
+            lobby.players[playerIndex].socketId = socket.id;
+            socket.join(lobbyId);
+            
+            // Send lobby state back to the user
+            socket.emit("race:lobby_joined", {
+              lobbyId,
+              players: lobby.players.map(p => ({
+                id: p.playerId,
+                username: p.username,
+                rating: p.rating,
+                cosmetics: p.cosmetics,
+              })),
+              config: lobby.config,
+            });
+            
+            // If countdown is already running, send the current timer
+            if (lobby.countdownStarted) {
+              socket.emit("race:starting_soon", {
+                secondsUntilStart: lobby.startCountdown,
+              });
+            }
+            
+            return;
+          }
+        }
+        
         // 2. Regular Join Logic
         
         // Check if already in a race or lobby (by socket ID)
@@ -751,6 +807,15 @@ export function setupRacingHandlers(io: RaceServer) {
       }
 
       void safelyExecute("[Race] race:leave_queue", () => {
+        const player = socketToPlayer.get(socket.id);
+        if (player) {
+          const pendingTimeout = lobbyDisconnectTimeouts.get(player.id);
+          if (pendingTimeout) {
+            clearTimeout(pendingTimeout);
+            lobbyDisconnectTimeouts.delete(player.id);
+          }
+        }
+        
         // Remove from queue
         raceQueue.delete(socket.id);
         
@@ -1100,23 +1165,43 @@ export function setupRacingHandlers(io: RaceServer) {
         
         // Handle lobby disconnect
         const lobbyId = socketToLobby.get(socket.id);
+        const player = socketToPlayer.get(socket.id);
         if (lobbyId) {
           const lobby = activeLobbies.get(lobbyId);
-          if (lobby) {
-            lobby.players = lobby.players.filter(p => p.socketId !== socket.id);
-            
-            const player = socketToPlayer.get(socket.id);
-            if (player) {
-              io.to(lobbyId).emit("race:player_left", {
-                playerId: player.id,
-                totalPlayers: lobby.players.length,
-              });
+          if (lobby && player) {
+            // Give the player time to reconnect before removing them
+            const existingTimeout = lobbyDisconnectTimeouts.get(player.id);
+            if (existingTimeout) {
+              clearTimeout(existingTimeout);
             }
             
+            const timeout = setTimeout(() => {
+              const currentLobby = activeLobbies.get(lobbyId);
+              if (!currentLobby) return;
+              
+              currentLobby.players = currentLobby.players.filter(p => p.playerId !== player.id);
+              
+              io.to(lobbyId).emit("race:player_left", {
+                playerId: player.id,
+                totalPlayers: currentLobby.players.length,
+              });
+              
+              if (currentLobby.players.length === 0) {
+                activeLobbies.delete(lobbyId);
+              }
+              
+              lobbyDisconnectTimeouts.delete(player.id);
+            }, LOBBY_DISCONNECT_GRACE_PERIOD_MS);
+            
+            lobbyDisconnectTimeouts.set(player.id, timeout);
+          } else if (lobby) {
+            // Fallback: remove immediately if we don't know the player
+            lobby.players = lobby.players.filter(p => p.socketId !== socket.id);
             if (lobby.players.length === 0) {
               activeLobbies.delete(lobbyId);
             }
           }
+          
           socketToLobby.delete(socket.id);
         }
         

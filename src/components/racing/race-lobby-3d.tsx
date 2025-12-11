@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { PerspectiveCamera, MeshReflectorMaterial, Sparkles, Float, Environment } from "@react-three/drei";
+import { PerspectiveCamera, Sparkles, Float, Environment } from "@react-three/drei";
 import { useRef, Suspense, useMemo } from "react";
 import * as THREE from "three";
 import { Badge } from "@/components/ui/badge";
@@ -330,21 +330,14 @@ function BackgroundDecorations() {
 function LobbyFloor() {
   return (
     <group>
-      {/* Dark Reflective Floor */}
+      {/* Dark Reflective Floor - using standard material to avoid worker issues */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
         <planeGeometry args={[300, 300]} />
-        <MeshReflectorMaterial
-          blur={[400, 400]} // Increased blur for smoother reflections
-          resolution={1024}
-          mixBlur={1} // Max blur mix
-          mixStrength={1.5} // Stronger reflection mix
-          roughness={0.5} // Higher roughness to diffuse the reflection
-          depthScale={1.2}
-          minDepthThreshold={0.4}
-          maxDepthThreshold={1.4}
-          color="#050505" // Slightly lighter black to avoid pure void reflections
-          metalness={0.5}
-          mirror={0.5}
+        <meshStandardMaterial
+          color="#050505"
+          roughness={0.3}
+          metalness={0.8}
+          envMapIntensity={0.5}
         />
       </mesh>
 

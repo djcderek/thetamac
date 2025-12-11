@@ -1,11 +1,8 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import {
-  Text,
-  Sparkles,
-} from "@react-three/drei";
-import { useRef, useMemo } from "react";
+import { Sparkles, Html } from "@react-three/drei";
+import { useRef, useMemo, ReactNode } from "react";
 import * as THREE from "three";
 import { TrackObstacle, TrackDrop, ObstacleType, DropType } from "@/lib/racing/types";
 
@@ -42,9 +39,112 @@ const DROP_COLORS: Record<DropType, string> = {
   coin: "#fbbf24", // amber-400
 };
 
+// Simple HTML-based label to avoid worker-based text (Troika) which is
+// currently broken under Next.js 16 Turbopack module workers.
+function Label3D({
+  position,
+  children,
+  color = "#ffffff",
+  fontSize = 14,
+  rotation,
+  fontWeight = 700,
+  distanceFactor = 14,
+}: {
+  position: [number, number, number];
+  children: ReactNode;
+  color?: string;
+  fontSize?: number;
+  rotation?: [number, number, number];
+  fontWeight?: number | string;
+  distanceFactor?: number;
+}) {
+  return (
+    <Html
+      center
+      transform
+      position={position}
+      rotation={rotation}
+      distanceFactor={distanceFactor}
+      style={{
+        color,
+        fontSize: `${fontSize}px`,
+        fontWeight,
+        textShadow: "0 1px 3px rgba(0,0,0,0.6)",
+        whiteSpace: "nowrap",
+        pointerEvents: "none",
+      }}
+    >
+      {children}
+    </Html>
+  );
+}
+
 // ============================================
 // COMPONENT DEFINITIONS
 // ============================================
+
+function WindEffect({ active }: { active: boolean }) {
+  const groupRef = useRef<THREE.Group>(null);
+  
+  useFrame((state) => {
+    if (groupRef.current) {
+      groupRef.current.visible = active;
+      if (active) {
+         // Subtle shake to simulate turbulence
+         groupRef.current.position.x = (Math.random() - 0.5) * 0.03;
+         groupRef.current.position.y = (Math.random() - 0.5) * 0.03;
+      }
+    }
+  });
+
+  // Create random wind lines
+  const lines = useMemo(
+    () =>
+      Array.from({ length: 16 }).map((_, i) => ({
+        key: i,
+        // Position primarily on the sides and slightly above
+        x: (Math.random() > 0.5 ? 1 : -1) * (0.7 + Math.random() * 0.8),
+        y: 0.2 + Math.random() * 1.0,
+        z: -Math.random() * 5,
+        speed: 25 + Math.random() * 15,
+        len: 1.5 + Math.random() * 2.5,
+        opacity: 0.2 + Math.random() * 0.4,
+        width: 0.02 + Math.random() * 0.03,
+      })),
+    []
+  );
+
+  return (
+    <group ref={groupRef} visible={false}>
+      {/* Streaming Lines */}
+      {lines.map(({ key, ...lineProps }) => (
+        <WindLine key={key} {...lineProps} active={active} />
+      ))}
+    </group>
+  );
+}
+
+function WindLine({ x, y, z, speed, len, opacity, width, active }: any) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const zPos = useRef(z);
+
+  useFrame((state, delta) => {
+    if (!active || !meshRef.current) return;
+    
+    zPos.current += speed * delta;
+    if (zPos.current > 3) { // Passed the car
+      zPos.current = -8 - Math.random() * 4; // Reset far ahead
+    }
+    meshRef.current.position.z = zPos.current;
+  });
+
+  return (
+    <mesh ref={meshRef} position={[x, y, z]} rotation={[Math.PI / 2, 0, 0]}>
+      <cylinderGeometry args={[width, width, len, 3]} />
+      <meshBasicMaterial color="#bae6fd" transparent opacity={opacity} depthWrite={false} blending={THREE.AdditiveBlending} />
+    </mesh>
+  );
+}
 
 export function Car({ 
   position, 
@@ -59,6 +159,9 @@ export function Car({
   trail,
   vehicleType = "car_standard",
   wheel,
+  speedEffect = false,
+  forwardEffect = false,
+  magnetEffect = false,
 }: { 
   position: number; 
   lane: number; 
@@ -72,6 +175,9 @@ export function Car({
   trail?: string;
   vehicleType?: string;
   wheel?: string;
+  speedEffect?: boolean;
+  forwardEffect?: boolean;
+  magnetEffect?: boolean;
 }) {
   // Smooth interpolation state
   const groupRef = useRef<THREE.Group>(null);
@@ -80,6 +186,7 @@ export function Car({
   const fireTrailRef = useRef<THREE.Group>(null);
   const fireOuterMatRef = useRef<THREE.MeshBasicMaterial>(null);
   const fireInnerMatRef = useRef<THREE.MeshBasicMaterial>(null);
+  const magnetRef = useRef<THREE.Group>(null);
   
   // Memoize skin-based material properties to avoid allocating on every render
   const skinProps = useMemo(() => {
@@ -209,6 +316,14 @@ export function Car({
 
       if (fireOuterMatRef.current) fireOuterMatRef.current.opacity = 0.55 * flicker;
       if (fireInnerMatRef.current) fireInnerMatRef.current.opacity = 0.75 * flicker;
+    }
+
+    // Magnet swirl
+    if (magnetRef.current) {
+      magnetRef.current.visible = magnetEffect;
+      if (magnetEffect) {
+        magnetRef.current.rotation.y += delta * 1.5;
+      }
     }
   });
 
@@ -358,6 +473,9 @@ export function Car({
         </group>
       ))}
 
+      {/* Boost / forward wind effect */}
+      <WindEffect active={Boolean(speedEffect || forwardEffect)} />
+
       {/* Skin Specific Effects */}
       {skin === 'skin_galactic' && !isStunned && (
         <Sparkles count={20} scale={2.5} size={4} speed={0.4} opacity={1} color="#ffffff" />
@@ -431,30 +549,31 @@ export function Car({
         </mesh>
       )}
 
-      {/* Player Label - Using Text instead of Html for performance */}
-      <Text
+      {/* Magnet aura */}
+      {magnetEffect && (
+        <group ref={magnetRef} position={[0, 0.2, 0]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[2.2, 0.07, 12, 32]} />
+            <meshStandardMaterial color="#22d3ee" emissive="#22d3ee" emissiveIntensity={1.6} transparent opacity={0.4} />
+          </mesh>
+          <Sparkles count={15} scale={[2.2, 0.4, 2.2]} size={4} speed={1} opacity={0.8} color="#22d3ee" />
+        </group>
+      )}
+
+      {/* Player Label */}
+      <Label3D
         position={[0, 2.2, 0]}
-        fontSize={0.4}
+        fontSize={16}
         color={isMe ? "#3b82f6" : "#ffffff"}
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.05}
-        outlineColor="#000000"
       >
         {finishPosition ? `#${finishPosition}` : (isMe ? "YOU" : username.slice(0, 8))}
-      </Text>
+      </Label3D>
       
       {/* Stunned indicator */}
       {isStunned && (
-        <Text
-          position={[0, 2.7, 0]}
-          fontSize={0.35}
-          color="#ef4444"
-          anchorX="center"
-          anchorY="middle"
-        >
+        <Label3D position={[0, 2.7, 0]} fontSize={15} color="#ef4444">
           ⚡ STUNNED
-        </Text>
+        </Label3D>
       )}
     </group>
   );
@@ -527,28 +646,59 @@ export function Drop({ type, lane, position, collected }: { type: DropType, lane
   const z = -position * UNIT_SCALE;
   const color = DROP_COLORS[type];
 
+  // Coin-specific model for better visuals
+  const renderCoin = () => (
+    <group rotation={[Math.PI / 2, 0, 0]}> {/* Rotate upright to face camera/player */}
+      {/* Main body - Gold */}
+      <mesh>
+        <cylinderGeometry args={[0.6, 0.6, 0.15, 32]} />
+        <meshStandardMaterial color="#fbbf24" metalness={0.9} roughness={0.3} />
+      </mesh>
+      {/* Rim - Slightly darker/shiny */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.6, 0.05, 16, 32]} />
+        <meshStandardMaterial color="#f59e0b" metalness={1} roughness={0.2} emissive="#fbbf24" emissiveIntensity={0.2} />
+      </mesh>
+      {/* Inner detail - Slightly inset */}
+      <mesh position={[0, 0.08, 0]} rotation={[0, 0, 0]}>
+        <cylinderGeometry args={[0.45, 0.45, 0.02, 32]} />
+        <meshStandardMaterial color="#fcd34d" metalness={0.8} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, -0.08, 0]} rotation={[0, 0, 0]}>
+        <cylinderGeometry args={[0.45, 0.45, 0.02, 32]} />
+        <meshStandardMaterial color="#fcd34d" metalness={0.8} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+
   return (
     <group ref={groupRef} position={[x, 1, z]}>
-      <mesh>
-        <octahedronGeometry args={[0.5]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} wireframe />
-      </mesh>
-      <mesh>
-        <octahedronGeometry args={[0.3]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      <pointLight color={color} intensity={1} distance={3} />
-      
-      {/* Drop type indicator using Text instead of Html for performance */}
-      <Text
-        position={[0, 1, 0]}
-        fontSize={0.4}
-        color={color}
-        anchorX="center"
-        anchorY="middle"
-      >
-        {DROP_SYMBOLS[type]}
-      </Text>
+      {type === "coin" ? (
+        <>
+          {renderCoin()}
+          <pointLight color={color} intensity={1.2} distance={3} />
+        </>
+      ) : (
+        <>
+          <mesh>
+            <octahedronGeometry args={[0.5]} />
+            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} wireframe />
+          </mesh>
+          <mesh>
+            <octahedronGeometry args={[0.3]} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+          <pointLight color={color} intensity={1} distance={3} />
+        </>
+      )}
+
+      {/* Drop type indicator (HTML-based to avoid worker issues) */}
+      {/* Hide label for coins as the model is self-explanatory */}
+      {type !== "coin" && (
+        <Label3D position={[0, 1, 0]} fontSize={16} color={color}>
+          {DROP_SYMBOLS[type]}
+        </Label3D>
+      )}
     </group>
   );
 }
@@ -558,6 +708,16 @@ export function Track({ length }: { length: number }) {
   
   return (
     <group>
+      {/* Soft glow underlay */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.06, -lengthUnits / 2]}>
+        <planeGeometry args={[TRACK_WIDTH + 10, lengthUnits + 80]} />
+        <meshBasicMaterial color="#0ea5e9" transparent opacity={0.05} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, -lengthUnits / 2]}>
+        <planeGeometry args={[TRACK_WIDTH + 4, lengthUnits + 40]} />
+        <meshBasicMaterial color="#22d3ee" transparent opacity={0.08} />
+      </mesh>
+
       {/* Main Track Surface - removed receiveShadow for performance */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -lengthUnits / 2]}>
         <planeGeometry args={[TRACK_WIDTH + 2, lengthUnits + 20]} />
@@ -584,16 +744,9 @@ export function Track({ length }: { length: number }) {
         <planeGeometry args={[TRACK_WIDTH, 1]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      <Text
-        position={[0, 2, 0]}
-        fontSize={1.5}
-        color="white"
-        anchorX="center"
-        anchorY="middle"
-        
-      >
+      <Label3D position={[0, 2, 0]} fontSize={28} color="white">
         START
-      </Text>
+      </Label3D>
 
       {/* Finish Line */}
       <group position={[0, 0, -lengthUnits]}>
@@ -617,15 +770,9 @@ export function Track({ length }: { length: number }) {
           <meshStandardMaterial color="#333" />
         </mesh>
         
-        <Text
-          position={[0, 4.5, 0.51]}
-          fontSize={1.2}
-          color="white"
-          anchorX="center"
-          anchorY="middle"
-        >
+        <Label3D position={[0, 4.5, 0.51]} fontSize={24} color="white">
           FINISH
-        </Text>
+        </Label3D>
       </group>
       
       {/* Distance Markers - Every 50m for better performance */}
@@ -634,14 +781,14 @@ export function Track({ length }: { length: number }) {
         if (dist >= length) return null;
         return (
           <group key={dist} position={[TRACK_WIDTH/2 + 2, 0, -dist * UNIT_SCALE]}>
-            <Text
-              rotation={[-Math.PI / 2, 0, -Math.PI / 2]}
-              position={[0, 0.05, 0]}
-              fontSize={2}
+            <Label3D
+              position={[0, 1.2, 0]}
+              fontSize={18}
               color="rgba(255,255,255,0.3)"
+              rotation={[0, Math.PI / 2, 0]}
             >
               {dist}m
-            </Text>
+            </Label3D>
           </group>
         );
       })}

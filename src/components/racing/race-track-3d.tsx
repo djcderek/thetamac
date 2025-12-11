@@ -1,10 +1,11 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import {
   Stars,
   PerspectiveCamera,
+  Environment,
 } from "@react-three/drei";
 import { TrackObstacle, TrackDrop } from "@/lib/racing/types";
 import { Flag } from "lucide-react";
@@ -16,6 +17,8 @@ import {
   Track,
   GameCamera,
   EnvironmentScenery,
+  TRACK_WIDTH,
+  UNIT_SCALE,
 } from "./race-track-scene";
 
 // Visibility culling distance in meters
@@ -33,10 +36,14 @@ interface RaceTrack3DProps {
     position: number;
     isStunned: boolean;
     hasShield?: boolean;
+    coinsEarned?: number;
     selectedSkin?: string;
     selectedTrail?: string;
     selectedVehicle?: string;
     selectedWheel?: string;
+    speedFxUntil?: number;
+    forwardFxUntil?: number;
+    magnetFxUntil?: number;
   }>;
   trackLength: number;
   myPlayerId: string;
@@ -90,9 +97,12 @@ export default function RaceTrack3D({
     return finish?.position;
   };
 
+  const myPlayer = players.find(p => p.id === myPlayerId);
+  const myCoins = myPlayer?.coinsEarned || 0;
+
   return (
     <div className="w-full h-[400px] rounded-xl overflow-hidden bg-black relative">
-      <Canvas shadows dpr={[1, 2]}>
+      <Canvas shadows dpr={[1, 1.5]}>
         <Suspense fallback={null}>
           <SceneContent 
             players={players}
@@ -118,6 +128,10 @@ export default function RaceTrack3D({
             value={(myPosition / trackLength) * 100} 
             className="mt-1 h-1.5 w-24 bg-white/20"
           />
+          <div className="flex items-center gap-2 text-sm text-amber-400 mt-2 border-t border-white/10 pt-2 font-bold">
+             <span className="text-lg leading-none">🪙</span>
+             <span className="font-mono">{myCoins}</span>
+          </div>
         </div>
         
         {/* Leaderboard */}
@@ -160,6 +174,15 @@ function SceneContent({
   drops,
   myPosition,
 }: RaceTrack3DProps) {
+  const [now, setNow] = useState<number>(0);
+
+  useEffect(() => {
+    const updateNow = () => setNow(Date.now());
+    updateNow();
+
+    const intervalId = setInterval(updateNow, 250);
+    return () => clearInterval(intervalId);
+  }, []);
   // Filter obstacles and drops based on visibility distance for performance
   const visibleObstacles = useMemo(() => {
     return obstacles.filter(obs => {
@@ -180,6 +203,8 @@ function SceneContent({
     <>
       <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={60} />
       
+      <color attach="background" args={['#0f172a']} />
+
       {/* Lighting */}
       <ambientLight intensity={0.65} color="#e2e8f0" />
       <hemisphereLight
@@ -196,9 +221,14 @@ function SceneContent({
       >
         <orthographicCamera attach="shadow-camera" args={[-60, 60, 220, -220]} />
       </directionalLight>
+
+      {/* Moving fill lights that follow the player to add depth */}
+      <pointLight position={[TRACK_WIDTH * 0.7, 6, -myPosition * UNIT_SCALE - 8]} intensity={0.55} color="#22d3ee" distance={60} />
+      <pointLight position={[-TRACK_WIDTH * 0.7, 6, -myPosition * UNIT_SCALE - 8]} intensity={0.55} color="#a855f7" distance={60} />
       
       {/* Environment - Reduced star count for performance */}
-      <Stars radius={100} depth={50} count={500} factor={4} saturation={0} fade speed={1} />
+      <Environment files="/hdri/city.hdr" />
+      <Stars radius={100} depth={50} count={300} factor={4} saturation={0} fade speed={1} />
       <fog attach="fog" args={["#0f172a", 8, 140]} />
       <EnvironmentScenery length={trackLength} myPosition={myPosition} />
       
@@ -221,6 +251,9 @@ function SceneContent({
           trail={player.selectedTrail}
           vehicleType={player.selectedVehicle}
           wheel={player.selectedWheel}
+          speedEffect={Boolean(player.speedFxUntil && player.speedFxUntil > now)}
+          forwardEffect={Boolean(player.forwardFxUntil && player.forwardFxUntil > now)}
+          magnetEffect={Boolean(player.magnetFxUntil && player.magnetFxUntil > now)}
         />
       ))}
 

@@ -593,7 +593,7 @@ export function RacingMode() {
             {/* Track visualization */}
             <RaceTrack3D
               players={race.players}
-              trackLength={race.config?.trackLength || 500}
+              trackLength={race.config?.trackLength || 250}
               myPlayerId={myPlayerId || session.user.id || ""}
               finishOrder={race.finishOrder}
               obstacles={race.obstacles || []}
@@ -873,7 +873,7 @@ export function RacingMode() {
             <Card>
               <CardContent className="p-4 text-center">
                 <Flag className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                <p className="text-2xl font-mono font-bold">500m</p>
+                <p className="text-2xl font-mono font-bold">250m</p>
                 <p className="text-xs text-muted-foreground">Track Length</p>
               </CardContent>
             </Card>

@@ -47,10 +47,14 @@ interface RacePlayerState {
   position: number;
   isStunned: boolean;
   hasShield: boolean;
+  coinsEarned: number;
   selectedSkin?: string;
   selectedTrail?: string;
   selectedVehicle?: string;
   selectedWheel?: string;
+  speedFxUntil?: number;
+  forwardFxUntil?: number;
+  magnetFxUntil?: number;
 }
 
 interface RaceState {
@@ -95,6 +99,8 @@ interface ActionFeedback {
   timestamp: number;
 }
 
+const AUTO_RECONNECT_RESET_MS = 20000; // fallback to reset state if reconnection fails
+
 // ============================================
 // HOOK
 // ============================================
@@ -103,6 +109,10 @@ export function useRaceSocket() {
   const { data: session } = useSession();
   const socketRef = useRef<TypedSocket | null>(null);
   const myPlayerIdRef = useRef<string | null>(null);
+  const shouldAutoRejoinRef = useRef(false);
+  const reconnectResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cachedCosmeticsRef = useRef<UserCosmetics | undefined>(undefined);
+  const cosmeticsFetchedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   
@@ -158,6 +168,20 @@ export function useRaceSocket() {
     }
   }, [cooldownUntil]);
 
+  // Track whether we should attempt auto-rejoin if the socket blips
+  useEffect(() => {
+    shouldAutoRejoinRef.current =
+      queue.inQueue ||
+      lobby.inLobby ||
+      (race.inRace && race.status !== "finished");
+  }, [queue.inQueue, lobby.inLobby, race.inRace, race.status]);
+
+  // Reset cached cosmetics when the signed-in user changes
+  useEffect(() => {
+    cosmeticsFetchedRef.current = false;
+    cachedCosmeticsRef.current = undefined;
+  }, [session?.user?.id]);
+
   // Add feedback helper
   const addFeedback = useCallback((type: ActionFeedback["type"], message: string) => {
     const newFeedback: ActionFeedback = {
@@ -173,8 +197,69 @@ export function useRaceSocket() {
     }, 3000);
   }, []);
 
+  const fetchCosmetics = useCallback(async (): Promise<UserCosmetics | undefined> => {
+    if (cosmeticsFetchedRef.current) {
+      return cachedCosmeticsRef.current;
+    }
+
+    cosmeticsFetchedRef.current = true;
+    let cosmetics: UserCosmetics | undefined;
+
+    try {
+      const res = await fetch("/api/user/cosmetics");
+      if (res.ok) {
+        cosmetics = await res.json();
+      }
+    } catch (err) {
+      console.warn("Failed to fetch cosmetics:", err);
+    }
+
+    cachedCosmeticsRef.current = cosmetics;
+    return cosmetics;
+  }, []);
+
+  const setPlayerFx = useCallback((
+    playerId: string,
+    updates: Partial<Pick<RacePlayerState, "speedFxUntil" | "forwardFxUntil" | "magnetFxUntil">>
+  ) => {
+    setRace(prev => ({
+      ...prev,
+      players: prev.players.map(p => p.id === playerId ? { ...p, ...updates } : p),
+    }));
+  }, []);
+
+  const startFx = useCallback((
+    playerId: string,
+    field: "speedFxUntil" | "forwardFxUntil" | "magnetFxUntil",
+    durationMs: number
+  ) => {
+    const until = Date.now() + durationMs;
+    setPlayerFx(playerId, { [field]: until });
+
+    setTimeout(() => {
+      setRace(prev => ({
+        ...prev,
+        players: prev.players.map(p => {
+          if (p.id !== playerId) return p;
+          if ((p as any)[field] && (p as any)[field] <= until) {
+            return { ...p, [field]: 0 };
+          }
+          return p;
+        }),
+      }));
+      if (playerId === myPlayerIdRef.current && field === "magnetFxUntil") {
+        addFeedback("wrong", "Magnet expired");
+      }
+    }, Math.max(0, durationMs + 50));
+  }, [addFeedback, setPlayerFx]);
+
   // Reset all state helper
   const resetAllState = useCallback(() => {
+    shouldAutoRejoinRef.current = false;
+    if (reconnectResetTimeoutRef.current) {
+      clearTimeout(reconnectResetTimeoutRef.current);
+      reconnectResetTimeoutRef.current = null;
+    }
     myPlayerIdRef.current = null;
     setMyPlayerId(null);
     setQueue({ inQueue: false, playersInQueue: 0, estimatedWait: 0 });
@@ -203,6 +288,22 @@ export function useRaceSocket() {
     setError(null);
     setCooldownUntil(0);
   }, []);
+
+  const emitJoinQueue = useCallback(async (options?: { skipStateUpdate?: boolean }) => {
+    if (!socketRef.current) return false;
+    const cosmetics = await fetchCosmetics();
+    socketRef.current.emit("race:join_queue", cosmetics ? { cosmetics } : {});
+
+    if (!options?.skipStateUpdate) {
+      setQueue(prev => ({ ...prev, inQueue: true }));
+    }
+    return true;
+  }, [fetchCosmetics]);
+
+  const attemptAutoRejoin = useCallback(async () => {
+    if (!shouldAutoRejoinRef.current || !socketRef.current || !session?.user) return;
+    await emitJoinQueue({ skipStateUpdate: true });
+  }, [emitJoinQueue, session]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -242,12 +343,30 @@ export function useRaceSocket() {
       socket.on("connect", () => {
         console.log("[Race] Socket connected:", socket?.id);
         setIsConnected(true);
+        if (reconnectResetTimeoutRef.current) {
+          clearTimeout(reconnectResetTimeoutRef.current);
+          reconnectResetTimeoutRef.current = null;
+        }
+        void attemptAutoRejoin();
       });
 
       socket.on("disconnect", () => {
         console.log("[Race] Socket disconnected");
         setIsConnected(false);
-        resetAllState();
+        
+        if (!shouldAutoRejoinRef.current) {
+          resetAllState();
+          return;
+        }
+
+        if (reconnectResetTimeoutRef.current) {
+          clearTimeout(reconnectResetTimeoutRef.current);
+        }
+
+        reconnectResetTimeoutRef.current = setTimeout(() => {
+          resetAllState();
+          reconnectResetTimeoutRef.current = null;
+        }, AUTO_RECONNECT_RESET_MS);
       });
 
     // Queue events
@@ -305,7 +424,7 @@ export function useRaceSocket() {
         raceId,
         status: "countdown",
         countdown: 3,
-        players: players.map(p => ({ ...p, isStunned: false, hasShield: false })),
+        players: players.map(p => ({ ...p, isStunned: false, hasShield: false, coinsEarned: 0 })),
         config,
         myProblems: yourProblems,
         obstacles,
@@ -368,6 +487,15 @@ export function useRaceSocket() {
         }),
         myProblems: yourNewProblems ?? prev.myProblems,
       }));
+
+      // Trigger short FX for successful moves
+      if (success) {
+        if (action === "forward") {
+          startFx(playerId, "forwardFxUntil", 700);
+        } else if (action === "boost") {
+          startFx(playerId, "speedFxUntil", 1000);
+        }
+      }
     });
 
     socket.on("race:player_bumped", ({ bumperId, victimId, victimNewPosition, victimNewLane, stunDuration }) => {
@@ -410,7 +538,19 @@ export function useRaceSocket() {
         drops: prev.drops.map(d => 
           d.id === dropId ? { ...d, collected: true, collectedBy: playerId } : d
         ),
+        players: prev.players.map(p => 
+          p.id === playerId && coinsEarnedTotal !== undefined
+            ? { ...p, coinsEarned: coinsEarnedTotal }
+            : p
+        ),
       }));
+
+      if (dropType === "speed_boost") {
+        startFx(playerId, "speedFxUntil", effectDuration || 1200);
+      } else if (dropType === "magnet") {
+        startFx(playerId, "magnetFxUntil", effectDuration || 8000);
+      }
+
       // Add feedback if it's the current player
       if (playerId === myPlayerIdRef.current) {
         if (dropType === "coin" && coinValue) {
@@ -486,37 +626,29 @@ export function useRaceSocket() {
       if (socket) {
         socket.disconnect();
       }
+      if (reconnectResetTimeoutRef.current) {
+        clearTimeout(reconnectResetTimeoutRef.current);
+        reconnectResetTimeoutRef.current = null;
+      }
     };
-  }, [session, resetAllState, addFeedback]); // Reconnect when session changes
+  }, [session, resetAllState, addFeedback, startFx, attemptAutoRejoin]); // Reconnect when session changes
 
   // ============================================
   // ACTIONS
   // ============================================
 
-  const joinQueue = useCallback(async (userId: string, username: string) => {
+  const joinQueue = useCallback(async (userId: string, _username: string) => {
     if (socketRef.current) {
       myPlayerIdRef.current = userId;
       setMyPlayerId(userId);
-      
-      // Fetch user's equipped cosmetics
-      let cosmetics: UserCosmetics | undefined;
-      try {
-        const res = await fetch("/api/user/cosmetics");
-        if (res.ok) {
-          cosmetics = await res.json();
-        }
-      } catch (err) {
-        console.warn("Failed to fetch cosmetics:", err);
-      }
-      
-      socketRef.current.emit("race:join_queue", { cosmetics });
-      setQueue(prev => ({ ...prev, inQueue: true }));
+      await emitJoinQueue();
     }
-  }, []);
+  }, [emitJoinQueue]);
 
   const leaveQueue = useCallback(() => {
     if (socketRef.current) {
       socketRef.current.emit("race:leave_queue");
+      shouldAutoRejoinRef.current = false;
       setQueue({ inQueue: false, playersInQueue: 0, estimatedWait: 0 });
       setLobby({
         inLobby: false,
@@ -556,6 +688,7 @@ export function useRaceSocket() {
     if (socketRef.current) {
       socketRef.current.emit("race:leave");
     }
+    shouldAutoRejoinRef.current = false;
     resetAllState();
   }, [resetAllState]);
 

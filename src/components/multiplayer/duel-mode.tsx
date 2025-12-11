@@ -308,10 +308,10 @@ export function DuelMode() {
     return (
       <div className="min-h-[calc(100vh-200px)]">
         <div className="border-b border-border">
-          <div className="px-6 py-4 flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-2 sm:py-4 flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-semibold">Match in Progress</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-base sm:text-lg font-semibold">Match in Progress</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                 Round {gameplay.currentRound} of 10
               </p>
             </div>
@@ -321,14 +321,14 @@ export function DuelMode() {
           </div>
         </div>
 
-        <div className="p-4 md:p-6">
-          <div className="max-w-2xl mx-auto space-y-6">
+        <div className="p-2 sm:p-4 md:p-6 pb-[env(safe-area-inset-bottom,0.5rem)]">
+          <div className="max-w-2xl mx-auto space-y-3 sm:space-y-6">
             {/* Countdown Overlay */}
             {gameplay.status === "countdown" && gameplay.countdown > 0 && (
               <Card className="border-2 border-foreground">
-                <CardContent className="p-12 text-center">
-                  <p className="text-muted-foreground mb-4">Get Ready!</p>
-                  <p className="text-8xl font-mono font-bold">{gameplay.countdown}</p>
+                <CardContent className="p-6 sm:p-12 text-center">
+                  <p className="text-muted-foreground mb-2 sm:mb-4">Get Ready!</p>
+                  <p className="text-6xl sm:text-8xl font-mono font-bold">{gameplay.countdown}</p>
                 </CardContent>
               </Card>
             )}
@@ -337,8 +337,42 @@ export function DuelMode() {
             {gameplay.status !== "countdown" && (
               <>
                 <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
+                  <CardContent className="p-3 sm:p-4">
+                    {/* Mobile: compact stacked layout */}
+                    <div className="sm:hidden">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-muted-foreground">Round {gameplay.currentRound}/10</p>
+                        <p className={`text-lg font-mono font-semibold ${timeLeft <= 3 ? "text-destructive" : ""}`}>
+                          {timeLeft.toFixed(1)}s
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">{getInitials(session.user.name || "You")}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-2xl font-mono font-bold">
+                            {gameplay.scores[session.user.id || ""] || 0}
+                          </span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">vs</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-mono font-bold">
+                            {matchmaking.opponent ? gameplay.scores[matchmaking.opponent.id] || 0 : 0}
+                          </span>
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">
+                              {matchmaking.opponent ? getInitials(matchmaking.opponent.username) : "OP"}
+                            </AvatarFallback>
+                          </Avatar>
+                          {gameplay.opponentAnswered && (
+                            <Check className="w-4 h-4 text-success" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Desktop: original horizontal layout */}
+                    <div className="hidden sm:flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <Avatar className="h-10 w-10">
                           <AvatarFallback>{getInitials(session.user.name || "You")}</AvatarFallback>
@@ -391,9 +425,9 @@ export function DuelMode() {
                 {/* Problem Display */}
                 {gameplay.status === "playing" && gameplay.problem && (
                   <Card className={answerSubmitted ? "border-success" : ""}>
-                    <CardContent className="p-12">
+                    <CardContent className="p-4 sm:p-12">
                       <div className="text-center">
-                        <div className="text-6xl font-mono font-semibold tracking-wide mb-8">
+                        <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-4 sm:mb-8">
                           {gameplay.problem.a} {gameplay.problem.operation} {gameplay.problem.b}
                         </div>
 
@@ -401,19 +435,20 @@ export function DuelMode() {
                           <Input
                             ref={inputRef}
                             type="number"
+                            inputMode="numeric"
                             value={userAnswer}
                             onChange={(e) => setUserAnswer(e.target.value)}
                             placeholder="?"
-                            className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[180px] sm:max-w-[200px] mx-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             autoFocus
                             disabled={answerSubmitted}
                           />
                         </form>
 
                         {answerSubmitted && (
-                          <p className="text-sm text-success mt-4 flex items-center justify-center gap-2">
+                          <p className="text-xs sm:text-sm text-success mt-3 sm:mt-4 flex items-center justify-center gap-2">
                             <Check className="w-4 h-4" />
-                            Answer submitted! Waiting for round to end...
+                            Answer submitted!
                           </p>
                         )}
                       </div>
@@ -430,11 +465,11 @@ export function DuelMode() {
                       ? "border-border"
                       : "border-destructive"
                   }>
-                    <CardContent className="p-8 text-center">
-                      <div className="text-4xl font-mono font-bold mb-4">
+                    <CardContent className="p-4 sm:p-8 text-center">
+                      <div className="text-3xl sm:text-4xl font-mono font-bold mb-2 sm:mb-4">
                         {gameplay.roundResult.correctAnswer}
                       </div>
-                      <p className="text-muted-foreground mb-4">Correct Answer</p>
+                      <p className="text-muted-foreground text-sm mb-3 sm:mb-4">Correct Answer</p>
                       
                       {gameplay.roundResult.winnerId === session.user.id ? (
                         <Badge className="bg-success">You got it!</Badge>
@@ -444,18 +479,18 @@ export function DuelMode() {
                         <Badge variant="destructive">Opponent was faster</Badge>
                       )}
 
-                      <div className="flex justify-center gap-8 mt-6">
+                      <div className="flex justify-center gap-6 sm:gap-8 mt-4 sm:mt-6">
                         <div className="text-center">
-                          <p className="text-sm text-muted-foreground">Your time</p>
-                          <p className="font-mono font-semibold">
+                          <p className="text-xs sm:text-sm text-muted-foreground">Your time</p>
+                          <p className="font-mono font-semibold text-sm sm:text-base">
                             {gameplay.roundResult.yourTime !== null
                               ? `${(gameplay.roundResult.yourTime / 1000).toFixed(2)}s`
                               : "—"}
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-sm text-muted-foreground">Opponent time</p>
-                          <p className="font-mono font-semibold">
+                          <p className="text-xs sm:text-sm text-muted-foreground">Opponent</p>
+                          <p className="font-mono font-semibold text-sm sm:text-base">
                             {gameplay.roundResult.opponentTime !== null
                               ? `${(gameplay.roundResult.opponentTime / 1000).toFixed(2)}s`
                               : "—"}
@@ -463,7 +498,7 @@ export function DuelMode() {
                         </div>
                       </div>
 
-                      <p className="text-sm text-muted-foreground mt-6">
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-4 sm:mt-6">
                         Next round starting soon...
                       </p>
                     </CardContent>

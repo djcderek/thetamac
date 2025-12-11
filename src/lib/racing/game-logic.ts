@@ -21,7 +21,7 @@ import type {
 // ============================================
 
 export const DEFAULT_RACE_CONFIG: RaceConfig = {
-  trackLength: 500,         // 500 meters
+  trackLength: 250,         // 250 meters
   maxPlayers: 5,
   difficulty: "medium",
   operations: ["+", "-", "×", "÷"],
@@ -30,8 +30,8 @@ export const DEFAULT_RACE_CONFIG: RaceConfig = {
   boostDistance: 3,         // 3 meters (for boost action)
   forwardDistance: 1,       // 1 meter per forward solve
   wrongAnswerPenalty: 1500, // 1.5 second cooldown
-  obstacleCount: 15,        // Reduced density for 500m
-  dropCount: 12,            // Drops for 500m
+  obstacleCount: 15,        // Density tuned for 250m
+  dropCount: 0,             // No powerup drops (only coins remain)
   coinDropCount: 10,        // Coin pickups on track
   baseSpeed: 2,           // 3x base speed to keep races moving
 };
@@ -131,7 +131,6 @@ export function generatePlayerProblems(
 // ============================================
 
 const OBSTACLE_TYPES: ObstacleType[] = ["barrier", "oil_slick", "cone", "pothole"];
-const DROP_TYPES: DropType[] = ["speed_boost", "shield", "freeze_others", "magnet", "coin"];
 
 export function generateTrackObstacles(config: RaceConfig): TrackObstacle[] {
   const obstacles: TrackObstacle[] = [];
@@ -167,8 +166,8 @@ export function generateTrackDrops(config: RaceConfig): TrackDrop[] {
   const drops: TrackDrop[] = [];
   const minPosition = 8; // Don't place drops in first 8 meters
   const maxPosition = config.trackLength - 3; // Or last 3 meters
-  
-  // Guaranteed coin drops
+
+  // Only coin drops remain
   for (let i = 0; i < config.coinDropCount; i++) {
     const lane = Math.floor(Math.random() * 5) + 1; // 1-5
     const position = minPosition + Math.random() * (maxPosition - minPosition);
@@ -182,22 +181,6 @@ export function generateTrackDrops(config: RaceConfig): TrackDrop[] {
     });
   }
 
-  // Powerup drops (exclude coin when picking random type)
-  for (let i = 0; i < config.dropCount; i++) {
-    const type = DROP_TYPES[Math.floor(Math.random() * (DROP_TYPES.length - 1))]; // exclude coin
-    const lane = Math.floor(Math.random() * 5) + 1; // 1-5
-    const position = minPosition + Math.random() * (maxPosition - minPosition);
-    
-    drops.push({
-      id: randomUUID(),
-      type,
-      lane,
-      position: Math.round(position * 10) / 10,
-      collected: false,
-      collectedBy: null,
-    });
-  }
-  
   return drops;
 }
 
@@ -237,6 +220,7 @@ export function createRacePlayer(
     isStunned: false,
     stunEndTime: 0,
     invulnerableEndTime: 0,
+    magnetEndTime: 0,
     hasShield: false,
     shieldEndTime: 0,
     problems: generatePlayerProblems(startingLane, config),
@@ -417,6 +401,7 @@ function getProblemForAction(player: RacePlayer, action: ActionType): RaceProble
 
 function processMove(state: RaceState, player: RacePlayer, action: "forward" | "boost"): ActionResult {
   const previousPosition = player.position;
+  const now = Date.now();
   
   // Calculate movement distance
   const moveDist = action === "forward" 
@@ -459,7 +444,7 @@ function processMove(state: RaceState, player: RacePlayer, action: "forward" | "
   
   // Check for drop collection
   let dropCollectedInfo: { dropId: string; type: DropType; effectDuration: number; coinValue?: number } | undefined;
-  const dropCollected = checkDropCollection(player, state.drops, previousPosition);
+  const dropCollected = checkDropCollection(player, state.drops, previousPosition, now);
   if (dropCollected) {
     // Handle specific drops
     if (dropCollected.drop.type === "speed_boost") {
@@ -732,20 +717,24 @@ export function checkObstacleCollision(
 export function checkDropCollection(
   player: RacePlayer,
   drops: TrackDrop[],
-  previousPosition: number
+  previousPosition: number,
+  now: number
 ): DropCollection | null {
   // Check if player collected any drop
+  const magnetActive = player.magnetEndTime > now;
+  const magnetRange = 5; // meters forward reach when magnet is active
+
   for (const drop of drops) {
     // Skip already collected drops
     if (drop.collected) continue;
     
-    // Must be in same lane
-    if (drop.lane !== player.lane) continue;
+    // Lane check (ignored if magnet is active)
+    if (!magnetActive && drop.lane !== player.lane) continue;
     
     // Check if drop is between previous and current position
-    const passedDrop = 
-      previousPosition < drop.position && 
-      player.position >= drop.position;
+    const passedDrop = magnetActive
+      ? previousPosition < drop.position && player.position + magnetRange >= drop.position
+      : previousPosition < drop.position && player.position >= drop.position;
     
     if (passedDrop) {
       // Mark as collected
@@ -797,10 +786,8 @@ export function applyDropEffect(
       break;
       
     case "magnet":
-      // Collect all nearby drops (within 5m ahead)
-      // For discrete logic, this might need to be handled differently or just act as a "collect next X drops"
-      // For simplicity, let's just make it collect any drop in ANY lane at the current position if we move past it
-      // This would require modifying checkDropCollection to ignore lane if magnet is active.
+      // Pull in drops for the duration (lane-agnostic, see checkDropCollection)
+      player.magnetEndTime = now + effects.duration;
       break;
       
     case "speed_boost":
@@ -870,6 +857,11 @@ export function gameTick(
       player.invulnerableEndTime = now + 2000; // 2 seconds invulnerability after stun
     }
 
+    // Expire magnet
+    if (player.magnetEndTime > 0 && now >= player.magnetEndTime) {
+      player.magnetEndTime = 0;
+    }
+
     // Apply base speed movement (only if not stunned)
     if (!player.isStunned) {
       const previousPosition = player.position;
@@ -899,7 +891,7 @@ export function gameTick(
       }
 
       // Check for drop collection during base movement
-      const dropCollected = checkDropCollection(player, state.drops, previousPosition);
+      const dropCollected = checkDropCollection(player, state.drops, previousPosition, now);
       if (dropCollected) {
         if (dropCollected.drop.type === "speed_boost") {
           // Instant burst

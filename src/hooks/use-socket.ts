@@ -41,8 +41,10 @@ interface GameplayState {
 export function useSocket() {
   const { data: session } = useSession();
   const socketRef = useRef<TypedSocket | null>(null);
+  const lastUserIdRef = useRef<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
+  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
   
   const [matchmaking, setMatchmaking] = useState<MatchmakingState>({
     isSearching: false,
@@ -63,13 +65,26 @@ export function useSocket() {
 
   // Initialize socket connection
   useEffect(() => {
+    const userId = session?.user?.id ?? null;
+
+    // Avoid tearing down the socket when the session refreshes on tab focus.
+    if (socketRef.current && lastUserIdRef.current === userId) {
+      return;
+    }
+
+    // If the authenticated user changed (login/logout), fully reset the socket before reconnecting.
+    if (socketRef.current && lastUserIdRef.current !== userId) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+      lastUserIdRef.current = null;
+    }
+
+    if (!socketUrl) return;
+
     let socket: TypedSocket | null = null;
     let mounted = true;
 
     async function initSocket() {
-      // Connect to the WebSocket server (Fly.io in production, same host in dev)
-      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
-      
       // Fetch a secure token for cross-origin authentication
       let authToken: string | undefined;
       if (session?.user && socketUrl) {
@@ -94,6 +109,7 @@ export function useSocket() {
       }) as TypedSocket;
 
       socketRef.current = socket;
+      lastUserIdRef.current = userId;
 
       // Connection events
       socket.on("connect", () => {
@@ -220,15 +236,17 @@ export function useSocket() {
       });
     }
 
-    initSocket();
+    void initSocket();
 
     return () => {
       mounted = false;
-      if (socket) {
+      if (socket && socketRef.current === socket) {
         socket.disconnect();
+        socketRef.current = null;
+        lastUserIdRef.current = null;
       }
     };
-  }, [session]);
+  }, [session?.user?.id, socketUrl]);
 
   // Matchmaking actions
   const joinMatchmaking = useCallback(() => {
