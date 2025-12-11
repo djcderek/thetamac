@@ -58,14 +58,29 @@ export function DuelMode() {
   });
   const [statsLoading, setStatsLoading] = useState(!!session?.user);
 
+  const isSmallScreen = () =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+
   const focusInput = () => {
     // Use rAF to ensure the element is mounted before focusing
     requestAnimationFrame(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        // Scroll the input into view so question stays visible above keyboard
-        inputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      const node = inputRef.current;
+      if (!node) return;
+
+      // PreventScroll helps avoid layout jump while still opening keyboards on mobile
+      node.focus({ preventScroll: true });
+
+      // Give mobile keyboards the best chance to appear by nudging focus again shortly after render
+      if (isSmallScreen()) {
+        setTimeout(() => {
+          if (document.activeElement !== node) {
+            node.focus({ preventScroll: true });
+          }
+        }, 30);
       }
+
+      // Scroll the input into view so question stays visible above keyboard
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   };
 
@@ -155,8 +170,7 @@ export function DuelMode() {
     leaveMatchmaking();
   };
 
-  const handleSubmitAnswer = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitCurrentAnswer = () => {
     if (!gameplay.problem || answerSubmitted) return;
 
     const answer = parseInt(userAnswer);
@@ -165,6 +179,11 @@ export function DuelMode() {
     const timeMs = Date.now() - roundStartTime;
     submitAnswer(answer, timeMs);
     setAnswerSubmitted(true);
+  };
+
+  const handleSubmitAnswer = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitCurrentAnswer();
   };
 
   const handleForfeit = () => {
@@ -444,6 +463,12 @@ export function DuelMode() {
                             enterKeyHint="done"
                             value={userAnswer}
                             onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                submitCurrentAnswer();
+                              }
+                            }}
                             onFocus={(e) => e.target.scrollIntoView({ behavior: "smooth", block: "center" })}
                             placeholder="?"
                             className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[180px] sm:max-w-[200px] mx-auto"
