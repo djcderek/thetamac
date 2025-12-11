@@ -58,27 +58,21 @@ export function DuelMode() {
   });
   const [statsLoading, setStatsLoading] = useState(!!session?.user);
 
-  const isSmallScreen = () =>
-    typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
-
-  const focusInput = () => {
-    // Use rAF to ensure the element is mounted before focusing
+  const focusInput = useRef(() => {
     requestAnimationFrame(() => {
       const node = inputRef.current;
       if (!node) return;
 
-      // PreventScroll helps avoid layout jump while still opening keyboards on mobile
       node.focus({ preventScroll: true });
-      // Keep caret at the end to avoid Safari occasionally dropping focus
       const valueLength = node.value.length;
       try {
         node.setSelectionRange(valueLength, valueLength);
       } catch {
-        // setSelectionRange can throw on unsupported input types; ignore
+        // ignore
       }
 
-      // Give mobile keyboards the best chance to appear by nudging focus again shortly after render
-      if (isSmallScreen()) {
+      const isSmall = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+      if (isSmall) {
         setTimeout(() => {
           if (document.activeElement !== node) {
             node.focus({ preventScroll: true });
@@ -92,10 +86,12 @@ export function DuelMode() {
         }, 30);
       }
 
-      // Scroll the input into view so question stays visible above keyboard
-      node.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (node.offsetParent !== null) {
+        node.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     });
-  };
+  }).current;
+
 
   // Fetch user's multiplayer stats
   useEffect(() => {
@@ -147,14 +143,14 @@ export function DuelMode() {
       setTimeLeft(10);
       focusInput();
     }
-  }, [gameplay.status, gameplay.problem?.id]);
+  }, [gameplay.status, gameplay.problem, focusInput]);
 
   // Keep the answer box focused while playing (helps after clicks elsewhere)
   useEffect(() => {
     if (gameplay.status === "playing" && !answerSubmitted) {
       focusInput();
     }
-  }, [gameplay.status, answerSubmitted]);
+  }, [gameplay.status, answerSubmitted, focusInput]);
 
   // Countdown timer for current round
   useEffect(() => {
@@ -176,6 +172,8 @@ export function DuelMode() {
   const handleStartSearch = () => {
     if (!session?.user) return;
 
+    // Focus input immediately on user interaction to ensure keyboard opens on mobile
+    focusInput();
     joinMatchmaking();
   };
 
@@ -255,7 +253,7 @@ export function DuelMode() {
     );
   }
 
-  // Game Over Screen
+  // Game Over Screen (Kept separate as it terminates the flow)
   if (gameplay.status === "game_over" && gameplay.gameResult) {
     const isWinner = gameplay.gameResult.winnerId === session.user.id;
     const isDraw = gameplay.gameResult.winnerId === null;
@@ -339,10 +337,22 @@ export function DuelMode() {
     );
   }
 
-  // Playing Screen
-  if (gameplay.status === "playing" || gameplay.status === "round_end" || gameplay.status === "countdown") {
-    return (
-      <div className="min-h-[calc(100vh-200px)]">
+  // Determines state
+  const isSearching = matchmaking.isSearching;
+  const isMatchFound = !!matchmaking.opponent && gameplay.status === "idle";
+  const isGameActive = gameplay.status === "playing" || gameplay.status === "round_end" || gameplay.status === "countdown";
+  // If we are not searching, match found, or playing, we are in Lobby
+  const isLobby = !isSearching && !isMatchFound && !isGameActive;
+
+  // Main Render - Layered Approach to persist Input
+  return (
+    <div className="min-h-[calc(100vh-200px)] relative">
+      
+      {/* GAME VIEW LAYER 
+          Always rendered if game is active, OR if we want the input available in background.
+          We render it 'hidden' (opacity-0) when in Lobby/Searching/MatchFound to keep Input mounted.
+      */}
+      <div className={`transition-opacity duration-200 ${isGameActive ? "opacity-100 relative z-10" : "opacity-0 absolute top-0 left-0 w-full -z-10 pointer-events-none h-full overflow-hidden"}`}>
         <div className="border-b border-border">
           <div className="px-4 sm:px-6 py-2 sm:py-4 flex items-center justify-between">
             <div>
@@ -351,7 +361,7 @@ export function DuelMode() {
                 Round {gameplay.currentRound} of 10
               </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleForfeit}>
+            <Button variant="ghost" size="sm" onClick={handleForfeit} className={isGameActive ? "" : "pointer-events-none"}>
               Forfeit
             </Button>
           </div>
@@ -361,7 +371,7 @@ export function DuelMode() {
           <div className="max-w-2xl mx-auto space-y-3 sm:space-y-6">
             {/* Countdown Overlay */}
             {gameplay.status === "countdown" && gameplay.countdown > 0 && (
-              <Card className="border-2 border-foreground">
+              <Card className="border-2 border-foreground relative z-20">
                 <CardContent className="p-6 sm:p-12 text-center">
                   <p className="text-muted-foreground mb-2 sm:mb-4">Get Ready!</p>
                   <p className="text-6xl sm:text-8xl font-mono font-bold">{gameplay.countdown}</p>
@@ -458,36 +468,47 @@ export function DuelMode() {
                 {/* Timer Progress */}
                 <Progress value={(timeLeft / 10) * 100} className="h-1" />
 
-                {/* Problem Display */}
-                {gameplay.status === "playing" && gameplay.problem && (
+                {/* Problem Display - Always rendered to maintain Input focus */}
+                <div className="relative">
                   <Card className={answerSubmitted ? "border-success" : ""}>
                     <CardContent className="p-4 sm:p-12">
                       <div className="text-center">
-                        <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-4 sm:mb-8">
-                          {gameplay.problem.a} {gameplay.problem.operation} {gameplay.problem.b}
+                        <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-4 sm:mb-8 min-h-16">
+                          {gameplay.problem 
+                            ? `${gameplay.problem.a} ${gameplay.problem.operation} ${gameplay.problem.b}` 
+                            : "..."}
                         </div>
 
                         <form onSubmit={handleSubmitAnswer}>
                           <Input
                             ref={inputRef}
                             type="text"
-                            inputMode="numeric"
-                            pattern="[0-9\-]*"
+                            inputMode="decimal"
+                            pattern="[0-9]*"
                             enterKeyHint="done"
                             value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
+                            onChange={(e) => {
+                              if (!answerSubmitted) {
+                                setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""));
+                              }
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 submitCurrentAnswer();
                               }
                             }}
-                            onFocus={(e) => e.target.scrollIntoView({ behavior: "smooth", block: "center" })}
+                            onFocus={(e) => {
+                                // Only scroll if we are actually playing
+                                if (isGameActive && gameplay.status !== "countdown") {
+                                    e.target.scrollIntoView({ behavior: "smooth", block: "center" });
+                                }
+                            }}
                             placeholder="?"
                             className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[180px] sm:max-w-[200px] mx-auto"
                             autoFocus
                             autoComplete="off"
-                            readOnly={answerSubmitted}
+                            readOnly={false}
                           />
                         </form>
 
@@ -500,289 +521,286 @@ export function DuelMode() {
                       </div>
                     </CardContent>
                   </Card>
-                )}
+                  
+                  {/* Round Result Overlay - Covers the problem but keeps input in DOM */}
+                  {gameplay.status === "round_end" && gameplay.roundResult && (
+                    <div className="absolute inset-0 z-10">
+                      <Card className={`h-full ${
+                        gameplay.roundResult.winnerId === session.user.id
+                          ? "border-success"
+                          : gameplay.roundResult.winnerId === null
+                          ? "border-border"
+                          : "border-destructive"
+                      }`}>
+                        <CardContent className="p-4 sm:p-8 text-center h-full flex flex-col justify-center bg-background/95 backdrop-blur-sm">
+                          <div className="text-3xl sm:text-4xl font-mono font-bold mb-2 sm:mb-4">
+                            {gameplay.roundResult.correctAnswer}
+                          </div>
+                          <p className="text-muted-foreground text-sm mb-3 sm:mb-4">Correct Answer</p>
+                          
+                          {gameplay.roundResult.winnerId === session.user.id ? (
+                            <Badge className="bg-success mx-auto">You got it!</Badge>
+                          ) : gameplay.roundResult.winnerId === null ? (
+                            <Badge variant="secondary" className="mx-auto">No one answered correctly</Badge>
+                          ) : (
+                            <Badge variant="destructive" className="mx-auto">Opponent was faster</Badge>
+                          )}
 
-                {/* Round Result */}
-                {gameplay.status === "round_end" && gameplay.roundResult && (
-                  <Card className={
-                    gameplay.roundResult.winnerId === session.user.id
-                      ? "border-success"
-                      : gameplay.roundResult.winnerId === null
-                      ? "border-border"
-                      : "border-destructive"
-                  }>
-                    <CardContent className="p-4 sm:p-8 text-center">
-                      <div className="text-3xl sm:text-4xl font-mono font-bold mb-2 sm:mb-4">
-                        {gameplay.roundResult.correctAnswer}
-                      </div>
-                      <p className="text-muted-foreground text-sm mb-3 sm:mb-4">Correct Answer</p>
-                      
-                      {gameplay.roundResult.winnerId === session.user.id ? (
-                        <Badge className="bg-success">You got it!</Badge>
-                      ) : gameplay.roundResult.winnerId === null ? (
-                        <Badge variant="secondary">No one answered correctly</Badge>
-                      ) : (
-                        <Badge variant="destructive">Opponent was faster</Badge>
-                      )}
+                          <div className="flex justify-center gap-6 sm:gap-8 mt-4 sm:mt-6">
+                            <div className="text-center">
+                              <p className="text-xs sm:text-sm text-muted-foreground">Your time</p>
+                              <p className="font-mono font-semibold text-sm sm:text-base">
+                                {gameplay.roundResult.yourTime !== null
+                                  ? `${(gameplay.roundResult.yourTime / 1000).toFixed(2)}s`
+                                  : "—"}
+                              </p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs sm:text-sm text-muted-foreground">Opponent</p>
+                              <p className="font-mono font-semibold text-sm sm:text-base">
+                                {gameplay.roundResult.opponentTime !== null
+                                  ? `${(gameplay.roundResult.opponentTime / 1000).toFixed(2)}s`
+                                  : "—"}
+                              </p>
+                            </div>
+                          </div>
 
-                      <div className="flex justify-center gap-6 sm:gap-8 mt-4 sm:mt-6">
-                        <div className="text-center">
-                          <p className="text-xs sm:text-sm text-muted-foreground">Your time</p>
-                          <p className="font-mono font-semibold text-sm sm:text-base">
-                            {gameplay.roundResult.yourTime !== null
-                              ? `${(gameplay.roundResult.yourTime / 1000).toFixed(2)}s`
-                              : "—"}
+                          <p className="text-xs sm:text-sm text-muted-foreground mt-4 sm:mt-6">
+                            Next round starting soon...
                           </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs sm:text-sm text-muted-foreground">Opponent</p>
-                          <p className="font-mono font-semibold text-sm sm:text-base">
-                            {gameplay.roundResult.opponentTime !== null
-                              ? `${(gameplay.roundResult.opponentTime / 1000).toFixed(2)}s`
-                              : "—"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-4 sm:mt-6">
-                        Next round starting soon...
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
         </div>
       </div>
-    );
-  }
 
-  // Match Found Screen
-  if (matchmaking.opponent && gameplay.status === "idle") {
-    return (
-      <div className="min-h-[calc(100vh-200px)]">
-        <div className="border-b border-border">
-          <div className="px-6 py-4">
-            <h1 className="text-lg font-semibold">Match Found!</h1>
-          </div>
-        </div>
-        <div className="p-4 md:p-6">
-          <div className="max-w-lg mx-auto text-center py-12">
-            <Badge className="mb-6 text-sm">Match Found</Badge>
-            <div className="flex items-center justify-center gap-8 mb-8">
-              <div className="text-center">
-                <Avatar className="h-16 w-16 mx-auto mb-2">
-                  <AvatarFallback>{getInitials(session.user.name || "You")}</AvatarFallback>
-                </Avatar>
-                <p className="font-medium">{session.user.name || "You"}</p>
-                <p className="text-xs text-muted-foreground">Rating: {stats.rating}</p>
-              </div>
-              <span className="text-2xl font-bold text-muted-foreground">VS</span>
-              <div className="text-center">
-                <Avatar className="h-16 w-16 mx-auto mb-2">
-                  <AvatarFallback>{getInitials(matchmaking.opponent.username)}</AvatarFallback>
-                </Avatar>
-                <p className="font-medium">{matchmaking.opponent.username}</p>
-                <p className="text-xs text-muted-foreground">Rating: {matchmaking.opponent.rating}</p>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">Starting match...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Searching Screen
-  if (matchmaking.isSearching) {
-    return (
-      <div className="min-h-[calc(100vh-200px)]">
-        <div className="border-b border-border">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold">Finding Match</h1>
-              <p className="text-sm text-muted-foreground">
-                Looking for an opponent...
-              </p>
-            </div>
-            <Badge variant="outline" className="text-xs">
-              {isConnected ? (
-                <>
-                  <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                  Disconnected
-                </>
-              )}
-            </Badge>
-          </div>
-        </div>
-        <div className="p-4 md:p-6">
-          <div className="max-w-md mx-auto text-center py-20">
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-border border-t-foreground animate-spin" />
-            <h2 className="text-lg font-semibold mb-2">Finding opponent...</h2>
-            <p className="text-sm text-muted-foreground mb-2">
-              Matching you with a player of similar skill
-            </p>
-            <p className="text-xs text-muted-foreground mb-8">
-              {onlineCount} players online
-            </p>
-            <Button variant="outline" onClick={handleCancelSearch}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Lobby Screen (default)
-  return (
-    <div className="min-h-[calc(100vh-200px)]">
-      <div className="border-b border-border">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold">Multiplayer Duel</h1>
-            <p className="text-sm text-muted-foreground">
-              Challenge other players in real-time
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-xs">
-              {isConnected ? (
-                <>
-                  <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                  Connecting...
-                </>
-              )}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              <Circle className="w-2 h-2 mr-1.5 fill-success text-success" />
-              {onlineCount} online
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 md:p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* Quick Match Card */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-6">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
-                  <Swords className="w-7 h-7 text-violet-500" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="font-semibold text-lg">Quick Match</h2>
+      {/* SEARCHING OVERLAY */}
+      {isSearching && (
+         <div className="absolute inset-0 bg-background z-20 flex flex-col">
+            <div className="border-b border-border">
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h1 className="text-lg font-semibold">Finding Match</h1>
                   <p className="text-sm text-muted-foreground">
-                    Get matched with a player of similar skill. First to 6 wins the match.
+                    Looking for an opponent...
                   </p>
                 </div>
-                <Button onClick={handleStartSearch} disabled={!isConnected} size="lg">
-                  <Play className="w-4 h-4 mr-2" />
-                  Find Match
+                <Badge variant="outline" className="text-xs">
+                  {isConnected ? (
+                    <>
+                      <Wifi className="w-3 h-3 mr-1.5 text-success" />
+                      Connected
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
+                      Disconnected
+                    </>
+                  )}
+                </Badge>
+              </div>
+            </div>
+            <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
+              <div className="max-w-md w-full text-center">
+                <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-border border-t-foreground animate-spin" />
+                <h2 className="text-lg font-semibold mb-2">Finding opponent...</h2>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Matching you with a player of similar skill
+                </p>
+                <p className="text-xs text-muted-foreground mb-8">
+                  {onlineCount} players online
+                </p>
+                <Button variant="outline" onClick={handleCancelSearch}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Cancel
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+      )}
 
-          {/* How It Works */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">How Multiplayer Works</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold">1</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">Find a Match</p>
-                    <p className="text-xs text-muted-foreground">
-                      Click &quot;Find Match&quot; to be paired with another player
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold">2</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">Solve Problems</p>
-                    <p className="text-xs text-muted-foreground">
-                      Both players see the same problem. Answer first to win the round!
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold">3</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">Win & Rank Up</p>
-                    <p className="text-xs text-muted-foreground">
-                      First to 6 points wins. Earn rating points and climb the leaderboard!
-                    </p>
-                  </div>
-                </div>
+      {/* MATCH FOUND OVERLAY */}
+      {isMatchFound && (
+          <div className="absolute inset-0 bg-background z-20 flex flex-col">
+            <div className="border-b border-border">
+              <div className="px-6 py-4">
+                <h1 className="text-lg font-semibold">Match Found!</h1>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
+              <div className="max-w-lg w-full text-center">
+                <Badge className="mb-6 text-sm">Match Found</Badge>
+                <div className="flex items-center justify-center gap-8 mb-8">
+                  <div className="text-center">
+                    <Avatar className="h-16 w-16 mx-auto mb-2">
+                      <AvatarFallback>{getInitials(session.user.name || "You")}</AvatarFallback>
+                    </Avatar>
+                    <p className="font-medium">{session.user.name || "You"}</p>
+                    <p className="text-xs text-muted-foreground">Rating: {stats.rating}</p>
+                  </div>
+                  <span className="text-2xl font-bold text-muted-foreground">VS</span>
+                  <div className="text-center">
+                    <Avatar className="h-16 w-16 mx-auto mb-2">
+                      <AvatarFallback>{matchmaking.opponent ? getInitials(matchmaking.opponent.username) : "OP"}</AvatarFallback>
+                    </Avatar>
+                    <p className="font-medium">{matchmaking.opponent?.username || "Opponent"}</p>
+                    <p className="text-xs text-muted-foreground">Rating: {matchmaking.opponent?.rating}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">Starting match...</p>
+              </div>
+            </div>
+          </div>
+      )}
 
-          {/* Stats Preview */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Trophy className="w-5 h-5 mx-auto mb-2 text-amber-500" />
-                <p className="text-2xl font-mono font-bold">
-                  {statsLoading ? "—" : stats.wins}
+      {/* LOBBY OVERLAY */}
+      {isLobby && (
+        <div className="relative z-20 bg-background min-h-full">
+          <div className="border-b border-border">
+            <div className="px-6 py-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-lg font-semibold">Multiplayer Duel</h1>
+                <p className="text-sm text-muted-foreground">
+                  Challenge other players in real-time
                 </p>
-                <p className="text-xs text-muted-foreground">Wins</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Swords className="w-5 h-5 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-2xl font-mono font-bold">
-                  {statsLoading ? "—" : stats.matches}
-                </p>
-                <p className="text-xs text-muted-foreground">Matches</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Zap className="w-5 h-5 mx-auto mb-2 text-violet-500" />
-                <p className="text-2xl font-mono font-bold">
-                  {statsLoading ? "—" : stats.rating}
-                </p>
-                <p className="text-xs text-muted-foreground">Rating</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Clock className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                <p className="text-2xl font-mono font-bold">
-                  {statsLoading ? "—" : stats.avgTime !== null ? `${stats.avgTime}s` : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">Avg Time</p>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="text-xs">
+                  {isConnected ? (
+                    <>
+                      <Wifi className="w-3 h-3 mr-1.5 text-success" />
+                      Connected
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
+                      Connecting...
+                    </>
+                  )}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  <Circle className="w-2 h-2 mr-1.5 fill-success text-success" />
+                  {onlineCount} online
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 md:p-6">
+            <div className="max-w-3xl mx-auto space-y-6">
+              {/* Quick Match Card */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-6">
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                      <Swords className="w-7 h-7 text-violet-500" />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="font-semibold text-lg">Quick Match</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Get matched with a player of similar skill. First to 6 wins the match.
+                      </p>
+                    </div>
+                    <Button onClick={handleStartSearch} disabled={!isConnected} size="lg">
+                      <Play className="w-4 h-4 mr-2" />
+                      Find Match
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* How It Works */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">How Multiplayer Works</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                        <span className="text-sm font-semibold">1</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">Find a Match</p>
+                        <p className="text-xs text-muted-foreground">
+                          Click &quot;Find Match&quot; to be paired with another player
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-semibold">2</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">Solve Problems</p>
+                        <p className="text-xs text-muted-foreground">
+                          Both players see the same problem. Answer first to win the round!
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-semibold">3</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">Win & Rank Up</p>
+                        <p className="text-xs text-muted-foreground">
+                          First to 6 points wins. Earn rating points and climb the leaderboard!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Stats Preview */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <Trophy className="w-5 h-5 mx-auto mb-2 text-amber-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : stats.wins}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Wins</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <Swords className="w-5 h-5 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : stats.matches}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Matches</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <Zap className="w-5 h-5 mx-auto mb-2 text-violet-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : stats.rating}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Rating</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <Clock className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : stats.avgTime !== null ? `${stats.avgTime}s` : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Avg Time</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
-
