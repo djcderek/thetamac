@@ -57,10 +57,41 @@ export function DuelMode() {
     avgTime: null,
   });
   const [statsLoading, setStatsLoading] = useState(!!session?.user);
+  const debugFocus = process.env.NODE_ENV !== "production";
 
-  const focusInput = useRef(() => {
+  type FocusMeta = {
+    reason: string;
+    status?: string;
+    round?: number;
+    countdown?: number;
+    problemId?: string | null;
+    isSearching?: boolean;
+    hasOpponent?: boolean;
+    isGameActive?: boolean;
+    isLobby?: boolean;
+  };
+
+  const focusInput = useRef((meta?: FocusMeta) => {
     requestAnimationFrame(() => {
       const node = inputRef.current;
+
+      if (debugFocus) {
+        console.log("[duel focus] attempt", {
+          reason: meta?.reason,
+          status: meta?.status,
+          round: meta?.round,
+          countdown: meta?.countdown,
+          problemId: meta?.problemId,
+          isSearching: meta?.isSearching,
+          hasOpponent: meta?.hasOpponent,
+          isGameActive: meta?.isGameActive,
+          isLobby: meta?.isLobby,
+          nodeExists: !!node,
+          isVisible: node ? node.offsetParent !== null : false,
+          activeTag: typeof document !== "undefined" ? document.activeElement?.tagName : undefined,
+        });
+      }
+
       if (!node) return;
 
       node.focus({ preventScroll: true });
@@ -86,12 +117,54 @@ export function DuelMode() {
         }, 30);
       }
 
-      if (node.offsetParent !== null) {
+      const isVisible = node.offsetParent !== null;
+      if (debugFocus) {
+        console.log("[duel focus] result", {
+          reason: meta?.reason,
+          active: document.activeElement === node,
+          isVisible,
+          valueLength: node.value.length,
+        });
+      }
+
+      if (isVisible) {
         node.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     });
   }).current;
 
+
+  const isSearching = matchmaking.isSearching;
+  const hasOpponent = !!matchmaking.opponent;
+  const isMatchFound = hasOpponent && gameplay.status === "idle";
+  const isGameActive = gameplay.status === "playing" || gameplay.status === "round_end" || gameplay.status === "countdown";
+  const isLobby = !isSearching && !isMatchFound && !isGameActive;
+
+  useEffect(() => {
+    if (!debugFocus) return;
+    console.log("[duel focus] state-change", {
+      status: gameplay.status,
+      countdown: gameplay.countdown,
+      currentRound: gameplay.currentRound,
+      problemId: gameplay.problem?.id,
+      isSearching,
+      hasOpponent,
+      isMatchFound,
+      isGameActive,
+      isLobby,
+    });
+  }, [
+    debugFocus,
+    gameplay.countdown,
+    gameplay.currentRound,
+    gameplay.problem?.id,
+    gameplay.status,
+    hasOpponent,
+    isGameActive,
+    isLobby,
+    isMatchFound,
+    isSearching,
+  ]);
 
   // Fetch user's multiplayer stats
   useEffect(() => {
@@ -141,16 +214,47 @@ export function DuelMode() {
       setAnswerSubmitted(false);
       setRoundStartTime(Date.now());
       setTimeLeft(10);
-      focusInput();
+      focusInput({
+        reason: "new-round",
+        status: gameplay.status,
+        round: gameplay.currentRound,
+        countdown: gameplay.countdown,
+        problemId: gameplay.problem?.id,
+        isSearching,
+        hasOpponent,
+        isGameActive,
+        isLobby,
+      });
     }
-  }, [gameplay.status, gameplay.problem, focusInput]);
+  }, [gameplay.status, gameplay.problem, focusInput, gameplay.currentRound, gameplay.countdown, hasOpponent, isGameActive, isLobby, isSearching]);
 
   // Keep the answer box focused while playing (helps after clicks elsewhere)
   useEffect(() => {
     if (gameplay.status === "playing" && !answerSubmitted) {
-      focusInput();
+      focusInput({
+        reason: "keep-playing-focus",
+        status: gameplay.status,
+        round: gameplay.currentRound,
+        countdown: gameplay.countdown,
+        problemId: gameplay.problem?.id,
+        isSearching,
+        hasOpponent,
+        isGameActive,
+        isLobby,
+      });
     }
-  }, [gameplay.status, answerSubmitted, focusInput]);
+  }, [
+    gameplay.status,
+    answerSubmitted,
+    focusInput,
+    gameplay.currentRound,
+    gameplay.countdown,
+    gameplay.problem?.id,
+    hasOpponent,
+    isGameActive,
+    isLobby,
+    isSearching,
+  ]);
 
   // Countdown timer for current round
   useEffect(() => {
@@ -173,7 +277,17 @@ export function DuelMode() {
     if (!session?.user) return;
 
     // Focus input immediately on user interaction to ensure keyboard opens on mobile
-    focusInput();
+    focusInput({
+      reason: "start-search",
+      status: gameplay.status,
+      round: gameplay.currentRound,
+      countdown: gameplay.countdown,
+      problemId: gameplay.problem?.id,
+      isSearching,
+      hasOpponent,
+      isGameActive,
+      isLobby,
+    });
     joinMatchmaking();
   };
 
@@ -338,12 +452,6 @@ export function DuelMode() {
   }
 
   // Determines state
-  const isSearching = matchmaking.isSearching;
-  const isMatchFound = !!matchmaking.opponent && gameplay.status === "idle";
-  const isGameActive = gameplay.status === "playing" || gameplay.status === "round_end" || gameplay.status === "countdown";
-  // If we are not searching, match found, or playing, we are in Lobby
-  const isLobby = !isSearching && !isMatchFound && !isGameActive;
-
   // Main Render - Layered Approach to persist Input
   return (
     <div className="min-h-[calc(100vh-200px)] relative">
