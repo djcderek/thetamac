@@ -791,11 +791,11 @@ export function RacingMode() {
           {/* Quick Race Card */}
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center gap-6">
-                <div className="w-14 h-14 rounded-xl bg-linear-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="w-14 h-14 rounded-xl bg-linear-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center shrink-0">
                   <Flag className="w-7 h-7 text-emerald-500" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 text-center sm:text-left">
                   <h2 className="font-semibold text-lg">Quick Race</h2>
                   <p className="text-sm text-muted-foreground">
                     Race against 2-5 players. Solve problems to move forward, bump into opponents!
@@ -805,6 +805,7 @@ export function RacingMode() {
                   onClick={() => joinQueue(session.user!.id!, session.user!.name || "Player")}
                   disabled={!isConnected}
                   size="lg"
+                  className="w-full sm:w-auto"
                 >
                   <Play className="w-4 h-4 mr-2" />
                   Find Race

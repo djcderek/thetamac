@@ -796,15 +796,15 @@ export function DuelMode() {
                   
                   {/* Round Result Overlay - Covers the problem but keeps input in DOM */}
                   {gameplay.status === "round_end" && gameplay.roundResult && (
-                    <div className="absolute inset-0 z-10">
-                      <Card className={`h-full ${
+                    <div className="absolute inset-0 z-10 bg-background/95 backdrop-blur-sm rounded-xl">
+                      <Card className={`h-full bg-transparent ${
                         gameplay.roundResult.winnerId === session.user.id
                           ? "border-success"
                           : gameplay.roundResult.winnerId === null
                           ? "border-border"
                           : "border-destructive"
                       }`}>
-                        <CardContent className="p-4 sm:p-8 text-center h-full flex flex-col justify-center bg-background/95 backdrop-blur-sm">
+                        <CardContent className="p-4 sm:p-8 text-center h-full flex flex-col justify-center">
                           <div className="text-3xl sm:text-4xl font-mono font-bold mb-2 sm:mb-4">
                             {gameplay.roundResult.correctAnswer}
                           </div>
@@ -1044,17 +1044,17 @@ export function DuelMode() {
               {/* Quick Match Card */}
               <Card>
                 <CardContent className="p-6">
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 rounded-xl bg-linear-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                  <div className="flex flex-col sm:flex-row items-center gap-6">
+                    <div className="w-14 h-14 rounded-xl bg-linear-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center shrink-0">
                       <Swords className="w-7 h-7 text-violet-500" />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 text-center sm:text-left">
                       <h2 className="font-semibold text-lg">Quick Match</h2>
                       <p className="text-sm text-muted-foreground">
                         Get matched with a player of similar skill. First to 6 wins the match.
                       </p>
                     </div>
-                    <Button onClick={handleStartSearch} disabled={!isConnected} size="lg">
+                    <Button onClick={handleStartSearch} disabled={!isConnected} size="lg" className="w-full sm:w-auto">
                       <Play className="w-4 h-4 mr-2" />
                       Find Match
                     </Button>
