@@ -7,7 +7,6 @@ const protectedRoutes = [
   "/dashboard",
   "/settings",
   "/shop",
-  "/training",
   "/stats",
   "/multiplayer",
 ];
