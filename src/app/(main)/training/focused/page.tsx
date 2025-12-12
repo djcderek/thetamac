@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense, startTransition } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -275,16 +275,18 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     if (!isNaN(answerNum) && answerNum === currentProblem.answer) {
       const timeTaken = (Date.now() - startTime) / 1000;
 
-      setIsCorrect(true);
-      setCorrectCount((prev) => prev + 1);
-      setStreak((prev) => {
-        const newStreak = prev + 1;
-        if (newStreak > bestStreak) {
-          setBestStreak(newStreak);
-        }
-        return newStreak;
+      startTransition(() => {
+        setIsCorrect(true);
+        setCorrectCount((prev) => prev + 1);
+        setStreak((prev) => {
+          const newStreak = prev + 1;
+          if (newStreak > bestStreak) {
+            setBestStreak(newStreak);
+          }
+          return newStreak;
+        });
+        setTimes((prev) => [...prev, timeTaken]);
       });
-      setTimes((prev) => [...prev, timeTaken]);
 
       recordAttempt(currentProblem, answerNum, true, timeTaken);
 
