@@ -561,7 +561,7 @@ export function DuelMode() {
 
         <div
           className={`p-2 sm:p-4 md:p-6 ${
-            showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+220px)]" : "pb-[env(safe-area-inset-bottom,0.5rem)]"
+            showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+260px)]" : "pb-[env(safe-area-inset-bottom,0.5rem)]"
           }`}
         >
           <div className="max-w-2xl mx-auto space-y-3 sm:space-y-6">
@@ -579,38 +579,53 @@ export function DuelMode() {
             {gameplay.status !== "countdown" && (
               <>
                 <Card>
-                  <CardContent className="p-3 sm:p-4">
-                    {/* Mobile: compact stacked layout */}
-                    <div className="sm:hidden">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs text-muted-foreground">Round {gameplay.currentRound}/10</p>
-                        <p className={`text-lg font-mono font-semibold ${timeLeft <= 3 ? "text-destructive" : ""}`}>
-                          {timeLeft.toFixed(1)}s
-                        </p>
+                  <CardContent className="p-2 sm:p-4">
+                    {/* Mobile: ultra-compact single-row status bar */}
+                    <div className="sm:hidden flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Avatar className="h-6 w-6 shrink-0">
+                          <AvatarFallback className="text-[10px] leading-none">
+                            {getInitials(session.user.name || "You")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xl font-mono font-bold leading-none tabular-nums">
+                          {gameplay.scores[session.user.id || ""] || 0}
+                        </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <Avatar className="h-4 w-4">
-                            <AvatarFallback className="text-xs">{getInitials(session.user.name || "You")}</AvatarFallback>
-                          </Avatar>
-                          <span className="text-2xl font-mono font-bold">
-                            {gameplay.scores[session.user.id || ""] || 0}
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                          R {gameplay.currentRound}/10
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-1 text-[11px] font-mono font-semibold tabular-nums ${
+                            timeLeft <= 3
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-foreground"
+                          }`}
+                        >
+                          {timeLeft.toFixed(1)}s
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 min-w-0 justify-end">
+                        {gameplay.opponentAnswered && (
+                          <span
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-success/15 text-success shrink-0"
+                            aria-label="Opponent answered"
+                            title="Opponent answered"
+                          >
+                            <Check className="h-3 w-3" />
                           </span>
-                        </div>
-                        <span className="text-sm text-muted-foreground">vs</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl font-mono font-bold">
-                            {matchmaking.opponent ? gameplay.scores[matchmaking.opponent.id] || 0 : 0}
-                          </span>
-                          <Avatar className="h-4 w-4">
-                            <AvatarFallback className="text-xs">
-                              {matchmaking.opponent ? getInitials(matchmaking.opponent.username) : "OP"}
-                            </AvatarFallback>
-                          </Avatar>
-                          {gameplay.opponentAnswered && (
-                            <Check className="w-4 h-4 text-success" />
-                          )}
-                        </div>
+                        )}
+                        <span className="text-xl font-mono font-bold leading-none tabular-nums">
+                          {matchmaking.opponent ? gameplay.scores[matchmaking.opponent.id] || 0 : 0}
+                        </span>
+                        <Avatar className="h-6 w-6 shrink-0">
+                          <AvatarFallback className="text-[10px] leading-none">
+                            {matchmaking.opponent ? getInitials(matchmaking.opponent.username) : "OP"}
+                          </AvatarFallback>
+                        </Avatar>
                       </div>
                     </div>
                     {/* Desktop: original horizontal layout */}
@@ -821,13 +836,17 @@ export function DuelMode() {
           <div className="fixed left-0 right-0 bottom-0 z-50">
             <div className="border-t border-border bg-background">
               <div className="max-w-md mx-auto px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0.5rem)+8px)]">
-                <div className="grid grid-cols-3 gap-1.5 select-none touch-manipulation">
+                <div className="flex items-center justify-center pb-2">
+                  <div className="h-1 w-10 rounded-full bg-muted-foreground/20" />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 select-none touch-manipulation">
                   {["1","2","3","4","5","6","7","8","9"].map((d) => (
                     <Button
                       key={d}
                       type="button"
                       variant="secondary"
-                      className="h-11 rounded-xl text-lg font-semibold active:scale-[0.98] transition"
+                      className="h-12 rounded-xl text-xl font-semibold active:scale-[0.98] transition"
                       onClick={() => appendDigit(d)}
                       disabled={answerSubmitted || gameplay.status !== "playing"}
                     >
@@ -838,7 +857,7 @@ export function DuelMode() {
                   <Button
                     type="button"
                     variant="secondary"
-                    className="h-11 rounded-xl text-lg font-semibold active:scale-[0.98] transition"
+                    className="h-12 rounded-xl text-xl font-semibold active:scale-[0.98] transition"
                     onClick={toggleMinus}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                     aria-label="Toggle negative sign"
@@ -848,7 +867,7 @@ export function DuelMode() {
                   <Button
                     type="button"
                     variant="secondary"
-                    className="h-11 rounded-xl text-lg font-semibold active:scale-[0.98] transition"
+                    className="h-12 rounded-xl text-xl font-semibold active:scale-[0.98] transition"
                     onClick={() => appendDigit("0")}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                   >
@@ -857,7 +876,7 @@ export function DuelMode() {
                   <Button
                     type="button"
                     variant="secondary"
-                    className="h-11 rounded-xl active:scale-[0.98] transition"
+                    className="h-12 rounded-xl active:scale-[0.98] transition"
                     onClick={backspace}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                     aria-label="Backspace"
@@ -868,7 +887,7 @@ export function DuelMode() {
                   <Button
                     type="button"
                     variant="secondary"
-                    className="h-10 rounded-xl text-sm font-semibold col-span-2 active:scale-[0.99] transition"
+                    className="h-11 rounded-xl text-sm font-semibold col-span-2 active:scale-[0.99] transition"
                     onClick={clearAnswer}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                   >
@@ -876,7 +895,7 @@ export function DuelMode() {
                   </Button>
                   <Button
                     type="button"
-                    className="h-10 rounded-xl text-sm font-semibold active:scale-[0.99] transition"
+                    className="h-11 rounded-xl text-sm font-semibold active:scale-[0.99] transition"
                     onClick={submitCurrentAnswer}
                     disabled={answerSubmitted || gameplay.status !== "playing" || userAnswer.length === 0 || userAnswer === "-"}
                   >
