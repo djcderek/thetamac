@@ -51,6 +51,7 @@ export function DuelMode() {
   const [roundStartTime, setRoundStartTime] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState(10);
   const inputRef = useRef<HTMLInputElement>(null);
+  const problemCardRef = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<MultiplayerStats>({
     wins: 0,
     matches: 0,
@@ -308,8 +309,15 @@ export function DuelMode() {
         isGameActive,
         isLobby,
       });
+      
+      // Scroll problem card into view on mobile
+      if (useCustomKeypad && problemCardRef.current) {
+        requestAnimationFrame(() => {
+          problemCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
     }
-  }, [gameplay.status, gameplay.problem, focusInput, gameplay.currentRound, gameplay.countdown, hasOpponent, isGameActive, isLobby, isSearching]);
+  }, [gameplay.status, gameplay.problem, focusInput, gameplay.currentRound, gameplay.countdown, hasOpponent, isGameActive, isLobby, isSearching, useCustomKeypad]);
 
   // Keep the answer box focused while playing (helps after clicks elsewhere)
   useEffect(() => {
@@ -579,7 +587,7 @@ export function DuelMode() {
             {gameplay.status !== "countdown" && (
               <>
                 <Card>
-                  <CardContent className="p-2 sm:p-4">
+                  <CardContent className="py-1 px-2 sm:p-4">
                     {/* Mobile: ultra-compact single-row status bar */}
                     <div className="sm:hidden flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
@@ -681,6 +689,7 @@ export function DuelMode() {
 
                 {/* Problem Display - Always rendered to maintain Input focus */}
                 <div
+                  ref={problemCardRef}
                   className="relative"
                   onPointerDownCapture={() => {
                     // iOS Safari often blocks programmatic focus (and thus keyboard)
@@ -708,7 +717,7 @@ export function DuelMode() {
                   <Card className={answerSubmitted ? "border-success" : ""}>
                     <CardContent className="p-4 sm:p-12">
                       <div className="text-center">
-                        <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-4 sm:mb-8 min-h-16">
+                        <div className="text-3xl sm:text-6xl font-mono font-semibold tracking-wide mb-4 sm:mb-8 min-h-16">
                           {gameplay.problem 
                             ? `${gameplay.problem.a} ${gameplay.problem.operation} ${gameplay.problem.b}` 
                             : "..."}
