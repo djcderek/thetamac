@@ -553,15 +553,25 @@ export function DuelMode() {
           We render it 'hidden' (opacity-0) when in Lobby/Searching/MatchFound to keep Input mounted.
       */}
       <div className={`transition-opacity duration-200 ${isGameActive ? "opacity-100 relative z-10" : "opacity-0 absolute top-0 left-0 w-full -z-10 h-full overflow-hidden"}`}>
-        <div className="border-b border-border">
-          <div className="px-4 sm:px-6 py-2 sm:py-4 flex items-center justify-between">
+        {/* Desktop header - full size */}
+        <div className="hidden sm:block border-b border-border">
+          <div className="px-6 py-4 flex items-center justify-between">
             <div>
-              <h1 className="text-base sm:text-lg font-semibold">Match in Progress</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+              <h1 className="text-lg font-semibold">Match in Progress</h1>
+              <p className="text-sm text-muted-foreground">
                 Round {gameplay.currentRound} of 10
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={handleForfeit} className={isGameActive ? "" : "pointer-events-none"}>
+              Forfeit
+            </Button>
+          </div>
+        </div>
+        {/* Mobile header - minimal */}
+        <div className="sm:hidden border-b border-border">
+          <div className="px-3 py-1 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Round {gameplay.currentRound}/10</p>
+            <Button variant="ghost" size="sm" onClick={handleForfeit} className={isGameActive ? "h-7 px-2 text-xs" : "pointer-events-none h-7 px-2 text-xs"}>
               Forfeit
             </Button>
           </div>
@@ -715,9 +725,9 @@ export function DuelMode() {
                   }}
                 >
                   <Card className={answerSubmitted ? "border-success" : ""}>
-                    <CardContent className="p-4 sm:p-12">
+                    <CardContent className="py-3 px-4 sm:p-12">
                       <div className="text-center">
-                        <div className="text-3xl sm:text-6xl font-mono font-semibold tracking-wide mb-4 sm:mb-8 min-h-16">
+                        <div className="text-3xl sm:text-6xl font-mono font-semibold tracking-wide mb-2 sm:mb-8 min-h-12 sm:min-h-16">
                           {gameplay.problem 
                             ? `${gameplay.problem.a} ${gameplay.problem.operation} ${gameplay.problem.b}` 
                             : "..."}
@@ -775,7 +785,7 @@ export function DuelMode() {
                         </form>
 
                         {answerSubmitted && (
-                          <p className="text-xs sm:text-sm text-success mt-3 sm:mt-4 flex items-center justify-center gap-2">
+                          <p className="text-xs sm:text-sm text-success mt-2 sm:mt-4 flex items-center justify-center gap-2">
                             <Check className="w-4 h-4" />
                             Answer submitted!
                           </p>
