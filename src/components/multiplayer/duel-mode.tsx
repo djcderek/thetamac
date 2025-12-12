@@ -71,12 +71,15 @@ export function DuelMode() {
     isLobby?: boolean;
   };
 
-  const focusInput = useRef((meta?: FocusMeta) => {
-    requestAnimationFrame(() => {
+  type FocusOptions = FocusMeta & { immediate?: boolean };
+
+  const focusInput = useRef((meta?: FocusOptions) => {
+    const attempt = (phase: "sync" | "raf" | "timeout") => {
       const node = inputRef.current;
 
       if (debugFocus) {
         console.log("[duel focus] attempt", {
+          phase,
           reason: meta?.reason,
           status: meta?.status,
           round: meta?.round,
@@ -94,41 +97,55 @@ export function DuelMode() {
 
       if (!node) return;
 
-      node.focus({ preventScroll: true });
+      try {
+        // iOS Safari is picky: focus needs to be called synchronously during a user gesture
+        // to reliably open the keyboard. We still keep async fallbacks for other cases.
+        node.focus({ preventScroll: true });
+      } catch {
+        node.focus();
+      }
+
       const valueLength = node.value.length;
       try {
         node.setSelectionRange(valueLength, valueLength);
       } catch {
-        // ignore
-      }
-
-      const isSmall = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
-      if (isSmall) {
-        setTimeout(() => {
-          if (document.activeElement !== node) {
-            node.focus({ preventScroll: true });
-            const len = node.value.length;
-            try {
-              node.setSelectionRange(len, len);
-            } catch {
-              /* no-op */
-            }
-          }
-        }, 30);
+        // ignore (e.g. input types that don't support selection)
       }
 
       const isVisible = node.offsetParent !== null;
       if (debugFocus) {
         console.log("[duel focus] result", {
+          phase,
           reason: meta?.reason,
-          active: document.activeElement === node,
+          active: typeof document !== "undefined" ? document.activeElement === node : false,
           isVisible,
           valueLength: node.value.length,
         });
       }
 
-      if (isVisible) {
+      const shouldScroll =
+        isVisible && !!meta?.isGameActive && meta?.status !== "countdown" && !meta?.isLobby && !meta?.isSearching;
+      if (shouldScroll) {
         node.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+
+    // If called from a click/tap handler, do a synchronous attempt first so iOS can open the keyboard.
+    if (meta?.immediate) {
+      attempt("sync");
+    }
+
+    requestAnimationFrame(() => {
+      attempt("raf");
+
+      const isSmall = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+      if (isSmall) {
+        setTimeout(() => {
+          const node = inputRef.current;
+          if (node && typeof document !== "undefined" && document.activeElement !== node) {
+            attempt("timeout");
+          }
+        }, 30);
       }
     });
   }).current;
@@ -279,6 +296,7 @@ export function DuelMode() {
     // Focus input immediately on user interaction to ensure keyboard opens on mobile
     focusInput({
       reason: "start-search",
+      immediate: true,
       status: gameplay.status,
       round: gameplay.currentRound,
       countdown: gameplay.countdown,
@@ -577,7 +595,31 @@ export function DuelMode() {
                 <Progress value={(timeLeft / 10) * 100} className="h-1" />
 
                 {/* Problem Display - Always rendered to maintain Input focus */}
-                <div className="relative">
+                <div
+                  className="relative"
+                  onPointerDownCapture={() => {
+                    // iOS Safari often blocks programmatic focus (and thus keyboard)
+                    // unless it's triggered from a user gesture. Any tap on the problem
+                    // card should re-focus the input and open the keypad.
+                    if (gameplay.status !== "playing" || answerSubmitted) return;
+                    const node = inputRef.current;
+                    if (!node) return;
+                    if (typeof document !== "undefined" && document.activeElement === node) return;
+
+                    focusInput({
+                      reason: "problem-pointerdown",
+                      immediate: true,
+                      status: gameplay.status,
+                      round: gameplay.currentRound,
+                      countdown: gameplay.countdown,
+                      problemId: gameplay.problem?.id,
+                      isSearching,
+                      hasOpponent,
+                      isGameActive,
+                      isLobby,
+                    });
+                  }}
+                >
                   <Card className={answerSubmitted ? "border-success" : ""}>
                     <CardContent className="p-4 sm:p-12">
                       <div className="text-center">
