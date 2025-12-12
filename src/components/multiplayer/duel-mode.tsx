@@ -58,6 +58,57 @@ export function DuelMode() {
   });
   const [statsLoading, setStatsLoading] = useState(!!session?.user);
   const debugFocus = process.env.NODE_ENV !== "production";
+  const [isSmallScreen, setIsSmallScreen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 640px)").matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsSmallScreen(mq.matches);
+    update();
+    if ("addEventListener" in mq) {
+      mq.addEventListener("change", update);
+    } else {
+      // Safari < 14
+      (mq as unknown as { addListener: (cb: () => void) => void }).addListener(update);
+    }
+    return () => {
+      if ("removeEventListener" in mq) {
+        mq.removeEventListener("change", update);
+      } else {
+        (mq as unknown as { removeListener: (cb: () => void) => void }).removeListener(update);
+      }
+    };
+  }, []);
+
+  const appendDigit = (digit: string) => {
+    if (answerSubmitted) return;
+    if (gameplay.status !== "playing") return;
+    setUserAnswer((prev) => `${prev}${digit}`.replace(/[^0-9\-]/g, ""));
+  };
+
+  const toggleMinus = () => {
+    if (answerSubmitted) return;
+    if (gameplay.status !== "playing") return;
+    setUserAnswer((prev) => {
+      if (prev.startsWith("-")) return prev.slice(1);
+      return prev.length === 0 ? "-" : `-${prev.replace(/^-/, "")}`;
+    });
+  };
+
+  const backspace = () => {
+    if (answerSubmitted) return;
+    if (gameplay.status !== "playing") return;
+    setUserAnswer((prev) => prev.slice(0, -1));
+  };
+
+  const clearAnswer = () => {
+    if (answerSubmitted) return;
+    if (gameplay.status !== "playing") return;
+    setUserAnswer("");
+  };
 
   type FocusMeta = {
     reason: string;
@@ -493,7 +544,11 @@ export function DuelMode() {
           </div>
         </div>
 
-        <div className="p-2 sm:p-4 md:p-6 pb-[env(safe-area-inset-bottom,0.5rem)]">
+        <div
+          className={`p-2 sm:p-4 md:p-6 ${
+            isSmallScreen ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+290px)]" : "pb-[env(safe-area-inset-bottom,0.5rem)]"
+          }`}
+        >
           <div className="max-w-2xl mx-auto space-y-3 sm:space-y-6">
             {/* Countdown Overlay */}
             {gameplay.status === "countdown" && gameplay.countdown > 0 && (
@@ -631,44 +686,52 @@ export function DuelMode() {
 
                         <form onSubmit={handleSubmitAnswer}>
                             <div className="flex items-center gap-2 justify-center max-w-[280px] mx-auto">
-                              <Input
-                                ref={inputRef}
-                                type="text"
-                                inputMode="decimal"
-                                pattern="[0-9]*"
-                                enterKeyHint="done"
-                                value={userAnswer}
-                                onChange={(e) => {
-                                  if (!answerSubmitted) {
-                                    setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""));
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    submitCurrentAnswer();
-                                  }
-                                }}
-                                onFocus={(e) => {
-                                    // Only scroll if we are actually playing
-                                    if (isGameActive && gameplay.status !== "countdown") {
-                                        e.target.scrollIntoView({ behavior: "smooth", block: "center" });
+                              {/* iOS Safari restriction: on small screens we avoid a real input and use a custom keypad */}
+                              {isSmallScreen ? (
+                                <div className="w-full">
+                                  <div
+                                    role="textbox"
+                                    aria-label="Answer"
+                                    aria-readonly="true"
+                                    className={`h-12 text-center text-xl font-mono w-full rounded-md border bg-background px-3 flex items-center justify-center ${
+                                      answerSubmitted ? "border-success text-success" : "border-input"
+                                    }`}
+                                  >
+                                    {userAnswer.length > 0 ? userAnswer : "?"}
+                                  </div>
+                                </div>
+                              ) : (
+                                <Input
+                                  ref={inputRef}
+                                  type="text"
+                                  inputMode="decimal"
+                                  pattern="[0-9]*"
+                                  enterKeyHint="done"
+                                  value={userAnswer}
+                                  onChange={(e) => {
+                                    if (!answerSubmitted) {
+                                      setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""));
                                     }
-                                }}
-                                placeholder="?"
-                                className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono w-full sm:max-w-[200px]"
-                                autoFocus
-                                autoComplete="off"
-                                readOnly={false}
-                              />
-                              <Button 
-                                type="submit" 
-                                size="icon" 
-                                className="sm:hidden h-12 w-12 shrink-0"
-                                disabled={answerSubmitted}
-                              >
-                                <Check className="w-5 h-5" />
-                              </Button>
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      submitCurrentAnswer();
+                                    }
+                                  }}
+                                  onFocus={(e) => {
+                                      // Only scroll if we are actually playing
+                                      if (isGameActive && gameplay.status !== "countdown") {
+                                          e.target.scrollIntoView({ behavior: "smooth", block: "center" });
+                                      }
+                                  }}
+                                  placeholder="?"
+                                  className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono w-full sm:max-w-[200px]"
+                                  autoFocus
+                                  autoComplete="off"
+                                  readOnly={false}
+                                />
+                              )}
                             </div>
                         </form>
 
@@ -737,6 +800,77 @@ export function DuelMode() {
             )}
           </div>
         </div>
+
+        {/* Small-screen custom keypad (persists for entire match) */}
+        {isGameActive && isSmallScreen && (
+          <div className="fixed left-0 right-0 bottom-0 z-50">
+            <div className="bg-[#d1d1d6] dark:bg-neutral-900 border-t border-border px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0.5rem)+12px)]">
+              <div className="max-w-md mx-auto">
+                <div className="grid grid-cols-3 gap-2 select-none touch-manipulation">
+                  {["1","2","3","4","5","6","7","8","9"].map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      variant="secondary"
+                      className="h-12 text-xl font-semibold bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                      onClick={() => appendDigit(d)}
+                      disabled={answerSubmitted || gameplay.status !== "playing"}
+                    >
+                      {d}
+                    </Button>
+                  ))}
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 text-xl font-semibold bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                    onClick={toggleMinus}
+                    disabled={answerSubmitted || gameplay.status !== "playing"}
+                  >
+                    −
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 text-xl font-semibold bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                    onClick={() => appendDigit("0")}
+                    disabled={answerSubmitted || gameplay.status !== "playing"}
+                  >
+                    0
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 text-xl font-semibold bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                    onClick={backspace}
+                    disabled={answerSubmitted || gameplay.status !== "playing"}
+                    aria-label="Backspace"
+                  >
+                    ⌫
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 text-base font-semibold col-span-2 bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                    onClick={clearAnswer}
+                    disabled={answerSubmitted || gameplay.status !== "playing"}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-12 text-base font-semibold bg-[#34c759] text-white active:bg-[#2fb14f]"
+                    onClick={submitCurrentAnswer}
+                    disabled={answerSubmitted || gameplay.status !== "playing" || userAnswer.length === 0 || userAnswer === "-"}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* SEARCHING OVERLAY */}
