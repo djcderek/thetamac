@@ -110,12 +110,33 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   const [showSettings, setShowSettings] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
   const currentProblem = problems[currentIndex];
 
   const isMobileDevice = useIsMobileDevice();
   const useCustomKeypad = isMobileDevice;
   const showCustomKeypad = useCustomKeypad && isPlaying && !!currentProblem;
   const answerInputDisabled = !isPlaying || !currentProblem;
+
+  // On mobile, keep the progress + question card in view when the custom keypad is open / problem changes.
+  useEffect(() => {
+    if (!showCustomKeypad) return;
+    const node = progressRef.current;
+    if (!node) return;
+
+    const scroll = () => node.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    let timeout: number | undefined;
+    const raf = requestAnimationFrame(() => {
+      scroll();
+      timeout = window.setTimeout(scroll, 60);
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, [showCustomKeypad, currentIndex]);
   const progress = problems.length > 0 ? ((currentIndex) / problems.length) * 100 : 0;
   const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
 
@@ -421,16 +442,16 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Settings className="w-3.5 h-3.5 flex-shrink-0" />
+                      <Settings className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         <span className="font-medium text-foreground">Settings: </span>
                         {submitMode === "auto" ? "Auto-submit" : "Press Enter to submit"}
                       </span>
                     </div>
                     {showSettings ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                     )}
                   </div>
                 </button>
@@ -503,10 +524,10 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
         </div>
       </div>
 
-      <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+260px)]" : ""}`}>
-        <div className="max-w-2xl mx-auto space-y-6">
+      <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+340px)]" : ""}`}>
+        <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
           {/* Progress */}
-          <div>
+          <div ref={progressRef} className="scroll-mt-4">
             <Progress value={progress} className="h-2" />
           </div>
 
@@ -515,9 +536,9 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
             <Card className={`transition-colors ${
               isCorrect === true ? "border-success" : isCorrect === false ? "border-destructive" : ""
             }`}>
-              <CardContent className="p-12">
+              <CardContent className="p-6 sm:p-12">
                 <div className="text-center">
-                  <div className="text-6xl font-mono font-semibold tracking-wide mb-8">
+                  <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-5 sm:mb-8">
                     {currentProblem.operandA} {operationSymbols[currentProblem.operation] || currentProblem.operation} {currentProblem.operandB}
                   </div>
 
@@ -527,7 +548,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                         role="textbox"
                         aria-label="Answer"
                         aria-readonly="true"
-                        className={`h-14 text-center text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
+                        className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
                           answerInputDisabled ? "opacity-50" : ""
                         }`}
                       >
@@ -540,7 +561,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                         value={userAnswer}
                         onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
                         placeholder="?"
-                        className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
+                        className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto"
                         autoFocus
                       />
                     )}

@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { isPremiumStatus } from "@/lib/subscription-status";
 import { Lock } from "lucide-react";
-import { PremiumPaywall } from "@/components/billing/premium-paywall";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -37,7 +36,7 @@ import {
   Shuffle,
 } from "lucide-react";
 import Link from "next/link";
-import { TRAINING_SKILLS, MathSkill, SkillId } from "@/lib/training-skills";
+import { TRAINING_SKILLS, SkillId } from "@/lib/training-skills";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 
 type Operation = "+" | "-" | "×" | "÷";
@@ -365,9 +364,6 @@ function getMultiplicationTip(a: number, b: number): MathTip {
   // Squaring any 2-digit number (The Duplex/Distance Method)
   if (a === b && a >= 10 && a <= 99) {
     const nearestTen = Math.round(a / 10) * 10;
-    const distance = a - nearestTen;
-    const otherFactor = a - distance; // or nearestTen
-    const adjustedFactor = a + distance; // goes the opposite direction
     // Actually: (a - d)(a + d) + d² = a² - d² + d² = a²
     // So: round to nearest 10, adjust other factor opposite, multiply, add distance²
     const baseFactor = nearestTen;
@@ -693,7 +689,7 @@ export default function TrainingPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [avgTime, setAvgTime] = useState(0);
-  const [times, setTimes] = useState<number[]>([]);
+  const [, setTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState<number>(0);
   
   // Learning mode state
@@ -711,10 +707,31 @@ export default function TrainingPage() {
   const operationQueueRef = useRef<Operation[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const timerAndProblemRef = useRef<HTMLDivElement>(null);
   const isMobileDevice = useIsMobileDevice();
   const useCustomKeypad = isMobileDevice;
   const showCustomKeypad = useCustomKeypad && isPlaying && !!problem && !(gameMode === "learning" && hasAnswered);
   const answerInputDisabled = !isPlaying || !problem || hasAnswered;
+
+  // On mobile, keep the timer + question card in view when the custom keypad is open / problem changes.
+  useEffect(() => {
+    if (!showCustomKeypad) return;
+    const node = timerAndProblemRef.current;
+    if (!node) return;
+
+    const scroll = () => node.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    let timeout: number | undefined;
+    const raf = requestAnimationFrame(() => {
+      scroll();
+      timeout = window.setTimeout(scroll, 60);
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, [showCustomKeypad, problem?.a, problem?.b, problem?.operation]);
 
   // Load user settings on mount
   useEffect(() => {
@@ -859,33 +876,31 @@ export default function TrainingPage() {
   };
 
   // Record a problem attempt to the database
-  const recordAttempt = async (
-    problem: Problem,
-    userAnswerNum: number | null,
-    correct: boolean,
-    timeTaken: number
-  ) => {
-    if (!authSession?.user) return;
-    
-    try {
-      await fetch("/api/training/attempt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          operandA: problem.a,
-          operandB: problem.b,
-          operation: problem.operation,
-          correctAnswer: problem.answer,
-          userAnswer: userAnswerNum,
-          isCorrect: correct,
-          timeTaken,
-        }),
-      });
-    } catch (error) {
-      console.error("Failed to record attempt:", error);
-    }
-  };
+  const recordAttempt = useCallback(
+    async (problem: Problem, userAnswerNum: number | null, correct: boolean, timeTaken: number) => {
+      if (!authSession?.user) return;
+      
+      try {
+        await fetch("/api/training/attempt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            operandA: problem.a,
+            operandB: problem.b,
+            operation: problem.operation,
+            correctAnswer: problem.answer,
+            userAnswer: userAnswerNum,
+            isCorrect: correct,
+            timeTaken,
+          }),
+        });
+      } catch (error) {
+        console.error("Failed to record attempt:", error);
+      }
+    },
+    [authSession?.user, sessionId]
+  );
 
   // End the training session and save to database
   const endSession = async (solved: number, correct: number, bestStreak: number, avgTimeVal: number) => {
@@ -1133,7 +1148,7 @@ export default function TrainingPage() {
         }, 200);
       }
     }
-  }, [userAnswer, problem, isPlaying, submitMode, hasAnswered, startTime, gameMode, authSession, sessionId, startNewProblem]);
+  }, [userAnswer, problem, isPlaying, submitMode, hasAnswered, startTime, gameMode, authSession, sessionId, startNewProblem, recordAttempt]);
 
   const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
 
@@ -1167,7 +1182,7 @@ export default function TrainingPage() {
         </div>
       </div>
 
-      <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+260px)]" : ""}`}>
+      <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+340px)]" : ""}`}>
         <div className="max-w-2xl mx-auto">
           {/* Game Over Screen for Timed Mode */}
           {isGameOver && (
@@ -1290,7 +1305,7 @@ export default function TrainingPage() {
 
                   {/* Learning Mode Description */}
                   {gameMode === "learning" && (
-                    <div className="p-4 rounded-lg bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20">
+                    <div className="p-4 rounded-lg bg-linear-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20">
                       <div className="flex items-start gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-amber-500/20">
                           <Lightbulb className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -1389,7 +1404,7 @@ export default function TrainingPage() {
 
                         {/* Premium upsell for skills if not premium */}
                         {!isPremium && (
-                          <div className="mt-4 p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 flex items-center justify-between">
+                          <div className="mt-4 p-3 rounded-lg bg-linear-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <div className="p-1.5 rounded-full bg-amber-500/20">
                                 <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -1417,7 +1432,7 @@ export default function TrainingPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <Settings className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <Settings className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                           <div>
                             <span className="font-medium text-foreground">Settings: </span>
                             {showAdvanced ? (
@@ -1433,9 +1448,9 @@ export default function TrainingPage() {
                           </div>
                         </div>
                         {showSettings ? (
-                          <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                         )}
                       </div>
                     </button>
@@ -1643,7 +1658,7 @@ export default function TrainingPage() {
                         {submitMode === "auto" && (
                           <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                             <div className="flex items-start gap-2">
-                              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                               <p className="text-xs text-amber-800 dark:text-amber-200">
                                 <span className="font-medium">Note:</span> Accuracy data will not be tracked in auto-submit mode since incorrect attempts are not recorded.
                               </p>
@@ -1663,7 +1678,7 @@ export default function TrainingPage() {
               </CardContent>
             </Card>
           ) : isPlaying && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Header with difficulty badge */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1701,40 +1716,42 @@ export default function TrainingPage() {
               </div>
 
               {/* Timer - Only for timed and practice modes */}
-              {gameMode === "practice" ? (
-                <>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Time remaining</span>
-                    <span className="font-mono">{timeLeft}s</span>
+              <div ref={timerAndProblemRef} className="space-y-2 scroll-mt-4">
+                {gameMode === "practice" ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Time remaining</span>
+                      <span className="font-mono">{timeLeft}s</span>
+                    </div>
+                    <Progress
+                      value={(timeLeft / practiceTimerLimit) * 100}
+                      className="h-1"
+                    />
+                  </>
+                ) : gameMode === "timed" ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Time remaining</span>
+                      <span className={`font-mono text-lg font-semibold ${overallTimeLeft <= 10 ? "text-destructive" : ""}`}>
+                        {formatTime(overallTimeLeft)}
+                      </span>
+                    </div>
+                    <Progress
+                      value={(overallTimeLeft / timedModeLimit) * 100}
+                      className="h-2"
+                    />
+                  </>
+                ) : (
+                  // Learning mode - show number ranges info
+                  <div className="text-xs text-muted-foreground text-center">
+                    Take your time — no timer in learning mode
                   </div>
-                  <Progress
-                    value={(timeLeft / practiceTimerLimit) * 100}
-                    className="h-1"
-                  />
-                </>
-              ) : gameMode === "timed" ? (
-                <>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Time remaining</span>
-                    <span className={`font-mono text-lg font-semibold ${overallTimeLeft <= 10 ? "text-destructive" : ""}`}>
-                      {formatTime(overallTimeLeft)}
-                    </span>
-                  </div>
-                  <Progress
-                    value={(overallTimeLeft / timedModeLimit) * 100}
-                    className="h-2"
-                  />
-                </>
-              ) : (
-                // Learning mode - show number ranges info
-                <div className="text-xs text-muted-foreground text-center">
-                  Take your time — no timer in learning mode
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Tip Card - Before problem in Learning mode */}
               {gameMode === "learning" && showTip && currentTip && !hasAnswered && (
-                <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5">
+                <Card className="border-amber-500/30 bg-linear-to-br from-amber-500/5 to-orange-500/5">
                   <CardContent className="p-4">
                     <button
                       onClick={() => setTipExpanded(!tipExpanded)}
@@ -1756,7 +1773,7 @@ export default function TrainingPage() {
                     {tipExpanded && (
                       <div className="mt-3 space-y-3">
                         <div className="flex items-start gap-2 text-sm">
-                          <Sparkles className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                          <Sparkles className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
                           <p className="text-amber-800 dark:text-amber-200 font-medium">
                             {currentTip.technique}
                           </p>
@@ -1774,10 +1791,10 @@ export default function TrainingPage() {
               <Card className={`transition-colors ${
                 isCorrect === true ? "border-success" : isCorrect === false ? "border-destructive" : ""
               }`}>
-                <CardContent className="p-12">
+                <CardContent className="p-6 sm:p-12">
                   {problem && (
                     <div className="text-center">
-                      <div className="text-6xl font-mono font-semibold tracking-wide mb-8">
+                      <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-5 sm:mb-8">
                         {problem.a} {problem.operation} {problem.b}
                       </div>
 
@@ -1787,7 +1804,7 @@ export default function TrainingPage() {
                             role="textbox"
                             aria-label="Answer"
                             aria-readonly="true"
-                            className={`h-14 text-center text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
+                            className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
                               answerInputDisabled ? "opacity-50" : ""
                             }`}
                           >
@@ -1800,7 +1817,7 @@ export default function TrainingPage() {
                             value={userAnswer}
                             onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
                             placeholder="?"
-                            className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
+                            className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto"
                             autoFocus
                             disabled={gameMode === "learning" && hasAnswered}
                           />
@@ -1854,7 +1871,7 @@ export default function TrainingPage() {
                         <div className="space-y-2 pl-6">
                           {currentTip.steps.map((step, index) => (
                             <div key={index} className="flex items-start gap-2 text-sm">
-                              <span className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center text-xs font-medium flex-shrink-0">
+                              <span className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center text-xs font-medium shrink-0">
                                 {index + 1}
                               </span>
                               <span className="font-mono text-muted-foreground">{step}</span>
