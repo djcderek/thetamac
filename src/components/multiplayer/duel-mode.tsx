@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   Check,
   X,
+  Delete,
 } from "lucide-react";
 import { useSocket } from "@/hooks/use-socket";
 import Link from "next/link";
@@ -560,7 +561,7 @@ export function DuelMode() {
 
         <div
           className={`p-2 sm:p-4 md:p-6 ${
-            showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+320px)]" : "pb-[env(safe-area-inset-bottom,0.5rem)]"
+            showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+220px)]" : "pb-[env(safe-area-inset-bottom,0.5rem)]"
           }`}
         >
           <div className="max-w-2xl mx-auto space-y-3 sm:space-y-6">
@@ -818,19 +819,15 @@ export function DuelMode() {
         {/* Mobile custom keypad (persists for entire match) */}
         {showCustomKeypad && (
           <div className="fixed left-0 right-0 bottom-0 z-50">
-            <div className="border-t border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 shadow-[0_-12px_30px_-12px_rgba(0,0,0,0.45)]">
-              <div className="max-w-md mx-auto px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0.5rem)+12px)]">
-                <div className="flex items-center justify-center pb-3">
-                  <div className="h-1 w-12 rounded-full bg-muted-foreground/30" />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 select-none touch-manipulation">
+            <div className="border-t border-border bg-background">
+              <div className="max-w-md mx-auto px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0.5rem)+8px)]">
+                <div className="grid grid-cols-3 gap-1.5 select-none touch-manipulation">
                   {["1","2","3","4","5","6","7","8","9"].map((d) => (
                     <Button
                       key={d}
                       type="button"
-                      variant="outline"
-                      className="h-14 rounded-xl text-2xl font-semibold bg-background active:bg-muted active:scale-[0.98] transition"
+                      variant="secondary"
+                      className="h-11 rounded-xl text-lg font-semibold active:scale-[0.98] transition"
                       onClick={() => appendDigit(d)}
                       disabled={answerSubmitted || gameplay.status !== "playing"}
                     >
@@ -840,8 +837,8 @@ export function DuelMode() {
 
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-14 rounded-xl text-2xl font-semibold bg-background active:bg-muted active:scale-[0.98] transition"
+                    variant="secondary"
+                    className="h-11 rounded-xl text-lg font-semibold active:scale-[0.98] transition"
                     onClick={toggleMinus}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                     aria-label="Toggle negative sign"
@@ -850,8 +847,8 @@ export function DuelMode() {
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-14 rounded-xl text-2xl font-semibold bg-background active:bg-muted active:scale-[0.98] transition"
+                    variant="secondary"
+                    className="h-11 rounded-xl text-lg font-semibold active:scale-[0.98] transition"
                     onClick={() => appendDigit("0")}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                   >
@@ -859,19 +856,19 @@ export function DuelMode() {
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-14 rounded-xl text-2xl font-semibold bg-background active:bg-muted active:scale-[0.98] transition"
+                    variant="secondary"
+                    className="h-11 rounded-xl active:scale-[0.98] transition"
                     onClick={backspace}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                     aria-label="Backspace"
                   >
-                    ⌫
+                    <Delete className="h-5 w-5 opacity-80" />
                   </Button>
 
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-12 rounded-xl text-base font-semibold col-span-2 bg-background active:bg-muted active:scale-[0.99] transition"
+                    variant="secondary"
+                    className="h-10 rounded-xl text-sm font-semibold col-span-2 active:scale-[0.99] transition"
                     onClick={clearAnswer}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                   >
@@ -879,7 +876,7 @@ export function DuelMode() {
                   </Button>
                   <Button
                     type="button"
-                    className="h-12 rounded-xl text-base font-semibold bg-linear-to-b from-emerald-500 to-emerald-600 text-white shadow-sm active:from-emerald-600 active:to-emerald-700 active:scale-[0.99] transition"
+                    className="h-10 rounded-xl text-sm font-semibold active:scale-[0.99] transition"
                     onClick={submitCurrentAnswer}
                     disabled={answerSubmitted || gameplay.status !== "playing" || userAnswer.length === 0 || userAnswer === "-"}
                   >
