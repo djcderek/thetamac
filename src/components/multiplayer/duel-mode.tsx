@@ -582,15 +582,15 @@ export function DuelMode() {
                   <CardContent className="p-3 sm:p-4">
                     {/* Mobile: compact stacked layout */}
                     <div className="sm:hidden">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-1">
                         <p className="text-xs text-muted-foreground">Round {gameplay.currentRound}/10</p>
                         <p className={`text-lg font-mono font-semibold ${timeLeft <= 3 ? "text-destructive" : ""}`}>
                           {timeLeft.toFixed(1)}s
                         </p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8">
+                        <div className="flex items-center gap-1">
+                          <Avatar className="h-4 w-4">
                             <AvatarFallback className="text-xs">{getInitials(session.user.name || "You")}</AvatarFallback>
                           </Avatar>
                           <span className="text-2xl font-mono font-bold">
@@ -602,7 +602,7 @@ export function DuelMode() {
                           <span className="text-2xl font-mono font-bold">
                             {matchmaking.opponent ? gameplay.scores[matchmaking.opponent.id] || 0 : 0}
                           </span>
-                          <Avatar className="h-8 w-8">
+                          <Avatar className="h-4 w-4">
                             <AvatarFallback className="text-xs">
                               {matchmaking.opponent ? getInitials(matchmaking.opponent.username) : "OP"}
                             </AvatarFallback>
