@@ -58,29 +58,41 @@ export function DuelMode() {
   });
   const [statsLoading, setStatsLoading] = useState(!!session?.user);
   const debugFocus = process.env.NODE_ENV !== "production";
-  const [isSmallScreen, setIsSmallScreen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(max-width: 640px)").matches;
+  const [isMobileDevice, setIsMobileDevice] = useState(() => {
+    if (typeof navigator === "undefined") return false;
+
+    const ua = navigator.userAgent || "";
+    const platform = (navigator as unknown as { platform?: string }).platform || "";
+    const maxTouchPoints = (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints || 0;
+
+    // iPadOS 13+ often reports as Mac; this heuristic catches it.
+    const isIPad = /iPad/i.test(ua) || (platform === "MacIntel" && maxTouchPoints > 1);
+    const isPhoneLike = /Android|iPhone|iPod|Windows Phone|Mobile/i.test(ua);
+
+    const uaDataMobile =
+      "userAgentData" in navigator
+        ? !!(navigator as unknown as { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile
+        : false;
+
+    return uaDataMobile || isIPad || isPhoneLike;
   });
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 640px)");
-    const update = () => setIsSmallScreen(mq.matches);
-    update();
-    if ("addEventListener" in mq) {
-      mq.addEventListener("change", update);
-    } else {
-      // Safari < 14
-      (mq as unknown as { addListener: (cb: () => void) => void }).addListener(update);
-    }
-    return () => {
-      if ("removeEventListener" in mq) {
-        mq.removeEventListener("change", update);
-      } else {
-        (mq as unknown as { removeListener: (cb: () => void) => void }).removeListener(update);
-      }
-    };
+    // Keep detection fresh in cases where UA/client hints become available after hydration.
+    if (typeof navigator === "undefined") return;
+    setIsMobileDevice((prev) => {
+      const ua = navigator.userAgent || "";
+      const platform = (navigator as unknown as { platform?: string }).platform || "";
+      const maxTouchPoints = (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints || 0;
+      const isIPad = /iPad/i.test(ua) || (platform === "MacIntel" && maxTouchPoints > 1);
+      const isPhoneLike = /Android|iPhone|iPod|Windows Phone|Mobile/i.test(ua);
+      const uaDataMobile =
+        "userAgentData" in navigator
+          ? !!(navigator as unknown as { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile
+          : false;
+      const next = uaDataMobile || isIPad || isPhoneLike;
+      return next === prev ? prev : next;
+    });
   }, []);
 
   const appendDigit = (digit: string) => {
@@ -207,6 +219,8 @@ export function DuelMode() {
   const isMatchFound = hasOpponent && gameplay.status === "idle";
   const isGameActive = gameplay.status === "playing" || gameplay.status === "round_end" || gameplay.status === "countdown";
   const isLobby = !isSearching && !isMatchFound && !isGameActive;
+  const useCustomKeypad = isMobileDevice;
+  const showCustomKeypad = isGameActive && useCustomKeypad;
 
   useEffect(() => {
     if (!debugFocus) return;
@@ -546,7 +560,7 @@ export function DuelMode() {
 
         <div
           className={`p-2 sm:p-4 md:p-6 ${
-            isSmallScreen ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+290px)]" : "pb-[env(safe-area-inset-bottom,0.5rem)]"
+            showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+320px)]" : "pb-[env(safe-area-inset-bottom,0.5rem)]"
           }`}
         >
           <div className="max-w-2xl mx-auto space-y-3 sm:space-y-6">
@@ -686,8 +700,8 @@ export function DuelMode() {
 
                         <form onSubmit={handleSubmitAnswer}>
                             <div className="flex items-center gap-2 justify-center max-w-[280px] mx-auto">
-                              {/* iOS Safari restriction: on small screens we avoid a real input and use a custom keypad */}
-                              {isSmallScreen ? (
+                              {/* On mobile devices we use a custom keypad (more reliable than the OS keyboard). */}
+                              {useCustomKeypad ? (
                                 <div className="w-full">
                                   <div
                                     role="textbox"
@@ -801,18 +815,22 @@ export function DuelMode() {
           </div>
         </div>
 
-        {/* Small-screen custom keypad (persists for entire match) */}
-        {isGameActive && isSmallScreen && (
+        {/* Mobile custom keypad (persists for entire match) */}
+        {showCustomKeypad && (
           <div className="fixed left-0 right-0 bottom-0 z-50">
-            <div className="bg-[#d1d1d6] dark:bg-neutral-900 border-t border-border px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0.5rem)+12px)]">
-              <div className="max-w-md mx-auto">
+            <div className="border-t border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 shadow-[0_-12px_30px_-12px_rgba(0,0,0,0.45)]">
+              <div className="max-w-md mx-auto px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0.5rem)+12px)]">
+                <div className="flex items-center justify-center pb-3">
+                  <div className="h-1 w-12 rounded-full bg-muted-foreground/30" />
+                </div>
+
                 <div className="grid grid-cols-3 gap-2 select-none touch-manipulation">
                   {["1","2","3","4","5","6","7","8","9"].map((d) => (
                     <Button
                       key={d}
                       type="button"
-                      variant="secondary"
-                      className="h-12 text-xl font-semibold bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                      variant="outline"
+                      className="h-14 rounded-xl text-2xl font-semibold bg-background active:bg-muted active:scale-[0.98] transition"
                       onClick={() => appendDigit(d)}
                       disabled={answerSubmitted || gameplay.status !== "playing"}
                     >
@@ -822,17 +840,18 @@ export function DuelMode() {
 
                   <Button
                     type="button"
-                    variant="secondary"
-                    className="h-12 text-xl font-semibold bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                    variant="outline"
+                    className="h-14 rounded-xl text-2xl font-semibold bg-background active:bg-muted active:scale-[0.98] transition"
                     onClick={toggleMinus}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
+                    aria-label="Toggle negative sign"
                   >
                     −
                   </Button>
                   <Button
                     type="button"
-                    variant="secondary"
-                    className="h-12 text-xl font-semibold bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                    variant="outline"
+                    className="h-14 rounded-xl text-2xl font-semibold bg-background active:bg-muted active:scale-[0.98] transition"
                     onClick={() => appendDigit("0")}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                   >
@@ -840,8 +859,8 @@ export function DuelMode() {
                   </Button>
                   <Button
                     type="button"
-                    variant="secondary"
-                    className="h-12 text-xl font-semibold bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                    variant="outline"
+                    className="h-14 rounded-xl text-2xl font-semibold bg-background active:bg-muted active:scale-[0.98] transition"
                     onClick={backspace}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                     aria-label="Backspace"
@@ -851,8 +870,8 @@ export function DuelMode() {
 
                   <Button
                     type="button"
-                    variant="secondary"
-                    className="h-12 text-base font-semibold col-span-2 bg-[#e5e5ea] text-black active:bg-[#c7c7cc] dark:bg-neutral-800 dark:text-white"
+                    variant="outline"
+                    className="h-12 rounded-xl text-base font-semibold col-span-2 bg-background active:bg-muted active:scale-[0.99] transition"
                     onClick={clearAnswer}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                   >
@@ -860,7 +879,7 @@ export function DuelMode() {
                   </Button>
                   <Button
                     type="button"
-                    className="h-12 text-base font-semibold bg-[#34c759] text-white active:bg-[#2fb14f]"
+                    className="h-12 rounded-xl text-base font-semibold bg-linear-to-b from-emerald-500 to-emerald-600 text-white shadow-sm active:from-emerald-600 active:to-emerald-700 active:scale-[0.99] transition"
                     onClick={submitCurrentAnswer}
                     disabled={answerSubmitted || gameplay.status !== "playing" || userAnswer.length === 0 || userAnswer === "-"}
                   >
@@ -991,7 +1010,7 @@ export function DuelMode() {
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                    <div className="w-14 h-14 rounded-xl bg-linear-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
                       <Swords className="w-7 h-7 text-violet-500" />
                     </div>
                     <div className="flex-1">
@@ -1027,7 +1046,7 @@ export function DuelMode() {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                         <span className="text-sm font-semibold">2</span>
                       </div>
                       <div>
@@ -1038,7 +1057,7 @@ export function DuelMode() {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                         <span className="text-sm font-semibold">3</span>
                       </div>
                       <div>
