@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { MobileNumpad } from "@/components/ui/mobile-numpad";
+import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import {
   ArrowLeft,
   Target,
@@ -108,8 +110,12 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   const [showSettings, setShowSettings] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-
   const currentProblem = problems[currentIndex];
+
+  const isMobileDevice = useIsMobileDevice();
+  const useCustomKeypad = isMobileDevice;
+  const showCustomKeypad = useCustomKeypad && isPlaying && !!currentProblem;
+  const answerInputDisabled = !isPlaying || !currentProblem;
   const progress = problems.length > 0 ? ((currentIndex) / problems.length) * 100 : 0;
   const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
 
@@ -179,8 +185,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitCurrentAnswer = () => {
     if (!currentProblem || !isPlaying) return;
 
     const answerNum = parseInt(userAnswer);
@@ -189,9 +194,10 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     const correct = answerNum === currentProblem.answer;
     const timeTaken = (Date.now() - startTime) / 1000;
 
-    // In auto mode, only correct answers trigger submission
-    if (submitMode === "auto" && !correct) {
-      // Wrong answer - just clear and let them try again
+    // In auto mode, correct answers are handled by the effect
+    // Incorrect answers just clear the input (no tracking)
+    if (submitMode === "auto") {
+      if (correct) return;
       setUserAnswer("");
       setIsCorrect(false);
       setTimeout(() => setIsCorrect(null), 300);
@@ -235,14 +241,16 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     }, correct ? 200 : 600);
   };
 
-  // Auto-submit when correct answer is typed
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setUserAnswer(val);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitCurrentAnswer();
+  };
 
+  // Auto-submit when correct answer is typed
+  useEffect(() => {
     if (!isPlaying || !currentProblem || submitMode !== "auto" || isCorrect !== null) return;
 
-    const answerNum = parseInt(val);
+    const answerNum = parseInt(userAnswer);
     if (!isNaN(answerNum) && answerNum === currentProblem.answer) {
       const timeTaken = (Date.now() - startTime) / 1000;
 
@@ -263,7 +271,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
         nextProblem();
       }, 200);
     }
-  };
+  }, [userAnswer, isPlaying, currentProblem, submitMode, isCorrect, startTime, bestStreak, recordAttempt, nextProblem]);
 
   const accuracy = problems.length > 0 ? Math.round((correctCount / Math.max(currentIndex, 1)) * 100) : 0;
 
@@ -495,7 +503,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
         </div>
       </div>
 
-      <div className="p-4 md:p-6">
+      <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+260px)]" : ""}`}>
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Progress */}
           <div>
@@ -514,15 +522,28 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                   </div>
 
                   <form onSubmit={handleSubmit}>
-                    <Input
-                      ref={inputRef}
-                      type="number"
-                      value={userAnswer}
-                      onChange={handleInputChange}
-                      placeholder="?"
-                      className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
-                      autoFocus
-                    />
+                    {useCustomKeypad ? (
+                      <div
+                        role="textbox"
+                        aria-label="Answer"
+                        aria-readonly="true"
+                        className={`h-14 text-center text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
+                          answerInputDisabled ? "opacity-50" : ""
+                        }`}
+                      >
+                        {userAnswer.length > 0 ? userAnswer : "?"}
+                      </div>
+                    ) : (
+                      <Input
+                        ref={inputRef}
+                        type="number"
+                        value={userAnswer}
+                        onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
+                        placeholder="?"
+                        className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
+                        autoFocus
+                      />
+                    )}
                   </form>
 
                   {isCorrect === false && (
@@ -563,6 +584,15 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
           </div>
         </div>
       </div>
+
+      {showCustomKeypad && (
+        <MobileNumpad
+          value={userAnswer}
+          setValue={setUserAnswer}
+          disabled={answerInputDisabled}
+          onDone={submitCurrentAnswer}
+        />
+      )}
     </div>
   );
 }

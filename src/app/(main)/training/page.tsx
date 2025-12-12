@@ -9,6 +9,7 @@ import { PremiumPaywall } from "@/components/billing/premium-paywall";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import {
   RotateCcw,
   Play,
@@ -37,6 +38,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { TRAINING_SKILLS, MathSkill, SkillId } from "@/lib/training-skills";
+import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 
 type Operation = "+" | "-" | "×" | "÷";
 type Difficulty = "easy" | "medium" | "hard" | "expert";
@@ -709,6 +711,10 @@ export default function TrainingPage() {
   const operationQueueRef = useRef<Operation[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const isMobileDevice = useIsMobileDevice();
+  const useCustomKeypad = isMobileDevice;
+  const showCustomKeypad = useCustomKeypad && isPlaying && !!problem && !(gameMode === "learning" && hasAnswered);
+  const answerInputDisabled = !isPlaying || !problem || hasAnswered;
 
   // Load user settings on mount
   useEffect(() => {
@@ -919,11 +925,11 @@ export default function TrainingPage() {
     setHasAnswered(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitCurrentAnswer = () => {
     if (!problem || !isPlaying || hasAnswered) return;
 
     const answerNum = parseInt(userAnswer);
+    if (isNaN(answerNum)) return;
     const correct = answerNum === problem.answer;
     
     // In auto-submit mode, correct answers are handled by the effect
@@ -1028,6 +1034,11 @@ export default function TrainingPage() {
         startNewProblem();
       }, 600);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitCurrentAnswer();
   };
 
   // Practice mode per-question timer
@@ -1156,7 +1167,7 @@ export default function TrainingPage() {
         </div>
       </div>
 
-      <div className="p-4 md:p-6">
+      <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+260px)]" : ""}`}>
         <div className="max-w-2xl mx-auto">
           {/* Game Over Screen for Timed Mode */}
           {isGameOver && (
@@ -1771,16 +1782,29 @@ export default function TrainingPage() {
                       </div>
 
                       <form onSubmit={handleSubmit}>
-                        <Input
-                          ref={inputRef}
-                          type="number"
-                          value={userAnswer}
-                          onChange={(e) => setUserAnswer(e.target.value)}
-                          placeholder="?"
-                          className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
-                          autoFocus
-                          disabled={gameMode === "learning" && hasAnswered}
-                        />
+                        {useCustomKeypad ? (
+                          <div
+                            role="textbox"
+                            aria-label="Answer"
+                            aria-readonly="true"
+                            className={`h-14 text-center text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
+                              answerInputDisabled ? "opacity-50" : ""
+                            }`}
+                          >
+                            {userAnswer.length > 0 ? userAnswer : "?"}
+                          </div>
+                        ) : (
+                          <Input
+                            ref={inputRef}
+                            type="number"
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
+                            placeholder="?"
+                            className="h-14 text-center text-2xl font-mono max-w-[200px] mx-auto"
+                            autoFocus
+                            disabled={gameMode === "learning" && hasAnswered}
+                          />
+                        )}
                       </form>
 
                       {isCorrect === false && gameMode === "practice" && (
@@ -1904,6 +1928,15 @@ export default function TrainingPage() {
           )}
         </div>
       </div>
+
+      {showCustomKeypad && (
+        <MobileNumpad
+          value={userAnswer}
+          setValue={setUserAnswer}
+          disabled={answerInputDisabled}
+          onDone={submitCurrentAnswer}
+        />
+      )}
     </div>
   );
 }
