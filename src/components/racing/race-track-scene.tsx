@@ -86,7 +86,7 @@ function Label3D({
 function WindEffect({ active }: { active: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
   
-  useFrame((state) => {
+  useFrame(() => {
     if (groupRef.current) {
       groupRef.current.visible = active;
       if (active) {
@@ -98,19 +98,34 @@ function WindEffect({ active }: { active: boolean }) {
   });
 
   // Create random wind lines
+  const pseudoRandom = (seed: number) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
   const lines = useMemo(
     () =>
-      Array.from({ length: 16 }).map((_, i) => ({
-        key: i,
-        // Position primarily on the sides and slightly above
-        x: (Math.random() > 0.5 ? 1 : -1) * (0.7 + Math.random() * 0.8),
-        y: 0.2 + Math.random() * 1.0,
-        z: -Math.random() * 5,
-        speed: 25 + Math.random() * 15,
-        len: 1.5 + Math.random() * 2.5,
-        opacity: 0.2 + Math.random() * 0.4,
-        width: 0.02 + Math.random() * 0.03,
-      })),
+      Array.from({ length: 16 }).map((_, i) => {
+        const s0 = pseudoRandom(1000 + i * 13);
+        const s1 = pseudoRandom(2000 + i * 17);
+        const s2 = pseudoRandom(3000 + i * 19);
+        const s3 = pseudoRandom(4000 + i * 23);
+        const s4 = pseudoRandom(5000 + i * 29);
+        const s5 = pseudoRandom(6000 + i * 31);
+        const s6 = pseudoRandom(7000 + i * 37);
+        const s7 = pseudoRandom(8000 + i * 41);
+
+        return {
+          key: i,
+          // Position primarily on the sides and slightly above
+          x: (s0 > 0.5 ? 1 : -1) * (0.7 + s1 * 0.8),
+          y: 0.2 + s2 * 1.0,
+          z: -s3 * 5,
+          speed: 25 + s4 * 15,
+          len: 1.5 + s5 * 2.5,
+          opacity: 0.2 + s6 * 0.4,
+          width: 0.02 + s7 * 0.03,
+        };
+      }),
     []
   );
 
@@ -124,11 +139,22 @@ function WindEffect({ active }: { active: boolean }) {
   );
 }
 
-function WindLine({ x, y, z, speed, len, opacity, width, active }: any) {
+type WindLineProps = {
+  x: number;
+  y: number;
+  z: number;
+  speed: number;
+  len: number;
+  opacity: number;
+  width: number;
+  active: boolean;
+};
+
+function WindLine({ x, y, z, speed, len, opacity, width, active }: WindLineProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const zPos = useRef(z);
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (!active || !meshRef.current) return;
     
     zPos.current += speed * delta;
@@ -804,6 +830,18 @@ export function GameCamera({ myPosition, trackLength }: { myPosition: number, tr
   
   // Camera follows player with damping to smooth discrete position updates
   useFrame((state, delta) => {
+    const aspect = state.size.width / Math.max(1, state.size.height);
+    // In portrait / narrow viewports the horizontal FOV shrinks, which can clip track edges.
+    // Compensate by slightly increasing vertical FOV and backing the camera up.
+    const portraitFactor = Math.max(0, 1 - aspect); // ~0 on landscape, higher on portrait
+    const targetFov = THREE.MathUtils.clamp(60 + portraitFactor * 30, 60, 85);
+
+    const cam = state.camera as THREE.PerspectiveCamera;
+    if ("fov" in cam) {
+      cam.fov = THREE.MathUtils.damp(cam.fov, targetFov, 6, delta);
+      cam.updateProjectionMatrix();
+    }
+
     // Smooth the reported player progress before using it for camera targets
     smoothedProgress.current = THREE.MathUtils.damp(
       smoothedProgress.current,
@@ -813,12 +851,14 @@ export function GameCamera({ myPosition, trackLength }: { myPosition: number, tr
     );
     
     // Offset relative to smoothed player position
-    const targetZ = -smoothedProgress.current * UNIT_SCALE + 10; // a bit farther back for stability
-    const targetY = 6; // fixed height to prevent bobbing
+    const backOffset = 10 + portraitFactor * 10; // back up a bit more on narrow screens
+    const targetZ = -smoothedProgress.current * UNIT_SCALE + backOffset; // farther back for stability
+    const targetY = 6 + portraitFactor * 3; // slightly higher on narrow screens
     const targetX = 0; // centered
     
     // Look slightly ahead of player
-    const lookAtZ = -smoothedProgress.current * UNIT_SCALE - 12;
+    const lookAhead = 12 + portraitFactor * 6;
+    const lookAtZ = -smoothedProgress.current * UNIT_SCALE - lookAhead;
     
     // Use pre-allocated Vector3 instead of creating new one each frame
     targetVec.current.set(targetX, targetY, targetZ);

@@ -39,13 +39,11 @@ function VehicleModel({
   vehicleType = "car_standard",
   isCurrentUser = false,
   position = [0, 0, 0] as [number, number, number],
-  rotation = 0,
 }: { 
   skin?: string | null; 
   vehicleType?: string | null;
   isCurrentUser?: boolean;
   position?: [number, number, number];
-  rotation?: number;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
@@ -444,18 +442,16 @@ function PlayerCard({
   player, 
   index,
   isCurrentUser,
-  totalSlots,
 }: { 
   player: LobbyPlayer | null;
   index: number;
   isCurrentUser: boolean;
-  totalSlots: number;
 }) {
   if (!player) {
     return (
       <div className="flex flex-col items-center">
-        <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center mb-2">
-          <div className="w-3 h-3 rounded-full bg-white/20 animate-pulse" />
+        <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center mb-2">
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-white/20 animate-pulse" />
         </div>
         <p className="text-xs text-white/40 font-medium">Waiting...</p>
         <p className="text-[10px] text-white/20">Slot {index + 1}</p>
@@ -465,21 +461,21 @@ function PlayerCard({
 
   return (
     <div className="flex flex-col items-center">
-      <div className={`relative w-20 h-20 rounded-full flex items-center justify-center mb-2 ${
+      <div className={`relative w-14 h-14 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-2 ${
         isCurrentUser 
           ? 'bg-gradient-to-br from-blue-500/30 to-cyan-500/30 border-2 border-blue-400' 
           : 'bg-white/10 border border-white/20'
       }`}>
-        <span className="text-2xl font-bold text-white">
+        <span className="text-lg sm:text-2xl font-bold text-white">
           {player.username.slice(0, 2).toUpperCase()}
         </span>
         {isCurrentUser && (
-          <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+          <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-500 flex items-center justify-center">
             <Star className="w-3 h-3 text-white fill-white" />
           </div>
         )}
       </div>
-      <p className={`text-sm font-semibold ${isCurrentUser ? 'text-blue-400' : 'text-white'}`}>
+      <p className={`text-xs sm:text-sm font-semibold max-w-[92px] sm:max-w-[120px] truncate ${isCurrentUser ? 'text-blue-400' : 'text-white'}`}>
         {isCurrentUser ? 'You' : player.username}
       </p>
       <div className="flex items-center gap-1 mt-0.5">
@@ -495,7 +491,26 @@ function PlayerCard({
 // ============================================
 
 function CameraRig() {
-  useFrame((state) => {
+  // On narrow/portrait screens, the horizontal FOV shrinks (even with the same vertical FOV),
+  // which can clip vehicles placed across the lobby lineup. Compensate by widening vertical FOV
+  // and backing the camera up a bit.
+  useFrame((state, delta) => {
+    const aspect = state.size.width / Math.max(1, state.size.height);
+    const portraitFactor = Math.max(0, 1 - aspect); // 0 on landscape-ish, higher on portrait
+
+    const targetFov = THREE.MathUtils.clamp(45 + portraitFactor * 60, 45, 115);
+    // Much larger pull-back on portrait/mobile so the whole lineup stays visible.
+    const targetZ = 19 + portraitFactor * 110;
+    const targetY = 6 + portraitFactor * 20;
+
+    const cam = state.camera as THREE.PerspectiveCamera;
+    if ("fov" in cam) {
+      cam.fov = THREE.MathUtils.damp(cam.fov, targetFov, 6, delta);
+      cam.updateProjectionMatrix();
+    }
+
+    state.camera.position.z = THREE.MathUtils.damp(state.camera.position.z, targetZ, 6, delta);
+    state.camera.position.y = THREE.MathUtils.damp(state.camera.position.y, targetY, 6, delta);
     state.camera.lookAt(0, 0, 0);
   });
   return null;
@@ -515,9 +530,9 @@ export function RaceLobby3D({
   const slots = Array.from({ length: maxPlayers }, (_, i) => players[i] || null);
 
   return (
-    <div className="relative w-full h-[600px] bg-slate-950 rounded-xl overflow-hidden border border-white/10">
+    <div className="relative w-full h-[520px] sm:h-[600px] bg-slate-950 rounded-xl overflow-hidden border border-white/10">
       {/* 3D Canvas */}
-      <Canvas shadows dpr={[1, 2]}>
+      <Canvas shadows dpr={[1, 1.5]}>
         <Suspense fallback={null}>
           <PerspectiveCamera makeDefault position={[0, 6, 19]} fov={45} />
           <CameraRig />
@@ -531,13 +546,13 @@ export function RaceLobby3D({
       </Canvas>
 
       {/* Top Header Overlay */}
-      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-white/10 backdrop-blur">
+      <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pointer-events-auto">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-lg bg-white/10 backdrop-blur shrink-0">
               <Users className="w-5 h-5 text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-white">Race Lobby</h2>
               <p className="text-sm text-white/60">
                 {players.length}/{maxPlayers} players ready
@@ -545,15 +560,15 @@ export function RaceLobby3D({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10 shrink-0">
               <Wifi className="w-3 h-3 mr-1.5" />
               Connected
             </Badge>
             
             <button 
               onClick={onLeave}
-              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors touch-manipulation min-h-10"
             >
               Leave
             </button>
@@ -562,13 +577,13 @@ export function RaceLobby3D({
       </div>
 
       {/* Bottom Player Cards Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
         {/* Starting countdown */}
         {startingIn !== null && (
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30">
-              <Clock className="w-5 h-5 text-emerald-400 animate-pulse" />
-              <span className="text-lg font-bold text-emerald-400">
+          <div className="flex items-center justify-center gap-3 mb-4 sm:mb-6 pointer-events-auto">
+            <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 animate-pulse" />
+              <span className="text-base sm:text-lg font-bold text-emerald-400">
                 Race starting in {startingIn}s
               </span>
             </div>
@@ -576,19 +591,18 @@ export function RaceLobby3D({
         )}
 
         {/* Progress bar */}
-        <div className="max-w-md mx-auto mb-6">
+        <div className="max-w-md mx-auto mb-4 sm:mb-6 pointer-events-auto">
           <Progress value={(players.length / maxPlayers) * 100} className="h-2 bg-white/10" />
         </div>
 
         {/* Player cards */}
-        <div className="flex items-center justify-center gap-8">
+        <div className="grid grid-cols-3 gap-4 place-items-center sm:flex sm:items-center sm:justify-center sm:gap-8 pointer-events-auto">
           {slots.map((player, index) => (
             <PlayerCard
               key={player?.id || `slot-${index}`}
               player={player}
               index={index}
               isCurrentUser={player?.id === currentUserId}
-              totalSlots={maxPlayers}
             />
           ))}
         </div>

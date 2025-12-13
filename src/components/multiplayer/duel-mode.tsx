@@ -33,10 +33,11 @@ interface MultiplayerStats {
 }
 
 export function DuelMode() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const {
     isConnected,
     onlineCount,
+    identity,
     matchmaking,
     gameplay,
     joinMatchmaking,
@@ -45,6 +46,11 @@ export function DuelMode() {
     forfeit,
     resetGame,
   } = useSocket();
+
+  const isSignedIn = !!session?.user?.id;
+  const playerId = session?.user?.id ?? identity?.id ?? null;
+  const playerName = (session?.user?.name || identity?.username || "Player") as string;
+  const isGuest = !isSignedIn && !!identity?.isGuest;
 
   const [userAnswer, setUserAnswer] = useState("");
   const [answerSubmitted, setAnswerSubmitted] = useState(false);
@@ -365,8 +371,6 @@ export function DuelMode() {
   }, [gameplay.status, roundStartTime]);
 
   const handleStartSearch = () => {
-    if (!session?.user) return;
-
     // Focus input immediately on user interaction to ensure keyboard opens on mobile
     focusInput({
       reason: "start-search",
@@ -421,8 +425,8 @@ export function DuelMode() {
       .slice(0, 2);
   };
 
-  // User must be authenticated
-  if (status === "loading") {
+  // Wait for either a signed-in session or a guest identity.
+  if (!playerId) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
@@ -430,40 +434,11 @@ export function DuelMode() {
     );
   }
 
-  if (!session?.user) {
-    return (
-      <div className="min-h-[calc(100vh-200px)]">
-        <div className="border-b border-border">
-          <div className="px-6 py-4">
-            <h1 className="text-lg font-semibold">Multiplayer Duel</h1>
-            <p className="text-sm text-muted-foreground">
-              Challenge other players in real-time
-            </p>
-          </div>
-        </div>
-        <div className="p-4 md:p-6">
-          <Card className="max-w-md mx-auto">
-            <CardContent className="p-8 text-center">
-              <Swords className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h2 className="text-xl font-semibold mb-2">Sign In Required</h2>
-              <p className="text-muted-foreground mb-6">
-                You need to be signed in to play multiplayer matches.
-              </p>
-              <Link href="/auth/signin">
-                <Button>Sign In to Play</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   // Game Over Screen (Kept separate as it terminates the flow)
   if (gameplay.status === "game_over" && gameplay.gameResult) {
-    const isWinner = gameplay.gameResult.winnerId === session.user.id;
+    const isWinner = gameplay.gameResult.winnerId === playerId;
     const isDraw = gameplay.gameResult.winnerId === null;
-    const myScore = gameplay.gameResult.finalScores[session.user.id || ""] || 0;
+    const myScore = gameplay.gameResult.finalScores[playerId] || 0;
     const opponentScore = matchmaking.opponent
       ? gameplay.gameResult.finalScores[matchmaking.opponent.id] || 0
       : 0;
@@ -471,7 +446,7 @@ export function DuelMode() {
     return (
       <div className="min-h-[calc(100vh-200px)]">
         <div className="border-b border-border">
-          <div className="px-6 py-4">
+          <div className="px-4 sm:px-6 py-3 sm:py-4">
             <h1 className="text-lg font-semibold">Match Complete</h1>
           </div>
         </div>
@@ -501,9 +476,9 @@ export function DuelMode() {
               <div className="flex items-center justify-center gap-8 my-8">
                 <div className="text-center">
                   <Avatar className="h-14 w-14 mx-auto mb-2">
-                    <AvatarFallback>{getInitials(session.user.name || "You")}</AvatarFallback>
+                    <AvatarFallback>{getInitials(playerName)}</AvatarFallback>
                   </Avatar>
-                  <p className="font-medium">{session.user.name || "You"}</p>
+                  <p className="font-medium">{playerName}</p>
                   <p className="text-3xl font-mono font-bold mt-2">{myScore}</p>
                 </div>
                 <span className="text-xl font-bold text-muted-foreground">VS</span>
@@ -518,14 +493,20 @@ export function DuelMode() {
                 </div>
               </div>
 
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8 ${
-                gameplay.gameResult.ratingChange >= 0
-                  ? "bg-success/10 text-success"
-                  : "bg-destructive/10 text-destructive"
-              }`}>
-                {gameplay.gameResult.ratingChange >= 0 ? "+" : ""}
-                {gameplay.gameResult.ratingChange} Rating
-              </div>
+              {isSignedIn && gameplay.gameResult.ratingChange !== 0 ? (
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8 ${
+                  gameplay.gameResult.ratingChange >= 0
+                    ? "bg-success/10 text-success"
+                    : "bg-destructive/10 text-destructive"
+                }`}>
+                  {gameplay.gameResult.ratingChange >= 0 ? "+" : ""}
+                  {gameplay.gameResult.ratingChange} Rating
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8 bg-secondary/50 text-muted-foreground">
+                  Unrated match
+                </div>
+              )}
 
               <div className="flex gap-3 justify-center">
                 <Button onClick={handlePlayAgain} size="lg">
@@ -546,7 +527,7 @@ export function DuelMode() {
   // Determines state
   // Main Render - Layered Approach to persist Input
   return (
-    <div className="min-h-[calc(100vh-200px)] relative">
+    <div className="min-h-[calc(100vh-200px)] relative w-full overflow-x-hidden">
       
       {/* GAME VIEW LAYER 
           Always rendered if game is active, OR if we want the input available in background.
@@ -599,15 +580,15 @@ export function DuelMode() {
                 <Card>
                   <CardContent className="py-1 px-2 sm:p-4">
                     {/* Mobile: ultra-compact single-row status bar */}
-                    <div className="sm:hidden flex items-center justify-between gap-2">
+                    <div className="sm:hidden flex items-center justify-between gap-1.5">
                       <div className="flex items-center gap-2 min-w-0">
                         <Avatar className="h-6 w-6 shrink-0">
                           <AvatarFallback className="text-[10px] leading-none">
-                            {getInitials(session.user.name || "You")}
+                            {getInitials(playerName)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-xl font-mono font-bold leading-none tabular-nums">
-                          {gameplay.scores[session.user.id || ""] || 0}
+                        <span className="text-lg font-mono font-bold leading-none tabular-nums">
+                          {gameplay.scores[playerId] || 0}
                         </span>
                       </div>
 
@@ -636,7 +617,7 @@ export function DuelMode() {
                             <Check className="h-3 w-3" />
                           </span>
                         )}
-                        <span className="text-xl font-mono font-bold leading-none tabular-nums">
+                        <span className="text-lg font-mono font-bold leading-none tabular-nums">
                           {matchmaking.opponent ? gameplay.scores[matchmaking.opponent.id] || 0 : 0}
                         </span>
                         <Avatar className="h-6 w-6 shrink-0">
@@ -650,14 +631,14 @@ export function DuelMode() {
                     <div className="hidden sm:flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <Avatar className="h-10 w-10">
-                          <AvatarFallback>{getInitials(session.user.name || "You")}</AvatarFallback>
+                          <AvatarFallback>{getInitials(playerName)}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{session.user.name || "You"}</p>
+                          <p className="font-medium">{playerName}</p>
                           <p className="text-xs text-muted-foreground">Your score</p>
                         </div>
                         <span className="text-3xl font-mono font-bold ml-4">
-                          {gameplay.scores[session.user.id || ""] || 0}
+                          {gameplay.scores[playerId] || 0}
                         </span>
                       </div>
 
@@ -727,7 +708,7 @@ export function DuelMode() {
                   <Card className={answerSubmitted ? "border-success" : ""}>
                     <CardContent className="py-3 px-4 sm:p-12">
                       <div className="text-center">
-                        <div className="text-3xl sm:text-6xl font-mono font-semibold tracking-wide mb-2 sm:mb-8 min-h-12 sm:min-h-16">
+                        <div className="text-3xl sm:text-6xl font-mono font-semibold tracking-wide leading-tight mb-2 sm:mb-8 min-h-12 sm:min-h-16 px-1 wrap-break-word">
                           {gameplay.problem 
                             ? `${gameplay.problem.a} ${gameplay.problem.operation} ${gameplay.problem.b}` 
                             : "..."}
@@ -742,7 +723,7 @@ export function DuelMode() {
                                     role="textbox"
                                     aria-label="Answer"
                                     aria-readonly="true"
-                                    className={`h-12 text-center text-xl font-mono w-full rounded-md border bg-background px-3 flex items-center justify-center ${
+                                    className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-md border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
                                       answerSubmitted ? "border-success text-success" : "border-input"
                                     }`}
                                   >
@@ -798,7 +779,7 @@ export function DuelMode() {
                   {gameplay.status === "round_end" && gameplay.roundResult && (
                     <div className="absolute inset-0 z-10 bg-background/95 backdrop-blur-sm rounded-xl">
                       <Card className={`h-full bg-transparent ${
-                        gameplay.roundResult.winnerId === session.user.id
+                        gameplay.roundResult.winnerId === playerId
                           ? "border-success"
                           : gameplay.roundResult.winnerId === null
                           ? "border-border"
@@ -810,7 +791,7 @@ export function DuelMode() {
                           </div>
                           <p className="text-muted-foreground text-sm mb-3 sm:mb-4">Correct Answer</p>
                           
-                          {gameplay.roundResult.winnerId === session.user.id ? (
+                          {gameplay.roundResult.winnerId === playerId ? (
                             <Badge className="bg-success mx-auto">You got it!</Badge>
                           ) : gameplay.roundResult.winnerId === null ? (
                             <Badge variant="secondary" className="mx-auto">No one answered correctly</Badge>
@@ -931,14 +912,14 @@ export function DuelMode() {
       {isSearching && (
          <div className="absolute inset-0 bg-background z-20 flex flex-col">
             <div className="border-b border-border">
-              <div className="px-6 py-4 flex items-center justify-between">
-                <div>
+              <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <h1 className="text-lg font-semibold">Finding Match</h1>
                   <p className="text-sm text-muted-foreground">
                     Looking for an opponent...
                   </p>
                 </div>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs shrink-0">
                   {isConnected ? (
                     <>
                       <Wifi className="w-3 h-3 mr-1.5 text-success" />
@@ -976,7 +957,7 @@ export function DuelMode() {
       {isMatchFound && (
           <div className="absolute inset-0 bg-background z-20 flex flex-col">
             <div className="border-b border-border">
-              <div className="px-6 py-4">
+              <div className="px-4 sm:px-6 py-3 sm:py-4">
                 <h1 className="text-lg font-semibold">Match Found!</h1>
               </div>
             </div>
@@ -984,20 +965,28 @@ export function DuelMode() {
               <div className="max-w-lg w-full text-center">
                 <Badge className="mb-6 text-sm">Match Found</Badge>
                 <div className="flex items-center justify-center gap-8 mb-8">
-                  <div className="text-center">
+                  <div className="text-center min-w-0">
                     <Avatar className="h-16 w-16 mx-auto mb-2">
-                      <AvatarFallback>{getInitials(session.user.name || "You")}</AvatarFallback>
+                      <AvatarFallback>{getInitials(playerName)}</AvatarFallback>
                     </Avatar>
-                    <p className="font-medium">{session.user.name || "You"}</p>
-                    <p className="text-xs text-muted-foreground">Rating: {stats.rating}</p>
+                    <p className="font-medium truncate max-w-[140px] mx-auto">{playerName}</p>
+                    {isSignedIn ? (
+                      <p className="text-xs text-muted-foreground">Rating: {stats.rating}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Guest • Unrated</p>
+                    )}
                   </div>
                   <span className="text-2xl font-bold text-muted-foreground">VS</span>
-                  <div className="text-center">
+                  <div className="text-center min-w-0">
                     <Avatar className="h-16 w-16 mx-auto mb-2">
                       <AvatarFallback>{matchmaking.opponent ? getInitials(matchmaking.opponent.username) : "OP"}</AvatarFallback>
                     </Avatar>
-                    <p className="font-medium">{matchmaking.opponent?.username || "Opponent"}</p>
-                    <p className="text-xs text-muted-foreground">Rating: {matchmaking.opponent?.rating}</p>
+                    <p className="font-medium truncate max-w-[140px] mx-auto">{matchmaking.opponent?.username || "Opponent"}</p>
+                    {isSignedIn ? (
+                      <p className="text-xs text-muted-foreground">Rating: {matchmaking.opponent?.rating}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Unrated</p>
+                    )}
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">Starting match...</p>
@@ -1010,14 +999,29 @@ export function DuelMode() {
       {isLobby && (
         <div className="relative z-20 bg-background min-h-full">
           <div className="border-b border-border">
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div>
+            <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h1 className="text-lg font-semibold">Multiplayer Duel</h1>
                 <p className="text-sm text-muted-foreground">
                   Challenge other players in real-time
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 sm:gap-3 min-w-0">
+                {isGuest && (
+                  <>
+                    <Badge variant="secondary" className="text-xs max-w-[140px] truncate">
+                      {playerName}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      Guest • Unrated
+                    </Badge>
+                    <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>
+                      <Button variant="outline" size="sm" className="shrink-0">
+                        Sign in
+                      </Button>
+                    </Link>
+                  </>
+                )}
                 <Badge variant="outline" className="text-xs">
                   {isConnected ? (
                     <>
