@@ -32,6 +32,7 @@ import Link from "next/link";
 import type { ActionType, PlayerProblems } from "@/lib/racing/types";
 import RaceTrack3D from "@/components/racing/race-track-3d";
 import RaceLobby3D from "@/components/racing/race-lobby-3d";
+import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
 
 // ============================================
 // PROBLEM INPUT PANEL
@@ -595,6 +596,7 @@ export function RacingMode() {
   const isMobileDevice = useIsMobileDevice();
   const trackTopRef = useRef<HTMLDivElement | null>(null);
   const hasAutoScrolledRef = useRef(false);
+  const { setPinned } = useMobileTopBarPinning();
   const {
     isConnected,
     identity,
@@ -622,6 +624,13 @@ export function RacingMode() {
   const myPlayer = (myPlayerId || playerId) ? getMyPlayer((myPlayerId || playerId)!) : null;
   const hasFinished = race.myFinishPosition !== null;
 
+  // On mobile, allow the global top bar (burger + logo) to scroll away while in Racing Mode.
+  useEffect(() => {
+    if (!isMobileDevice) return;
+    setPinned(false);
+    return () => setPinned(true);
+  }, [isMobileDevice, setPinned]);
+
   useEffect(() => {
     if (!isMobileDevice) return;
     const isRacing = race.inRace && race.status === "racing";
@@ -632,7 +641,10 @@ export function RacingMode() {
     if (hasAutoScrolledRef.current) return;
     hasAutoScrolledRef.current = true;
     requestAnimationFrame(() => {
-      trackTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const el = trackTopRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY - 6; // a few px of breathing room
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     });
   }, [isMobileDevice, race.inRace, race.status]);
 
@@ -701,7 +713,7 @@ export function RacingMode() {
           <div className="max-w-4xl mx-auto">
             <div className="relative">
               {/* Track visualization */}
-              <div ref={trackTopRef} className="relative z-0 scroll-mt-2">
+              <div ref={trackTopRef} className="relative z-0">
                 <RaceTrack3D
                   players={race.players}
                   trackLength={race.config?.trackLength || 250}

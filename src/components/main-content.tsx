@@ -2,10 +2,12 @@
 
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/sidebar-provider";
+import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
 import { ReactNode } from "react";
 
 export function MainContent({ children }: { children: ReactNode }) {
   const { isCollapsed, isMobile } = useSidebar();
+  const { isPinned } = useMobileTopBarPinning();
 
   return (
     <main
@@ -14,7 +16,7 @@ export function MainContent({ children }: { children: ReactNode }) {
         // On mobile: full width with top padding for the fixed top bar
         // On desktop: left margin for the sidebar
         isMobile 
-          ? "ml-0 pt-14" // No left margin, padding for 56px (h-14) top bar
+          ? cn("ml-0", isPinned ? "pt-14" : "pt-0")
           : isCollapsed 
             ? "ml-[60px]" 
             : "ml-[240px]"

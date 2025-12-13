@@ -4,12 +4,19 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { UserMenu } from "@/components/auth/user-menu";
+import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
 
 export function MobileTopBar() {
   const { toggle } = useSidebar();
+  const { isPinned } = useMobileTopBarPinning();
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-50 flex items-center justify-between px-4 md:hidden">
+    <header
+      className={[
+        "h-14 bg-background border-b border-border z-50 flex items-center justify-between px-4 md:hidden",
+        isPinned ? "fixed top-0 left-0 right-0" : "relative",
+      ].join(" ")}
+    >
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2">
         <div className="w-6 h-6 rounded bg-foreground flex items-center justify-center">
