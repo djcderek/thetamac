@@ -41,7 +41,7 @@ export function MobileNumpad({ value, setValue, onDone, disabled = false }: Mobi
   const doneDisabled = disabled || !onDone || value.length === 0 || value === "-";
 
   return (
-    <div className="fixed left-0 right-0 bottom-0 z-50">
+    <div id="mobile-numpad" className="fixed left-0 right-0 bottom-0 z-50">
       <div className="border-t border-border bg-background">
         <div className="max-w-md mx-auto px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0.5rem)+8px)]">
           <div className="flex items-center justify-center pb-2">

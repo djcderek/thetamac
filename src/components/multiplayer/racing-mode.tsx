@@ -70,6 +70,7 @@ function ProblemPanel({
   const forwardRef = useRef<HTMLInputElement>(null);
   const rightRef = useRef<HTMLInputElement>(null);
   const boostRef = useRef<HTMLInputElement>(null);
+  const boostCardWrapperRef = useRef<HTMLDivElement>(null);
 
   // Focus forward input on mount
   useEffect(() => {
@@ -83,6 +84,33 @@ function ProblemPanel({
     forwardRef.current?.focus();
     forwardRef.current?.select();
   }, [isMobileDevice, problems?.forward?.id]);
+
+  // When the mobile keypad opens for BOOST, ensure the boost card is scrolled above the keypad
+  // so it isn't blocked.
+  useEffect(() => {
+    if (!isMobileDevice) return;
+    if (!isMobileKeypadOpen) return;
+    if (mobileKeypadAction !== "boost") return;
+
+    const scrollBoostIntoView = () => {
+      const boostEl = boostCardWrapperRef.current;
+      if (!boostEl) return;
+
+      const keypadEl = document.getElementById("mobile-numpad");
+      const keypadHeight = keypadEl?.getBoundingClientRect().height ?? 320;
+      const safeBottomGap = 10;
+      const visibleBottom = window.innerHeight - keypadHeight - safeBottomGap;
+
+      const rect = boostEl.getBoundingClientRect();
+      if (rect.bottom <= visibleBottom) return;
+
+      const delta = rect.bottom - visibleBottom;
+      window.scrollTo({ top: window.scrollY + delta, behavior: "smooth" });
+    };
+
+    // Let layout settle (especially with overlap / animations), then adjust scroll.
+    requestAnimationFrame(() => requestAnimationFrame(scrollBoostIntoView));
+  }, [isMobileDevice, isMobileKeypadOpen, mobileKeypadAction]);
 
   const handleSubmit = (action: ActionType) => {
     if (!problems || isStunned || isOnCooldown) return;
@@ -193,7 +221,7 @@ function ProblemPanel({
   };
 
   return (
-    <div className={`space-y-1 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-40" : ""}`}>
+    <div className={`space-y-1 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-88" : ""}`}>
       {/* Status bar */}
       {(isStunned || isOnCooldown) && (
         <div className={`flex items-center justify-center gap-2 p-3 rounded-lg ${
@@ -368,54 +396,56 @@ function ProblemPanel({
       </div>
 
       {/* Boost problem */}
-      <Card className="border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10">
-        <CardContent className="px-2 py-0.5 sm:p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-0.5 sm:p-1.5 rounded-md bg-amber-500/20">
-                <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+      <div ref={boostCardWrapperRef}>
+        <Card className="border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10">
+          <CardContent className="px-2 py-0.5 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-0.5 sm:p-1.5 rounded-md bg-amber-500/20">
+                  <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+                </div>
+                <div>
+                  <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                    BOOST +3m (Harder)
+                  </div>
+                  <div className="text-base sm:text-2xl font-mono font-bold leading-none">
+                    {problems.boost.a} {problems.boost.operation} {problems.boost.b}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                  BOOST +3m (Harder)
-                </div>
-                <div className="text-base sm:text-2xl font-mono font-bold leading-none">
-                  {problems.boost.a} {problems.boost.operation} {problems.boost.b}
-                </div>
+              <div className="flex items-center gap-2">
+                {isMobileDevice ? (
+                  <button
+                    type="button"
+                    onPointerDownCapture={() => openMobileKeypad("boost")}
+                    onClick={() => openMobileKeypad("boost")}
+                    className={`h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                      mobileKeypadAction === "boost" ? "border-primary/60" : "border-input"
+                    } ${problemInputsDisabled ? "opacity-50" : ""}`}
+                    aria-label="Answer (Boost)"
+                    aria-disabled={problemInputsDisabled}
+                  >
+                    {answers.boost.length > 0 ? answers.boost : "?"}
+                  </button>
+                ) : (
+                  <Input
+                    ref={boostRef}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={answers.boost}
+                    onChange={e => setAnswers(prev => ({ ...prev, boost: e.target.value }))}
+                    onKeyDown={handleKeyDown("boost")}
+                    placeholder="?"
+                    className="h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg"
+                    disabled={problemInputsDisabled}
+                  />
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {isMobileDevice ? (
-                <button
-                  type="button"
-                  onPointerDownCapture={() => openMobileKeypad("boost")}
-                  onClick={() => openMobileKeypad("boost")}
-                  className={`h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
-                    mobileKeypadAction === "boost" ? "border-primary/60" : "border-input"
-                  } ${problemInputsDisabled ? "opacity-50" : ""}`}
-                  aria-label="Answer (Boost)"
-                  aria-disabled={problemInputsDisabled}
-                >
-                  {answers.boost.length > 0 ? answers.boost : "?"}
-                </button>
-              ) : (
-                <Input
-                  ref={boostRef}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={answers.boost}
-                  onChange={e => setAnswers(prev => ({ ...prev, boost: e.target.value }))}
-                  onKeyDown={handleKeyDown("boost")}
-                  placeholder="?"
-                  className="h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg"
-                  disabled={problemInputsDisabled}
-                />
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Keyboard hints */}
       {!isMobileDevice && (
