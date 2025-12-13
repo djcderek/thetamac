@@ -192,7 +192,7 @@ function ProblemPanel({
   };
 
   return (
-    <div className={`space-y-2 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-40" : ""}`}>
+    <div className={`space-y-1 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-40" : ""}`}>
       {/* Status bar */}
       {(isStunned || isOnCooldown) && (
         <div className={`flex items-center justify-center gap-2 p-3 rounded-lg ${
@@ -215,18 +215,18 @@ function ProblemPanel({
       )}
 
       {/* Main problem grid */}
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+      <div className="grid grid-cols-3 gap-1 sm:gap-3">
         {/* Left lane change */}
         <div className={`${!canGoLeft ? "opacity-40 pointer-events-none" : ""}`}>
           <Card className="h-full border-dashed">
-            <CardContent className="px-2 py-1 sm:p-3">
-              <div className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-2">
+            <CardContent className="px-2 py-0.5 sm:p-3">
+              <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground mb-0 sm:mb-2">
                 <ChevronLeft className="w-3 h-3" />
                 Lane {currentLane - 1}
               </div>
               {problems.left ? (
                 <>
-                  <div className="text-base sm:text-xl font-mono font-semibold text-center mb-0.5 sm:mb-2">
+                  <div className="text-sm sm:text-xl font-mono font-semibold text-center leading-none mb-0 sm:mb-2">
                     {problems.left.a} {problems.left.operation} {problems.left.b}
                   </div>
                   <div className="flex gap-1">
@@ -235,7 +235,7 @@ function ProblemPanel({
                         type="button"
                         onPointerDownCapture={() => openMobileKeypad("left")}
                         onClick={() => openMobileKeypad("left")}
-                        className={`h-7 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "left" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
                         aria-label="Answer (Left)"
@@ -253,14 +253,14 @@ function ProblemPanel({
                         onChange={e => setAnswers(prev => ({ ...prev, left: e.target.value }))}
                         onKeyDown={handleKeyDown("left")}
                         placeholder="?"
-                        className="h-7 sm:h-9 text-center font-mono"
+                        className="h-6 sm:h-9 text-center font-mono"
                         disabled={problemInputsDisabled}
                       />
                     )}
                   </div>
                 </>
               ) : (
-                <div className="text-center text-muted-foreground text-sm py-2 sm:py-4">
+                <div className="text-center text-muted-foreground text-xs py-1.5 sm:py-4">
                   Edge
                 </div>
               )}
@@ -270,14 +270,14 @@ function ProblemPanel({
 
         {/* Forward */}
         <Card className="border-2 border-primary/50 bg-primary/5">
-          <CardContent className="px-2 py-1 sm:p-3">
+          <CardContent className="px-2 py-0.5 sm:p-3">
             {!isMobileDevice && (
               <div className="flex items-center justify-center gap-1 text-xs text-primary font-medium mb-2">
                 <ArrowUp className="w-3 h-3" />
                 Forward +1m
               </div>
             )}
-            <div className="text-lg sm:text-2xl font-mono font-bold text-center mb-0.5 sm:mb-2">
+            <div className="text-base sm:text-2xl font-mono font-bold text-center leading-none mb-0 sm:mb-2">
               {problems.forward.a} {problems.forward.operation} {problems.forward.b}
             </div>
             <div className="flex gap-1">
@@ -286,7 +286,7 @@ function ProblemPanel({
                   type="button"
                   onPointerDownCapture={() => openMobileKeypad("forward")}
                   onClick={() => openMobileKeypad("forward")}
-                  className={`h-8 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                  className={`h-7 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
                     mobileKeypadAction === "forward" ? "border-primary/70" : "border-input"
                   } ${problemInputsDisabled ? "opacity-50" : ""}`}
                   aria-label="Answer (Forward)"
@@ -304,7 +304,7 @@ function ProblemPanel({
                   onChange={e => setAnswers(prev => ({ ...prev, forward: e.target.value }))}
                   onKeyDown={handleKeyDown("forward")}
                   placeholder="?"
-                  className="h-8 sm:h-10 text-center font-mono text-base sm:text-lg"
+                  className="h-7 sm:h-10 text-center font-mono text-base sm:text-lg"
                   disabled={problemInputsDisabled}
                   autoFocus
                 />
@@ -316,14 +316,14 @@ function ProblemPanel({
         {/* Right lane change */}
         <div className={`${!canGoRight ? "opacity-40 pointer-events-none" : ""}`}>
           <Card className="h-full border-dashed">
-            <CardContent className="px-2 py-1 sm:p-3">
-              <div className="flex items-center justify-end gap-1 text-[11px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-2">
+            <CardContent className="px-2 py-0.5 sm:p-3">
+              <div className="flex items-center justify-end gap-1 text-[10px] sm:text-xs text-muted-foreground mb-0 sm:mb-2">
                 Lane {currentLane + 1}
                 <ChevronRight className="w-3 h-3" />
               </div>
               {problems.right ? (
                 <>
-                  <div className="text-base sm:text-xl font-mono font-semibold text-center mb-0.5 sm:mb-2">
+                  <div className="text-sm sm:text-xl font-mono font-semibold text-center leading-none mb-0 sm:mb-2">
                     {problems.right.a} {problems.right.operation} {problems.right.b}
                   </div>
                   <div className="flex gap-1">
@@ -332,7 +332,7 @@ function ProblemPanel({
                         type="button"
                         onPointerDownCapture={() => openMobileKeypad("right")}
                         onClick={() => openMobileKeypad("right")}
-                        className={`h-7 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "right" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
                         aria-label="Answer (Right)"
@@ -350,14 +350,14 @@ function ProblemPanel({
                         onChange={e => setAnswers(prev => ({ ...prev, right: e.target.value }))}
                         onKeyDown={handleKeyDown("right")}
                         placeholder="?"
-                        className="h-7 sm:h-9 text-center font-mono"
+                        className="h-6 sm:h-9 text-center font-mono"
                         disabled={problemInputsDisabled}
                       />
                     )}
                   </div>
                 </>
               ) : (
-                <div className="text-center text-muted-foreground text-sm py-2 sm:py-4">
+                <div className="text-center text-muted-foreground text-xs py-1.5 sm:py-4">
                   Edge
                 </div>
               )}
@@ -368,7 +368,7 @@ function ProblemPanel({
 
       {/* Boost problem */}
       <Card className="border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10">
-        <CardContent className="px-2 py-1 sm:p-3">
+        <CardContent className="px-2 py-0.5 sm:p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-0.5 sm:p-1.5 rounded-md bg-amber-500/20">
@@ -378,7 +378,7 @@ function ProblemPanel({
                 <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
                   BOOST +3m (Harder)
                 </div>
-                <div className="text-lg sm:text-2xl font-mono font-bold">
+                <div className="text-base sm:text-2xl font-mono font-bold leading-none">
                   {problems.boost.a} {problems.boost.operation} {problems.boost.b}
                 </div>
               </div>
@@ -389,7 +389,7 @@ function ProblemPanel({
                   type="button"
                   onPointerDownCapture={() => openMobileKeypad("boost")}
                   onClick={() => openMobileKeypad("boost")}
-                  className={`h-8 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                  className={`h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
                     mobileKeypadAction === "boost" ? "border-primary/60" : "border-input"
                   } ${problemInputsDisabled ? "opacity-50" : ""}`}
                   aria-label="Answer (Boost)"
@@ -407,7 +407,7 @@ function ProblemPanel({
                   onChange={e => setAnswers(prev => ({ ...prev, boost: e.target.value }))}
                   onKeyDown={handleKeyDown("boost")}
                   placeholder="?"
-                  className="h-8 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg"
+                  className="h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg"
                   disabled={problemInputsDisabled}
                 />
               )}
@@ -592,6 +592,9 @@ function getOrdinal(n: number): string {
 
 export function RacingMode() {
   const { data: session } = useSession();
+  const isMobileDevice = useIsMobileDevice();
+  const trackTopRef = useRef<HTMLDivElement | null>(null);
+  const hasAutoScrolledRef = useRef(false);
   const {
     isConnected,
     identity,
@@ -618,6 +621,20 @@ export function RacingMode() {
 
   const myPlayer = (myPlayerId || playerId) ? getMyPlayer((myPlayerId || playerId)!) : null;
   const hasFinished = race.myFinishPosition !== null;
+
+  useEffect(() => {
+    if (!isMobileDevice) return;
+    const isRacing = race.inRace && race.status === "racing";
+    if (!isRacing) {
+      hasAutoScrolledRef.current = false;
+      return;
+    }
+    if (hasAutoScrolledRef.current) return;
+    hasAutoScrolledRef.current = true;
+    requestAnimationFrame(() => {
+      trackTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [isMobileDevice, race.inRace, race.status]);
 
   // Wait for either a signed-in session or a guest identity.
   if (!playerId) {
@@ -680,11 +697,11 @@ export function RacingMode() {
           </div>
         </div>
 
-        <div className="p-4 md:p-6">
+        <div className="px-3 pt-2 pb-4 md:p-6">
           <div className="max-w-4xl mx-auto">
             <div className="relative">
               {/* Track visualization */}
-              <div className="relative z-0">
+              <div ref={trackTopRef} className="relative z-0 scroll-mt-2">
                 <RaceTrack3D
                   players={race.players}
                   trackLength={race.config?.trackLength || 250}
@@ -697,7 +714,7 @@ export function RacingMode() {
               </div>
 
               {/* Show finished state or problem panel */}
-              <div className={hasFinished ? "mt-6" : "relative z-10 -mt-16 sm:mt-6"}>
+              <div className={hasFinished ? "mt-6" : "relative z-10 -mt-10 sm:mt-6"}>
                 {hasFinished ? (
                   <Card className="border-success/50 bg-success/5">
                     <CardContent className="p-8 text-center">

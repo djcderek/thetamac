@@ -101,7 +101,7 @@ export default function RaceTrack3D({
   const myCoins = myPlayer?.coinsEarned || 0;
 
   return (
-    <div className="w-full h-[240px] sm:h-[400px] rounded-xl overflow-hidden bg-black relative">
+    <div className="w-full h-[280px] sm:h-[400px] rounded-xl overflow-hidden bg-black relative">
       <Canvas shadows dpr={[1, 1.5]}>
         <Suspense fallback={null}>
           <SceneContent 

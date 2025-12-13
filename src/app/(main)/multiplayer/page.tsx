@@ -16,7 +16,7 @@ export default function MultiplayerPage() {
   if (mode === "duel") {
     return (
       <div className="flex flex-col min-h-screen bg-background animate-in fade-in duration-300">
-        <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+        <div className="border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-10 sm:sticky sm:top-0">
            <div className="container flex h-14 max-w-screen-2xl items-center px-4">
              <Button variant="ghost" size="sm" onClick={() => setMode(null)} className="gap-2 text-muted-foreground hover:text-foreground">
                <ArrowLeft className="w-4 h-4" />
@@ -34,7 +34,7 @@ export default function MultiplayerPage() {
   if (mode === "racing") {
     return (
       <div className="flex flex-col min-h-screen bg-background animate-in fade-in duration-300">
-        <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+        <div className="border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-10 sm:sticky sm:top-0">
            <div className="container flex h-14 max-w-screen-2xl items-center px-4">
              <Button variant="ghost" size="sm" onClick={() => setMode(null)} className="gap-2 text-muted-foreground hover:text-foreground">
                <ArrowLeft className="w-4 h-4" />
@@ -67,7 +67,7 @@ export default function MultiplayerPage() {
           >
             <Card className="h-full overflow-hidden border bg-card transition-all duration-300 hover:shadow-lg hover:border-violet-500">
               <CardContent className="p-8 flex flex-col h-full">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center mb-6">
+                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center mb-6">
                   <Swords className="w-8 h-8 text-violet-500" />
                 </div>
                 
@@ -97,7 +97,7 @@ export default function MultiplayerPage() {
                   </div>
                 </div>
 
-                <Button className="w-full group-hover:bg-violet-600 group-hover:text-white hover:!bg-violet-700 transition-all">
+                <Button className="w-full group-hover:bg-violet-600 group-hover:text-white hover:bg-violet-700! transition-all">
                   Play Duel
                 </Button>
               </CardContent>
@@ -111,7 +111,7 @@ export default function MultiplayerPage() {
           >
             <Card className="h-full overflow-hidden border bg-card transition-all duration-300 hover:shadow-lg hover:border-emerald-500">
               <CardContent className="p-8 flex flex-col h-full">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center mb-6">
+                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center mb-6">
                   <Flag className="w-8 h-8 text-emerald-500" />
                 </div>
                 
@@ -141,7 +141,7 @@ export default function MultiplayerPage() {
                   </div>
                 </div>
 
-                <Button className="w-full group-hover:bg-emerald-600 group-hover:text-white hover:!bg-emerald-700 transition-all">
+                <Button className="w-full group-hover:bg-emerald-600 group-hover:text-white hover:bg-emerald-700! transition-all">
                   Start Racing
                 </Button>
               </CardContent>
