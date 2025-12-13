@@ -331,12 +331,12 @@ function ProblemPanel({
 
         {/* Forward */}
         <Card
-          className={`border-2 transition-colors ${
+          className={`border-2 transition-colors bg-card ${
             isMobileDevice ? "cursor-pointer select-none" : ""
           } ${
             isMobileDevice && mobileKeypadAction === "forward"
-              ? "border-primary/70 ring-2 ring-primary/40 bg-primary/10"
-              : "border-primary/50 bg-primary/5"
+              ? "border-primary/70 ring-2 ring-primary/40"
+              : "border-primary/50"
           }`}
           onPointerDownCapture={
             isMobileDevice ? () => openMobileKeypad("forward") : undefined
