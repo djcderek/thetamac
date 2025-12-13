@@ -13,15 +13,16 @@ export default function MainLayout({
   return (
     <SidebarProvider>
       <MobileTopBarPinningProvider>
-        <div className="flex min-h-screen">
+        <div className="min-h-screen">
           {/* Mobile: Top bar + drawer navigation */}
           <MobileTopBar />
           <MobileNavDrawer />
 
-          {/* Desktop: Sidebar navigation */}
-          <Sidebar />
-
-          <MainContent>{children}</MainContent>
+          {/* Main app frame: sidebar + content */}
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <MainContent>{children}</MainContent>
+          </div>
         </div>
       </MobileTopBarPinningProvider>
     </SidebarProvider>
