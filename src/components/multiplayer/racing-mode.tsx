@@ -247,7 +247,33 @@ function ProblemPanel({
       <div className="grid grid-cols-3 gap-1 sm:gap-3">
         {/* Left lane change */}
         <div className={`${!canGoLeft ? "opacity-40 pointer-events-none" : ""}`}>
-          <Card className="h-full border-dashed">
+          <Card
+            className={`h-full border-dashed transition-colors ${
+              isMobileDevice ? "cursor-pointer select-none" : ""
+            } ${
+              isMobileDevice && mobileKeypadAction === "left"
+                ? "ring-2 ring-primary/40 border-primary/40 bg-primary/5"
+                : ""
+            }`}
+            onPointerDownCapture={
+              isMobileDevice ? () => openMobileKeypad("left") : undefined
+            }
+            onClick={isMobileDevice ? () => openMobileKeypad("left") : undefined}
+            onKeyDown={
+              isMobileDevice
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openMobileKeypad("left");
+                    }
+                  }
+                : undefined
+            }
+            role={isMobileDevice ? "button" : undefined}
+            tabIndex={isMobileDevice ? 0 : undefined}
+            aria-label={isMobileDevice ? "Select left problem" : undefined}
+            aria-pressed={isMobileDevice ? mobileKeypadAction === "left" : undefined}
+          >
             <CardContent className="px-2 py-0.5 sm:p-3">
               <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground mb-0 sm:mb-2">
                 <ChevronLeft className="w-3 h-3" />
@@ -262,8 +288,14 @@ function ProblemPanel({
                     {isMobileDevice ? (
                       <button
                         type="button"
-                        onPointerDownCapture={() => openMobileKeypad("left")}
-                        onClick={() => openMobileKeypad("left")}
+                        onPointerDownCapture={(e) => {
+                          e.stopPropagation();
+                          openMobileKeypad("left");
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMobileKeypad("left");
+                        }}
                         className={`h-6 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "left" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
@@ -298,7 +330,33 @@ function ProblemPanel({
         </div>
 
         {/* Forward */}
-        <Card className="border-2 border-primary/50 bg-primary/5">
+        <Card
+          className={`border-2 transition-colors ${
+            isMobileDevice ? "cursor-pointer select-none" : ""
+          } ${
+            isMobileDevice && mobileKeypadAction === "forward"
+              ? "border-primary/70 ring-2 ring-primary/40 bg-primary/10"
+              : "border-primary/50 bg-primary/5"
+          }`}
+          onPointerDownCapture={
+            isMobileDevice ? () => openMobileKeypad("forward") : undefined
+          }
+          onClick={isMobileDevice ? () => openMobileKeypad("forward") : undefined}
+          onKeyDown={
+            isMobileDevice
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openMobileKeypad("forward");
+                  }
+                }
+              : undefined
+          }
+          role={isMobileDevice ? "button" : undefined}
+          tabIndex={isMobileDevice ? 0 : undefined}
+          aria-label={isMobileDevice ? "Select forward problem" : undefined}
+          aria-pressed={isMobileDevice ? mobileKeypadAction === "forward" : undefined}
+        >
           <CardContent className="px-2 py-0.5 sm:p-3">
             {!isMobileDevice && (
               <div className="flex items-center justify-center gap-1 text-xs text-primary font-medium mb-2">
@@ -313,8 +371,14 @@ function ProblemPanel({
               {isMobileDevice ? (
                 <button
                   type="button"
-                  onPointerDownCapture={() => openMobileKeypad("forward")}
-                  onClick={() => openMobileKeypad("forward")}
+                  onPointerDownCapture={(e) => {
+                    e.stopPropagation();
+                    openMobileKeypad("forward");
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openMobileKeypad("forward");
+                  }}
                   className={`h-7 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
                     mobileKeypadAction === "forward" ? "border-primary/70" : "border-input"
                   } ${problemInputsDisabled ? "opacity-50" : ""}`}
@@ -344,7 +408,33 @@ function ProblemPanel({
 
         {/* Right lane change */}
         <div className={`${!canGoRight ? "opacity-40 pointer-events-none" : ""}`}>
-          <Card className="h-full border-dashed">
+          <Card
+            className={`h-full border-dashed transition-colors ${
+              isMobileDevice ? "cursor-pointer select-none" : ""
+            } ${
+              isMobileDevice && mobileKeypadAction === "right"
+                ? "ring-2 ring-primary/40 border-primary/40 bg-primary/5"
+                : ""
+            }`}
+            onPointerDownCapture={
+              isMobileDevice ? () => openMobileKeypad("right") : undefined
+            }
+            onClick={isMobileDevice ? () => openMobileKeypad("right") : undefined}
+            onKeyDown={
+              isMobileDevice
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openMobileKeypad("right");
+                    }
+                  }
+                : undefined
+            }
+            role={isMobileDevice ? "button" : undefined}
+            tabIndex={isMobileDevice ? 0 : undefined}
+            aria-label={isMobileDevice ? "Select right problem" : undefined}
+            aria-pressed={isMobileDevice ? mobileKeypadAction === "right" : undefined}
+          >
             <CardContent className="px-2 py-0.5 sm:p-3">
               <div className="flex items-center justify-end gap-1 text-[10px] sm:text-xs text-muted-foreground mb-0 sm:mb-2">
                 Lane {currentLane + 1}
@@ -359,8 +449,14 @@ function ProblemPanel({
                     {isMobileDevice ? (
                       <button
                         type="button"
-                        onPointerDownCapture={() => openMobileKeypad("right")}
-                        onClick={() => openMobileKeypad("right")}
+                        onPointerDownCapture={(e) => {
+                          e.stopPropagation();
+                          openMobileKeypad("right");
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMobileKeypad("right");
+                        }}
                         className={`h-6 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "right" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
@@ -397,7 +493,33 @@ function ProblemPanel({
 
       {/* Boost problem */}
       <div ref={boostCardWrapperRef}>
-        <Card className="border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10">
+        <Card
+          className={`border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10 transition-colors ${
+            isMobileDevice ? "cursor-pointer select-none" : ""
+          } ${
+            isMobileDevice && mobileKeypadAction === "boost"
+              ? "ring-2 ring-primary/40"
+              : ""
+          }`}
+          onPointerDownCapture={
+            isMobileDevice ? () => openMobileKeypad("boost") : undefined
+          }
+          onClick={isMobileDevice ? () => openMobileKeypad("boost") : undefined}
+          onKeyDown={
+            isMobileDevice
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openMobileKeypad("boost");
+                  }
+                }
+              : undefined
+          }
+          role={isMobileDevice ? "button" : undefined}
+          tabIndex={isMobileDevice ? 0 : undefined}
+          aria-label={isMobileDevice ? "Select boost problem" : undefined}
+          aria-pressed={isMobileDevice ? mobileKeypadAction === "boost" : undefined}
+        >
           <CardContent className="px-2 py-0.5 sm:p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -417,8 +539,14 @@ function ProblemPanel({
                 {isMobileDevice ? (
                   <button
                     type="button"
-                    onPointerDownCapture={() => openMobileKeypad("boost")}
-                    onClick={() => openMobileKeypad("boost")}
+                    onPointerDownCapture={(e) => {
+                      e.stopPropagation();
+                      openMobileKeypad("boost");
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openMobileKeypad("boost");
+                    }}
                     className={`h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
                       mobileKeypadAction === "boost" ? "border-primary/60" : "border-input"
                     } ${problemInputsDisabled ? "opacity-50" : ""}`}
@@ -459,6 +587,7 @@ function ProblemPanel({
         <MobileNumpad
           value={answers[mobileKeypadAction] ?? ""}
           setValue={setMobileKeypadValue}
+          variant="compact"
           onDone={() => handleSubmit(mobileKeypadAction)}
           disabled={problemInputsDisabled}
         />
