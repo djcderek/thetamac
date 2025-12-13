@@ -10,8 +10,6 @@ import type {
   GameState,
   Player,
   GameConfig,
-  Difficulty,
-  Operation,
 } from "./types";
 import {
   createGameState,
@@ -44,6 +42,7 @@ const activeGames: Map<string, {
   roundTimer: NodeJS.Timeout | null;
   dbMatchId: string | null; // Database record ID
   isRated: boolean;
+  bot?: { id: string; answerTimer: NodeJS.Timeout | null };
 }> = new Map();
 
 // Socket to room mapping
@@ -51,6 +50,15 @@ const socketToRoom: Map<string, string> = new Map();
 
 // Socket to player mapping
 const socketToPlayer: Map<string, { id: string; username: string; isGuest: boolean }> = new Map();
+
+// Fallback timers for bot matchmaking (per socket)
+const botFallbackTimers: Map<string, NodeJS.Timeout> = new Map();
+
+function clearBotFallbackTimer(socketId: string) {
+  const timer = botFallbackTimers.get(socketId);
+  if (timer) clearTimeout(timer);
+  botFallbackTimers.delete(socketId);
+}
 
 // ============================================
 // GUARDRAILS
@@ -122,6 +130,10 @@ async function createMatch(
   player1Entry: MatchmakingEntry,
   player2Entry: MatchmakingEntry
 ) {
+  // If either player had a bot fallback scheduled, cancel it now.
+  clearBotFallbackTimer(player1Entry.socketId);
+  clearBotFallbackTimer(player2Entry.socketId);
+
   const roomId = `game_${randomUUID()}`;
   const isRated = !player1Entry.isGuest && !player2Entry.isGuest;
   
@@ -203,10 +215,82 @@ async function createMatch(
 
   // Notify players
   socket1.emit("matchmaking:found", {
-    opponent: { id: player2.id, username: player2.username, rating: player2.rating },
+    opponent: { id: player2.id, username: player2.username, rating: player2.rating, isGuest: player2.isGuest },
   });
   socket2.emit("matchmaking:found", {
-    opponent: { id: player1.id, username: player1.username, rating: player1.rating },
+    opponent: { id: player1.id, username: player1.username, rating: player1.rating, isGuest: player1.isGuest },
+  });
+
+  // Start countdown after brief delay
+  setTimeout(() => {
+    startGameCountdown(io, roomId);
+  }, 1000);
+}
+
+async function createBotMatch(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  playerEntry: MatchmakingEntry
+) {
+  // Cancel any pending fallback (defensive)
+  clearBotFallbackTimer(playerEntry.socketId);
+
+  const roomId = `game_${randomUUID()}`;
+
+  const botId = `bot_${randomUUID()}`;
+  const botUsername = `Guest ${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const human: Player = {
+    id: playerEntry.playerId,
+    socketId: playerEntry.socketId,
+    username: playerEntry.username,
+    rating: playerEntry.rating,
+    isGuest: playerEntry.isGuest,
+  };
+
+  const bot: Player = {
+    id: botId,
+    socketId: "bot",
+    username: botUsername,
+    rating: 1000,
+    isGuest: true,
+  };
+
+  const config: GameConfig = {
+    rounds: 10,
+    timePerRound: 10000,
+    difficulty: "medium",
+    operations: ["+", "-", "×", "÷"],
+  };
+
+  const gameState = createGameState(roomId, human, bot, config);
+
+  // Ensure removed from queue (defensive; caller may have removed already)
+  matchmakingQueue.delete(playerEntry.socketId);
+
+  // Join human socket room
+  const socket = io.sockets.sockets.get(playerEntry.socketId);
+  if (!socket) {
+    console.error("Socket not found for bot match player");
+    return;
+  }
+
+  socket.join(roomId);
+  socketToRoom.set(playerEntry.socketId, roomId);
+
+  // Store game (unrated by design)
+  activeGames.set(roomId, {
+    gameState,
+    config,
+    answers: new Map(),
+    roundTimer: null,
+    dbMatchId: null,
+    isRated: false,
+    bot: { id: botId, answerTimer: null },
+  });
+
+  // Notify human player
+  socket.emit("matchmaking:found", {
+    opponent: { id: bot.id, username: bot.username, rating: bot.rating, isGuest: true },
   });
 
   // Start countdown after brief delay
@@ -245,6 +329,12 @@ function startRound(
   const game = activeGames.get(roomId);
   if (!game) return;
 
+  // Clear any previous bot answer timer before starting a new round
+  if (game.bot?.answerTimer) {
+    clearTimeout(game.bot.answerTimer);
+    game.bot.answerTimer = null;
+  }
+
   // Clear previous answers
   game.answers.clear();
 
@@ -261,6 +351,50 @@ function startRound(
     problem: game.gameState.currentProblem!,
   });
 
+  // If this is a bot match, schedule the bot's answer server-side.
+  if (game.bot) {
+    const problem = game.gameState.currentProblem;
+    const botId = game.bot.id;
+    if (problem) {
+      // Medium strength: usually answers correctly, sometimes wrong, sometimes no-answer.
+      const roll = Math.random();
+      const willAnswer = roll >= 0.05; // 5% no-answer
+      const willBeCorrect = roll < 0.80; // 75% correct (since 5% no-answer)
+
+      const opDelayBonusMs = problem.operation === "÷" || problem.operation === "×" ? 450 : 150;
+      const rawDelayMs = Math.floor(700 + Math.random() * 2600 + opDelayBonusMs); // ~850ms–~3750ms
+      const delayMs = Math.min(game.config.timePerRound - 250, Math.max(350, rawDelayMs));
+
+      if (willAnswer) {
+        const correctAnswer = problem.answer;
+        const wrongOffsets = [-3, -2, -1, 1, 2, 3, 4, -4];
+        const wrongAnswer = correctAnswer + wrongOffsets[Math.floor(Math.random() * wrongOffsets.length)];
+        const chosenAnswer = willBeCorrect ? correctAnswer : wrongAnswer;
+
+        game.bot.answerTimer = setTimeout(() => {
+          const liveGame = activeGames.get(roomId);
+          if (!liveGame) return;
+          if (!liveGame.bot) return;
+          if (liveGame.bot.id !== botId) return;
+          if (liveGame.gameState.status !== "playing") return;
+
+          // Don't answer twice
+          if (liveGame.answers.has(botId)) return;
+
+          liveGame.answers.set(botId, { answer: chosenAnswer, timeMs: delayMs });
+
+          // Let the human client know the opponent answered
+          io.to(roomId).emit("game:opponent_answered");
+
+          // End the round early if both answered
+          if (liveGame.answers.size === 2) {
+            endRound(io, roomId);
+          }
+        }, delayMs);
+      }
+    }
+  }
+
   // Set round timer
   game.roundTimer = setTimeout(() => {
     endRound(io, roomId);
@@ -273,6 +407,12 @@ async function endRound(
 ) {
   const game = activeGames.get(roomId);
   if (!game) return;
+
+  // Always clear any pending bot answer timer when a round is ending.
+  if (game.bot?.answerTimer) {
+    clearTimeout(game.bot.answerTimer);
+    game.bot.answerTimer = null;
+  }
 
   // Prevent processing if game is not playing (avoid double processing)
   if (game.gameState.status !== "playing") {
@@ -364,6 +504,12 @@ async function endGame(
   if (!game) {
     console.log(`[EndGame] Game ${roomId} not found`);
     return;
+  }
+
+  // Stop any pending bot actions immediately.
+  if (game.bot?.answerTimer) {
+    clearTimeout(game.bot.answerTimer);
+    game.bot.answerTimer = null;
   }
 
   game.gameState.status = "game_over";
@@ -480,6 +626,10 @@ function cleanupGame(roomId: string) {
     clearTimeout(game.roundTimer);
   }
 
+  if (game.bot?.answerTimer) {
+    clearTimeout(game.bot.answerTimer);
+  }
+
   // Remove game data
   activeGames.delete(roomId);
 }
@@ -584,6 +734,22 @@ export function setupMultiplayerHandlers(
           createMatch(io, entry, match);
         } else {
           socket.emit("matchmaking:searching", { position: matchmakingQueue.size });
+
+          // If no human match is found after 10 seconds, fall back to a bot duel.
+          clearBotFallbackTimer(socket.id);
+          const fallbackTimer = setTimeout(() => {
+            // Only start a bot match if this exact queue entry is still waiting.
+            const stillQueued = matchmakingQueue.get(socket.id);
+            if (!stillQueued) return;
+            if (stillQueued.joinedAt !== entry.joinedAt) return;
+
+            // Remove from queue; createBotMatch will handle room/game creation.
+            matchmakingQueue.delete(socket.id);
+            void safelyExecute("[Multiplayer] matchmaking:bot_fallback", async () => {
+              await createBotMatch(io, stillQueued);
+            });
+          }, 10_000);
+          botFallbackTimers.set(socket.id, fallbackTimer);
         }
       });
     });
@@ -596,6 +762,7 @@ export function setupMultiplayerHandlers(
       }
 
       void safelyExecute("[Multiplayer] matchmaking:leave", () => {
+        clearBotFallbackTimer(socket.id);
         matchmakingQueue.delete(socket.id);
         socket.emit("matchmaking:cancelled");
       });
@@ -740,6 +907,8 @@ export function setupMultiplayerHandlers(
     socket.on("disconnect", () => {
       void safelyExecute("[Multiplayer] disconnect", () => {
         console.log(`Client disconnected: ${socket.id}`);
+
+        clearBotFallbackTimer(socket.id);
 
         // Remove from matchmaking queue
         matchmakingQueue.delete(socket.id);

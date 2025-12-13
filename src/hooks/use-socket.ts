@@ -7,7 +7,6 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
   Problem,
-  GameState,
 } from "@/lib/multiplayer/types";
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -15,7 +14,7 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 interface MatchmakingState {
   isSearching: boolean;
   position: number;
-  opponent: { id: string; username: string; rating: number } | null;
+  opponent: { id: string; username: string; rating: number; isGuest?: boolean } | null;
 }
 
 interface GameplayState {
@@ -294,7 +293,7 @@ export function useSocket() {
         lastUserIdRef.current = null;
       }
     };
-  }, [session?.user?.id, socketUrl]);
+  }, [session?.user?.id, session?.user?.name, socketUrl]);
 
   // Matchmaking actions
   const joinMatchmaking = useCallback(() => {

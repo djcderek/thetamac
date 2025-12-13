@@ -982,7 +982,9 @@ export function DuelMode() {
                       <AvatarFallback>{matchmaking.opponent ? getInitials(matchmaking.opponent.username) : "OP"}</AvatarFallback>
                     </Avatar>
                     <p className="font-medium truncate max-w-[140px] mx-auto">{matchmaking.opponent?.username || "Opponent"}</p>
-                    {isSignedIn ? (
+                    {matchmaking.opponent?.isGuest ? (
+                      <p className="text-xs text-muted-foreground">Guest • Unrated</p>
+                    ) : isSignedIn ? (
                       <p className="text-xs text-muted-foreground">Rating: {matchmaking.opponent?.rating}</p>
                     ) : (
                       <p className="text-xs text-muted-foreground">Unrated</p>

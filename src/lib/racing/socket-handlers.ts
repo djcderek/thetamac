@@ -65,6 +65,8 @@ const activeRaces: Map<string, {
   state: RaceState;
   gameLoop: NodeJS.Timeout | null;
   countdownTimer: NodeJS.Timeout | null;
+  botLoop: NodeJS.Timeout | null;
+  botPlayerId: string | null;
   dbRaceId: string | null;
   isRated: boolean;
   disconnectTimeouts: Map<string, NodeJS.Timeout>; // userId -> timeout
@@ -72,6 +74,9 @@ const activeRaces: Map<string, {
 
 // Track lobby disconnect grace timers (keyed by userId)
 const lobbyDisconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
+
+// Per-lobby bot fallback timers (lobbyId -> timer)
+const lobbyBotFallbackTimers: Map<string, NodeJS.Timeout> = new Map();
 
 // Socket to race/lobby mapping
 const socketToRace: Map<string, string> = new Map();
@@ -118,6 +123,7 @@ const LOBBY_COUNTDOWN_SECONDS = 10;
 const GAME_LOOP_INTERVAL_MS = 100; // Faster tick (10Hz) for smoother client motion
 const DISCONNECT_GRACE_PERIOD_MS = 15000; // 15 seconds to reconnect
 const LOBBY_DISCONNECT_GRACE_PERIOD_MS = 10000; // Grace before removing from lobby on disconnect
+const BOT_FALLBACK_DELAY_MS = 10_000;
 
 // ============================================
 // HELPER FUNCTIONS
@@ -136,14 +142,114 @@ async function getUserRating(userId: string): Promise<number> {
   }
 }
 
+function isBotEntry(entry: RaceMatchmakingEntry) {
+  return entry.isBot === true;
+}
+
+function getBotEntry(lobby: RaceLobby): RaceMatchmakingEntry | null {
+  return lobby.players.find(isBotEntry) ?? null;
+}
+
+function getRealPlayers(lobby: RaceLobby): RaceMatchmakingEntry[] {
+  return lobby.players.filter((p) => !isBotEntry(p));
+}
+
+function clearLobbyBotFallbackTimer(lobbyId: string) {
+  const timer = lobbyBotFallbackTimers.get(lobbyId);
+  if (timer) clearTimeout(timer);
+  lobbyBotFallbackTimers.delete(lobbyId);
+}
+
+function scheduleLobbyBotFallback(io: RaceServer, lobby: RaceLobby) {
+  // Only schedule when:
+  // - lobby exists
+  // - countdown not started
+  // - no bot is present
+  // - exactly 1 real player is waiting
+  if (lobby.countdownStarted) return;
+  if (getBotEntry(lobby)) return;
+  if (getRealPlayers(lobby).length !== 1) return;
+
+  if (lobbyBotFallbackTimers.has(lobby.lobbyId)) return;
+
+  const timer = setTimeout(() => {
+    // This timer has fired; remove it so a future eligible state can reschedule.
+    lobbyBotFallbackTimers.delete(lobby.lobbyId);
+
+    const currentLobby = activeLobbies.get(lobby.lobbyId);
+    if (!currentLobby) return;
+    if (currentLobby.countdownStarted) return;
+    if (getBotEntry(currentLobby)) return;
+    const realPlayers = getRealPlayers(currentLobby);
+    if (realPlayers.length !== 1) return;
+
+    // Require the waiting human socket to still be connected.
+    const waitingSocket = io.sockets.sockets.get(realPlayers[0].socketId);
+    if (!waitingSocket) return;
+
+    addBotToLobby(io, currentLobby);
+  }, BOT_FALLBACK_DELAY_MS);
+
+  lobbyBotFallbackTimers.set(lobby.lobbyId, timer);
+}
+
+function removeBotFromLobby(io: RaceServer, lobby: RaceLobby) {
+  const bot = getBotEntry(lobby);
+  if (!bot) return;
+
+  lobby.players = lobby.players.filter((p) => p.playerId !== bot.playerId);
+
+  io.to(lobby.lobbyId).emit("race:player_left", {
+    playerId: bot.playerId,
+    totalPlayers: lobby.players.length,
+  });
+}
+
+function addBotToLobby(io: RaceServer, lobby: RaceLobby) {
+  // Defensive: clear any pending fallback now that we are acting on it.
+  clearLobbyBotFallbackTimer(lobby.lobbyId);
+
+  if (getBotEntry(lobby)) return;
+
+  const botId = `bot_${randomUUID()}`;
+  const botUsername = `Guest ${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const botEntry: RaceMatchmakingEntry = {
+    socketId: botId, // no real socket
+    playerId: botId,
+    username: botUsername,
+    rating: 1000,
+    isGuest: true,
+    isBot: true,
+    joinedAt: Date.now(),
+  };
+
+  lobby.players.push(botEntry);
+
+  io.to(lobby.lobbyId).emit("race:player_joined", {
+    player: {
+      id: botEntry.playerId,
+      username: botEntry.username,
+      rating: botEntry.rating,
+      cosmetics: botEntry.cosmetics,
+    },
+    totalPlayers: lobby.players.length,
+  });
+
+  // Start countdown now that we have enough players (1 real + bot).
+  if (lobby.players.length >= MIN_PLAYERS_TO_START && !lobby.countdownStarted) {
+    startLobbyCountdown(io, lobby);
+  }
+}
+
 // ============================================
 // MATCHMAKING / LOBBY MANAGEMENT
 // ============================================
 
-function findOrCreateLobby(entry: RaceMatchmakingEntry): RaceLobby | null {
+function findOrCreateLobby(): RaceLobby | null {
   // Try to find an existing lobby with space
-  for (const [lobbyId, lobby] of activeLobbies) {
-    if (lobby.players.length < MAX_PLAYERS && !lobby.countdownStarted) {
+  for (const [, lobby] of activeLobbies) {
+    if (lobby.players.length < MAX_PLAYERS) {
       return lobby;
     }
   }
@@ -174,6 +280,9 @@ function addPlayerToLobby(
     return;
   }
 
+  // Lobby state is changing; clear any scheduled bot fallback and re-evaluate below.
+  clearLobbyBotFallbackTimer(lobby.lobbyId);
+
   lobby.players.push(entry);
   socketToLobby.set(socket.id, lobby.lobbyId);
   
@@ -191,6 +300,13 @@ function addPlayerToLobby(
     })),
     config: lobby.config,
   });
+
+  // If the lobby is already counting down, sync the late joiner immediately.
+  if (lobby.countdownStarted) {
+    socket.emit("race:starting_soon", {
+      secondsUntilStart: lobby.startCountdown,
+    });
+  }
   
   // Notify other players in lobby
   socket.to(lobby.lobbyId).emit("race:player_joined", {
@@ -202,16 +318,28 @@ function addPlayerToLobby(
     },
     totalPlayers: lobby.players.length,
   });
+
+  // If a bot is present and we now have at least 2 real players, remove the bot.
+  // This allows real players to "replace" the bot during countdown.
+  if (getBotEntry(lobby) && getRealPlayers(lobby).length >= 2) {
+    removeBotFromLobby(io, lobby);
+  }
   
   // Check if we should start countdown
   if (lobby.players.length >= MIN_PLAYERS_TO_START && !lobby.countdownStarted) {
     startLobbyCountdown(io, lobby);
   }
+
+  // If we're still waiting (single real player), schedule a bot fallback.
+  scheduleLobbyBotFallback(io, lobby);
 }
 
 function startLobbyCountdown(io: RaceServer, lobby: RaceLobby) {
   lobby.countdownStarted = true;
   lobby.startCountdown = LOBBY_COUNTDOWN_SECONDS;
+
+  // Countdown has started; bot fallback no longer applies.
+  clearLobbyBotFallbackTimer(lobby.lobbyId);
   
   io.to(lobby.lobbyId).emit("race:starting_soon", {
     secondsUntilStart: lobby.startCountdown,
@@ -230,6 +358,8 @@ function startLobbyCountdown(io: RaceServer, lobby: RaceLobby) {
       lobby.startCountdown = LOBBY_COUNTDOWN_SECONDS;
       io.to(lobby.lobbyId).emit("race:error", "Waiting for more players...");
       clearInterval(countdownInterval);
+      // Re-evaluate bot fallback once we're back to waiting.
+      scheduleLobbyBotFallback(io, lobby);
       return;
     }
 
@@ -292,6 +422,7 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
   }
   
   // Remove lobby
+  clearLobbyBotFallbackTimer(lobby.lobbyId);
   activeLobbies.delete(lobby.lobbyId);
   
   // Create race record in database
@@ -335,10 +466,13 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
   }
   
   // Store race
+  const botPlayerId = state.players.find((p) => p.id.startsWith("bot_"))?.id ?? null;
   activeRaces.set(raceId, {
     state,
     gameLoop: null,
     countdownTimer: null,
+    botLoop: null,
+    botPlayerId,
     dbRaceId,
     isRated,
     disconnectTimeouts: new Map(),
@@ -412,6 +546,181 @@ function startRaceCountdown(io: RaceServer, raceId: string) {
   race.countdownTimer = countdownInterval;
 }
 
+function startBotDriverLoop(io: RaceServer, raceId: string, botPlayerId: string): NodeJS.Timeout {
+  // Slightly human-ish cadence; bot only uses forward/boost.
+  const TICK_MS = 1100;
+  const OBSTACLE_LOOKAHEAD_M = 6;
+  const DODGE_SUCCESS_RATE = 0.75;
+  const PLAYER_AVOID_RANGE_M = 3;
+
+  const loop = setInterval(() => {
+    const race = activeRaces.get(raceId);
+    if (!race) return;
+    if (race.state.status !== "racing") return;
+
+    const bot = race.state.players.find((p) => p.id === botPlayerId);
+    if (!bot) return;
+    if (bot.finishPosition !== null) return;
+
+    // Respect stun timing.
+    if (bot.isStunned && Date.now() < bot.stunEndTime) return;
+
+    // Obstacle dodge: if an obstacle is coming up in the bot's lane soon,
+    // attempt a lane change ~75% of the time.
+    const nextObstacleInLane = race.state.obstacles
+      .filter((o) => o.lane === bot.lane && o.position > bot.position)
+      .sort((a, b) => a.position - b.position)[0];
+
+    if (nextObstacleInLane) {
+      const distToObstacle = nextObstacleInLane.position - bot.position;
+      if (distToObstacle <= OBSTACLE_LOOKAHEAD_M && Math.random() < DODGE_SUCCESS_RATE) {
+        const candidateActions: Array<{
+          action: "left" | "right";
+          targetLane: number;
+          problemId: string;
+          answer: number;
+        }> = [];
+
+        if (bot.lane > 1 && bot.problems.left) {
+          candidateActions.push({
+            action: "left",
+            targetLane: bot.lane - 1,
+            problemId: bot.problems.left.id,
+            answer: bot.problems.left.answer,
+          });
+        }
+        if (bot.lane < 5 && bot.problems.right) {
+          candidateActions.push({
+            action: "right",
+            targetLane: bot.lane + 1,
+            problemId: bot.problems.right.id,
+            answer: bot.problems.right.answer,
+          });
+        }
+
+        const safeCandidates = candidateActions.filter((c) => {
+          const hasObstacleSoon = race.state.obstacles.some(
+            (o) =>
+              o.lane === c.targetLane &&
+              o.position > bot.position &&
+              o.position - bot.position <= OBSTACLE_LOOKAHEAD_M
+          );
+          if (hasObstacleSoon) return false;
+
+          const hasNearbyPlayer = race.state.players.some((p) => {
+            if (p.id === botPlayerId) return false;
+            if (p.finishPosition !== null) return false;
+            return p.lane === c.targetLane && Math.abs(p.position - bot.position) <= PLAYER_AVOID_RANGE_M;
+          });
+          if (hasNearbyPlayer) return false;
+
+          return true;
+        });
+
+        const dodge = safeCandidates[0];
+        if (dodge) {
+          const { newState, result } = processAction(
+            race.state,
+            botPlayerId,
+            dodge.action,
+            dodge.answer,
+            dodge.problemId
+          );
+          race.state = newState;
+
+          if (result.success) {
+            io.to(raceId).emit("race:action_result", {
+              playerId: botPlayerId,
+              action: dodge.action,
+              success: true,
+              newLane: result.newLane,
+              newPosition: result.newPosition,
+              bumpedPlayerId: result.bumpedPlayerId,
+              bumpedPlayerNewPosition: result.bumpedPlayerNewPosition,
+            });
+            return; // consume tick on dodge
+          }
+        }
+      }
+    }
+
+    const action: "forward" | "boost" = Math.random() < 0.12 ? "boost" : "forward";
+    const problem = action === "boost" ? bot.problems.boost : bot.problems.forward;
+
+    const { newState, result } = processAction(
+      race.state,
+      botPlayerId,
+      action,
+      problem.answer,
+      problem.id
+    );
+
+    race.state = newState;
+
+    if (!result.success) return;
+
+    io.to(raceId).emit("race:action_result", {
+      playerId: botPlayerId,
+      action,
+      success: true,
+      newLane: result.newLane,
+      newPosition: result.newPosition,
+      bumpedPlayerId: result.bumpedPlayerId,
+      bumpedPlayerNewPosition: result.bumpedPlayerNewPosition,
+    });
+
+    if (result.obstacleHit) {
+      io.to(raceId).emit("race:obstacle_hit", {
+        playerId: botPlayerId,
+        obstacleId: "",
+        obstacleType: result.obstacleHit.type,
+        stunDuration: result.obstacleHit.stunDuration,
+        pushback: 0,
+      });
+    }
+
+    if (result.dropCollected) {
+      const botAfter = race.state.players.find((p) => p.id === botPlayerId);
+      io.to(raceId).emit("race:drop_collected", {
+        playerId: botPlayerId,
+        dropId: result.dropCollected.dropId,
+        dropType: result.dropCollected.type,
+        effectDuration: result.dropCollected.effectDuration,
+        coinValue: result.dropCollected.coinValue,
+        coinsEarnedTotal: botAfter?.coinsEarned,
+      });
+      io.to(raceId).emit("race:drops_update", {
+        drops: race.state.drops,
+      });
+
+      // Keep parity with the human flow for non-coin drops (even though current config is coin-only).
+      if (result.dropCollected.type !== "coin") {
+        io.to(raceId).emit("race:powerup_activated", {
+          playerId: botPlayerId,
+          powerupType: result.dropCollected.type,
+          duration: result.dropCollected.effectDuration,
+        });
+      }
+    }
+
+    if (result.finished && result.finishPosition) {
+      const botAfter = race.state.players.find((p) => p.id === botPlayerId);
+      io.to(raceId).emit("race:player_finished", {
+        playerId: botPlayerId,
+        position: result.finishPosition,
+        time: botAfter?.finishTime ?? 0,
+      });
+    }
+
+    // If the bot action ended the race, finish immediately.
+    if (checkRaceOver(race.state)) {
+      endRace(io, raceId);
+    }
+  }, TICK_MS);
+
+  return loop;
+}
+
 function startGameLoop(io: RaceServer, raceId: string) {
   const race = activeRaces.get(raceId);
   if (!race) return;
@@ -465,6 +774,11 @@ function startGameLoop(io: RaceServer, raceId: string) {
   }, GAME_LOOP_INTERVAL_MS);
   
   race.gameLoop = gameLoop;
+
+  // If this race includes a bot, start its driver loop.
+  if (race.botPlayerId && !race.botLoop) {
+    race.botLoop = startBotDriverLoop(io, raceId, race.botPlayerId);
+  }
 }
 
 const PLACEMENT_REWARDS: Record<number, number> = {
@@ -476,8 +790,17 @@ const PLACEMENT_REWARDS: Record<number, number> = {
 async function endRace(io: RaceServer, raceId: string) {
   const race = activeRaces.get(raceId);
   if (!race) return;
+
+  // Defensive idempotency: multiple timers/paths can try to end at once.
+  if (race.state.status === "finished") return;
   
   race.state.status = "finished";
+
+  // Stop bot loop immediately to avoid further state mutation.
+  if (race.botLoop) {
+    clearInterval(race.botLoop);
+    race.botLoop = null;
+  }
   
   // Calculate rating changes
   const ratingChanges: Record<string, number> = race.isRated
@@ -608,6 +931,7 @@ function cleanupRace(raceId: string) {
   // Clear timers
   if (race.gameLoop) clearInterval(race.gameLoop);
   if (race.countdownTimer) clearInterval(race.countdownTimer);
+  if (race.botLoop) clearInterval(race.botLoop);
   
   // Clear disconnect timeouts
   for (const timeout of race.disconnectTimeouts.values()) {
@@ -835,6 +1159,9 @@ export function setupRacingHandlers(io: RaceServer) {
         // Remove from lobby if in one
         const lobbyId = socketToLobby.get(socket.id);
         if (lobbyId) {
+          // Lobby state is changing; clear any scheduled bot fallback and re-evaluate below.
+          clearLobbyBotFallbackTimer(lobbyId);
+
           const lobby = activeLobbies.get(lobbyId);
           if (lobby) {
             lobby.players = lobby.players.filter(p => p.socketId !== socket.id);
@@ -851,8 +1178,15 @@ export function setupRacingHandlers(io: RaceServer) {
             }
             
             // If lobby is empty, remove it
-            if (lobby.players.length === 0) {
+            const realPlayersLeft = getRealPlayers(lobby).length;
+            if (lobby.players.length === 0 || realPlayersLeft === 0) {
+              // No humans remain (or lobby truly empty) - remove the lobby entirely.
+              clearLobbyBotFallbackTimer(lobbyId);
               activeLobbies.delete(lobbyId);
+            } else {
+              // If we dropped back to a single real player and countdown isn't running,
+              // schedule bot fallback again.
+              scheduleLobbyBotFallback(io, lobby);
             }
           }
         }
@@ -1180,6 +1514,9 @@ export function setupRacingHandlers(io: RaceServer) {
         const lobbyId = socketToLobby.get(socket.id);
         const player = socketToPlayer.get(socket.id);
         if (lobbyId) {
+          // Lobby state is changing; clear any scheduled bot fallback and re-evaluate below.
+          clearLobbyBotFallbackTimer(lobbyId);
+
           const lobby = activeLobbies.get(lobbyId);
           if (lobby && player) {
             // Give the player time to reconnect before removing them
@@ -1199,8 +1536,12 @@ export function setupRacingHandlers(io: RaceServer) {
                 totalPlayers: currentLobby.players.length,
               });
               
-              if (currentLobby.players.length === 0) {
+              const realPlayersLeft = getRealPlayers(currentLobby).length;
+              if (currentLobby.players.length === 0 || realPlayersLeft === 0) {
+                clearLobbyBotFallbackTimer(lobbyId);
                 activeLobbies.delete(lobbyId);
+              } else {
+                scheduleLobbyBotFallback(io, currentLobby);
               }
               
               lobbyDisconnectTimeouts.delete(player.id);
@@ -1210,8 +1551,12 @@ export function setupRacingHandlers(io: RaceServer) {
           } else if (lobby) {
             // Fallback: remove immediately if we don't know the player
             lobby.players = lobby.players.filter(p => p.socketId !== socket.id);
-            if (lobby.players.length === 0) {
+            const realPlayersLeft = getRealPlayers(lobby).length;
+            if (lobby.players.length === 0 || realPlayersLeft === 0) {
+              clearLobbyBotFallbackTimer(lobbyId);
               activeLobbies.delete(lobbyId);
+            } else {
+              scheduleLobbyBotFallback(io, lobby);
             }
           }
           
