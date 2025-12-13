@@ -493,15 +493,15 @@ function PlayerCard({
 function CameraRig() {
   // On narrow/portrait screens, the horizontal FOV shrinks (even with the same vertical FOV),
   // which can clip vehicles placed across the lobby lineup. Compensate by widening vertical FOV
-  // and backing the camera up a bit.
+  // and backing the camera up a bit. Keep the adjustments modest so mobile isn't zoomed too far out.
   useFrame((state, delta) => {
     const aspect = state.size.width / Math.max(1, state.size.height);
     const portraitFactor = Math.max(0, 1 - aspect); // 0 on landscape-ish, higher on portrait
 
-    const targetFov = THREE.MathUtils.clamp(45 + portraitFactor * 60, 45, 115);
-    // Much larger pull-back on portrait/mobile so the whole lineup stays visible.
-    const targetZ = 19 + portraitFactor * 110;
-    const targetY = 6 + portraitFactor * 20;
+    const targetFov = THREE.MathUtils.clamp(45 + portraitFactor * 45, 45, 100);
+    // Slight pull-back on portrait/mobile so the whole lineup stays visible without feeling distant.
+    const targetZ = 19 + portraitFactor * 70;
+    const targetY = 6 + portraitFactor * 14;
 
     const cam = state.camera as THREE.PerspectiveCamera;
     if ("fov" in cam) {

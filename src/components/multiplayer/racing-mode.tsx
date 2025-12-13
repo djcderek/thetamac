@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import {
   Play,
   Wifi,
   WifiOff,
-  Circle,
   ArrowLeft,
   Trophy,
   Zap,
@@ -26,14 +25,11 @@ import {
   Users,
   Flame,
   X,
-  Shield,
-  Sparkles,
-  AlertTriangle,
-  Snowflake,
 } from "lucide-react";
 import { useRaceSocket } from "@/hooks/use-race-socket";
+import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import Link from "next/link";
-import type { ActionType, PlayerProblems, TrackObstacle, TrackDrop, ObstacleType, DropType } from "@/lib/racing/types";
+import type { ActionType, PlayerProblems } from "@/lib/racing/types";
 import RaceTrack3D from "@/components/racing/race-track-3d";
 import RaceLobby3D from "@/components/racing/race-lobby-3d";
 
@@ -58,12 +54,16 @@ function ProblemPanel({
   isOnCooldown,
   cooldownRemaining,
 }: ProblemPanelProps) {
+  const isMobileDevice = useIsMobileDevice();
   const [answers, setAnswers] = useState<Record<ActionType, string>>({
     left: "",
     forward: "",
     right: "",
     boost: "",
   });
+
+  const [mobileKeypadAction, setMobileKeypadAction] = useState<ActionType>("forward");
+  const [isMobileKeypadOpen, setIsMobileKeypadOpen] = useState(() => isMobileDevice);
   
   const leftRef = useRef<HTMLInputElement>(null);
   const forwardRef = useRef<HTMLInputElement>(null);
@@ -72,14 +72,16 @@ function ProblemPanel({
 
   // Focus forward input on mount
   useEffect(() => {
+    if (isMobileDevice) return;
     forwardRef.current?.focus();
-  }, []);
+  }, [isMobileDevice]);
 
   // Focus forward when new forward problem arrives (race start or refresh)
   useEffect(() => {
+    if (isMobileDevice) return;
     forwardRef.current?.focus();
     forwardRef.current?.select();
-  }, [problems?.forward?.id]);
+  }, [isMobileDevice, problems?.forward?.id]);
 
   const handleSubmit = (action: ActionType) => {
     if (!problems || isStunned || isOnCooldown) return;
@@ -94,21 +96,33 @@ function ProblemPanel({
     const answer = parseInt(answers[action]);
     if (isNaN(answer)) return;
     
-    const success = onSubmit(action, answer, problem.id);
+    onSubmit(action, answer, problem.id);
     
     // Clear input regardless of success
     setAnswers(prev => ({ ...prev, [action]: "" }));
     
     // Refocus input
-    const ref = action === "left" ? leftRef :
-                action === "right" ? rightRef :
-                action === "boost" ? boostRef :
-                forwardRef;
+    if (isMobileDevice) {
+      setMobileKeypadAction(action);
+      setIsMobileKeypadOpen(true);
+      return;
+    }
+
+    const ref =
+      action === "left" ? leftRef :
+      action === "right" ? rightRef :
+      action === "boost" ? boostRef :
+      forwardRef;
     ref.current?.focus();
     ref.current?.select();
   };
 
   const focusInput = (action: ActionType) => {
+    if (isMobileDevice) {
+      setMobileKeypadAction(action);
+      setIsMobileKeypadOpen(true);
+      return;
+    }
     const ref = action === "left" ? leftRef :
                 action === "right" ? rightRef :
                 action === "boost" ? boostRef :
@@ -160,9 +174,25 @@ function ProblemPanel({
 
   const canGoLeft = currentLane > 1 && problems.left;
   const canGoRight = currentLane < 5 && problems.right;
+  const problemInputsDisabled = isStunned || isOnCooldown;
+
+  const openMobileKeypad = (action: ActionType) => {
+    if (!isMobileDevice) return;
+    if (problemInputsDisabled) return;
+    setMobileKeypadAction(action);
+    setIsMobileKeypadOpen(true);
+  };
+
+  const setMobileKeypadValue: React.Dispatch<React.SetStateAction<string>> = (updater) => {
+    setAnswers((prev) => {
+      const current = prev[mobileKeypadAction] ?? "";
+      const nextValue = typeof updater === "function" ? updater(current) : updater;
+      return { ...prev, [mobileKeypadAction]: nextValue };
+    });
+  };
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-3 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-40" : ""}`}>
       {/* Status bar */}
       {(isStunned || isOnCooldown) && (
         <div className={`flex items-center justify-center gap-2 p-3 rounded-lg ${
@@ -185,33 +215,48 @@ function ProblemPanel({
       )}
 
       {/* Main problem grid */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {/* Left lane change */}
         <div className={`${!canGoLeft ? "opacity-40 pointer-events-none" : ""}`}>
           <Card className="h-full border-dashed">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground mb-1 sm:mb-2">
                 <ChevronLeft className="w-3 h-3" />
                 Lane {currentLane - 1}
               </div>
               {problems.left ? (
                 <>
-                  <div className="text-xl font-mono font-semibold text-center mb-2">
+                  <div className="text-lg sm:text-xl font-mono font-semibold text-center mb-1 sm:mb-2">
                     {problems.left.a} {problems.left.operation} {problems.left.b}
                   </div>
                   <div className="flex gap-1">
-                    <Input
-                      ref={leftRef}
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={answers.left}
-                      onChange={e => setAnswers(prev => ({ ...prev, left: e.target.value }))}
-                      onKeyDown={handleKeyDown("left")}
-                      placeholder="?"
-                      className="h-9 text-center font-mono"
-                      disabled={isStunned || isOnCooldown}
-                    />
+                    {isMobileDevice ? (
+                      <button
+                        type="button"
+                        onPointerDownCapture={() => openMobileKeypad("left")}
+                        onClick={() => openMobileKeypad("left")}
+                        className={`h-8 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                          mobileKeypadAction === "left" ? "border-primary/60" : "border-input"
+                        } ${problemInputsDisabled ? "opacity-50" : ""}`}
+                        aria-label="Answer (Left)"
+                        aria-disabled={problemInputsDisabled}
+                      >
+                        {answers.left.length > 0 ? answers.left : "?"}
+                      </button>
+                    ) : (
+                      <Input
+                        ref={leftRef}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={answers.left}
+                        onChange={e => setAnswers(prev => ({ ...prev, left: e.target.value }))}
+                        onKeyDown={handleKeyDown("left")}
+                        placeholder="?"
+                        className="h-8 sm:h-9 text-center font-mono"
+                        disabled={problemInputsDisabled}
+                      />
+                    )}
                   </div>
                 </>
               ) : (
@@ -225,28 +270,45 @@ function ProblemPanel({
 
         {/* Forward */}
         <Card className="border-2 border-primary/50 bg-primary/5">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-center gap-1 text-xs text-primary font-medium mb-2">
-              <ArrowUp className="w-3 h-3" />
-              Forward +1m
-            </div>
-            <div className="text-2xl font-mono font-bold text-center mb-2">
+          <CardContent className="p-2 sm:p-3">
+            {!isMobileDevice && (
+              <div className="flex items-center justify-center gap-1 text-xs text-primary font-medium mb-2">
+                <ArrowUp className="w-3 h-3" />
+                Forward +1m
+              </div>
+            )}
+            <div className="text-xl sm:text-2xl font-mono font-bold text-center mb-1 sm:mb-2">
               {problems.forward.a} {problems.forward.operation} {problems.forward.b}
             </div>
             <div className="flex gap-1">
-              <Input
-                ref={forwardRef}
+              {isMobileDevice ? (
+                <button
+                  type="button"
+                  onPointerDownCapture={() => openMobileKeypad("forward")}
+                  onClick={() => openMobileKeypad("forward")}
+                  className={`h-9 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                    mobileKeypadAction === "forward" ? "border-primary/70" : "border-input"
+                  } ${problemInputsDisabled ? "opacity-50" : ""}`}
+                  aria-label="Answer (Forward)"
+                  aria-disabled={problemInputsDisabled}
+                >
+                  {answers.forward.length > 0 ? answers.forward : "?"}
+                </button>
+              ) : (
+                <Input
+                  ref={forwardRef}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                value={answers.forward}
-                onChange={e => setAnswers(prev => ({ ...prev, forward: e.target.value }))}
-                onKeyDown={handleKeyDown("forward")}
-                placeholder="?"
-                className="h-10 text-center font-mono text-lg"
-                disabled={isStunned || isOnCooldown}
-                autoFocus
-              />
+                  value={answers.forward}
+                  onChange={e => setAnswers(prev => ({ ...prev, forward: e.target.value }))}
+                  onKeyDown={handleKeyDown("forward")}
+                  placeholder="?"
+                  className="h-9 sm:h-10 text-center font-mono text-base sm:text-lg"
+                  disabled={problemInputsDisabled}
+                  autoFocus
+                />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -254,29 +316,44 @@ function ProblemPanel({
         {/* Right lane change */}
         <div className={`${!canGoRight ? "opacity-40 pointer-events-none" : ""}`}>
           <Card className="h-full border-dashed">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground mb-2">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center justify-end gap-1 text-[11px] sm:text-xs text-muted-foreground mb-1 sm:mb-2">
                 Lane {currentLane + 1}
                 <ChevronRight className="w-3 h-3" />
               </div>
               {problems.right ? (
                 <>
-                  <div className="text-xl font-mono font-semibold text-center mb-2">
+                  <div className="text-lg sm:text-xl font-mono font-semibold text-center mb-1 sm:mb-2">
                     {problems.right.a} {problems.right.operation} {problems.right.b}
                   </div>
                   <div className="flex gap-1">
-                    <Input
-                      ref={rightRef}
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={answers.right}
-                      onChange={e => setAnswers(prev => ({ ...prev, right: e.target.value }))}
-                      onKeyDown={handleKeyDown("right")}
-                      placeholder="?"
-                      className="h-9 text-center font-mono"
-                      disabled={isStunned || isOnCooldown}
-                    />
+                    {isMobileDevice ? (
+                      <button
+                        type="button"
+                        onPointerDownCapture={() => openMobileKeypad("right")}
+                        onClick={() => openMobileKeypad("right")}
+                        className={`h-8 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                          mobileKeypadAction === "right" ? "border-primary/60" : "border-input"
+                        } ${problemInputsDisabled ? "opacity-50" : ""}`}
+                        aria-label="Answer (Right)"
+                        aria-disabled={problemInputsDisabled}
+                      >
+                        {answers.right.length > 0 ? answers.right : "?"}
+                      </button>
+                    ) : (
+                      <Input
+                        ref={rightRef}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={answers.right}
+                        onChange={e => setAnswers(prev => ({ ...prev, right: e.target.value }))}
+                        onKeyDown={handleKeyDown("right")}
+                        placeholder="?"
+                        className="h-8 sm:h-9 text-center font-mono"
+                        disabled={problemInputsDisabled}
+                      />
+                    )}
                   </div>
                 </>
               ) : (
@@ -291,43 +368,70 @@ function ProblemPanel({
 
       {/* Boost problem */}
       <Card className="border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10">
-        <CardContent className="p-3">
+        <CardContent className="p-2 sm:p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-md bg-amber-500/20">
-                <Zap className="w-4 h-4 text-amber-500" />
+              <div className="p-1 sm:p-1.5 rounded-md bg-amber-500/20">
+                <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
               </div>
               <div>
                 <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
                   BOOST +3m (Harder)
                 </div>
-                <div className="text-2xl font-mono font-bold">
+                <div className="text-xl sm:text-2xl font-mono font-bold">
                   {problems.boost.a} {problems.boost.operation} {problems.boost.b}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Input
-                ref={boostRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={answers.boost}
-                onChange={e => setAnswers(prev => ({ ...prev, boost: e.target.value }))}
-                onKeyDown={handleKeyDown("boost")}
-                placeholder="?"
-                className="h-10 w-24 text-center font-mono text-lg"
-                disabled={isStunned || isOnCooldown}
-              />
+              {isMobileDevice ? (
+                <button
+                  type="button"
+                  onPointerDownCapture={() => openMobileKeypad("boost")}
+                  onClick={() => openMobileKeypad("boost")}
+                  className={`h-9 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                    mobileKeypadAction === "boost" ? "border-primary/60" : "border-input"
+                  } ${problemInputsDisabled ? "opacity-50" : ""}`}
+                  aria-label="Answer (Boost)"
+                  aria-disabled={problemInputsDisabled}
+                >
+                  {answers.boost.length > 0 ? answers.boost : "?"}
+                </button>
+              ) : (
+                <Input
+                  ref={boostRef}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={answers.boost}
+                  onChange={e => setAnswers(prev => ({ ...prev, boost: e.target.value }))}
+                  onKeyDown={handleKeyDown("boost")}
+                  placeholder="?"
+                  className="h-9 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg"
+                  disabled={problemInputsDisabled}
+                />
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Keyboard hints */}
-      <div className="text-center text-xs text-muted-foreground">
-        Type answer and press <kbd className="px-1.5 py-0.5 bg-secondary rounded text-[10px]">Enter</kbd> to submit
-      </div>
+      {!isMobileDevice && (
+        <div className="text-center text-xs text-muted-foreground">
+          Type answer and press <kbd className="px-1.5 py-0.5 bg-secondary rounded text-[10px]">Enter</kbd> to submit
+        </div>
+      )}
+
+      {/* Mobile custom keypad */}
+      {isMobileDevice && isMobileKeypadOpen && (
+        <MobileNumpad
+          value={answers[mobileKeypadAction] ?? ""}
+          setValue={setMobileKeypadValue}
+          onDone={() => handleSubmit(mobileKeypadAction)}
+          disabled={problemInputsDisabled}
+        />
+      )}
     </div>
   );
 }
@@ -412,7 +516,7 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {results.map((result, i) => {
+            {results.map((result) => {
               const isMe = result.playerId === myPlayerId;
               return (
                 <div
@@ -502,7 +606,6 @@ export function RacingMode() {
     leaveQueue,
     submitAnswer,
     forfeit,
-    leaveRace,
     resetAllState,
     getMyPlayer,
     myPlayerId,
@@ -604,7 +707,7 @@ export function RacingMode() {
                     Waiting for other players to finish...
                   </p>
                   <div className="mt-4 flex justify-center gap-4">
-                    {race.finishOrder.map((finish, i) => (
+                    {race.finishOrder.map((finish) => (
                       <div key={finish.playerId} className="text-center">
                         <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto mb-1 font-bold">
                           {finish.position === 1 ? "🥇" : finish.position === 2 ? "🥈" : finish.position === 3 ? "🥉" : `#${finish.position}`}
@@ -651,7 +754,7 @@ export function RacingMode() {
                   {race.countdown}
                 </div>
                 <div className="mt-8 flex justify-center gap-4">
-                  {race.players.map((player, i) => (
+                  {race.players.map((player) => (
                     <div key={player.id} className="text-center">
                       <Avatar className="h-12 w-12 mx-auto mb-2">
                         <AvatarFallback>
