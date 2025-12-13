@@ -192,7 +192,7 @@ function ProblemPanel({
   };
 
   return (
-    <div className={`space-y-3 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-40" : ""}`}>
+    <div className={`space-y-2 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-40" : ""}`}>
       {/* Status bar */}
       {(isStunned || isOnCooldown) && (
         <div className={`flex items-center justify-center gap-2 p-3 rounded-lg ${
@@ -215,18 +215,18 @@ function ProblemPanel({
       )}
 
       {/* Main problem grid */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
         {/* Left lane change */}
         <div className={`${!canGoLeft ? "opacity-40 pointer-events-none" : ""}`}>
           <Card className="h-full border-dashed">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground mb-1 sm:mb-2">
+            <CardContent className="px-2 py-1 sm:p-3">
+              <div className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-2">
                 <ChevronLeft className="w-3 h-3" />
                 Lane {currentLane - 1}
               </div>
               {problems.left ? (
                 <>
-                  <div className="text-lg sm:text-xl font-mono font-semibold text-center mb-1 sm:mb-2">
+                  <div className="text-base sm:text-xl font-mono font-semibold text-center mb-0.5 sm:mb-2">
                     {problems.left.a} {problems.left.operation} {problems.left.b}
                   </div>
                   <div className="flex gap-1">
@@ -235,7 +235,7 @@ function ProblemPanel({
                         type="button"
                         onPointerDownCapture={() => openMobileKeypad("left")}
                         onClick={() => openMobileKeypad("left")}
-                        className={`h-8 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                        className={`h-7 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "left" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
                         aria-label="Answer (Left)"
@@ -253,14 +253,14 @@ function ProblemPanel({
                         onChange={e => setAnswers(prev => ({ ...prev, left: e.target.value }))}
                         onKeyDown={handleKeyDown("left")}
                         placeholder="?"
-                        className="h-8 sm:h-9 text-center font-mono"
+                        className="h-7 sm:h-9 text-center font-mono"
                         disabled={problemInputsDisabled}
                       />
                     )}
                   </div>
                 </>
               ) : (
-                <div className="text-center text-muted-foreground text-sm py-4">
+                <div className="text-center text-muted-foreground text-sm py-2 sm:py-4">
                   Edge
                 </div>
               )}
@@ -270,14 +270,14 @@ function ProblemPanel({
 
         {/* Forward */}
         <Card className="border-2 border-primary/50 bg-primary/5">
-          <CardContent className="p-2 sm:p-3">
+          <CardContent className="px-2 py-1 sm:p-3">
             {!isMobileDevice && (
               <div className="flex items-center justify-center gap-1 text-xs text-primary font-medium mb-2">
                 <ArrowUp className="w-3 h-3" />
                 Forward +1m
               </div>
             )}
-            <div className="text-xl sm:text-2xl font-mono font-bold text-center mb-1 sm:mb-2">
+            <div className="text-lg sm:text-2xl font-mono font-bold text-center mb-0.5 sm:mb-2">
               {problems.forward.a} {problems.forward.operation} {problems.forward.b}
             </div>
             <div className="flex gap-1">
@@ -286,7 +286,7 @@ function ProblemPanel({
                   type="button"
                   onPointerDownCapture={() => openMobileKeypad("forward")}
                   onClick={() => openMobileKeypad("forward")}
-                  className={`h-9 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                  className={`h-8 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
                     mobileKeypadAction === "forward" ? "border-primary/70" : "border-input"
                   } ${problemInputsDisabled ? "opacity-50" : ""}`}
                   aria-label="Answer (Forward)"
@@ -304,7 +304,7 @@ function ProblemPanel({
                   onChange={e => setAnswers(prev => ({ ...prev, forward: e.target.value }))}
                   onKeyDown={handleKeyDown("forward")}
                   placeholder="?"
-                  className="h-9 sm:h-10 text-center font-mono text-base sm:text-lg"
+                  className="h-8 sm:h-10 text-center font-mono text-base sm:text-lg"
                   disabled={problemInputsDisabled}
                   autoFocus
                 />
@@ -316,14 +316,14 @@ function ProblemPanel({
         {/* Right lane change */}
         <div className={`${!canGoRight ? "opacity-40 pointer-events-none" : ""}`}>
           <Card className="h-full border-dashed">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center justify-end gap-1 text-[11px] sm:text-xs text-muted-foreground mb-1 sm:mb-2">
+            <CardContent className="px-2 py-1 sm:p-3">
+              <div className="flex items-center justify-end gap-1 text-[11px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-2">
                 Lane {currentLane + 1}
                 <ChevronRight className="w-3 h-3" />
               </div>
               {problems.right ? (
                 <>
-                  <div className="text-lg sm:text-xl font-mono font-semibold text-center mb-1 sm:mb-2">
+                  <div className="text-base sm:text-xl font-mono font-semibold text-center mb-0.5 sm:mb-2">
                     {problems.right.a} {problems.right.operation} {problems.right.b}
                   </div>
                   <div className="flex gap-1">
@@ -332,7 +332,7 @@ function ProblemPanel({
                         type="button"
                         onPointerDownCapture={() => openMobileKeypad("right")}
                         onClick={() => openMobileKeypad("right")}
-                        className={`h-8 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                        className={`h-7 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "right" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
                         aria-label="Answer (Right)"
@@ -350,14 +350,14 @@ function ProblemPanel({
                         onChange={e => setAnswers(prev => ({ ...prev, right: e.target.value }))}
                         onKeyDown={handleKeyDown("right")}
                         placeholder="?"
-                        className="h-8 sm:h-9 text-center font-mono"
+                        className="h-7 sm:h-9 text-center font-mono"
                         disabled={problemInputsDisabled}
                       />
                     )}
                   </div>
                 </>
               ) : (
-                <div className="text-center text-muted-foreground text-sm py-4">
+                <div className="text-center text-muted-foreground text-sm py-2 sm:py-4">
                   Edge
                 </div>
               )}
@@ -368,17 +368,17 @@ function ProblemPanel({
 
       {/* Boost problem */}
       <Card className="border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10">
-        <CardContent className="p-2 sm:p-3">
+        <CardContent className="px-2 py-1 sm:p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1 sm:p-1.5 rounded-md bg-amber-500/20">
+              <div className="p-0.5 sm:p-1.5 rounded-md bg-amber-500/20">
                 <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
               </div>
               <div>
                 <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
                   BOOST +3m (Harder)
                 </div>
-                <div className="text-xl sm:text-2xl font-mono font-bold">
+                <div className="text-lg sm:text-2xl font-mono font-bold">
                   {problems.boost.a} {problems.boost.operation} {problems.boost.b}
                 </div>
               </div>
@@ -389,7 +389,7 @@ function ProblemPanel({
                   type="button"
                   onPointerDownCapture={() => openMobileKeypad("boost")}
                   onClick={() => openMobileKeypad("boost")}
-                  className={`h-9 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                  className={`h-8 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
                     mobileKeypadAction === "boost" ? "border-primary/60" : "border-input"
                   } ${problemInputsDisabled ? "opacity-50" : ""}`}
                   aria-label="Answer (Boost)"
@@ -407,7 +407,7 @@ function ProblemPanel({
                   onChange={e => setAnswers(prev => ({ ...prev, boost: e.target.value }))}
                   onKeyDown={handleKeyDown("boost")}
                   placeholder="?"
-                  className="h-9 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg"
+                  className="h-8 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg"
                   disabled={problemInputsDisabled}
                 />
               )}
@@ -681,55 +681,61 @@ export function RacingMode() {
         </div>
 
         <div className="p-4 md:p-6">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* Track visualization */}
-            <RaceTrack3D
-              players={race.players}
-              trackLength={race.config?.trackLength || 250}
-              myPlayerId={myPlayerId || playerId || ""}
-              finishOrder={race.finishOrder}
-              obstacles={race.obstacles || []}
-              drops={race.drops || []}
-              myPosition={myPlayer?.position || 0}
-            />
+          <div className="max-w-4xl mx-auto">
+            <div className="relative">
+              {/* Track visualization */}
+              <div className="relative z-0">
+                <RaceTrack3D
+                  players={race.players}
+                  trackLength={race.config?.trackLength || 250}
+                  myPlayerId={myPlayerId || playerId || ""}
+                  finishOrder={race.finishOrder}
+                  obstacles={race.obstacles || []}
+                  drops={race.drops || []}
+                  myPosition={myPlayer?.position || 0}
+                />
+              </div>
 
-            {/* Show finished state or problem panel */}
-            {hasFinished ? (
-              <Card className="border-success/50 bg-success/5">
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
-                    <Trophy className="w-8 h-8 text-success" />
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2">
-                    You Finished #{race.myFinishPosition}!
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Waiting for other players to finish...
-                  </p>
-                  <div className="mt-4 flex justify-center gap-4">
-                    {race.finishOrder.map((finish) => (
-                      <div key={finish.playerId} className="text-center">
-                        <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto mb-1 font-bold">
-                          {finish.position === 1 ? "🥇" : finish.position === 2 ? "🥈" : finish.position === 3 ? "🥉" : `#${finish.position}`}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {race.players.find(p => p.id === finish.playerId)?.username || "Player"}
-                        </p>
+              {/* Show finished state or problem panel */}
+              <div className={hasFinished ? "mt-6" : "relative z-10 -mt-16 sm:mt-6"}>
+                {hasFinished ? (
+                  <Card className="border-success/50 bg-success/5">
+                    <CardContent className="p-8 text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+                        <Trophy className="w-8 h-8 text-success" />
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <ProblemPanel
-                problems={race.myProblems}
-                onSubmit={submitAnswer}
-                isStunned={myPlayer?.isStunned || false}
-                currentLane={myPlayer?.lane || 3}
-                isOnCooldown={isOnCooldown}
-                cooldownRemaining={cooldownRemaining}
-              />
-            )}
+                      <h2 className="text-2xl font-bold mb-2">
+                        You Finished #{race.myFinishPosition}!
+                      </h2>
+                      <p className="text-muted-foreground">
+                        Waiting for other players to finish...
+                      </p>
+                      <div className="mt-4 flex justify-center gap-4">
+                        {race.finishOrder.map((finish) => (
+                          <div key={finish.playerId} className="text-center">
+                            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto mb-1 font-bold">
+                              {finish.position === 1 ? "🥇" : finish.position === 2 ? "🥈" : finish.position === 3 ? "🥉" : `#${finish.position}`}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {race.players.find(p => p.id === finish.playerId)?.username || "Player"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <ProblemPanel
+                    problems={race.myProblems}
+                    onSubmit={submitAnswer}
+                    isStunned={myPlayer?.isStunned || false}
+                    currentLane={myPlayer?.lane || 3}
+                    isOnCooldown={isOnCooldown}
+                    cooldownRemaining={cooldownRemaining}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
