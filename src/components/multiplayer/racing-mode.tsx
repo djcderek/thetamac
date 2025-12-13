@@ -743,42 +743,45 @@ export function RacingMode() {
   return (
     <div className="min-h-[calc(100vh-200px)]">
       <div className="border-b border-border">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold">Math Racers</h1>
-            <p className="text-sm text-muted-foreground">
-              Race to the finish by solving math problems!
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {isGuest && (
-              <>
-                <Badge variant="secondary" className="text-xs">
-                  {playerName}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  Guest • Unrated
-                </Badge>
-                <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>
-                  <Button variant="outline" size="sm">
-                    Sign in
-                  </Button>
-                </Link>
-              </>
-            )}
-            <Badge variant="outline" className="text-xs">
-              {isConnected ? (
+        {/* Header with title and description */}
+        <div className="px-4 sm:px-6 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <h1 className="text-lg font-semibold">Math Racers</h1>
+              <p className="text-sm text-muted-foreground">
+                Race to the finish by solving math problems!
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              {isGuest && (
                 <>
-                  <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                  Connecting...
+                  <Badge variant="secondary" className="text-xs">
+                    {playerName}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Guest • Unrated
+                  </Badge>
+                  <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                      Sign in
+                    </Button>
+                  </Link>
                 </>
               )}
-            </Badge>
+              <Badge variant="outline" className="text-xs">
+                {isConnected ? (
+                  <>
+                    <Wifi className="w-3 h-3 mr-1.5 text-success" />
+                    Connected
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
+                    Connecting...
+                  </>
+                )}
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
