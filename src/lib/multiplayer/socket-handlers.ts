@@ -43,13 +43,14 @@ const activeGames: Map<string, {
   answers: Map<string, { answer: number; timeMs: number }>;
   roundTimer: NodeJS.Timeout | null;
   dbMatchId: string | null; // Database record ID
+  isRated: boolean;
 }> = new Map();
 
 // Socket to room mapping
 const socketToRoom: Map<string, string> = new Map();
 
 // Socket to player mapping
-const socketToPlayer: Map<string, { id: string; username: string }> = new Map();
+const socketToPlayer: Map<string, { id: string; username: string; isGuest: boolean }> = new Map();
 
 // ============================================
 // GUARDRAILS
@@ -122,12 +123,14 @@ async function createMatch(
   player2Entry: MatchmakingEntry
 ) {
   const roomId = `game_${randomUUID()}`;
+  const isRated = !player1Entry.isGuest && !player2Entry.isGuest;
   
   const player1: Player = {
     id: player1Entry.playerId,
     socketId: player1Entry.socketId,
     username: player1Entry.username,
     rating: player1Entry.rating,
+    isGuest: player1Entry.isGuest,
   };
   
   const player2: Player = {
@@ -135,6 +138,7 @@ async function createMatch(
     socketId: player2Entry.socketId,
     username: player2Entry.username,
     rating: player2Entry.rating,
+    isGuest: player2Entry.isGuest,
   };
 
   const config: GameConfig = {
@@ -167,22 +171,24 @@ async function createMatch(
 
   // Create match in database
   let dbMatchId: string | null = null;
-  try {
-    const dbMatch = await db.multiplayerMatch.create({
-      data: {
-        player1Id: player1.id,
-        player2Id: player2.id,
-        player1RatingBefore: player1.rating,
-        player2RatingBefore: player2.rating,
-        totalRounds: config.rounds,
-        difficulty: config.difficulty,
-        status: "in_progress",
-      },
-    });
-    dbMatchId = dbMatch.id;
-    console.log(`Created match in database: ${dbMatchId}`);
-  } catch (error) {
-    console.error("Failed to create match in database:", error);
+  if (isRated) {
+    try {
+      const dbMatch = await db.multiplayerMatch.create({
+        data: {
+          player1Id: player1.id,
+          player2Id: player2.id,
+          player1RatingBefore: player1.rating,
+          player2RatingBefore: player2.rating,
+          totalRounds: config.rounds,
+          difficulty: config.difficulty,
+          status: "in_progress",
+        },
+      });
+      dbMatchId = dbMatch.id;
+      console.log(`Created match in database: ${dbMatchId}`);
+    } catch (error) {
+      console.error("Failed to create match in database:", error);
+    }
   }
 
   // Store game
@@ -192,6 +198,7 @@ async function createMatch(
     answers: new Map(),
     roundTimer: null,
     dbMatchId,
+    isRated,
   });
 
   // Notify players
@@ -366,19 +373,24 @@ async function endGame(
   const player2 = game.gameState.players[1];
 
   // Calculate rating changes
-  const ratingChanges: Record<string, number> = {};
-  
-  if (winnerId) {
-    const winner = game.gameState.players.find(p => p.id === winnerId)!;
-    const loser = game.gameState.players.find(p => p.id !== winnerId)!;
-    const { winnerChange, loserChange } = calculateRatingChange(winner.rating, loser.rating);
-    ratingChanges[winner.id] = winnerChange;
-    ratingChanges[loser.id] = loserChange;
-  } else {
-    // Draw
-    const { winnerChange, loserChange } = calculateRatingChange(player1.rating, player2.rating, true);
-    ratingChanges[player1.id] = winnerChange;
-    ratingChanges[player2.id] = loserChange;
+  const ratingChanges: Record<string, number> = {
+    [player1.id]: 0,
+    [player2.id]: 0,
+  };
+
+  if (game.isRated) {
+    if (winnerId) {
+      const winner = game.gameState.players.find(p => p.id === winnerId)!;
+      const loser = game.gameState.players.find(p => p.id !== winnerId)!;
+      const { winnerChange, loserChange } = calculateRatingChange(winner.rating, loser.rating);
+      ratingChanges[winner.id] = winnerChange;
+      ratingChanges[loser.id] = loserChange;
+    } else {
+      // Draw
+      const { winnerChange, loserChange } = calculateRatingChange(player1.rating, player2.rating, true);
+      ratingChanges[player1.id] = winnerChange;
+      ratingChanges[player2.id] = loserChange;
+    }
   }
 
   // Save match result to database
@@ -514,10 +526,10 @@ export function setupMultiplayerHandlers(
           return;
         }
 
-        const { userId, username } = authResult;
+        const { userId, username, isGuest } = authResult;
 
         // Store player info
-        socketToPlayer.set(socket.id, { id: userId, username });
+        socketToPlayer.set(socket.id, { id: userId, username, isGuest });
 
         // Check if already in queue
         if (matchmakingQueue.has(socket.id)) {
@@ -551,14 +563,15 @@ export function setupMultiplayerHandlers(
           socketToRoom.delete(socket.id);
         }
 
-        // Fetch the user's actual rating from database
-        const actualRating = await getUserRating(userId);
+        // Fetch the user's actual rating from database (guests are unrated)
+        const actualRating = isGuest ? 1000 : await getUserRating(userId);
 
         const entry: MatchmakingEntry = {
           socketId: socket.id,
           playerId: userId,
           username,
           rating: actualRating,
+          isGuest,
           joinedAt: Date.now(),
         };
 

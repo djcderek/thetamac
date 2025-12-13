@@ -8,7 +8,6 @@ const protectedRoutes = [
   "/settings",
   "/shop",
   "/stats",
-  "/multiplayer",
 ];
 
 // Routes that should redirect to home if already authenticated

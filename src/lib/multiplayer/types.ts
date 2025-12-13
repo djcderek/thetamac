@@ -19,6 +19,7 @@ export interface Player {
   username: string;
   rating: number;
   avatar?: string;
+  isGuest?: boolean;
 }
 
 export interface GameConfig {
@@ -47,6 +48,7 @@ export interface MatchmakingEntry {
   playerId: string;
   username: string;
   rating: number;
+  isGuest: boolean;
   joinedAt: number;
 }
 

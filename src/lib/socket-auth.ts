@@ -5,6 +5,7 @@ import { env } from "./env";
 interface AuthResult {
   userId: string;
   username: string;
+  isGuest: boolean;
 }
 
 interface SocketAuth {
@@ -25,6 +26,7 @@ export async function authenticateSocket(
     return {
       userId: sessionToken.id,
       username: (typeof sessionToken.name === "string" && sessionToken.name) || "Player",
+      isGuest: false,
     };
   }
 
@@ -38,6 +40,7 @@ export async function authenticateSocket(
         return {
           userId: payload.userId,
           username: (typeof payload.username === "string" && payload.username) || "Player",
+          isGuest: payload.isGuest === true,
         };
       }
     } catch (error) {

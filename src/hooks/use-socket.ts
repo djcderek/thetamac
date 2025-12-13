@@ -38,6 +38,12 @@ interface GameplayState {
   opponentAnswered: boolean;
 }
 
+type PlayerIdentity = {
+  id: string;
+  username: string;
+  isGuest: boolean;
+};
+
 export function useSocket() {
   const { data: session } = useSession();
   const socketRef = useRef<TypedSocket | null>(null);
@@ -45,6 +51,7 @@ export function useSocket() {
   const [isConnected, setIsConnected] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
+  const [identity, setIdentity] = useState<PlayerIdentity | null>(null);
   
   const [matchmaking, setMatchmaking] = useState<MatchmakingState>({
     isSearching: false,
@@ -79,24 +86,65 @@ export function useSocket() {
       lastUserIdRef.current = null;
     }
 
-    if (!socketUrl) return;
-
     let socket: TypedSocket | null = null;
     let mounted = true;
 
     async function initSocket() {
       // Fetch a secure token for cross-origin authentication
       let authToken: string | undefined;
-      if (session?.user && socketUrl) {
-        try {
-          const res = await fetch("/api/auth/socket-token");
-          if (res.ok) {
-            const data = await res.json();
-            authToken = data.token;
+      try {
+        const sessionIdentity: PlayerIdentity | null = session?.user?.id
+          ? {
+              id: session.user.id,
+              username: session.user.name || "Player",
+              isGuest: false,
+            }
+          : null;
+
+        let socketTokenRes = await fetch("/api/auth/socket-token");
+
+        // If unauthenticated, mint/refresh a guest cookie then retry.
+        if (socketTokenRes.status === 401 && !sessionIdentity) {
+          const guestRes = await fetch("/api/auth/guest-token");
+          if (guestRes.ok) {
+            const guestData = await guestRes.json();
+            if (guestData?.guest?.id && guestData?.guest?.name) {
+              setIdentity({
+                id: guestData.guest.id,
+                username: guestData.guest.name,
+                isGuest: true,
+              });
+            }
           }
-        } catch (err) {
-          console.warn("Failed to fetch socket token:", err);
+
+          socketTokenRes = await fetch("/api/auth/socket-token");
         }
+
+        if (socketTokenRes.ok) {
+          const data: {
+            token?: string;
+            isGuest?: boolean;
+            userId?: string;
+            username?: string;
+          } = await socketTokenRes.json();
+
+          authToken = data.token;
+
+          if (sessionIdentity) {
+            setIdentity(sessionIdentity);
+          } else if (data.userId && data.username) {
+            setIdentity({
+              id: data.userId,
+              username: data.username,
+              isGuest: data.isGuest === true,
+            });
+          }
+        } else if (sessionIdentity) {
+          // Still expose the signed-in identity even if socket token fetch failed.
+          setIdentity(sessionIdentity);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch socket token:", err);
       }
 
       if (!mounted) return;
@@ -311,6 +359,7 @@ export function useSocket() {
   return {
     isConnected,
     onlineCount,
+    identity,
     matchmaking,
     gameplay,
     joinMatchmaking,

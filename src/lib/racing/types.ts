@@ -182,6 +182,7 @@ export interface RaceMatchmakingEntry {
   playerId: string;
   username: string;
   rating: number;
+  isGuest: boolean;
   joinedAt: number;
   cosmetics?: UserCosmetics;
 }

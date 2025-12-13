@@ -66,6 +66,7 @@ const activeRaces: Map<string, {
   gameLoop: NodeJS.Timeout | null;
   countdownTimer: NodeJS.Timeout | null;
   dbRaceId: string | null;
+  isRated: boolean;
   disconnectTimeouts: Map<string, NodeJS.Timeout>; // userId -> timeout
 }> = new Map();
 
@@ -75,7 +76,7 @@ const lobbyDisconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
 // Socket to race/lobby mapping
 const socketToRace: Map<string, string> = new Map();
 const socketToLobby: Map<string, string> = new Map();
-const socketToPlayer: Map<string, { id: string; username: string }> = new Map();
+const socketToPlayer: Map<string, { id: string; username: string; isGuest: boolean }> = new Map();
 
 // ============================================
 // GUARDRAILS
@@ -254,6 +255,7 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
   
   // Convert lobby players to matchmaking entries
   const entries: RaceMatchmakingEntry[] = lobby.players;
+  const isRated = entries.every((entry) => !entry.isGuest);
 
   // Clear any pending lobby grace timers now that the race is starting
   for (const entry of entries) {
@@ -294,39 +296,42 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
   
   // Create race record in database
   let dbRaceId: string | null = null;
-  try {
-    const dbRace = await db.raceMatch.create({
-      data: {
-        trackLength: state.config.trackLength,
-        difficulty: state.config.difficulty,
-        maxPlayers: state.config.maxPlayers,
-        status: "countdown",
-      },
-    });
-    dbRaceId = dbRace.id;
-    
-    // Create player records
-    await Promise.all(
-      state.players.map(player =>
-        db.racePlayer.create({
-          data: {
-            raceId: dbRaceId!,
-            userId: player.id,
-            username: player.username,
-            ratingBefore: player.rating,
-            lane: player.lane,
-            position: player.position,
-            selectedSkin: player.selectedSkin,
-            selectedTrail: player.selectedTrail,
-            selectedVehicle: player.selectedVehicle,
-          },
-        })
-      )
-    );
-    
-    console.log(`[Race] Created race in database: ${dbRaceId}`);
-  } catch (error) {
-    console.error("[Race] Failed to create race in database:", error);
+  if (isRated) {
+    try {
+      const dbRace = await db.raceMatch.create({
+        data: {
+          trackLength: state.config.trackLength,
+          difficulty: state.config.difficulty,
+          maxPlayers: state.config.maxPlayers,
+          status: "countdown",
+        },
+      });
+      dbRaceId = dbRace.id;
+      
+      // Create player records
+      await Promise.all(
+        state.players.map(player =>
+          db.racePlayer.create({
+            data: {
+              raceId: dbRaceId!,
+              userId: player.id,
+              username: player.username,
+              ratingBefore: player.rating,
+              lane: player.lane,
+              position: player.position,
+              selectedSkin: player.selectedSkin,
+              selectedTrail: player.selectedTrail,
+              selectedVehicle: player.selectedVehicle,
+            },
+          })
+        )
+      );
+      
+      console.log(`[Race] Created race in database: ${dbRaceId}`);
+    } catch (error) {
+      console.error("[Race] Failed to create race in database:", error);
+      dbRaceId = null;
+    }
   }
   
   // Store race
@@ -335,6 +340,7 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
     gameLoop: null,
     countdownTimer: null,
     dbRaceId,
+    isRated,
     disconnectTimeouts: new Map(),
   });
   
@@ -474,7 +480,9 @@ async function endRace(io: RaceServer, raceId: string) {
   race.state.status = "finished";
   
   // Calculate rating changes
-  const ratingChanges = calculateRaceRatings(race.state);
+  const ratingChanges: Record<string, number> = race.isRated
+    ? calculateRaceRatings(race.state)
+    : Object.fromEntries(race.state.players.map((player) => [player.id, 0]));
   
   // Build results
   const results = race.state.players
@@ -503,17 +511,21 @@ async function endRace(io: RaceServer, raceId: string) {
     const socket = io.sockets.sockets.get(player.socketId);
     if (socket) {
       const placementReward =
-        player.finishPosition ? PLACEMENT_REWARDS[player.finishPosition] ?? 0 : 0;
-      const coinsEarned = (player.coinsEarned || 0) + placementReward;
+        race.isRated && player.finishPosition
+          ? PLACEMENT_REWARDS[player.finishPosition] ?? 0
+          : 0;
+      const coinsEarned = race.isRated ? (player.coinsEarned || 0) + placementReward : 0;
 
       // Award coins
-      try {
-        await db.user.update({
-          where: { id: player.id },
-          data: { coins: { increment: coinsEarned } }
-        });
-      } catch (err) {
-        console.error(`[Race] Failed to award coins to ${player.id}:`, err);
+      if (race.isRated && coinsEarned > 0) {
+        try {
+          await db.user.update({
+            where: { id: player.id },
+            data: { coins: { increment: coinsEarned } }
+          });
+        } catch (err) {
+          console.error(`[Race] Failed to award coins to ${player.id}:`, err);
+        }
       }
 
       socket.emit("race:finished", {
@@ -525,7 +537,7 @@ async function endRace(io: RaceServer, raceId: string) {
   }
   
   // Save to database
-  if (race.dbRaceId) {
+  if (race.dbRaceId && race.isRated) {
     try {
       // Update race status
       await db.raceMatch.update({
@@ -656,11 +668,11 @@ export function setupRacingHandlers(io: RaceServer) {
           return;
         }
 
-        const { userId, username } = authResult;
+        const { userId, username, isGuest } = authResult;
         const cosmetics = payload.cosmetics;
         
         // Store player info
-        socketToPlayer.set(socket.id, { id: userId, username });
+        socketToPlayer.set(socket.id, { id: userId, username, isGuest });
         
         // 1. Check for active race rejoin (Reconnection)
         for (const [raceId, race] of activeRaces) {
@@ -771,14 +783,15 @@ export function setupRacingHandlers(io: RaceServer) {
           return;
         }
         
-        // Fetch rating
-        const rating = await getUserRating(userId);
+        // Fetch rating (guests are unrated)
+        const rating = isGuest ? 1000 : await getUserRating(userId);
         
         const entry: RaceMatchmakingEntry = {
           socketId: socket.id,
           playerId: userId,
           username,
           rating,
+          isGuest,
           joinedAt: Date.now(),
           cosmetics,
         };

@@ -99,6 +99,12 @@ interface ActionFeedback {
   timestamp: number;
 }
 
+type PlayerIdentity = {
+  id: string;
+  username: string;
+  isGuest: boolean;
+};
+
 const AUTO_RECONNECT_RESET_MS = 20000; // fallback to reset state if reconnection fails
 
 // ============================================
@@ -115,6 +121,7 @@ export function useRaceSocket() {
   const cosmeticsFetchedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<PlayerIdentity | null>(null);
   
   const [queue, setQueue] = useState<QueueState>({
     inQueue: false,
@@ -301,9 +308,9 @@ export function useRaceSocket() {
   }, [fetchCosmetics]);
 
   const attemptAutoRejoin = useCallback(async () => {
-    if (!shouldAutoRejoinRef.current || !socketRef.current || !session?.user) return;
+    if (!shouldAutoRejoinRef.current || !socketRef.current || !myPlayerIdRef.current) return;
     await emitJoinQueue({ skipStateUpdate: true });
-  }, [emitJoinQueue, session]);
+  }, [emitJoinQueue]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -316,16 +323,55 @@ export function useRaceSocket() {
       
       // Fetch a secure token for cross-origin authentication
       let authToken: string | undefined;
-      if (session?.user && socketUrl) {
-        try {
-          const res = await fetch("/api/auth/socket-token");
-          if (res.ok) {
-            const data = await res.json();
-            authToken = data.token;
+      try {
+        const sessionIdentity: PlayerIdentity | null = session?.user?.id
+          ? {
+              id: session.user.id,
+              username: session.user.name || "Player",
+              isGuest: false,
+            }
+          : null;
+
+        let socketTokenRes = await fetch("/api/auth/socket-token");
+
+        if (socketTokenRes.status === 401 && !sessionIdentity) {
+          const guestRes = await fetch("/api/auth/guest-token");
+          if (guestRes.ok) {
+            const guestData = await guestRes.json();
+            if (guestData?.guest?.id && guestData?.guest?.name) {
+              setIdentity({
+                id: guestData.guest.id,
+                username: guestData.guest.name,
+                isGuest: true,
+              });
+            }
           }
-        } catch (err) {
-          console.warn("Failed to fetch socket token:", err);
+
+          socketTokenRes = await fetch("/api/auth/socket-token");
         }
+
+        if (socketTokenRes.ok) {
+          const data: {
+            token?: string;
+            isGuest?: boolean;
+            userId?: string;
+            username?: string;
+          } = await socketTokenRes.json();
+          authToken = data.token;
+          if (sessionIdentity) {
+            setIdentity(sessionIdentity);
+          } else if (data.userId && data.username) {
+            setIdentity({
+              id: data.userId,
+              username: data.username,
+              isGuest: data.isGuest === true,
+            });
+          }
+        } else if (sessionIdentity) {
+          setIdentity(sessionIdentity);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch socket token:", err);
       }
 
       if (!mounted) return;
@@ -711,6 +757,7 @@ export function useRaceSocket() {
   return {
     // Connection
     isConnected,
+    identity,
     
     // State
     queue,

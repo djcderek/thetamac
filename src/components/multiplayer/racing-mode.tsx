@@ -354,11 +354,13 @@ interface ResultsProps {
   myPlayerId: string;
   onPlayAgain: () => void;
   onLeave: () => void;
+  showRatingChange?: boolean;
 }
 
-function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLeave }: ResultsProps) {
+function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLeave, showRatingChange }: ResultsProps) {
   const myResult = results.find(r => r.playerId === myPlayerId);
   const isWinner = myResult?.position === 1;
+  const showRating = showRatingChange ?? myRatingChange !== 0;
 
   const formatTime = (ms: number | null) => {
     if (ms === null) return "DNF";
@@ -390,11 +392,17 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
         <h2 className="text-2xl font-bold mb-1">
           {isWinner ? "Victory!" : `${getOrdinal(myResult?.position || 0)} Place`}
         </h2>
-        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-          myRatingChange >= 0 ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
-        }`}>
-          {myRatingChange >= 0 ? "+" : ""}{myRatingChange} Rating
-        </div>
+        {showRating ? (
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
+            myRatingChange >= 0 ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
+          }`}>
+            {myRatingChange >= 0 ? "+" : ""}{myRatingChange} Rating
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-secondary/50 text-muted-foreground">
+            Unrated race
+          </div>
+        )}
       </div>
 
       {/* Leaderboard */}
@@ -438,11 +446,15 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
                       </span>
                     </div>
                   </div>
-                  <div className={`text-sm font-medium ${
-                    result.ratingChange >= 0 ? "text-success" : "text-destructive"
-                  }`}>
-                    {result.ratingChange >= 0 ? "+" : ""}{result.ratingChange}
-                  </div>
+                  {showRating ? (
+                    <div className={`text-sm font-medium ${
+                      result.ratingChange >= 0 ? "text-success" : "text-destructive"
+                    }`}>
+                      {result.ratingChange >= 0 ? "+" : ""}{result.ratingChange}
+                    </div>
+                  ) : (
+                    <div className="text-sm font-medium text-muted-foreground">—</div>
+                  )}
                 </div>
               );
             })}
@@ -475,9 +487,10 @@ function getOrdinal(n: number): string {
 // ============================================
 
 export function RacingMode() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const {
     isConnected,
+    identity,
     queue,
     lobby,
     race,
@@ -495,44 +508,19 @@ export function RacingMode() {
     myPlayerId,
   } = useRaceSocket();
 
-  const myPlayer = myPlayerId ? getMyPlayer(myPlayerId) : null;
+  const isSignedIn = !!session?.user?.id;
+  const playerId = session?.user?.id ?? identity?.id ?? null;
+  const playerName = (session?.user?.name || identity?.username || "Player") as string;
+  const isGuest = !isSignedIn && !!identity?.isGuest;
+
+  const myPlayer = (myPlayerId || playerId) ? getMyPlayer((myPlayerId || playerId)!) : null;
   const hasFinished = race.myFinishPosition !== null;
 
-  // Auth loading
-  if (status === "loading") {
+  // Wait for either a signed-in session or a guest identity.
+  if (!playerId) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  // Not signed in
-  if (!session?.user) {
-    return (
-      <div className="min-h-[calc(100vh-200px)]">
-        <div className="border-b border-border">
-          <div className="px-6 py-4">
-            <h1 className="text-lg font-semibold">Math Racers</h1>
-            <p className="text-sm text-muted-foreground">
-              Race against other players!
-            </p>
-          </div>
-        </div>
-        <div className="p-4 md:p-6">
-          <Card className="max-w-md mx-auto">
-            <CardContent className="p-8 text-center">
-              <Flag className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h2 className="text-xl font-semibold mb-2">Sign In Required</h2>
-              <p className="text-muted-foreground mb-6">
-                You need to be signed in to play Math Racers.
-              </p>
-              <Link href="/auth/signin">
-                <Button>Sign In to Race</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     );
   }
@@ -551,10 +539,11 @@ export function RacingMode() {
             <ResultsScreen
               results={result.results}
               myRatingChange={result.myRatingChange}
-              myPlayerId={session.user.id || ""}
+              myPlayerId={playerId || ""}
+              showRatingChange={!isGuest && result.myRatingChange !== 0}
               onPlayAgain={() => {
                 resetAllState();
-                joinQueue(session.user!.id!, session.user!.name || "Player");
+                joinQueue(playerId, playerName);
               }}
               onLeave={resetAllState}
             />
@@ -594,7 +583,7 @@ export function RacingMode() {
             <RaceTrack3D
               players={race.players}
               trackLength={race.config?.trackLength || 250}
-              myPlayerId={myPlayerId || session.user.id || ""}
+              myPlayerId={myPlayerId || playerId || ""}
               finishOrder={race.finishOrder}
               obstacles={race.obstacles || []}
               drops={race.drops || []}
@@ -670,7 +659,7 @@ export function RacingMode() {
                         </AvatarFallback>
                       </Avatar>
                       <p className="text-sm font-medium">
-                        {player.id === session.user.id ? "You" : player.username}
+                        {player.id === playerId ? "You" : player.username}
                       </p>
                       <p className="text-xs text-muted-foreground">Lane {player.lane}</p>
                     </div>
@@ -694,7 +683,7 @@ export function RacingMode() {
               players={lobby.players}
               maxPlayers={5}
               startingIn={lobby.startingIn}
-              currentUserId={session.user.id || ""}
+              currentUserId={playerId || ""}
               onLeave={leaveQueue}
             />
           </div>
@@ -762,6 +751,21 @@ export function RacingMode() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {isGuest && (
+              <>
+                <Badge variant="secondary" className="text-xs">
+                  {playerName}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  Guest • Unrated
+                </Badge>
+                <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>
+                  <Button variant="outline" size="sm">
+                    Sign in
+                  </Button>
+                </Link>
+              </>
+            )}
             <Badge variant="outline" className="text-xs">
               {isConnected ? (
                 <>
@@ -802,7 +806,7 @@ export function RacingMode() {
                   </p>
                 </div>
                 <Button
-                  onClick={() => joinQueue(session.user!.id!, session.user!.name || "Player")}
+                  onClick={() => joinQueue(playerId, playerName)}
                   disabled={!isConnected}
                   size="lg"
                   className="w-full sm:w-auto"
