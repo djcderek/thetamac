@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { ShopDashboard } from "@/components/shop/shop-dashboard";
 
 export const metadata: Metadata = {
-  title: "Shop | ThetaMac",
+  title: "Shop | thetamac",
   description: "Purchase and equip cosmetic items for your racing vehicle.",
 };
 

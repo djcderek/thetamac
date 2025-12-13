@@ -1,8 +1,8 @@
 import { SignUpForm } from "@/components/auth/signup-form";
 
 export const metadata = {
-  title: "Sign Up | ThetaMac",
-  description: "Create your ThetaMac account",
+  title: "Sign Up | thetamac",
+  description: "Create your thetamac account",
 };
 
 export default function SignUpPage() {

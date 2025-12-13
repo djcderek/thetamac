@@ -80,7 +80,7 @@ export function SignInForm() {
           </div>
         </div>
         <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-        <CardDescription>Sign in to your ThetaMac account</CardDescription>
+        <CardDescription>Sign in to your thetamac account</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {(error || formError) && (

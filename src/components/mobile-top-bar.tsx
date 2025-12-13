@@ -22,7 +22,7 @@ export function MobileTopBar() {
         <div className="w-6 h-6 rounded bg-foreground flex items-center justify-center">
           <span className="text-background text-xs font-bold">θ</span>
         </div>
-        <span className="font-semibold">ThetaMac</span>
+        <span className="font-semibold">thetamac</span>
       </Link>
 
       {/* Right side: User menu and hamburger */}

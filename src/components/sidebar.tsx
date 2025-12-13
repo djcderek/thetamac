@@ -29,6 +29,29 @@ const secondaryNav = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
+function ThetamacMark({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 100 100"
+      className={cn("w-5 h-5 shrink-0", className)}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="14"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="50" cy="50" r="40" />
+        <path d="M 12 55 Q 50 25 88 55" />
+      </g>
+    </svg>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, toggle } = useSidebar();
@@ -53,10 +76,8 @@ export function Sidebar() {
       >
         {showExpanded && (
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-foreground flex items-center justify-center">
-              <span className="text-background text-xs font-bold">θ</span>
-            </div>
-            <span className="font-semibold">ThetaMac</span>
+            <ThetamacMark className="text-foreground" />
+            <span className="font-semibold">thetamac</span>
           </Link>
         )}
         <button

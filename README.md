@@ -1,4 +1,4 @@
-# ThetaMac
+# thetamac
 
 Next.js 16 + Prisma + NextAuth app for competitive mental-math training, multiplayer matches, and analytics. The project now includes a paid tier powered by Stripe subscriptions so only subscribers can access the advanced dashboard.
 

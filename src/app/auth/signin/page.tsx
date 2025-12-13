@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { SignInForm } from "@/components/auth/signin-form";
 
 export const metadata = {
-  title: "Sign In | ThetaMac",
-  description: "Sign in to your ThetaMac account",
+  title: "Sign In | thetamac",
+  description: "Sign in to your thetamac account",
 };
 
 export default function SignInPage() {
