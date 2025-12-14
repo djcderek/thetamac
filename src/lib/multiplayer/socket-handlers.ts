@@ -43,6 +43,8 @@ const activeGames: Map<string, {
   dbMatchId: string | null; // Database record ID
   isRated: boolean;
   bot?: { id: string; answerTimer: NodeJS.Timeout | null };
+  disconnectTimeouts: Map<string, NodeJS.Timeout>; // playerId -> timeout
+  disconnectedPlayers: Set<string>; // playerId set while in grace window
 }> = new Map();
 
 // Socket to room mapping
@@ -50,6 +52,9 @@ const socketToRoom: Map<string, string> = new Map();
 
 // Socket to player mapping
 const socketToPlayer: Map<string, { id: string; username: string; isGuest: boolean }> = new Map();
+
+// Player to room mapping (persists across reconnects)
+const playerToRoom: Map<string, string> = new Map();
 
 // Fallback timers for bot matchmaking (per socket)
 const botFallbackTimers: Map<string, NodeJS.Timeout> = new Map();
@@ -59,6 +64,14 @@ function clearBotFallbackTimer(socketId: string) {
   if (timer) clearTimeout(timer);
   botFallbackTimers.delete(socketId);
 }
+
+// ============================================
+// CONFIGURATION
+// ============================================
+
+// Give clients a short window to reconnect before treating it as a loss.
+// This mirrors the racing mode reconnect grace logic.
+const DISCONNECT_GRACE_PERIOD_MS = 10_000;
 
 // ============================================
 // GUARDRAILS
@@ -211,7 +224,13 @@ async function createMatch(
     roundTimer: null,
     dbMatchId,
     isRated,
+    disconnectTimeouts: new Map(),
+    disconnectedPlayers: new Set(),
   });
+
+  // Track players by userId so they can rejoin after reconnects.
+  playerToRoom.set(player1.id, roomId);
+  playerToRoom.set(player2.id, roomId);
 
   // Notify players
   socket1.emit("matchmaking:found", {
@@ -286,7 +305,12 @@ async function createBotMatch(
     dbMatchId: null,
     isRated: false,
     bot: { id: botId, answerTimer: null },
+    disconnectTimeouts: new Map(),
+    disconnectedPlayers: new Set(),
   });
+
+  // Track the human so they can rejoin after reconnects.
+  playerToRoom.set(human.id, roomId);
 
   // Notify human player
   socket.emit("matchmaking:found", {
@@ -512,6 +536,13 @@ async function endGame(
     game.bot.answerTimer = null;
   }
 
+  // Clear any pending disconnect grace timers for this game.
+  for (const timeout of game.disconnectTimeouts.values()) {
+    clearTimeout(timeout);
+  }
+  game.disconnectTimeouts.clear();
+  game.disconnectedPlayers.clear();
+
   game.gameState.status = "game_over";
   game.gameState.winner = winnerId;
 
@@ -606,6 +637,7 @@ async function endGame(
     // Clear socket-to-room mapping immediately so players can rejoin matchmaking
     console.log(`[EndGame] Removing socket ${player.socketId} from room ${roomId}`);
     socketToRoom.delete(player.socketId);
+    playerToRoom.delete(player.id);
   }
 
   // Clean up game data after delay
@@ -628,6 +660,10 @@ function cleanupGame(roomId: string) {
 
   if (game.bot?.answerTimer) {
     clearTimeout(game.bot.answerTimer);
+  }
+
+  for (const timeout of game.disconnectTimeouts.values()) {
+    clearTimeout(timeout);
   }
 
   // Remove game data
@@ -680,6 +716,67 @@ export function setupMultiplayerHandlers(
 
         // Store player info
         socketToPlayer.set(socket.id, { id: userId, username, isGuest });
+
+        // Rejoin flow: if this user was in an active game and got disconnected,
+        // put them back into their room instead of starting a new matchmaking search.
+        const existingRoomIdByPlayer = playerToRoom.get(userId);
+        if (existingRoomIdByPlayer) {
+          const existingGame = activeGames.get(existingRoomIdByPlayer);
+          const isGameOver =
+            existingGame?.gameState.status === "game_over" || !!existingGame?.gameState.winner;
+
+          if (existingGame && !isGameOver) {
+            console.log(`[Multiplayer] Player ${username} rejoining active game ${existingRoomIdByPlayer}`);
+
+            // Clear pending disconnect timeout (if any)
+            const pendingTimeout = existingGame.disconnectTimeouts.get(userId);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              existingGame.disconnectTimeouts.delete(userId);
+            }
+            existingGame.disconnectedPlayers.delete(userId);
+
+            // Update the player's socketId in the game state
+            const playerInGame = existingGame.gameState.players.find((p) => p.id === userId);
+            const oldSocketId = playerInGame?.socketId;
+            if (playerInGame) {
+              playerInGame.socketId = socket.id;
+            }
+
+            // Defensive: clean up stale socket mapping from the old socket id
+            if (oldSocketId && oldSocketId !== socket.id) {
+              socketToRoom.delete(oldSocketId);
+            }
+
+            // Join room + update mapping so gameplay events work immediately
+            socket.join(existingRoomIdByPlayer);
+            socketToRoom.set(socket.id, existingRoomIdByPlayer);
+
+            // Ensure we're not queued
+            clearBotFallbackTimer(socket.id);
+            matchmakingQueue.delete(socket.id);
+
+            const opponent = existingGame.gameState.players.find((p) => p.id !== userId);
+            if (opponent) {
+              socket.emit("matchmaking:found", {
+                opponent: {
+                  id: opponent.id,
+                  username: opponent.username,
+                  rating: opponent.rating,
+                  isGuest: opponent.isGuest,
+                },
+              });
+            }
+
+            // Send a full state snapshot so the client can resume UI immediately.
+            socket.emit("game:start", { gameState: existingGame.gameState });
+
+            return;
+          }
+
+          // Stale mapping (game ended / cleaned up)
+          playerToRoom.delete(userId);
+        }
 
         // Check if already in queue
         if (matchmakingQueue.has(socket.id)) {
@@ -913,20 +1010,52 @@ export function setupMultiplayerHandlers(
         // Remove from matchmaking queue
         matchmakingQueue.delete(socket.id);
 
-        // Handle game disconnection
+        // Handle game disconnection with a short grace period (reconnect protection)
         const roomId = socketToRoom.get(socket.id);
-        if (roomId) {
+        const player = socketToPlayer.get(socket.id);
+        if (roomId && player) {
           const game = activeGames.get(roomId);
-          if (game && game.gameState.status !== "game_over") {
-            // Notify opponent
-            io.to(roomId).emit("game:opponent_disconnected");
-            
-            // End game with opponent as winner
-            const player = socketToPlayer.get(socket.id);
-            if (player) {
-              const opponent = game.gameState.players.find(p => p.id !== player.id);
-              endGame(io, roomId, opponent?.id || null, "disconnected", player.id);
+          const isGameOver = game?.gameState.status === "game_over" || !!game?.gameState.winner;
+
+          if (game && !isGameOver) {
+            console.log(
+              `[Multiplayer] Player ${player.username} disconnected from game ${roomId}, waiting for reconnect...`
+            );
+
+            game.disconnectedPlayers.add(player.id);
+
+            const existingTimeout = game.disconnectTimeouts.get(player.id);
+            if (existingTimeout) {
+              clearTimeout(existingTimeout);
             }
+
+            const timeout = setTimeout(() => {
+              const currentGame = activeGames.get(roomId);
+              if (!currentGame) return;
+              if (currentGame.gameState.status === "game_over" || !!currentGame.gameState.winner) return;
+
+              // If the player reconnected in time, do nothing.
+              if (!currentGame.disconnectedPlayers.has(player.id)) return;
+
+              const opponent = currentGame.gameState.players.find((p) => p.id !== player.id);
+              const opponentDisconnected = opponent ? currentGame.disconnectedPlayers.has(opponent.id) : true;
+
+              console.log(
+                `[Multiplayer] Player ${player.username} timed out (${DISCONNECT_GRACE_PERIOD_MS}ms), ending game ${roomId}`
+              );
+
+              currentGame.disconnectTimeouts.delete(player.id);
+              currentGame.disconnectedPlayers.delete(player.id);
+
+              if (opponentDisconnected) {
+                // Both players dropped; treat as an aborted/disconnected game.
+                endGame(io, roomId, null, "disconnected");
+              } else {
+                endGame(io, roomId, opponent?.id || null, "disconnected", player.id);
+              }
+            }, DISCONNECT_GRACE_PERIOD_MS);
+
+            game.disconnectTimeouts.set(player.id, timeout);
           }
         }
 

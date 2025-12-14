@@ -47,6 +47,9 @@ export function useSocket() {
   const { data: session } = useSession();
   const socketRef = useRef<TypedSocket | null>(null);
   const lastUserIdRef = useRef<string | null>(null);
+  // If we were mid-search or mid-game when the socket dropped, auto rejoin on reconnect.
+  const resumeOnReconnectRef = useRef<boolean>(false);
+  const lastAutoJoinAtRef = useRef<number>(0);
   const [isConnected, setIsConnected] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
@@ -171,6 +174,16 @@ export function useSocket() {
       socket.on("connect", () => {
         console.log("Socket connected:", socket?.id);
         setIsConnected(true);
+
+        // If we were in matchmaking/game when the connection dropped, try to resume automatically.
+        if (resumeOnReconnectRef.current) {
+          const now = Date.now();
+          // Throttle to avoid spamming on flappy networks / repeated reconnects.
+          if (now - lastAutoJoinAtRef.current > 2500) {
+            lastAutoJoinAtRef.current = now;
+            socket?.emit("matchmaking:join");
+          }
+        }
       });
 
       socket.on("connect_error", (err) => {
@@ -205,10 +218,12 @@ export function useSocket() {
 
       // Matchmaking events
       socket.on("matchmaking:searching", ({ position }) => {
+        resumeOnReconnectRef.current = true;
         setMatchmaking((prev) => ({ ...prev, isSearching: true, position }));
       });
 
       socket.on("matchmaking:found", ({ opponent }) => {
+        resumeOnReconnectRef.current = true;
         setMatchmaking({
           isSearching: false,
           position: 0,
@@ -218,6 +233,7 @@ export function useSocket() {
       });
 
       socket.on("matchmaking:cancelled", () => {
+        resumeOnReconnectRef.current = false;
         setMatchmaking({
           isSearching: false,
           position: 0,
@@ -227,6 +243,7 @@ export function useSocket() {
 
       socket.on("matchmaking:error", (error) => {
         console.error("Matchmaking error:", error);
+        resumeOnReconnectRef.current = false;
         setMatchmaking({
           isSearching: false,
           position: 0,
@@ -235,11 +252,53 @@ export function useSocket() {
       });
 
       // Game events
+      socket.on("game:start", ({ gameState }) => {
+        // Server-side state snapshot (used for reconnect/resume)
+        resumeOnReconnectRef.current = true;
+
+        const currentSocketId = socket?.id;
+        const self =
+          gameState.players.find((p) => p.socketId === currentSocketId) ??
+          gameState.players.find((p) => p.id === session?.user?.id);
+        const opponent =
+          gameState.players.find((p) => p.id !== self?.id) ??
+          gameState.players.find((p) => p.socketId !== currentSocketId) ??
+          null;
+
+        if (opponent) {
+          setMatchmaking({
+            isSearching: false,
+            position: 0,
+            opponent: {
+              id: opponent.id,
+              username: opponent.username,
+              rating: opponent.rating,
+              isGuest: opponent.isGuest,
+            },
+          });
+        }
+
+        // Best-effort UI restore. (We intentionally don’t try to recreate roundResult overlays.)
+        setGameplay((prev) => ({
+          ...prev,
+          status: gameState.status === "waiting" ? "idle" : gameState.status,
+          countdown: 0,
+          currentRound: gameState.currentRound,
+          problem: gameState.currentProblem,
+          scores: gameState.scores,
+          roundResult: null,
+          gameResult: null,
+          opponentAnswered: false,
+        }));
+      });
+
       socket.on("game:countdown", ({ seconds }) => {
+        resumeOnReconnectRef.current = true;
         setGameplay((prev) => ({ ...prev, status: "countdown", countdown: seconds }));
       });
 
       socket.on("game:new_round", ({ round, problem }) => {
+        resumeOnReconnectRef.current = true;
         setGameplay((prev) => ({
           ...prev,
           status: "playing",
@@ -255,6 +314,7 @@ export function useSocket() {
       });
 
       socket.on("game:round_result", (result) => {
+        resumeOnReconnectRef.current = true;
         setGameplay((prev) => ({
           ...prev,
           status: "round_end",
@@ -269,6 +329,7 @@ export function useSocket() {
       });
 
       socket.on("game:over", (result) => {
+        resumeOnReconnectRef.current = false;
         setGameplay((prev) => ({
           ...prev,
           status: "game_over",
@@ -312,6 +373,7 @@ export function useSocket() {
   // Matchmaking actions
   const joinMatchmaking = useCallback(() => {
     if (socketRef.current) {
+      resumeOnReconnectRef.current = true;
       socketRef.current.emit("matchmaking:join");
       setMatchmaking((prev) => ({ ...prev, isSearching: true }));
     }
@@ -319,6 +381,7 @@ export function useSocket() {
 
   const leaveMatchmaking = useCallback(() => {
     if (socketRef.current) {
+      resumeOnReconnectRef.current = false;
       socketRef.current.emit("matchmaking:leave");
       setMatchmaking({
         isSearching: false,
@@ -352,6 +415,7 @@ export function useSocket() {
     if (socketRef.current) {
       socketRef.current.emit("game:leave");
     }
+    resumeOnReconnectRef.current = false;
     setMatchmaking({
       isSearching: false,
       position: 0,
