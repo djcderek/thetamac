@@ -870,7 +870,7 @@ export function setupMultiplayerHandlers(
         } else {
           socket.emit("matchmaking:searching", { position: matchmakingQueue.size });
 
-          // If no human match is found after 10 seconds, fall back to a bot duel.
+          // If no human match is found after 2 seconds, fall back to a bot duel.
           clearBotFallbackTimer(socket.id);
           const fallbackTimer = setTimeout(() => {
             // Only start a bot match if this exact queue entry is still waiting.
@@ -883,7 +883,7 @@ export function setupMultiplayerHandlers(
             void safelyExecute("[Multiplayer] matchmaking:bot_fallback", async () => {
               await createBotMatch(io, stillQueued);
             });
-          }, 10_000);
+          }, 2_000);
           botFallbackTimers.set(socket.id, fallbackTimer);
         }
       });
