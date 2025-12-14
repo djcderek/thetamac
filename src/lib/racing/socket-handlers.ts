@@ -1121,7 +1121,7 @@ export function setupRacingHandlers(io: RaceServer) {
         };
         
         // Try to find or create a lobby
-        const lobby = findOrCreateLobby(entry);
+        const lobby = findOrCreateLobby();
         
         if (lobby) {
           addPlayerToLobby(io, lobby, entry, socket);
@@ -1608,7 +1608,7 @@ export function setupRacingHandlers(io: RaceServer) {
         continue;
       }
       
-      const lobby = findOrCreateLobby(entry);
+      const lobby = findOrCreateLobby();
       if (lobby) {
         raceQueue.delete(socketId);
         addPlayerToLobby(io, lobby, entry, socket as RaceSocket);
