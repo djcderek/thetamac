@@ -19,7 +19,7 @@ export default async function SkillsPage() {
         <div className="border-b border-border">
           <div className="px-4 md:px-6 py-4">
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
@@ -53,7 +53,7 @@ export default async function SkillsPage() {
         <div className="border-b border-border">
           <div className="px-4 md:px-6 py-4">
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />

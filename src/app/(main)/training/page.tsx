@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
-import { isPremiumStatus } from "@/lib/subscription-status";
-import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -666,7 +664,6 @@ function generateProblem(
 
 export default function TrainingPage() {
   const { data: authSession } = useSession();
-  const isPremium = isPremiumStatus(authSession?.user?.subscriptionStatus);
   
   const [selectedOperations, setSelectedOperations] = useState<Operation[]>(["+", "-", "×", "÷"]);
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
@@ -1355,44 +1352,32 @@ export default function TrainingPage() {
                                          skill.iconName === "Box" ? Square :
                                          skill.iconName === "Copy" ? Copy :
                                          skill.iconName === "Divide" ? Divide : LayoutGrid;
-                            
-                            const isLocked = !isPremium;
 
                             return (
                               <button
                                 key={skill.id}
-                                onClick={() => {
-                                  if (!isLocked) setSelectedSkill(skill.id);
-                                }}
-                                disabled={isLocked}
+                                onClick={() => setSelectedSkill(skill.id)}
                                 className={`relative p-3 rounded-lg border text-left transition-all ${
                                   selectedSkill === skill.id
                                     ? "bg-background border-amber-500 ring-1 ring-amber-500 shadow-sm"
-                                    : isLocked 
-                                      ? "bg-secondary/30 border-transparent opacity-75 cursor-not-allowed"
-                                      : "bg-background/50 border-transparent hover:bg-background hover:border-amber-500/30"
+                                    : "bg-background/50 border-transparent hover:bg-background hover:border-amber-500/30"
                                 }`}
                               >
                                 <div className="flex items-center gap-2 mb-1">
                                   <div className={`p-1.5 rounded-md ${
                                     selectedSkill === skill.id 
                                       ? "bg-amber-100 text-amber-700" 
-                                      : isLocked
-                                        ? "bg-secondary text-muted-foreground/50"
-                                        : "bg-secondary text-muted-foreground"
+                                      : "bg-secondary text-muted-foreground"
                                   }`}>
                                     <Icon className="w-4 h-4" />
                                   </div>
                                   <span className={`font-medium ${
                                     selectedSkill === skill.id 
                                       ? "text-foreground" 
-                                      : isLocked
-                                        ? "text-muted-foreground"
-                                        : "text-muted-foreground"
+                                      : "text-muted-foreground"
                                   }`}>
                                     {skill.name}
                                   </span>
-                                  {isLocked && <Lock className="w-3 h-3 text-muted-foreground ml-auto" />}
                                 </div>
                                 <p className="text-xs text-muted-foreground pl-9 truncate">
                                   {skill.description}
@@ -1401,25 +1386,6 @@ export default function TrainingPage() {
                             );
                           })}
                         </div>
-
-                        {/* Premium upsell for skills if not premium */}
-                        {!isPremium && (
-                          <div className="mt-4 p-3 rounded-lg bg-linear-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 rounded-full bg-amber-500/20">
-                                <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                              </div>
-                              <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
-                                Unlock specific skill training with Theta Pro
-                              </p>
-                            </div>
-                            <Link href="/settings">
-                              <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300">
-                                Upgrade
-                              </Button>
-                            </Link>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}

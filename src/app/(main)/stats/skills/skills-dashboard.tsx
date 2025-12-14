@@ -347,12 +347,12 @@ function NumberCombinationMatrix({
             {/* Header row with second operand numbers */}
             <div className="flex sticky top-0 bg-card z-10">
               {/* Empty corner cell */}
-              <div className={`${cellStyle.size} flex-shrink-0`} />
+              <div className={`${cellStyle.size} shrink-0`} />
               {/* Column headers */}
               {numbers.map(num => (
                 <div 
                   key={`header-${num}`} 
-                  className={`${cellStyle.size} flex items-center justify-center ${cellStyle.header} font-mono text-muted-foreground flex-shrink-0`}
+                  className={`${cellStyle.size} flex items-center justify-center ${cellStyle.header} font-mono text-muted-foreground shrink-0`}
                 >
                   {num}
                 </div>
@@ -363,7 +363,7 @@ function NumberCombinationMatrix({
             {numbers.map((rowNum, rowIndex) => (
               <div key={`row-${rowNum}`} className="flex">
                 {/* Row header (first operand) */}
-                <div className={`${cellStyle.size} flex items-center justify-center ${cellStyle.header} font-mono text-muted-foreground flex-shrink-0 sticky left-0 bg-card z-10`}>
+                <div className={`${cellStyle.size} flex items-center justify-center ${cellStyle.header} font-mono text-muted-foreground shrink-0 sticky left-0 bg-card z-10`}>
                   {rowNum}
                 </div>
                 
@@ -390,7 +390,7 @@ function NumberCombinationMatrix({
                     <UITooltip key={`cell-${rowNum}-${colNum}`}>
                       <TooltipTrigger asChild>
                         <div 
-                          className={`${cellStyle.size} flex items-center justify-center ${cellStyle.font} font-mono rounded-sm m-[0.5px] cursor-default transition-all hover:scale-125 hover:z-20 flex-shrink-0 ${bgClass} ${
+                          className={`${cellStyle.size} flex items-center justify-center ${cellStyle.font} font-mono rounded-sm m-[0.5px] cursor-default transition-all hover:scale-125 hover:z-20 shrink-0 ${bgClass} ${
                             hasAttempts ? "text-foreground font-medium" : "text-muted-foreground/50"
                           }`}
                         >
@@ -528,7 +528,10 @@ export function SkillsDashboard() {
       <div className="min-h-screen">
         <div className="border-b border-border">
           <div className="px-4 md:px-6 py-4">
-            <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
+          >
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back to Dashboard
             </Link>
@@ -570,7 +573,10 @@ export function SkillsDashboard() {
     <div className="min-h-screen">
       <div className="border-b border-border">
         <div className="px-4 md:px-6 py-4">
-          <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
+          >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Dashboard
           </Link>

@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, LogIn } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +19,7 @@ export default async function PerformancePage() {
         <div className="border-b border-border">
           <div className="px-4 md:px-6 py-4">
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
@@ -55,7 +54,7 @@ export default async function PerformancePage() {
         <div className="border-b border-border">
           <div className="px-4 md:px-6 py-4">
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
