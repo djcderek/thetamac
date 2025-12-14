@@ -229,6 +229,27 @@ export function DuelMode() {
   const isLobby = !isSearching && !isMatchFound && !isGameActive;
   const useCustomKeypad = isMobileDevice;
   const showCustomKeypad = isGameActive && useCustomKeypad;
+  const [searchHeading, setSearchHeading] = useState("Finding opponent...");
+  const [searchDetail, setSearchDetail] = useState("Matching you with a player of similar skill");
+
+  useEffect(() => {
+    // After 4s of searching, update the copy to reassure the player.
+    if (!isSearching) {
+      setSearchHeading("Finding opponent...");
+      setSearchDetail("Matching you with a player of similar skill");
+      return;
+    }
+
+    setSearchHeading("Finding opponent...");
+    setSearchDetail("Matching you with a player of similar skill");
+
+    const timer = setTimeout(() => {
+      setSearchHeading("Still looking for an opponent...");
+      setSearchDetail("This is taking a bit longer than usual");
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [isSearching]);
 
   useEffect(() => {
     if (!debugFocus) return;
@@ -942,9 +963,9 @@ export function DuelMode() {
             <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
               <div className="max-w-md w-full text-center">
                 <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-border border-t-foreground animate-spin" />
-                <h2 className="text-lg font-semibold mb-2">Finding opponent...</h2>
+                <h2 className="text-lg font-semibold mb-2">{searchHeading}</h2>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Matching you with a player of similar skill
+                  {searchDetail}
                 </p>
                 <p className="text-xs text-muted-foreground mb-8">
                   {onlineCount} players online
