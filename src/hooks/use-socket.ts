@@ -73,6 +73,15 @@ export function useSocket() {
   useEffect(() => {
     const userId = session?.user?.id ?? null;
 
+    // In production, missing NEXT_PUBLIC_SOCKET_URL often means the client will try to connect
+    // to the frontend origin (e.g. Vercel) which does not run the Socket.io server.
+    if (process.env.NODE_ENV === "production" && !socketUrl) {
+      console.warn(
+        "[socket] NEXT_PUBLIC_SOCKET_URL is not set; connecting to current origin. " +
+          "If multiplayer/bots fail in prod, set NEXT_PUBLIC_SOCKET_URL to your websocket server origin."
+      );
+    }
+
     // Avoid tearing down the socket when the session refreshes on tab focus.
     if (socketRef.current && lastUserIdRef.current === userId) {
       return;
@@ -162,6 +171,11 @@ export function useSocket() {
       socket.on("connect", () => {
         console.log("Socket connected:", socket?.id);
         setIsConnected(true);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("[socket] connect_error:", err?.message || err, err);
+        setIsConnected(false);
       });
 
       socket.on("disconnect", () => {

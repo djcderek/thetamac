@@ -886,20 +886,25 @@ export function DuelMode() {
 
                   <Button
                     type="button"
-                    variant="secondary"
                     className="h-11 rounded-xl text-sm font-semibold col-span-2 active:scale-[0.99] transition"
+                    onClick={submitCurrentAnswer}
+                    disabled={
+                      answerSubmitted ||
+                      gameplay.status !== "playing" ||
+                      userAnswer.length === 0 ||
+                      userAnswer === "-"
+                    }
+                  >
+                    Done
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-11 rounded-xl text-sm font-semibold active:scale-[0.99] transition"
                     onClick={clearAnswer}
                     disabled={answerSubmitted || gameplay.status !== "playing"}
                   >
                     Clear
-                  </Button>
-                  <Button
-                    type="button"
-                    className="h-11 rounded-xl text-sm font-semibold active:scale-[0.99] transition"
-                    onClick={submitCurrentAnswer}
-                    disabled={answerSubmitted || gameplay.status !== "playing" || userAnswer.length === 0 || userAnswer === "-"}
-                  >
-                    Done
                   </Button>
                 </div>
               </div>

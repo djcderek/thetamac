@@ -15,6 +15,13 @@ const port = parseInt(process.env.PORT || "3000", 10);
 const websocketOnly = process.env.WEBSOCKET_ONLY === "true";
 // The main app URL to redirect to (Vercel)
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://thetamac.vercel.app";
+const appOrigin = (() => {
+  try {
+    return new URL(appUrl).origin;
+  } catch {
+    return appUrl.replace(/\/+$/, "");
+  }
+})();
 
 console.log(`> Starting server in ${dev ? "development" : "production"} mode`);
 console.log(`> WebSocket-only mode: ${websocketOnly}`);
@@ -40,7 +47,7 @@ const httpServer = createServer((req, res) => {
     }
     
     // Redirect everything else to the main Vercel app
-    const redirectUrl = `${appUrl}${req.url}`;
+    const redirectUrl = `${appOrigin}${req.url}`;
     res.writeHead(302, { Location: redirectUrl });
     res.end();
     return;
@@ -74,9 +81,10 @@ httpServer.listen(port, hostname, () => {
 // Build allowed origins for CORS
 const allowedOrigins: string[] = [];
 if (process.env.NEXT_PUBLIC_APP_URL) {
-  allowedOrigins.push(process.env.NEXT_PUBLIC_APP_URL);
-  // Also allow www version if it's a custom domain
+  // Normalize to an origin (no path/trailing slash) so CORS matches the browser Origin header.
   const url = new URL(process.env.NEXT_PUBLIC_APP_URL);
+  allowedOrigins.push(url.origin);
+  // Also allow www version if it's a custom domain
   if (!url.hostname.startsWith("www.")) {
     allowedOrigins.push(`${url.protocol}//www.${url.hostname}`);
   }

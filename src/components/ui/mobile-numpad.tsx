@@ -116,20 +116,20 @@ export function MobileNumpad({
 
             <Button
               type="button"
-              variant="secondary"
               className={`${footerBtnClass} col-span-2`}
-              onClick={clearAnswer}
-              disabled={disabled}
-            >
-              Clear
-            </Button>
-            <Button
-              type="button"
-              className={footerBtnClass}
               onClick={onDone}
               disabled={doneDisabled}
             >
               Done
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className={footerBtnClass}
+              onClick={clearAnswer}
+              disabled={disabled}
+            >
+              Clear
             </Button>
           </div>
         </div>

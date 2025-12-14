@@ -64,7 +64,8 @@ export async function signGuestToken(payload: GuestTokenPayload) {
 
 export async function verifyGuestToken(token: string): Promise<GuestTokenPayload | null> {
   try {
-    const secret = new TextEncoder().encode(env.AUTH_SECRET);
+    // Verification may happen on a separate websocket server; allow an override secret there.
+    const secret = new TextEncoder().encode(env.SOCKET_AUTH_SECRET ?? env.AUTH_SECRET);
     const { payload } = await jwtVerify(token, secret);
 
     if (

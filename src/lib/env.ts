@@ -3,6 +3,9 @@ import { z } from "zod";
 const envSchema = z.object({
   NODE_ENV: z.string().default("development"),
   AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
+  // Optional override for verifying socket/guest tokens on a separate websocket server (e.g. Fly.io)
+  // when it cannot share the same AUTH_SECRET as the main Next.js app (e.g. Vercel).
+  SOCKET_AUTH_SECRET: z.string().min(1).optional(),
   NEXTAUTH_URL: z.string().url("NEXTAUTH_URL must be a valid URL"),
   NEXT_PUBLIC_APP_URL: z
     .string()

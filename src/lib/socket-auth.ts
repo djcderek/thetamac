@@ -33,7 +33,9 @@ export async function authenticateSocket(
   // If cookie auth failed, try socket token auth (cross-origin)
   if (socketAuth?.token) {
     try {
-      const secret = new TextEncoder().encode(env.AUTH_SECRET);
+      // Allow a separate shared secret for websocket servers deployed separately from the Next.js app.
+      // This helps avoid prod-only failures when Vercel and Fly.io accidentally use different AUTH_SECRET values.
+      const secret = new TextEncoder().encode(env.SOCKET_AUTH_SECRET ?? env.AUTH_SECRET);
       const { payload } = await jwtVerify(socketAuth.token, secret);
       
       if (typeof payload.userId === "string") {

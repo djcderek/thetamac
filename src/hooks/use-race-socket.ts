@@ -320,6 +320,13 @@ export function useRaceSocket() {
     async function initSocket() {
       // Connect to the WebSocket server (Fly.io in production, same host in dev)
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
+
+      if (process.env.NODE_ENV === "production" && !socketUrl) {
+        console.warn(
+          "[race] NEXT_PUBLIC_SOCKET_URL is not set; connecting to current origin. " +
+            "If racing/bots fail in prod, set NEXT_PUBLIC_SOCKET_URL to your websocket server origin."
+        );
+      }
       
       // Fetch a secure token for cross-origin authentication
       let authToken: string | undefined;
@@ -394,6 +401,11 @@ export function useRaceSocket() {
           reconnectResetTimeoutRef.current = null;
         }
         void attemptAutoRejoin();
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("[Race] connect_error:", err?.message || err, err);
+        setIsConnected(false);
       });
 
       socket.on("disconnect", () => {
