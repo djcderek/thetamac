@@ -10,6 +10,22 @@ const dev = process.env.NODE_ENV !== "production";
 // In production (Docker/Fly.io), bind to 0.0.0.0 to accept external connections
 const hostname = dev ? "localhost" : "0.0.0.0";
 const port = parseInt(process.env.PORT || "3000", 10);
+const bootIso = new Date().toISOString();
+
+// Crash/restart visibility: Fly can restart the Machine and clients will see "transport close".
+console.log(`> pid=${process.pid} boot=${bootIso}`);
+process.on("uncaughtException", (err) => {
+  console.error("[process] uncaughtException", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[process] unhandledRejection", reason);
+});
+process.on("SIGTERM", () => {
+  console.warn("[process] SIGTERM received");
+});
+process.on("SIGINT", () => {
+  console.warn("[process] SIGINT received");
+});
 
 // Check if we're running in WebSocket-only mode (production on Fly.io)
 const websocketOnly = process.env.WEBSOCKET_ONLY === "true";

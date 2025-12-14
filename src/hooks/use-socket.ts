@@ -191,8 +191,8 @@ export function useSocket() {
         setIsConnected(false);
       });
 
-      socket.on("disconnect", () => {
-        console.log("Socket disconnected");
+      socket.on("disconnect", (reason) => {
+        console.log("Socket disconnected:", reason);
         setIsConnected(false);
         setMatchmaking({
           isSearching: false,

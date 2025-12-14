@@ -413,8 +413,8 @@ export function useRaceSocket() {
         setIsConnected(false);
       });
 
-      socket.on("disconnect", () => {
-        console.log("[Race] Socket disconnected");
+      socket.on("disconnect", (reason) => {
+        console.log("[Race] Socket disconnected:", reason);
         setIsConnected(false);
         
         if (!shouldAutoRejoinRef.current) {
