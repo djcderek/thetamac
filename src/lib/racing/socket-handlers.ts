@@ -514,33 +514,37 @@ function startRaceCountdown(io: RaceServer, raceId: string) {
   race.state = startCountdown(race.state);
   
   const countdownInterval = setInterval(() => {
-    const currentRace = activeRaces.get(raceId);
-    if (!currentRace) {
-      clearInterval(countdownInterval);
-      return;
-    }
-
-    // Step the countdown first so clients don’t see a duplicated leading value
-    currentRace.state = decrementCountdown(currentRace.state);
-
-    if (currentRace.state.status === "racing") {
-      clearInterval(countdownInterval);
-      currentRace.countdownTimer = null;
-      startGameLoop(io, raceId);
-      
-      // Update database
-      if (currentRace.dbRaceId) {
-        db.raceMatch.update({
-          where: { id: currentRace.dbRaceId },
-          data: { status: "racing", startedAt: new Date() },
-        }).catch(err => console.error("[Race] Failed to update race status:", err));
+    try {
+      const currentRace = activeRaces.get(raceId);
+      if (!currentRace) {
+        clearInterval(countdownInterval);
+        return;
       }
-      return;
-    }
 
-    io.to(raceId).emit("race:countdown", {
-      seconds: currentRace.state.countdownValue,
-    });
+      // Step the countdown first so clients don’t see a duplicated leading value
+      currentRace.state = decrementCountdown(currentRace.state);
+
+      if (currentRace.state.status === "racing") {
+        clearInterval(countdownInterval);
+        currentRace.countdownTimer = null;
+        startGameLoop(io, raceId);
+        
+        // Update database
+        if (currentRace.dbRaceId) {
+          db.raceMatch.update({
+            where: { id: currentRace.dbRaceId },
+            data: { status: "racing", startedAt: new Date() },
+          }).catch(err => console.error("[Race] Failed to update race status:", err));
+        }
+        return;
+      }
+
+      io.to(raceId).emit("race:countdown", {
+        seconds: currentRace.state.countdownValue,
+      });
+    } catch (err) {
+      console.error(`[Race] countdown tick failed for ${raceId}:`, err);
+    }
   }, 1000);
   
   race.countdownTimer = countdownInterval;
@@ -554,16 +558,22 @@ function startBotDriverLoop(io: RaceServer, raceId: string, botPlayerId: string)
   const PLAYER_AVOID_RANGE_M = 3;
 
   const loop = setInterval(() => {
-    const race = activeRaces.get(raceId);
-    if (!race) return;
-    if (race.state.status !== "racing") return;
+    try {
+      const race = activeRaces.get(raceId);
+      if (!race) return;
+      if (race.state.status !== "racing") return;
 
-    const bot = race.state.players.find((p) => p.id === botPlayerId);
-    if (!bot) return;
-    if (bot.finishPosition !== null) return;
+      const bot = race.state.players.find((p) => p.id === botPlayerId);
+      if (!bot) return;
+      if (bot.finishPosition !== null) return;
 
-    // Respect stun timing.
-    if (bot.isStunned && Date.now() < bot.stunEndTime) return;
+      // Defensive: problems should always exist, but avoid crashing if state got corrupted.
+      if (!bot.problems?.forward || !bot.problems?.boost) {
+        bot.problems = generatePlayerProblems(bot.lane, race.state.config);
+      }
+
+      // Respect stun timing.
+      if (bot.isStunned && Date.now() < bot.stunEndTime) return;
 
     // Obstacle dodge: if an obstacle is coming up in the bot's lane soon,
     // attempt a lane change ~75% of the time.
@@ -644,77 +654,83 @@ function startBotDriverLoop(io: RaceServer, raceId: string, botPlayerId: string)
       }
     }
 
-    const action: "forward" | "boost" = Math.random() < 0.12 ? "boost" : "forward";
-    const problem = action === "boost" ? bot.problems.boost : bot.problems.forward;
+      const action: "forward" | "boost" = Math.random() < 0.12 ? "boost" : "forward";
+      const problem = action === "boost" ? bot.problems.boost : bot.problems.forward;
+      if (!problem) return;
 
-    const { newState, result } = processAction(
-      race.state,
-      botPlayerId,
-      action,
-      problem.answer,
-      problem.id
-    );
+      const { newState, result } = processAction(
+        race.state,
+        botPlayerId,
+        action,
+        problem.answer,
+        problem.id
+      );
 
-    race.state = newState;
+      race.state = newState;
 
-    if (!result.success) return;
+      if (!result.success) return;
 
-    io.to(raceId).emit("race:action_result", {
-      playerId: botPlayerId,
-      action,
-      success: true,
-      newLane: result.newLane,
-      newPosition: result.newPosition,
-      bumpedPlayerId: result.bumpedPlayerId,
-      bumpedPlayerNewPosition: result.bumpedPlayerNewPosition,
-    });
-
-    if (result.obstacleHit) {
-      io.to(raceId).emit("race:obstacle_hit", {
+      io.to(raceId).emit("race:action_result", {
         playerId: botPlayerId,
-        obstacleId: "",
-        obstacleType: result.obstacleHit.type,
-        stunDuration: result.obstacleHit.stunDuration,
-        pushback: 0,
-      });
-    }
-
-    if (result.dropCollected) {
-      const botAfter = race.state.players.find((p) => p.id === botPlayerId);
-      io.to(raceId).emit("race:drop_collected", {
-        playerId: botPlayerId,
-        dropId: result.dropCollected.dropId,
-        dropType: result.dropCollected.type,
-        effectDuration: result.dropCollected.effectDuration,
-        coinValue: result.dropCollected.coinValue,
-        coinsEarnedTotal: botAfter?.coinsEarned,
-      });
-      io.to(raceId).emit("race:drops_update", {
-        drops: race.state.drops,
+        action,
+        success: true,
+        newLane: result.newLane,
+        newPosition: result.newPosition,
+        bumpedPlayerId: result.bumpedPlayerId,
+        bumpedPlayerNewPosition: result.bumpedPlayerNewPosition,
       });
 
-      // Keep parity with the human flow for non-coin drops (even though current config is coin-only).
-      if (result.dropCollected.type !== "coin") {
-        io.to(raceId).emit("race:powerup_activated", {
+      if (result.obstacleHit) {
+        io.to(raceId).emit("race:obstacle_hit", {
           playerId: botPlayerId,
-          powerupType: result.dropCollected.type,
-          duration: result.dropCollected.effectDuration,
+          obstacleId: "",
+          obstacleType: result.obstacleHit.type,
+          stunDuration: result.obstacleHit.stunDuration,
+          pushback: 0,
         });
       }
-    }
 
-    if (result.finished && result.finishPosition) {
-      const botAfter = race.state.players.find((p) => p.id === botPlayerId);
-      io.to(raceId).emit("race:player_finished", {
-        playerId: botPlayerId,
-        position: result.finishPosition,
-        time: botAfter?.finishTime ?? 0,
-      });
-    }
+      if (result.dropCollected) {
+        const botAfter = race.state.players.find((p) => p.id === botPlayerId);
+        io.to(raceId).emit("race:drop_collected", {
+          playerId: botPlayerId,
+          dropId: result.dropCollected.dropId,
+          dropType: result.dropCollected.type,
+          effectDuration: result.dropCollected.effectDuration,
+          coinValue: result.dropCollected.coinValue,
+          coinsEarnedTotal: botAfter?.coinsEarned,
+        });
+        io.to(raceId).emit("race:drops_update", {
+          drops: race.state.drops,
+        });
 
-    // If the bot action ended the race, finish immediately.
-    if (checkRaceOver(race.state)) {
-      endRace(io, raceId);
+        // Keep parity with the human flow for non-coin drops (even though current config is coin-only).
+        if (result.dropCollected.type !== "coin") {
+          io.to(raceId).emit("race:powerup_activated", {
+            playerId: botPlayerId,
+            powerupType: result.dropCollected.type,
+            duration: result.dropCollected.effectDuration,
+          });
+        }
+      }
+
+      if (result.finished && result.finishPosition) {
+        const botAfter = race.state.players.find((p) => p.id === botPlayerId);
+        io.to(raceId).emit("race:player_finished", {
+          playerId: botPlayerId,
+          position: result.finishPosition,
+          time: botAfter?.finishTime ?? 0,
+        });
+      }
+
+      // If the bot action ended the race, finish immediately.
+      if (checkRaceOver(race.state)) {
+        void endRace(io, raceId).catch((e) => {
+          console.error(`[Race][Bot] endRace failed for ${raceId}:`, e);
+        });
+      }
+    } catch (err) {
+      console.error(`[Race][Bot] tick failed for ${raceId}:`, err);
     }
   }, TICK_MS);
 
@@ -729,47 +745,53 @@ function startGameLoop(io: RaceServer, raceId: string) {
 
   // Game loop - primarily for timers now
   const gameLoop = setInterval(() => {
-    const currentRace = activeRaces.get(raceId);
-    if (!currentRace || currentRace.state.status !== "racing") {
-      clearInterval(gameLoop);
-      return;
-    }
-    
-    const now = Date.now();
-    const deltaTime = now - lastTickTime;
-    lastTickTime = now;
-    
-    // Run game tick (updates timers)
-    const { state, events } = gameTick(currentRace.state, deltaTime);
-    currentRace.state = state;
+    try {
+      const currentRace = activeRaces.get(raceId);
+      if (!currentRace || currentRace.state.status !== "racing") {
+        clearInterval(gameLoop);
+        return;
+      }
+      
+      const now = Date.now();
+      const deltaTime = now - lastTickTime;
+      lastTickTime = now;
+      
+      // Run game tick (updates timers)
+      const { state, events } = gameTick(currentRace.state, deltaTime);
+      currentRace.state = state;
 
-    // Process events from tick (drop collection during base movement, finishes, obstacles)
-    events.forEach(event => {
-      if (event.type === "drop") {
-        const playerState = currentRace.state.players.find(p => p.id === event.playerId);
-        io.to(raceId).emit("race:drop_collected", {
-          playerId: event.playerId,
-          dropId: event.data.dropId || "",
-          dropType: event.data.dropType!,
-          effectDuration: event.data.effectDuration ?? 0,
-          coinValue: event.data.coinValue,
-          coinsEarnedTotal: playerState?.coinsEarned,
-        });
-        io.to(raceId).emit("race:drops_update", {
-          drops: currentRace.state.drops,
+      // Process events from tick (drop collection during base movement, finishes, obstacles)
+      events.forEach(event => {
+        if (event.type === "drop") {
+          const playerState = currentRace.state.players.find(p => p.id === event.playerId);
+          io.to(raceId).emit("race:drop_collected", {
+            playerId: event.playerId,
+            dropId: event.data.dropId || "",
+            dropType: event.data.dropType!,
+            effectDuration: event.data.effectDuration ?? 0,
+            coinValue: event.data.coinValue,
+            coinsEarnedTotal: playerState?.coinsEarned,
+          });
+          io.to(raceId).emit("race:drops_update", {
+            drops: currentRace.state.drops,
+          });
+        }
+      });
+      
+      // Broadcast state update to sync timers and catch any drift
+      io.to(raceId).emit("race:state_update", {
+        players: getRaceSnapshot(currentRace.state),
+      });
+      
+      // Check if race is over (timeout safety)
+      if (checkRaceOver(currentRace.state)) {
+        clearInterval(gameLoop);
+        void endRace(io, raceId).catch((e) => {
+          console.error(`[Race] endRace failed for ${raceId}:`, e);
         });
       }
-    });
-    
-    // Broadcast state update to sync timers and catch any drift
-    io.to(raceId).emit("race:state_update", {
-      players: getRaceSnapshot(currentRace.state),
-    });
-    
-    // Check if race is over (timeout safety)
-    if (checkRaceOver(currentRace.state)) {
-      clearInterval(gameLoop);
-      endRace(io, raceId);
+    } catch (err) {
+      console.error(`[Race] gameLoop tick failed for ${raceId}:`, err);
     }
   }, GAME_LOOP_INTERVAL_MS);
   

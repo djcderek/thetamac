@@ -380,22 +380,23 @@ function startRound(
     const problem = game.gameState.currentProblem;
     const botId = game.bot.id;
     if (problem) {
-      // Medium strength: usually answers correctly, sometimes wrong, sometimes no-answer.
-      const roll = Math.random();
-      const willAnswer = roll >= 0.05; // 5% no-answer
-      const willBeCorrect = roll < 0.80; // 75% correct (since 5% no-answer)
+      // Bot should ALWAYS answer (to avoid "stuck waiting" feel), and do it quickly.
+      // Keep it "medium": mostly correct, sometimes wrong.
+      const willBeCorrect = Math.random() < 0.82;
 
-      const opDelayBonusMs = problem.operation === "÷" || problem.operation === "×" ? 450 : 150;
-      const rawDelayMs = Math.floor(700 + Math.random() * 2600 + opDelayBonusMs); // ~850ms–~3750ms
+      const opDelayBonusMs = problem.operation === "÷" || problem.operation === "×" ? 250 : 120;
+      const minDelayMs = 500 + opDelayBonusMs;
+      const maxDelayMs = 2200 + opDelayBonusMs;
+      const rawDelayMs = Math.floor(minDelayMs + Math.random() * (maxDelayMs - minDelayMs));
       const delayMs = Math.min(game.config.timePerRound - 250, Math.max(350, rawDelayMs));
 
-      if (willAnswer) {
-        const correctAnswer = problem.answer;
-        const wrongOffsets = [-3, -2, -1, 1, 2, 3, 4, -4];
-        const wrongAnswer = correctAnswer + wrongOffsets[Math.floor(Math.random() * wrongOffsets.length)];
-        const chosenAnswer = willBeCorrect ? correctAnswer : wrongAnswer;
+      const correctAnswer = problem.answer;
+      const wrongOffsets = [-4, -3, -2, -1, 1, 2, 3, 4, 5, -5];
+      const wrongAnswer = correctAnswer + wrongOffsets[Math.floor(Math.random() * wrongOffsets.length)];
+      const chosenAnswer = willBeCorrect ? correctAnswer : wrongAnswer;
 
-        game.bot.answerTimer = setTimeout(() => {
+      game.bot.answerTimer = setTimeout(() => {
+        try {
           const liveGame = activeGames.get(roomId);
           if (!liveGame) return;
           if (!liveGame.bot) return;
@@ -412,16 +413,26 @@ function startRound(
 
           // End the round early if both answered
           if (liveGame.answers.size === 2) {
-            endRound(io, roomId);
+            void endRound(io, roomId).catch((err) => {
+              console.error(`[Multiplayer][Bot] endRound failed for ${roomId}:`, err);
+            });
           }
-        }, delayMs);
-      }
+        } catch (err) {
+          console.error(`[Multiplayer][Bot] Failed to answer in ${roomId}:`, err);
+        }
+      }, delayMs);
     }
   }
 
   // Set round timer
   game.roundTimer = setTimeout(() => {
-    endRound(io, roomId);
+    try {
+      void endRound(io, roomId).catch((err) => {
+        console.error(`[Multiplayer] roundTimer endRound failed for ${roomId}:`, err);
+      });
+    } catch (err) {
+      console.error(`[Multiplayer] roundTimer endRound failed for ${roomId}:`, err);
+    }
   }, game.config.timePerRound);
 }
 
@@ -506,7 +517,12 @@ async function endRound(
     } else {
       // Start next round after delay
       setTimeout(() => {
-        startRound(io, roomId);
+        try {
+          startRound(io, roomId);
+        } catch (err) {
+          console.error(`[Multiplayer] startRound failed for ${roomId}:`, err);
+          endGame(io, roomId, null, "disconnected");
+        }
       }, 2000);
     }
   } catch (error) {
