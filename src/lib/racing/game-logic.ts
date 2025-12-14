@@ -21,7 +21,7 @@ import type {
 // ============================================
 
 export const DEFAULT_RACE_CONFIG: RaceConfig = {
-  trackLength: 250,         // 250 meters
+  trackLength: 150,         // 150 meters
   maxPlayers: 5,
   difficulty: "medium",
   operations: ["+", "-", "×", "÷"],
@@ -30,7 +30,7 @@ export const DEFAULT_RACE_CONFIG: RaceConfig = {
   boostDistance: 3,         // 3 meters (for boost action)
   forwardDistance: 1,       // 1 meter per forward solve
   wrongAnswerPenalty: 1500, // 1.5 second cooldown
-  obstacleCount: 15,        // Density tuned for 250m
+  obstacleCount: 15,        // Obstacle density tuned for the default track length
   dropCount: 0,             // No powerup drops (only coins remain)
   coinDropCount: 10,        // Coin pickups on track
   baseSpeed: 2,           // 3x base speed to keep races moving

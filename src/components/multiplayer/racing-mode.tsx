@@ -875,7 +875,7 @@ export function RacingMode() {
               <div ref={trackTopRef} className="relative z-0">
                 <RaceTrack3D
                   players={race.players}
-                  trackLength={race.config?.trackLength || 250}
+                  trackLength={race.config?.trackLength || 150}
                   myPlayerId={myPlayerId || playerId || ""}
                   finishOrder={race.finishOrder}
                   obstacles={race.obstacles || []}
@@ -1178,7 +1178,7 @@ export function RacingMode() {
             <Card>
               <CardContent className="p-4 text-center">
                 <Flag className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                <p className="text-2xl font-mono font-bold">250m</p>
+                <p className="text-2xl font-mono font-bold">150m</p>
                 <p className="text-xs text-muted-foreground">Track Length</p>
               </CardContent>
             </Card>
