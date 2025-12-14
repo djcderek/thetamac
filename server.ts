@@ -108,6 +108,11 @@ const io = new SocketServer(httpServer, {
   pingInterval: 25000,
 });
 
+// Engine.IO-level connection errors (useful when proxies/CORS/auth break handshakes)
+io.engine.on("connection_error", (err: unknown) => {
+  console.error("[socket.io] connection_error", err);
+});
+
 // Setup multiplayer game handlers (1v1 mode)
 setupMultiplayerHandlers(io);
 

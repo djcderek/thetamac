@@ -314,6 +314,11 @@ export function useRaceSocket() {
 
   // Initialize socket connection
   useEffect(() => {
+    // NextAuth will often refresh the session object identity on tab focus.
+    // We only want to reconnect when the actual signed-in user changes.
+    const sessionUserId = session?.user?.id ?? null;
+    const sessionUserName = session?.user?.name ?? null;
+
     let socket: TypedSocket | null = null;
     let mounted = true;
 
@@ -331,10 +336,10 @@ export function useRaceSocket() {
       // Fetch a secure token for cross-origin authentication
       let authToken: string | undefined;
       try {
-        const sessionIdentity: PlayerIdentity | null = session?.user?.id
+        const sessionIdentity: PlayerIdentity | null = sessionUserId
           ? {
-              id: session.user.id,
-              username: session.user.name || "Player",
+              id: sessionUserId,
+              username: sessionUserName || "Player",
               isGuest: false,
             }
           : null;
@@ -689,7 +694,7 @@ export function useRaceSocket() {
         reconnectResetTimeoutRef.current = null;
       }
     };
-  }, [session, resetAllState, addFeedback, startFx, attemptAutoRejoin]); // Reconnect when session changes
+  }, [session?.user?.id, session?.user?.name, resetAllState, addFeedback, startFx, attemptAutoRejoin]);
 
   // ============================================
   // ACTIONS

@@ -700,7 +700,29 @@ export function setupMultiplayerHandlers(
   }, 5000);
 
   io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) => {
-    console.log(`Client connected: ${socket.id}`);
+    // Helpful connection metadata for debugging prod disconnects (Fly/Vercel).
+    const origin = typeof socket.handshake.headers.origin === "string" ? socket.handshake.headers.origin : "";
+    const ua = typeof socket.handshake.headers["user-agent"] === "string" ? socket.handshake.headers["user-agent"] : "";
+    const transport = socket.conn.transport.name;
+    console.log(`[Multiplayer] Client connected: ${socket.id} transport=${transport} origin=${origin} ua=${ua}`);
+
+    // Low-level Engine.IO lifecycle events can explain "mystery" disconnects.
+    const conn = socket.conn as unknown as {
+      on(event: "close", listener: (reason: string) => void): void;
+      on(event: "error", listener: (err: unknown) => void): void;
+    };
+    conn.on("close", (reason) => {
+      console.log(`[Multiplayer] Engine close: ${socket.id} reason=${reason}`);
+    });
+    conn.on("error", (err) => {
+      console.error(`[Multiplayer] Engine error: ${socket.id}`, err);
+    });
+
+    socket.on("disconnecting", (reason) => {
+      // rooms includes socket.id plus any joined rooms; useful to correlate game/lobby
+      const rooms = Array.from(socket.rooms).join(",");
+      console.log(`[Multiplayer] Client disconnecting: ${socket.id} reason=${reason} rooms=${rooms}`);
+    });
 
     // Emit initial online count
     socket.emit("online_count", io.sockets.sockets.size);
@@ -1017,9 +1039,9 @@ export function setupMultiplayerHandlers(
     // DISCONNECT HANDLER
     // ============================================
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
       void safelyExecute("[Multiplayer] disconnect", () => {
-        console.log(`Client disconnected: ${socket.id}`);
+        console.log(`[Multiplayer] Client disconnected: ${socket.id} reason=${reason}`);
 
         clearBotFallbackTimer(socket.id);
 
