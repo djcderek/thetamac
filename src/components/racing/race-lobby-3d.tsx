@@ -112,6 +112,12 @@ function VehicleModel({
     metalness = 0.9;
     roughness = 0.1;
   }
+  else if (skin === 'skin_hot_pink_decal') {
+    displayColor = '#ff2db2';
+    metalness = 0.7;
+    roughness = 0.18;
+    emissive = new THREE.Color('#ff2db2');
+  }
   else if (skin === 'skin_rainbow') {
     metalness = 0.6;
     roughness = 0.2;
@@ -463,7 +469,7 @@ function PlayerCard({
     <div className="flex flex-col items-center">
       <div className={`relative w-14 h-14 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-2 ${
         isCurrentUser 
-          ? 'bg-gradient-to-br from-blue-500/30 to-cyan-500/30 border-2 border-blue-400' 
+          ? 'bg-linear-to-br from-blue-500/30 to-cyan-500/30 border-2 border-blue-400' 
           : 'bg-white/10 border border-white/20'
       }`}>
         <span className="text-lg sm:text-2xl font-bold text-white">
@@ -546,7 +552,7 @@ export function RaceLobby3D({
       </Canvas>
 
       {/* Top Header Overlay */}
-      <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 bg-linear-to-b from-black/80 to-transparent pointer-events-none">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pointer-events-auto">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 rounded-lg bg-white/10 backdrop-blur shrink-0">
@@ -577,11 +583,11 @@ export function RaceLobby3D({
       </div>
 
       {/* Bottom Player Cards Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6 bg-linear-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
         {/* Starting countdown */}
         {startingIn !== null && (
           <div className="flex items-center justify-center gap-3 mb-4 sm:mb-6 pointer-events-auto">
-            <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30">
+            <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-linear-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30">
               <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 animate-pulse" />
               <span className="text-base sm:text-lg font-bold text-emerald-400">
                 Race starting in {startingIn}s

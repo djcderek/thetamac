@@ -466,6 +466,13 @@ function CarModel({
       metalness = 0.9;
       roughness = 0.1;
   }
+  else if (skin === 'skin_hot_pink_decal') {
+      displayColor = '#ff2db2';
+      metalness = 0.7;
+      roughness = 0.18;
+      emissive = new THREE.Color('#ff2db2');
+      // Keep it subtle; show-room lighting already pops
+  }
   else if (skin === 'skin_rainbow') {
       // Color set in useFrame
       metalness = 0.6;

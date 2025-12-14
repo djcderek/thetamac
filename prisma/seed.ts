@@ -117,6 +117,14 @@ const DEFAULT_ITEMS: Array<{
     assetId: "skin_rainbow",
     isProOnly: true,
   },
+  {
+    name: "Hot Pink Decal",
+    description: "A loud hot-pink decal that screams speed.",
+    cost: 300,
+    type: "skin",
+    assetId: "skin_hot_pink_decal",
+    isProOnly: false,
+  },
   // New Pro Vehicles
   {
     name: "The Beast",

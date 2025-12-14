@@ -108,6 +108,14 @@ function CarModel({
       metalness = 0.9;
       roughness = 0.1;
   }
+  else if (skin === 'skin_hot_pink_decal') {
+      displayColor = '#ff2db2';
+      metalness = 0.7;
+      roughness = 0.18;
+      emissive = new THREE.Color('#ff2db2');
+      // subtle glow, keep it classy
+      // emissiveIntensity is controlled by material settings; use a small base via emissive
+  }
   else if (skin === 'skin_rainbow') {
       // Color set in useFrame
       metalness = 0.6;
@@ -486,6 +494,7 @@ export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
       if (assetId === 'skin_glitch') return 'bg-green-500';
       if (assetId === 'skin_lava') return 'bg-red-800';
       if (assetId === 'skin_ice') return 'bg-sky-200';
+      if (assetId === 'skin_hot_pink_decal') return 'bg-pink-500';
       if (assetId === 'skin_rainbow') return 'bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500';
       return 'bg-blue-500';
     }

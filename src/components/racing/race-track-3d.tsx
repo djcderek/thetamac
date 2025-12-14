@@ -67,6 +67,7 @@ const SKIN_COLORS: Record<string, string> = {
   skin_lava: "#7f1d1d",
   skin_ice: "#bae6fd",
   skin_rainbow: "#a855f7", // Use purple as a static representation for rainbow
+  skin_hot_pink_decal: "#ff2db2",
 };
 
 // Default gray color when no skin is selected
