@@ -27,6 +27,9 @@ const envSchema = z.object({
   STRIPE_YEARLY_PRICE_ID: z
     .string()
     .min(1, "STRIPE_YEARLY_PRICE_ID is required"),
+  // Upstash Redis for rate limiting (optional - rate limiting disabled if not set)
+  UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
 });
 
 // Allow skipping validation for build time

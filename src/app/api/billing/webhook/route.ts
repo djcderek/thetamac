@@ -46,6 +46,18 @@ async function syncSubscription(subscription: Stripe.Subscription) {
     currentPeriodEnd: subscription.current_period_end,
   });
 
+  // Mark free trial as used once a user actually enters a premium/trialing state.
+  // (We keep this flag persistent even if the subscription later cancels.)
+  if (
+    isPremiumStatus(subscription.status) ||
+    Boolean(subscription.trial_start || subscription.trial_end)
+  ) {
+    await db.user.updateMany({
+      where: { id: userId, proTrialUsed: false },
+      data: { proTrialUsed: true },
+    });
+  }
+
   // Grant one-time signup credits when a user becomes premium for the first time.
   if (isPremiumStatus(subscription.status)) {
     const result = await db.user.updateMany({

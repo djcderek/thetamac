@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { getStripeClient } from "@/lib/stripe";
 import { userHasPremiumAccess } from "@/lib/subscription";
 import { env } from "@/lib/env";
+import { checkoutRatelimit, checkRateLimit } from "@/lib/rate-limit";
+import Stripe from "stripe";
 
 function normalizeReturnPath(
   baseUrl: string,
@@ -36,6 +38,15 @@ export async function POST(request: Request) {
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Rate limit by user ID
+  const rateLimit = await checkRateLimit(checkoutRatelimit, session.user.id);
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: "Too many checkout attempts. Please try again later." },
+      { status: 429, headers: rateLimit.headers }
+    );
   }
 
   let plan: "monthly" | "yearly" = "monthly";
@@ -95,6 +106,7 @@ export async function POST(request: Request) {
     const stripe = getStripeClient();
 
     let customerId = user.stripeCustomerId;
+    let eligibleForTrial = !user.proTrialUsed && !user.proSignupCreditGranted;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -121,6 +133,19 @@ export async function POST(request: Request) {
         limit: 10,
       });
 
+      // If Stripe already has *any* subscription history for this customer, don't offer a trial.
+      // This also backfills `proTrialUsed` for older users before this flag existed.
+      const hasAnySubscriptionHistory = existingSubscriptions.data.length > 0;
+      if (hasAnySubscriptionHistory) {
+        eligibleForTrial = false;
+        if (!user.proTrialUsed) {
+          await db.user.update({
+            where: { id: user.id },
+            data: { proTrialUsed: true },
+          });
+        }
+      }
+
       const activeSubscription = existingSubscriptions.data.find(
         (sub) => ["active", "trialing", "past_due"].includes(sub.status)
       );
@@ -143,6 +168,18 @@ export async function POST(request: Request) {
       }
     }
 
+    const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
+      {
+      metadata: {
+        userId: user.id,
+        plan,
+      },
+    };
+
+    if (eligibleForTrial) {
+      subscriptionData.trial_period_days = 7;
+    }
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -163,12 +200,7 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      subscription_data: {
-        metadata: {
-          userId: user.id,
-          plan,
-        },
-      },
+      subscription_data: subscriptionData,
       metadata: {
         userId: user.id,
         plan,

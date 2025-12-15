@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { settingsRatelimit, checkRateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   try {
@@ -80,6 +81,15 @@ export async function PATCH(req: Request) {
     const session = await auth();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit by user email
+    const rateLimit = await checkRateLimit(settingsRatelimit, session.user.email);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: "Too many updates. Please slow down." },
+        { status: 429, headers: rateLimit.headers }
+      );
     }
 
     const userEmail = session.user.email;

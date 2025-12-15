@@ -54,7 +54,7 @@ export function PremiumPaywall({
               </p>
               <p className="text-3xl font-bold">$2</p>
               <p className="text-xs text-muted-foreground mb-4">
-                Billed monthly, cancel anytime.
+                7-day free trial, then billed monthly. Cancel anytime.
               </p>
               <SubscribeButton plan="monthly" label="Go monthly" variant="outline" />
             </div>
@@ -64,7 +64,7 @@ export function PremiumPaywall({
               </p>
               <p className="text-3xl font-bold">$12</p>
               <p className="text-xs text-muted-foreground mb-4">
-                Save 50% when billed annually.
+                7-day free trial, then billed annually. Save 50%.
               </p>
               <SubscribeButton
                 plan="yearly"

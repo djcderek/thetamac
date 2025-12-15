@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { trainingRatelimit, checkRateLimit } from "@/lib/rate-limit";
 
 // Map frontend operations to database format
 const operationMap: Record<string, string> = {
@@ -19,6 +20,16 @@ export async function POST(request: Request) {
     }
 
     const userId = session.user.id;
+
+    // Rate limit by user ID
+    const rateLimit = await checkRateLimit(trainingRatelimit, userId);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        { status: 429, headers: rateLimit.headers }
+      );
+    }
+
     const body = await request.json();
     const { sessionId, operandA, operandB, operation, correctAnswer, userAnswer, isCorrect, timeTaken } = body;
 

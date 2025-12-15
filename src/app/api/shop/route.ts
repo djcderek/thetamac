@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { shopRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
 export async function GET() {
@@ -87,6 +88,15 @@ export async function POST(req: Request) {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit by user ID
+    const rateLimit = await checkRateLimit(shopRatelimit, session.user.id);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: "Too many purchase attempts. Please slow down." },
+        { status: 429, headers: rateLimit.headers }
+      );
     }
 
     const body = await req.json();

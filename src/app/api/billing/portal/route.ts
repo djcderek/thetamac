@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStripeClient } from "@/lib/stripe";
 import { env } from "@/lib/env";
+import { billingPortalRatelimit, checkRateLimit } from "@/lib/rate-limit";
 
 function normalizeReturnPath(
   baseUrl: string,
@@ -35,6 +36,15 @@ export async function POST(request: Request) {
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Rate limit by user ID
+  const rateLimit = await checkRateLimit(billingPortalRatelimit, session.user.id);
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: rateLimit.headers }
+    );
   }
 
   try {

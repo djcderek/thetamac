@@ -34,6 +34,7 @@ model User {
   premiumSince             DateTime?
   isPremium                Boolean  @default(false)
   proSignupCreditGranted   Boolean  @default(false)
+  proTrialUsed             Boolean  @default(false)
 
   // Economy & Cosmetics
   coins                    Int      @default(0)
