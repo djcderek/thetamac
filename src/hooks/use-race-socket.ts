@@ -248,7 +248,8 @@ export function useRaceSocket() {
         ...prev,
         players: prev.players.map(p => {
           if (p.id !== playerId) return p;
-          if ((p as any)[field] && (p as any)[field] <= until) {
+          const currentUntil = p[field];
+          if (typeof currentUntil === "number" && currentUntil > 0 && currentUntil <= until) {
             return { ...p, [field]: 0 };
           }
           return p;

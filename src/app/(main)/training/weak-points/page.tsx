@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft, LogIn } from "lucide-react";
+import { ArrowLeft, LogIn, Sparkles, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PremiumPaywall } from "@/components/billing/premium-paywall";
 import { getCurrentUserPremiumStatus } from "@/lib/subscription";
+import { getUpgradeUrl } from "@/lib/upgrade";
 import { WeakPointsDashboard } from "./weak-points-dashboard";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +47,11 @@ export default async function WeakPointsPage() {
 
   // Not premium - show paywall
   if (!isPremium) {
+    const upgradeUrl = getUpgradeUrl({
+      feature: "analytics",
+      source: "training_weak_points",
+    });
+
     return (
       <div className="min-h-screen">
         <div className="border-b border-border">
@@ -64,17 +69,50 @@ export default async function WeakPointsPage() {
             </p>
           </div>
         </div>
-        <PremiumPaywall
-          featureName="Weak Point Training"
-          description="Get AI-powered analysis of your mistakes and personalized practice sessions to improve faster."
-          benefits={[
-            "AI analysis of your problem areas",
-            "Custom training packs for weak spots",
-            "Track improvement over time",
-            "Focus on specific number combinations",
-          ]}
-          className="px-4 md:px-6"
-        />
+        <div className="p-4 md:p-6">
+          <Card className="max-w-2xl mx-auto border-2 border-primary/10">
+            <CardContent className="py-10 text-center space-y-5">
+              <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Lock className="w-7 h-7 text-primary" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold">Weak Point Training is a Pro feature</h2>
+                <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                  Get analysis of your mistakes and a personalized training pack to improve faster.
+                </p>
+              </div>
+
+              <div className="grid gap-2 text-sm text-muted-foreground max-w-md mx-auto text-left">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 mt-0.5 text-primary" />
+                  Custom training packs for weak spots
+                </div>
+                <div className="flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 mt-0.5 text-primary" />
+                  Track improvement over time
+                </div>
+                <div className="flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 mt-0.5 text-primary" />
+                  Focus on specific number combinations
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                <Link href={upgradeUrl}>
+                  <Button className="gap-2 w-full sm:w-auto">
+                    <Sparkles className="w-4 h-4" />
+                    Upgrade to Pro
+                  </Button>
+                </Link>
+                <Link href="/training">
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    Back to Training
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }

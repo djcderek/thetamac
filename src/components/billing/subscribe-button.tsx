@@ -10,6 +10,11 @@ interface SubscribeButtonProps {
   plan: BillingPlan;
   label: string;
   description?: string;
+  returnUrl?: string;
+  tracking?: {
+    eventName: "upgrade_cta_click";
+    properties?: Record<string, unknown>;
+  };
   variant?: "default" | "secondary" | "outline";
   className?: string;
 }
@@ -18,6 +23,8 @@ export function SubscribeButton({
   plan,
   label,
   description,
+  returnUrl,
+  tracking,
   variant = "default",
   className,
 }: SubscribeButtonProps) {
@@ -26,12 +33,29 @@ export function SubscribeButton({
   async function handleSubscribe() {
     try {
       setLoading(true);
+
+      if (tracking?.eventName) {
+        // Best-effort: don't block checkout on telemetry.
+        void fetch("/api/telemetry/event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventName: tracking.eventName,
+            properties: {
+              ...tracking.properties,
+              plan,
+              returnUrl,
+            },
+          }),
+        }).catch(() => {});
+      }
+
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, returnUrl }),
       });
 
       const data = await response.json();

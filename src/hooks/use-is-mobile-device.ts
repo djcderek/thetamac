@@ -29,19 +29,23 @@ export function useIsMobileDevice() {
   useEffect(() => {
     // Keep detection fresh in cases where UA/client hints become available after hydration.
     if (typeof navigator === "undefined") return;
-    setIsMobileDevice((prev) => {
-      const ua = navigator.userAgent || "";
-      const platform = (navigator as unknown as { platform?: string }).platform || "";
-      const maxTouchPoints = (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints || 0;
-      const isIPad = /iPad/i.test(ua) || (platform === "MacIntel" && maxTouchPoints > 1);
-      const isPhoneLike = /Android|iPhone|iPod|Windows Phone|Mobile/i.test(ua);
-      const uaDataMobile =
-        "userAgentData" in navigator
-          ? !!(navigator as unknown as { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile
-          : false;
-      const next = uaDataMobile || isIPad || isPhoneLike;
-      return next === prev ? prev : next;
-    });
+    const t = window.setTimeout(() => {
+      setIsMobileDevice((prev) => {
+        const ua = navigator.userAgent || "";
+        const platform = (navigator as unknown as { platform?: string }).platform || "";
+        const maxTouchPoints = (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints || 0;
+        const isIPad = /iPad/i.test(ua) || (platform === "MacIntel" && maxTouchPoints > 1);
+        const isPhoneLike = /Android|iPhone|iPod|Windows Phone|Mobile/i.test(ua);
+        const uaDataMobile =
+          "userAgentData" in navigator
+            ? !!(navigator as unknown as { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile
+            : false;
+        const next = uaDataMobile || isIPad || isPhoneLike;
+        return next === prev ? prev : next;
+      });
+    }, 0);
+
+    return () => window.clearTimeout(t);
   }, []);
 
   return isMobileDevice;

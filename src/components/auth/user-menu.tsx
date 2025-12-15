@@ -21,6 +21,7 @@ import {
   CreditCard,
   Sparkles,
 } from "lucide-react";
+import { getUpgradeUrl } from "@/lib/upgrade";
 
 interface UserMenuProps {
   collapsed?: boolean;
@@ -169,7 +170,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
         ) : (
           <DropdownMenuItem asChild>
             <Link
-              href="/stats/performance?upgrade=1"
+              href={getUpgradeUrl({ source: "user_menu" })}
               className="cursor-pointer text-primary"
             >
               <Sparkles className="mr-2 h-4 w-4" />

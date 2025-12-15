@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { getUpgradeUrl } from "@/lib/upgrade";
 
 interface ChartPaywallProps {
   title: string;
@@ -14,7 +15,7 @@ export function ChartPaywall({ title }: ChartPaywallProps) {
   const handleUpgradeClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push("/stats/performance?upgrade=1");
+    router.push(getUpgradeUrl({ feature: "analytics", source: "chart_paywall" }));
   };
 
   return (

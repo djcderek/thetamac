@@ -5,6 +5,32 @@ import { getStripeClient } from "@/lib/stripe";
 import { userHasPremiumAccess } from "@/lib/subscription";
 import { env } from "@/lib/env";
 
+function normalizeReturnPath(
+  baseUrl: string,
+  returnUrl: unknown
+): string | null {
+  if (typeof returnUrl !== "string") return null;
+  const trimmed = returnUrl.trim();
+  if (!trimmed) return null;
+
+  // Allow same-origin absolute URLs
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const parsed = new URL(trimmed);
+      const base = new URL(baseUrl);
+      if (parsed.origin !== base.origin) return null;
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return null;
+    }
+  }
+
+  // Allow only relative paths to prevent open redirects.
+  if (!trimmed.startsWith("/")) return null;
+  if (trimmed.startsWith("//")) return null;
+  return trimmed;
+}
+
 export async function POST(request: Request) {
   const session = await auth();
 
@@ -13,12 +39,14 @@ export async function POST(request: Request) {
   }
 
   let plan: "monthly" | "yearly" = "monthly";
+  let returnPath: string | null = null;
 
   try {
     const body = await request.json();
     if (body?.plan === "yearly") {
       plan = "yearly";
     }
+    returnPath = normalizeReturnPath(env.NEXT_PUBLIC_APP_URL, body?.returnUrl);
   } catch {
     plan = "monthly";
   }
@@ -34,6 +62,8 @@ export async function POST(request: Request) {
   }
 
   const baseUrl = env.NEXT_PUBLIC_APP_URL;
+  // Backwards-compatible default: older paywalls expect to return to stats.
+  const resolvedReturnPath = returnPath ?? "/stats/performance";
 
   try {
     const user = await db.user.findUnique({
@@ -116,8 +146,16 @@ export async function POST(request: Request) {
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
-      success_url: `${baseUrl}/stats/performance?upgraded=1`,
-      cancel_url: `${baseUrl}/stats/performance`,
+      success_url: (() => {
+        const url = new URL(resolvedReturnPath, baseUrl);
+        url.searchParams.set("upgraded", "1");
+        return url.toString();
+      })(),
+      cancel_url: (() => {
+        const url = new URL(resolvedReturnPath, baseUrl);
+        url.searchParams.set("cancelled", "1");
+        return url.toString();
+      })(),
       allow_promotion_codes: true,
       line_items: [
         {
