@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,21 @@ import {
   Wifi,
   WifiOff,
   ArrowLeft,
+  Medal,
+  Gauge,
   Trophy,
+  Award,
   Zap,
   Clock,
   Target,
+  Crown,
   ChevronLeft,
   ChevronRight,
   ArrowUp,
   Loader2,
   Flag,
+  BarChart3,
+  Brain,
   Users,
   Flame,
   X,
@@ -33,6 +39,15 @@ import type { ActionType, PlayerProblems } from "@/lib/racing/types";
 import RaceTrack3D from "@/components/racing/race-track-3d";
 import RaceLobby3D from "@/components/racing/race-lobby-3d";
 import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
+
+type RacingStats = {
+  rating: number;
+  races: number;
+  wins: number;
+  podiums: number;
+  avgFinish: number | null;
+  problemsSolved: number;
+};
 
 // ============================================
 // PROBLEM INPUT PANEL
@@ -780,6 +795,52 @@ export function RacingMode() {
   const playerName = (session?.user?.name || identity?.username || "Player") as string;
   const isGuest = !isSignedIn && !!identity?.isGuest;
 
+  const [racingStats, setRacingStats] = useState<RacingStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(isSignedIn);
+
+  const fetchRacingStats = useCallback(async () => {
+    if (!isSignedIn) return;
+    setStatsLoading(true);
+    try {
+      const res = await fetch("/api/user/racing-stats");
+      const data = await res.json();
+      if (!data.error) {
+        setRacingStats({
+          rating: data.rating ?? 0,
+          races: data.races ?? 0,
+          wins: data.wins ?? 0,
+          podiums: data.podiums ?? 0,
+          avgFinish: data.avgFinish ?? null,
+          problemsSolved: data.problemsSolved ?? 0,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch racing stats:", err);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [isSignedIn]);
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      setRacingStats(null);
+      setStatsLoading(false);
+      return;
+    }
+    void fetchRacingStats();
+  }, [isSignedIn, fetchRacingStats]);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    if (!result) return;
+
+    const timeout = setTimeout(() => {
+      void fetchRacingStats();
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [isSignedIn, result, fetchRacingStats]);
+
   const myPlayer = (myPlayerId || playerId) ? getMyPlayer((myPlayerId || playerId)!) : null;
   const hasFinished = race.myFinishPosition !== null;
 
@@ -1204,6 +1265,62 @@ export function RacingMode() {
               </CardContent>
             </Card>
           </div>
+
+          {isSignedIn && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  <div className="text-center">
+                    <Medal className="w-5 h-5 mx-auto mb-2 text-amber-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : racingStats?.rating ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Rating</p>
+                  </div>
+                  <div className="text-center">
+                    <Gauge className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : racingStats?.races ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Races</p>
+                  </div>
+                  <div className="text-center">
+                    <Award className="w-5 h-5 mx-auto mb-2 text-yellow-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : racingStats?.wins ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Wins</p>
+                  </div>
+                  <div className="text-center">
+                    <Crown className="w-5 h-5 mx-auto mb-2 text-blue-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : racingStats?.podiums ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Podiums</p>
+                  </div>
+                  <div className="text-center">
+                    <BarChart3 className="w-5 h-5 mx-auto mb-2 text-rose-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading
+                        ? "—"
+                        : racingStats?.avgFinish !== null &&
+                          racingStats?.avgFinish !== undefined
+                        ? racingStats.avgFinish
+                        : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Avg Finish</p>
+                  </div>
+                  <div className="text-center">
+                    <Brain className="w-5 h-5 mx-auto mb-2 text-violet-500" />
+                    <p className="text-2xl font-mono font-bold">
+                      {statsLoading ? "—" : racingStats?.problemsSolved ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Problems Solved</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
