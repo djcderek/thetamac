@@ -671,7 +671,7 @@ export default function TrainingPage() {
   const [timedModeLimit, setTimedModeLimit] = useState(120);
   const [practiceTimerLimit, setPracticeTimerLimit] = useState(10);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [submitMode, setSubmitMode] = useState<SubmitMode>("manual");
+  const [submitMode, setSubmitMode] = useState<SubmitMode>("auto");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [operationRanges, setOperationRanges] = useState<OperationRanges>(defaultRanges);
@@ -1626,7 +1626,7 @@ export default function TrainingPage() {
                             <div className="flex items-start gap-2">
                               <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                               <p className="text-xs text-amber-800 dark:text-amber-200">
-                                <span className="font-medium">Note:</span> Accuracy data will not be tracked in auto-submit mode since incorrect attempts are not recorded.
+                                <span className="font-medium">Note:</span> Accuracy is not recorded in auto-submit mode. Switch to Press Enter to track accuracy.
                               </p>
                             </div>
                           </div>
@@ -1890,7 +1890,7 @@ export default function TrainingPage() {
               {submitMode === "auto" && (
                 <div className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
                   <Wand2 className="w-3 h-3" />
-                  Auto-submit enabled • Accuracy not tracked
+                  Auto-submit enabled • Accuracy only tracked in Press Enter mode
                 </div>
               )}
 
