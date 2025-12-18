@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-
-// Default timed training mode settings
-const DEFAULT_TIMED_SETTINGS = {
-  gameMode: "timed",
-  difficulty: "medium",
-  operations: ["+", "-", "×", "÷"],
-};
+import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -49,10 +43,10 @@ export async function GET(request: Request) {
     const matchingSessions = await db.trainingSession.findMany({
       where: {
         userId,
-        gameMode: DEFAULT_TIMED_SETTINGS.gameMode,
-        difficulty: DEFAULT_TIMED_SETTINGS.difficulty,
+        gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
+        difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
         operations: {
-          hasEvery: DEFAULT_TIMED_SETTINGS.operations,
+          hasEvery: DEFAULT_TIMED_TRAINING_SETTINGS.operations,
         },
         createdAt: {
           gte: startDate,

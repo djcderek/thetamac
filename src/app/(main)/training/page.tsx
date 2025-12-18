@@ -36,6 +36,7 @@ import {
 import Link from "next/link";
 import { TRAINING_SKILLS, SkillId } from "@/lib/training-skills";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
+import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 type Operation = "+" | "-" | "×" | "÷";
 type Difficulty = "easy" | "medium" | "hard" | "expert";
@@ -66,7 +67,8 @@ type OperationRanges = Record<Operation, OperationRange>;
 interface DifficultySettings {
   label: string;
   addSubMax: number;
-  mulDivMax: number;
+  mulTableMax: number;
+  mulWideMax: number;
   timeLimit: number;
   description: string;
 }
@@ -75,31 +77,45 @@ const difficultyConfig: Record<Difficulty, DifficultySettings> = {
   easy: { 
     label: "Easy",
     addSubMax: 20, 
-    mulDivMax: 10,
+    mulTableMax: 10,
+    mulWideMax: 10,
     timeLimit: 12,
     description: "Numbers 1-20 for +/−, 1-10 for ×/÷"
   },
   medium: { 
     label: "Medium",
-    addSubMax: 50, 
-    mulDivMax: 12,
+    addSubMax: 100, 
+    mulTableMax: 12,
+    mulWideMax: 100,
     timeLimit: 10,
-    description: "Numbers 1-50 for +/−, 1-12 for ×/÷"
+    description: "Add/Sub 2-100 • × 2-12 × 2-100 • ÷ divisors 2-12, quotients 2-100 (no 1s/0)"
   },
   hard: { 
     label: "Hard",
-    addSubMax: 100, 
-    mulDivMax: 15,
+    addSubMax: 150, 
+    mulTableMax: 15,
+    mulWideMax: 150,
     timeLimit: 8,
-    description: "Numbers 1-100 for +/−, 1-15 for ×/÷"
+    description: "Add/Sub 3-150 • × 3-15 × 3-150 • ÷ divisors 3-15, quotients 3-150 (no 1s/0)"
   },
   expert: { 
     label: "Expert",
     addSubMax: 200, 
-    mulDivMax: 20,
+    mulTableMax: 20,
+    mulWideMax: 200,
     timeLimit: 6,
-    description: "Numbers 1-200 for +/−, 1-20 for ×/÷"
+    description: "Add/Sub 4-200 • × 3-20 × 4-200 • ÷ divisors 3-20, quotients 4-200 (no 1s/0)"
   },
+};
+
+const difficultyGuardrails: Record<
+  Difficulty,
+  { minOperand: number; minDifference: number; minDivisor: number; minQuotient: number }
+> = {
+  easy: { minOperand: 1, minDifference: 0, minDivisor: 1, minQuotient: 1 },
+  medium: { minOperand: 2, minDifference: 1, minDivisor: 2, minQuotient: 2 },
+  hard: { minOperand: 3, minDifference: 1, minDivisor: 2, minQuotient: 2 },
+  expert: { minOperand: 4, minDifference: 1, minDivisor: 3, minQuotient: 3 },
 };
 
 const defaultRanges: OperationRanges = {
@@ -108,6 +124,17 @@ const defaultRanges: OperationRanges = {
   "×": { min: 1, max: 12 },
   "÷": { min: 1, max: 12 },
 };
+
+function getPresetRanges(difficulty: Difficulty): OperationRanges {
+  const config = difficultyConfig[difficulty];
+  const guardrails = difficultyGuardrails[difficulty];
+  return {
+    "+": { min: guardrails.minOperand, max: config.addSubMax },
+    "-": { min: guardrails.minOperand, max: config.addSubMax },
+    "×": { min: guardrails.minOperand, max: config.mulWideMax },
+    "÷": { min: guardrails.minDivisor, max: config.mulWideMax },
+  };
+}
 
 const timedModeLimits = [60, 120, 180, 300];
 const practiceTimerOptions = [5, 8, 10, 12, 15, 20, 30];
@@ -586,6 +613,12 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+function randomInt(min: number, max: number): number {
+  const adjustedMin = Math.min(min, max);
+  const adjustedMax = Math.max(min, max);
+  return Math.floor(Math.random() * (adjustedMax - adjustedMin + 1)) + adjustedMin;
+}
+
 function generateProblem(
   operation: Operation,
   difficulty: Difficulty,
@@ -628,30 +661,52 @@ function generateProblem(
     }
   } else {
     const config = difficultyConfig[difficulty];
-    const addSubMax = config.addSubMax;
-    const mulDivMax = config.mulDivMax;
+    const guardrails = difficultyGuardrails[difficulty];
+    const addSubMin = guardrails.minOperand;
+    const mulDivMin = guardrails.minOperand;
+    const addSubMax = Math.max(addSubMin, config.addSubMax);
+    const mulTableMax = Math.max(mulDivMin, config.mulTableMax);
+    const mulWideMax = Math.max(mulDivMin, config.mulWideMax);
 
     switch (operation) {
       case "+":
-        a = Math.floor(Math.random() * addSubMax) + 1;
-        b = Math.floor(Math.random() * addSubMax) + 1;
+        a = randomInt(addSubMin, addSubMax);
+        b = randomInt(addSubMin, addSubMax);
         answer = a + b;
         break;
-      case "-":
-        a = Math.floor(Math.random() * addSubMax) + 1;
-        b = Math.floor(Math.random() * a) + 1;
+      case "-": {
+        const minDifference = guardrails.minDifference;
+        a = randomInt(addSubMin + minDifference, addSubMax);
+        const maxForB = Math.max(addSubMin, a - minDifference);
+        b = randomInt(addSubMin, maxForB);
+        if (b > a) [a, b] = [b, a];
         answer = a - b;
         break;
-      case "×":
-        a = Math.floor(Math.random() * mulDivMax) + 1;
-        b = Math.floor(Math.random() * mulDivMax) + 1;
+      }
+      case "×": {
+        const small = randomInt(mulDivMin, mulTableMax);
+        const wide = randomInt(mulDivMin, mulWideMax);
+        // Randomize order so operands don't feel patterned
+        if (Math.random() < 0.5) {
+          a = small;
+          b = wide;
+        } else {
+          a = wide;
+          b = small;
+        }
         answer = a * b;
         break;
-      case "÷":
-        b = Math.floor(Math.random() * mulDivMax) + 1;
-        answer = Math.floor(Math.random() * mulDivMax) + 1;
+      }
+      case "÷": {
+        const divisorMin = guardrails.minDivisor;
+        const quotientMin = guardrails.minQuotient;
+        const divisorMax = Math.max(divisorMin, mulTableMax);
+        const quotientMax = Math.max(quotientMin, mulWideMax);
+        b = randomInt(divisorMin, divisorMax);
+        answer = randomInt(quotientMin, quotientMax);
         a = b * answer;
         break;
+      }
       default:
         a = 1;
         b = 1;
@@ -688,6 +743,15 @@ export default function TrainingPage() {
   const [avgTime, setAvgTime] = useState(0);
   const [, setTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState<number>(0);
+  const [guestId, setGuestId] = useState<string | null>(null);
+  const guestSubmittedRef = useRef(false);
+  const sessionPromiseRef = useRef<Promise<string | null> | null>(null);
+  const [scorePercentile, setScorePercentile] = useState<{
+    percentile: number | null;
+    bucket: string | null;
+    total: number | null;
+    score: number | null;
+  } | null>(null);
   
   // Learning mode state
   const [showTip, setShowTip] = useState(true);
@@ -827,7 +891,29 @@ export default function TrainingPage() {
     inputRef.current?.focus();
   }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges, selectedSkill, practiceTimerLimit]);
 
+  // When advanced ranges are shown, prefill with the preset for the current difficulty.
+  useEffect(() => {
+    if (showAdvanced) {
+      setOperationRanges(getPresetRanges(difficulty));
+    }
+  }, [showAdvanced, difficulty]);
+
+  const ensureGuestId = async () => {
+    if (authSession?.user) return;
+    if (guestId) return;
+    if (typeof window === "undefined") return;
+    const existing = localStorage.getItem("guestLeaderboardId");
+    if (existing) {
+      setGuestId(existing);
+      return;
+    }
+    const randomId = crypto.randomUUID();
+    localStorage.setItem("guestLeaderboardId", randomId);
+    setGuestId(randomId);
+  };
+
   const startTraining = async () => {
+    await ensureGuestId();
     // Reset operation queue for fresh even distribution
     operationQueueRef.current = shuffleArray([...selectedOperations]);
     
@@ -849,25 +935,32 @@ export default function TrainingPage() {
     
     // Create session in database if user is logged in
     if (authSession?.user) {
-      try {
-        const response = await fetch("/api/training/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gameMode,
-            difficulty,
-            operations: selectedOperations,
-          }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setSessionId(data.sessionId);
+      sessionPromiseRef.current = (async () => {
+        try {
+          const response = await fetch("/api/training/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              gameMode,
+              difficulty,
+              operations: selectedOperations,
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setSessionId(data.sessionId);
+            return data.sessionId as string;
+          }
+        } catch (error) {
+          console.error("Failed to create session:", error);
         }
-      } catch (error) {
-        console.error("Failed to create session:", error);
-      }
+        return null;
+      })();
     }
+    
+    guestSubmittedRef.current = false;
+    setScorePercentile(null);
     
     startNewProblem();
   };
@@ -899,36 +992,122 @@ export default function TrainingPage() {
     [authSession?.user, sessionId]
   );
 
-  // End the training session and save to database
-  const endSession = async (solved: number, correct: number, bestStreak: number, avgTimeVal: number) => {
-    if (!authSession?.user || !sessionId) return;
-    
-    const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
-    
+  const isDefaultTimedConfig = () =>
+    gameMode === DEFAULT_TIMED_TRAINING_SETTINGS.gameMode &&
+    difficulty === DEFAULT_TIMED_TRAINING_SETTINGS.difficulty &&
+    !showAdvanced &&
+    timedModeLimit === 120 &&
+    selectedOperations.length === DEFAULT_TIMED_TRAINING_SETTINGS.operations.length &&
+    selectedOperations.every((op) => DEFAULT_TIMED_TRAINING_SETTINGS.operations.includes(op));
+
+  const submitGuestScore = async (solved: number, correct: number, bestStreak: number, avgTimeVal: number) => {
+    if (guestSubmittedRef.current) return;
+    if (!guestId) return;
+    if (!isDefaultTimedConfig()) return;
+    guestSubmittedRef.current = true;
+
     try {
-      await fetch("/api/training/session", {
-        method: "PATCH",
+      await fetch("/api/leaderboard/training/guest", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId,
+          guestId,
+          displayName: "Guest",
           totalProblems: solved,
           correctAnswers: correct,
-          duration,
           averageTime: avgTimeVal,
           bestStreak,
+          gameMode,
+          difficulty,
+          operations: selectedOperations,
+          timedModeLimit,
+          showAdvanced,
         }),
       });
     } catch (error) {
-      console.error("Failed to end session:", error);
+      console.error("Failed to submit guest score:", error);
     }
-    
-    setSessionId(null);
   };
 
-  const stopTraining = () => {
+  // End the training session and save to database or guest leaderboard
+  const endSession = async (solved: number, correct: number, bestStreak: number, avgTimeVal: number) => {
+    if (authSession?.user) {
+      let finalSessionId = sessionId;
+      if (!finalSessionId && sessionPromiseRef.current) {
+        finalSessionId = await sessionPromiseRef.current;
+      }
+      if (!finalSessionId) return;
+
+      const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
+      
+      try {
+        await fetch("/api/training/session", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: finalSessionId,
+            totalProblems: solved,
+            correctAnswers: correct,
+            duration,
+            averageTime: avgTimeVal,
+            bestStreak,
+          }),
+        });
+      } catch (error) {
+        console.error("Failed to end session:", error);
+      }
+      
+      setSessionId(null);
+      sessionPromiseRef.current = null;
+    } else if (!authSession?.user) {
+      await submitGuestScore(solved, correct, bestStreak, avgTimeVal);
+    }
+
+    if (gameMode === "timed" && isDefaultTimedConfig()) {
+      const scoreForDistribution = correct;
+      try {
+        const res = await fetch("/api/leaderboard/training/distribution");
+        if (res.ok) {
+          const data = await res.json();
+          const buckets: { from: number; to: number; count: number }[] = data.buckets || [];
+          const total: number = data.total || 0;
+          if (!total || buckets.length === 0) {
+            setScorePercentile({ percentile: null, bucket: null, total, score: scoreForDistribution });
+          } else {
+            let cumulative = 0;
+            let bucketLabel: string | null = null;
+            for (const b of buckets) {
+              if (scoreForDistribution >= b.from && scoreForDistribution <= b.to) {
+                bucketLabel = `${b.from}-${b.to}`;
+              }
+              if (scoreForDistribution >= b.to) {
+                cumulative += b.count;
+              } else if (scoreForDistribution >= b.from) {
+                cumulative += b.count;
+                break;
+              } else {
+                break;
+              }
+            }
+            const percentile = Math.min(100, Math.round((cumulative / total) * 1000) / 10);
+            setScorePercentile({
+              percentile,
+              bucket: bucketLabel,
+              total,
+              score: scoreForDistribution,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to compute percentile", error);
+      }
+    }
+  };
+
+  const stopTraining = async () => {
     // Save session before stopping if we have data
     if (totalSolved > 0) {
-      endSession(totalSolved, totalCorrect, bestStreakRef.current, avgTime);
+      await endSession(totalSolved, totalCorrect, bestStreakRef.current, avgTime);
     }
     
     setIsPlaying(false);
@@ -1158,6 +1337,20 @@ export default function TrainingPage() {
   const currentTip = problem ? getTipForProblem(problem) : null;
   const currentConfig = difficultyConfig[difficulty];
 
+  // Persist a guest id locally for leaderboard submissions
+  useEffect(() => {
+    if (guestId) return;
+    if (typeof window === "undefined") return;
+    const existing = localStorage.getItem("guestLeaderboardId");
+    if (existing) {
+      setGuestId(existing);
+      return;
+    }
+    const randomId = crypto.randomUUID();
+    localStorage.setItem("guestLeaderboardId", randomId);
+    setGuestId(randomId);
+  }, [guestId]);
+
   // Get difficulty badge color
   const getDifficultyColor = (d: Difficulty) => {
     switch (d) {
@@ -1224,6 +1417,21 @@ export default function TrainingPage() {
                       Change Settings
                     </Button>
                   </div>
+
+                  {scorePercentile && (
+                    <div className="p-4 rounded-lg border border-border bg-secondary/40 text-left space-y-2 max-w-md mx-auto">
+                      <p className="text-sm font-medium">Your placement</p>
+                      <p className="text-2xl font-semibold">
+                        {scorePercentile.percentile !== null
+                          ? `${scorePercentile.percentile}th percentile`
+                          : "Not enough data yet"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Best score this run: <span className="font-mono text-foreground">{scorePercentile.score ?? 0}</span> correct{" "}
+                        {scorePercentile.bucket ? `(bucket ${scorePercentile.bucket})` : ""}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1233,6 +1441,21 @@ export default function TrainingPage() {
             <Card>
                 <CardContent className="p-4 md:p-6">
                   <div className="space-y-6">
+                    {scorePercentile && gameMode === "timed" && isDefaultTimedConfig() && (
+                      <div className="p-4 rounded-lg border border-border bg-secondary/40 text-left space-y-1.5">
+                        <p className="text-sm font-medium">Your placement (last run)</p>
+                        <p className="text-xl font-semibold">
+                          {scorePercentile.percentile !== null
+                            ? `${scorePercentile.percentile}th percentile`
+                            : "Not enough data yet"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Best score: <span className="font-mono text-foreground">{scorePercentile.score ?? 0}</span>{" "}
+                          {scorePercentile.bucket ? `(bucket ${scorePercentile.bucket})` : ""}
+                        </p>
+                      </div>
+                    )}
+
                     {/* Game Mode Selection */}
                   <div>
                     <label className="text-sm font-medium mb-3 block">Game Mode</label>
@@ -1475,7 +1698,7 @@ export default function TrainingPage() {
                                     {d}
                                   </span>
                                   <span className="text-[10px] text-muted-foreground block mt-0.5">
-                                    +/− ≤{config.addSubMax}, ×/÷ ≤{config.mulDivMax}
+                                    +/− ≤{config.addSubMax}, × ≤{config.mulWideMax} (tables ≤{config.mulTableMax})
                                   </span>
                                 </button>
                               );

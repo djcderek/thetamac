@@ -43,7 +43,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 Recommended workflow for local testing:
 
-1. Create two recurring prices in your Stripe dashboard ($2/month and $12/year) and paste their price IDs above.
+1. Create two recurring prices in your Stripe dashboard ($1.99/month and $11.99/year) and paste their price IDs above.
 2. Run the dev server, then in another terminal start the Stripe CLI to forward events:
 
    ```bash

@@ -212,6 +212,25 @@ model ProblemAttempt {
   @@map("problem_attempts")
 }
 
+// ============================================
+// GUEST TIMED TRAINING LEADERBOARD
+// ============================================
+
+model GuestTrainingScore {
+  id             String   @id @default(cuid())
+  guestId        String
+  displayName    String
+  totalProblems  Int      @default(0)
+  correctAnswers Int      @default(0)
+  averageTime    Float    @default(0)
+  bestStreak     Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([guestId])
+  @@index([createdAt])
+  @@map("guest_training_scores")
+}
+
 enum SubscriptionPlan {
   MONTHLY
   YEARLY

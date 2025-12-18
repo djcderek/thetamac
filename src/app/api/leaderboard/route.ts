@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 type Period = "all" | "weekly" | "daily";
-type Mode = "duel" | "racing";
+type Mode = "duel" | "racing" | "training";
 
 const DEFAULT_RATING = 1000;
 
@@ -279,6 +280,181 @@ async function buildRaceLeaderboard(period: Period, currentUserId?: string | nul
   return { leaderboard, userRank };
 }
 
+async function buildTrainingLeaderboard(
+  period: Period,
+  currentUserId?: string | null
+) {
+  const startTime = getPeriodStart(period);
+
+  const sessions = await db.trainingSession.findMany({
+    where: {
+      gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
+      difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
+      operations: {
+        hasEvery: DEFAULT_TIMED_TRAINING_SETTINGS.operations,
+      },
+      completedAt: {
+        not: null,
+        ...(startTime ? { gte: startTime } : {}),
+      },
+    },
+    select: {
+      userId: true,
+      totalProblems: true,
+      correctAnswers: true,
+      averageTime: true,
+      bestStreak: true,
+    },
+  });
+
+  const guestScores = await db.guestTrainingScore.findMany({
+    where: {
+      ...(startTime ? { createdAt: { gte: startTime } } : {}),
+    },
+  });
+
+  const stats = new Map<
+    string,
+    { correct: number; attempts: number; totalTime: number; bestStreak: number; isGuest?: boolean; name?: string }
+  >();
+
+  for (const session of sessions) {
+    const attempts = Math.max(session.totalProblems ?? 0, session.correctAnswers ?? 0);
+    const correct = session.correctAnswers ?? 0;
+    const averageTime = session.averageTime ?? 0;
+
+    if (!stats.has(session.userId)) {
+      stats.set(session.userId, { correct: 0, attempts: 0, totalTime: 0, bestStreak: 0 });
+    }
+
+    const entry = stats.get(session.userId)!;
+    entry.correct += correct;
+    entry.attempts += attempts;
+    entry.bestStreak = Math.max(entry.bestStreak, session.bestStreak ?? 0);
+    if (attempts > 0 && averageTime > 0) {
+      entry.totalTime += averageTime * attempts;
+    }
+  }
+
+  for (const score of guestScores) {
+    if (!stats.has(score.guestId)) {
+      stats.set(score.guestId, { correct: 0, attempts: 0, totalTime: 0, bestStreak: 0, isGuest: true, name: score.displayName });
+    }
+    const entry = stats.get(score.guestId)!;
+    entry.correct += score.correctAnswers ?? 0;
+    entry.attempts += score.totalProblems ?? 0;
+    entry.bestStreak = Math.max(entry.bestStreak, score.bestStreak ?? 0);
+    if (score.totalProblems > 0 && score.averageTime > 0) {
+      entry.totalTime += score.averageTime * score.totalProblems;
+    }
+  }
+
+  const entries: BaseEntry[] = Array.from(stats.entries())
+    .map(([userId, data]) => {
+      const accuracy =
+        data.attempts > 0 ? (data.correct / data.attempts) * 100 : null;
+      return {
+        userId,
+        score: data.correct,
+        accuracy,
+      };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const accA = a.accuracy ?? -1;
+      const accB = b.accuracy ?? -1;
+      return accB - accA;
+    });
+
+  if (entries.length === 0) {
+    return { leaderboard: [] as LeaderboardEntry[], userRank: null };
+  }
+
+  const userIndex =
+    currentUserId !== undefined && currentUserId !== null
+      ? entries.findIndex((entry) => entry.userId === currentUserId)
+      : -1;
+
+  const topEntries = entries.slice(0, 50);
+  const userIds = new Set(
+    topEntries
+      .filter((e) => !(stats.get(e.userId)?.isGuest))
+      .map((e) => e.userId)
+  );
+  if (userIndex !== -1 && currentUserId && !(stats.get(currentUserId)?.isGuest)) {
+    userIds.add(currentUserId);
+  }
+
+  const users = await db.user.findMany({
+    where: {
+      id: { in: Array.from(userIds) },
+    },
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      image: true,
+      stats: {
+        select: {
+          totalProblems: true,
+        },
+      },
+    },
+  });
+
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  const leaderboard = topEntries.map((entry, index) => {
+    const meta = stats.get(entry.userId);
+    if (meta?.isGuest) {
+      const displayName = meta.name || "Guest";
+      const avatar = displayName.substring(0, 2).toUpperCase();
+      return {
+        rank: index + 1,
+        id: entry.userId,
+        name: displayName,
+        avatar,
+        image: null,
+        level: 1,
+        score: Math.round(entry.score),
+        accuracy: entry.accuracy !== null ? Math.round(entry.accuracy * 10) / 10 : null,
+        change: "same" as const,
+        isYou: currentUserId === entry.userId,
+      };
+    }
+    return toLeaderboardEntry(entry, index, userMap, currentUserId);
+  });
+
+  const userRank =
+    userIndex !== -1 && currentUserId
+      ? (() => {
+          const meta = stats.get(entries[userIndex].userId);
+          if (meta?.isGuest) {
+            const displayName = meta.name || "Guest";
+            const avatar = displayName.substring(0, 2).toUpperCase();
+            return {
+              rank: userIndex + 1,
+              id: entries[userIndex].userId,
+              name: displayName,
+              avatar,
+              image: null,
+              level: 1,
+              score: Math.round(entries[userIndex].score),
+              accuracy:
+                entries[userIndex].accuracy !== null
+                  ? Math.round(entries[userIndex].accuracy * 10) / 10
+                  : null,
+              change: "same" as const,
+              isYou: true,
+            };
+          }
+          return toLeaderboardEntry(entries[userIndex], userIndex, userMap, currentUserId);
+        })()
+      : null;
+
+  return { leaderboard, userRank };
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -290,11 +466,18 @@ export async function GET(request: Request) {
 
     const period: Period =
       periodParam === "weekly" || periodParam === "daily" ? periodParam : "all";
-    const mode: Mode = modeParam === "racing" ? "racing" : "duel";
+    const mode: Mode =
+      modeParam === "racing"
+        ? "racing"
+        : modeParam === "training"
+        ? "training"
+        : "duel";
 
     const result =
       mode === "racing"
         ? await buildRaceLeaderboard(period, currentUserId)
+        : mode === "training"
+        ? await buildTrainingLeaderboard(period, currentUserId)
         : await buildDuelLeaderboard(period, currentUserId);
 
     return NextResponse.json(result);

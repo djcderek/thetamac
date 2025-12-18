@@ -12,7 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 
-type Mode = "duel" | "racing";
+type Mode = "duel" | "racing" | "training";
 
 interface LeaderboardEntry {
   rank: number;
@@ -32,7 +32,12 @@ export default function LeaderboardPage() {
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState("all");
-  const [mode, setMode] = useState<Mode>("duel");
+  const [mode, setMode] = useState<Mode>("training");
+  const [view, setView] = useState<"board" | "distribution">("distribution");
+  const [distribution, setDistribution] = useState<
+    { from: number; to: number; count: number }[]
+  >([]);
+  const [isDistributionLoading, setIsDistributionLoading] = useState(false);
 
   useEffect(() => {
     async function fetchLeaderboard() {
@@ -54,6 +59,31 @@ export default function LeaderboardPage() {
     fetchLeaderboard();
   }, [period, mode]);
 
+  useEffect(() => {
+    if (mode !== "training") {
+      setView("board");
+      return;
+    }
+    if (view !== "distribution") return;
+
+    async function fetchDistribution() {
+      setIsDistributionLoading(true);
+      try {
+        const res = await fetch("/api/leaderboard/training/distribution");
+        if (res.ok) {
+          const data = await res.json();
+          setDistribution(data.buckets || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch distribution", error);
+      } finally {
+        setIsDistributionLoading(false);
+      }
+    }
+
+    fetchDistribution();
+  }, [mode, view]);
+
   const topThree = leaderboardData.slice(0, 3);
   // Reorder top 3 for visual display: 2nd, 1st, 3rd
   const visualTopThree = [
@@ -65,6 +95,8 @@ export default function LeaderboardPage() {
   const restOfLeaderboard = leaderboardData.slice(3);
 
   const getScoreLabel = () => {
+    if (mode === "training") return "Problems Solved";
+
     const base = mode === "racing" ? "Race Rating" : "Rating";
     switch (period) {
       case "all": return base;
@@ -72,6 +104,19 @@ export default function LeaderboardPage() {
       case "daily": return "Rating Gain";
       default: return "Score";
     }
+  };
+
+  const getScoreUnit = () => (mode === "training" ? "solved" : "pts");
+
+  const formatScoreValue = (value: number) => {
+    if (mode === "training") return value.toLocaleString();
+    const prefix = value > 0 && period !== "all" ? "+" : "";
+    return `${prefix}${value.toLocaleString()}`;
+  };
+
+  const getRankLabel = () => {
+    if (mode === "training") return "Timed Training Rank";
+    return mode === "duel" ? "Duel Rank" : "Racing Rank";
   };
 
   const formatAccuracy = (value: number | null) => {
@@ -86,12 +131,12 @@ export default function LeaderboardPage() {
           <div>
             <h1 className="text-lg font-semibold">Leaderboard</h1>
             <p className="text-sm text-muted-foreground">
-              Global rankings by multiplayer mode
+              Global rankings across duels, racing, and timed training (default settings)
             </p>
           </div>
           {userRank && (
             <Badge variant="outline">
-              Your {mode === "duel" ? "Duel" : "Racing"} Rank: #{userRank.rank}
+              Your {getRankLabel()}: #{userRank.rank}
             </Badge>
           )}
         </div>
@@ -101,16 +146,23 @@ export default function LeaderboardPage() {
         <div className="max-w-3xl mx-auto space-y-6">
           {/* Mode Tabs */}
           <Tabs
-            defaultValue="duel"
+            defaultValue="training"
             value={mode}
             className="w-full"
             onValueChange={(value) => setMode(value as Mode)}
           >
             <TabsList>
+              <TabsTrigger value="training">Timed Training</TabsTrigger>
               <TabsTrigger value="duel">Duel Mode</TabsTrigger>
               <TabsTrigger value="racing">Racing Mode</TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {mode === "training" && (
+            <p className="text-xs text-muted-foreground px-1">
+              Ranked on timed mode sessions using default settings: medium difficulty, all operations, standard timer.
+            </p>
+          )}
 
           {/* Period Tabs */}
           <Tabs defaultValue="all" className="w-full" onValueChange={setPeriod}>
@@ -121,10 +173,72 @@ export default function LeaderboardPage() {
             </TabsList>
           </Tabs>
 
-          {isLoading ? (
+          {mode === "training" && (
+            <Tabs
+              defaultValue="distribution"
+              value={view}
+              className="w-full"
+              onValueChange={(value) => setView(value as "board" | "distribution")}
+            >
+              <TabsList>
+                <TabsTrigger value="distribution">Score Distribution</TabsTrigger>
+                <TabsTrigger value="board">Leaderboard</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+
+          {isLoading && view === "board" ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
+          ) : view === "distribution" && mode === "training" ? (
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                {isDistributionLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : distribution.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-6">
+                    No runs yet for default timed training.
+                  </div>
+                ) : (
+                  (() => {
+                    const maxCount = Math.max(...distribution.map((b) => b.count));
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex items-end gap-0 overflow-x-auto pb-2">
+                          {distribution.map((bucket) => {
+                            const heightPct = maxCount > 0 ? (bucket.count / maxCount) * 100 : 0;
+                            return (
+                              <div
+                                key={`${bucket.from}-${bucket.to}`}
+                                className="flex flex-col items-center min-w-[32px]"
+                              >
+                                <div
+                                  className="w-full rounded-t bg-primary transition-all"
+                                  style={{ height: `${heightPct}%`, minHeight: "4px" }}
+                                  aria-label={`${bucket.count} runs scored between ${bucket.from}-${bucket.to}`}
+                                />
+                                <span className="mt-2 text-[11px] text-muted-foreground font-mono">
+                                  {bucket.count}
+                                </span>
+                                <span className="mt-1 text-[11px] text-muted-foreground text-center">
+                                  {bucket.from}–{bucket.to}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="text-xs text-muted-foreground text-center">
+                          Distribution of best single-session scores (default timed settings)
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+              </CardContent>
+            </Card>
           ) : (
             <>
               {/* Top 3 */}
@@ -151,8 +265,7 @@ export default function LeaderboardPage() {
                           </Avatar>
                           <p className="font-medium truncate px-2">{entry.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {entry.score > 0 && period !== "all" ? "+" : ""}
-                            {entry.score.toLocaleString()} pts
+                            {formatScoreValue(entry.score)} {getScoreUnit()}
                           </p>
                         </CardContent>
                       </Card>
@@ -209,9 +322,13 @@ export default function LeaderboardPage() {
                             </td>
                             <td className="p-4 text-right">
                               <span className="font-mono text-sm">
-                                {entry.score > 0 && period !== "all" ? "+" : ""}
-                                {entry.score.toLocaleString()}
+                                {formatScoreValue(entry.score)}
                               </span>
+                              {mode === "training" && (
+                                <span className="text-[11px] text-muted-foreground ml-1">
+                                  {getScoreUnit()}
+                                </span>
+                              )}
                             </td>
                             <td className="p-4 text-right">
                               <span className="font-mono text-sm">{formatAccuracy(entry.accuracy)}</span>
@@ -251,9 +368,13 @@ export default function LeaderboardPage() {
                               </td>
                               <td className="p-4 text-right">
                                 <span className="font-mono text-sm">
-                                  {userRank.score > 0 && period !== "all" ? "+" : ""}
-                                  {userRank.score.toLocaleString()}
+                                  {formatScoreValue(userRank.score)}
                                 </span>
+                                {mode === "training" && (
+                                  <span className="text-[11px] text-muted-foreground ml-1">
+                                    {getScoreUnit()}
+                                  </span>
+                                )}
                               </td>
                               <td className="p-4 text-right">
                               <span className="font-mono text-sm">{formatAccuracy(userRank.accuracy)}</span>
