@@ -26,7 +26,7 @@ export async function GET() {
       where: {
         gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
         difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
-        operations: { hasEvery: DEFAULT_TIMED_TRAINING_SETTINGS.operations },
+        operations: { hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations] },
         completedAt: { not: null },
       },
       select: {

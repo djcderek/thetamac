@@ -291,7 +291,8 @@ async function buildTrainingLeaderboard(
       gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
       difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
       operations: {
-        hasEvery: DEFAULT_TIMED_TRAINING_SETTINGS.operations,
+        // spread to satisfy mutable string[] requirement
+        hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations],
       },
       completedAt: {
         not: null,
