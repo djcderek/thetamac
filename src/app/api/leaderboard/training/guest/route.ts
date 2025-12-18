@@ -5,16 +5,23 @@ import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 function isDefaultSettings(payload: {
   gameMode?: string;
   difficulty?: string;
-  operations?: string[];
+  operations?: unknown;
   timedModeLimit?: number;
   showAdvanced?: boolean;
 }) {
+  const defaultOps = DEFAULT_TIMED_TRAINING_SETTINGS.operations;
+  const hasDefaultOperations =
+    Array.isArray(payload.operations) &&
+    payload.operations.length === defaultOps.length &&
+    payload.operations.every(
+      (op): op is (typeof defaultOps)[number] =>
+        typeof op === "string" && defaultOps.includes(op as (typeof defaultOps)[number])
+    );
+
   return (
     payload.gameMode === DEFAULT_TIMED_TRAINING_SETTINGS.gameMode &&
     payload.difficulty === DEFAULT_TIMED_TRAINING_SETTINGS.difficulty &&
-    Array.isArray(payload.operations) &&
-    payload.operations.length === DEFAULT_TIMED_TRAINING_SETTINGS.operations.length &&
-    payload.operations.every((op) => DEFAULT_TIMED_TRAINING_SETTINGS.operations.includes(op)) &&
+    hasDefaultOperations &&
     payload.timedModeLimit === 120 &&
     payload.showAdvanced === false
   );
