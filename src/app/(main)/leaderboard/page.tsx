@@ -205,33 +205,79 @@ export default function LeaderboardPage() {
                 ) : (
                   (() => {
                     const maxCount = Math.max(...distribution.map((b) => b.count));
+                    const userBucketIndex =
+                      typeof userRank?.score === "number"
+                        ? distribution.findIndex(
+                            (b) => userRank.score >= b.from && userRank.score <= b.to
+                          )
+                        : -1;
                     return (
-                      <div className="space-y-4">
-                        <div className="flex items-end gap-0 overflow-x-auto pb-2">
-                          {distribution.map((bucket) => {
-                            const heightPct = maxCount > 0 ? (bucket.count / maxCount) * 100 : 0;
-                            return (
-                              <div
-                                key={`${bucket.from}-${bucket.to}`}
-                                className="flex flex-col items-center min-w-[32px]"
-                              >
+                      <div className="space-y-3">
+                        <div className="rounded-lg border border-border bg-background/40 p-3">
+                          <div className="flex gap-2 overflow-x-auto px-2 pb-2">
+                            {distribution.map((bucket, idx) => {
+                              const isUserBucket = idx === userBucketIndex;
+                              const heightPct =
+                                maxCount > 0
+                                  ? Math.max(4, Math.round((bucket.count / maxCount) * 100))
+                                  : 4;
+
+                              return (
                                 <div
-                                  className="w-full rounded-t bg-primary transition-all"
-                                  style={{ height: `${heightPct}%`, minHeight: "4px" }}
-                                  aria-label={`${bucket.count} runs scored between ${bucket.from}-${bucket.to}`}
-                                />
-                                <span className="mt-2 text-[11px] text-muted-foreground font-mono">
-                                  {bucket.count}
-                                </span>
-                                <span className="mt-1 text-[11px] text-muted-foreground text-center">
-                                  {bucket.from}–{bucket.to}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div className="text-xs text-muted-foreground text-center">
-                          Distribution of best single-session scores (default timed settings)
+                                  key={`${bucket.from}-${bucket.to}`}
+                                  className="flex w-[44px] flex-none flex-col items-center"
+                                  title={`${bucket.count} runs scored between ${bucket.from}–${bucket.to}`}
+                                >
+                                  <div className="flex h-28 w-full items-end sm:h-36">
+                                    <div
+                                      className={[
+                                        "w-full min-h-[3px] rounded-md transition-[height,background-color] duration-300",
+                                        isUserBucket
+                                          ? "bg-blue-600 shadow-sm dark:bg-blue-500"
+                                          : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
+                                        isUserBucket
+                                          ? "ring-2 ring-blue-500/40 ring-offset-2 ring-offset-background"
+                                          : "",
+                                      ].join(" ")}
+                                      style={{ height: `${heightPct}%` }}
+                                      aria-label={`${bucket.count} runs scored between ${bucket.from}–${bucket.to}${
+                                        isUserBucket ? ", you are here" : ""
+                                      }`}
+                                    />
+                                  </div>
+
+                                  <span
+                                    className={[
+                                      "mt-2 text-[11px] font-mono tabular-nums leading-none",
+                                      isUserBucket
+                                        ? "font-semibold text-blue-600 dark:text-blue-400"
+                                        : "text-muted-foreground",
+                                    ].join(" ")}
+                                  >
+                                    {bucket.count}
+                                  </span>
+                                  <span
+                                    className={[
+                                      "mt-1 text-center text-[11px] leading-tight",
+                                      isUserBucket
+                                        ? "font-semibold text-blue-600 dark:text-blue-400"
+                                        : "text-muted-foreground",
+                                    ].join(" ")}
+                                  >
+                                    {bucket.from}–{bucket.to}
+                                  </span>
+                                  {isUserBucket ? (
+                                    <span className="mt-1 text-[11px] font-semibold leading-none text-blue-600 dark:text-blue-400">
+                                      You
+                                    </span>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Distribution of best single-session scores (default timed settings)
+                          </div>
                         </div>
                       </div>
                     );

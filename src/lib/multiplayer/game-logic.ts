@@ -38,8 +38,11 @@ export function generateProblem(
       answer = a * b;
       break;
     case "÷":
+      // Keep BOTH displayed numbers (dividend 'a' and divisor 'b') within mulDivMax
+      // while ensuring an integer quotient.
       b = Math.floor(Math.random() * config.mulDivMax) + 1;
-      answer = Math.floor(Math.random() * config.mulDivMax) + 1;
+      // a = b * answer <= mulDivMax => answer <= floor(mulDivMax / b)
+      answer = Math.floor(Math.random() * Math.floor(config.mulDivMax / b)) + 1;
       a = b * answer;
       break;
     default:

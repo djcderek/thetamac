@@ -93,8 +93,11 @@ export function generateProblem(
       problemDifficulty = mulDivMax <= 10 ? "easy" : mulDivMax <= 12 ? "medium" : "hard";
       break;
     case "÷":
+      // Keep BOTH displayed numbers (dividend 'a' and divisor 'b') within mulDivMax
+      // while ensuring an integer quotient.
       b = Math.floor(Math.random() * mulDivMax) + 1;
-      answer = Math.floor(Math.random() * mulDivMax) + 1;
+      // a = b * answer <= mulDivMax => answer <= floor(mulDivMax / b)
+      answer = Math.floor(Math.random() * Math.floor(mulDivMax / b)) + 1;
       a = b * answer;
       problemDifficulty = mulDivMax <= 10 ? "easy" : mulDivMax <= 12 ? "medium" : "hard";
       break;

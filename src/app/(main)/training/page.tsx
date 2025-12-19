@@ -43,6 +43,22 @@ type Difficulty = "easy" | "medium" | "hard" | "expert";
 type GameMode = "timed" | "practice" | "learning";
 type SubmitMode = "manual" | "auto";
 
+type ScoreBucket = {
+  from: number;
+  to: number;
+  count: number;
+};
+
+type ScoreDistribution = {
+  percentile: number | null;
+  bucket: string | null;
+  total: number | null;
+  score: number | null;
+  buckets: ScoreBucket[];
+  maxCount: number;
+  userBucketIndex: number | null;
+};
+
 interface Problem {
   a: number;
   b: number;
@@ -88,7 +104,7 @@ const difficultyConfig: Record<Difficulty, DifficultySettings> = {
     mulTableMax: 12,
     mulWideMax: 100,
     timeLimit: 10,
-    description: "Add/Sub 2-100 • × 2-12 × 2-100 • ÷ divisors 2-12, quotients 2-100 (no 1s/0)"
+    description: "Add/Sub 2-100 • × 2-12 × 2-100 • ÷ dividend ≤100, divisors 2-12 (no 1s/0)"
   },
   hard: { 
     label: "Hard",
@@ -96,7 +112,7 @@ const difficultyConfig: Record<Difficulty, DifficultySettings> = {
     mulTableMax: 15,
     mulWideMax: 150,
     timeLimit: 8,
-    description: "Add/Sub 3-150 • × 3-15 × 3-150 • ÷ divisors 3-15, quotients 3-150 (no 1s/0)"
+    description: "Add/Sub 3-150 • × 3-15 × 3-150 • ÷ dividend ≤150, divisors 2-15 (no 1s/0)"
   },
   expert: { 
     label: "Expert",
@@ -104,7 +120,7 @@ const difficultyConfig: Record<Difficulty, DifficultySettings> = {
     mulTableMax: 20,
     mulWideMax: 200,
     timeLimit: 6,
-    description: "Add/Sub 4-200 • × 3-20 × 4-200 • ÷ divisors 3-20, quotients 4-200 (no 1s/0)"
+    description: "Add/Sub 4-200 • × 4-20 × 4-200 • ÷ dividend ≤200, divisors 3-20 (no 1s/0)"
   },
 };
 
@@ -629,31 +645,58 @@ function generateProblem(
 
   if (useAdvanced) {
     const range = ranges[operation];
-    const min = range.min;
-    const max = range.max;
+    const min = Math.min(range.min, range.max);
+    const max = Math.max(range.min, range.max);
 
     switch (operation) {
       case "+":
-        a = Math.floor(Math.random() * (max - min + 1)) + min;
-        b = Math.floor(Math.random() * (max - min + 1)) + min;
+        a = randomInt(min, max);
+        b = randomInt(min, max);
         answer = a + b;
         break;
       case "-":
-        a = Math.floor(Math.random() * (max - min + 1)) + min;
-        b = Math.floor(Math.random() * Math.min(a - min + 1, max - min + 1)) + min;
-        if (b > a) [a, b] = [b, a];
+        a = randomInt(min, max);
+        b = randomInt(min, max);
+        if (b > a) [a, b] = [b, a]; // ensure non-negative answers
         answer = a - b;
         break;
       case "×":
-        a = Math.floor(Math.random() * (max - min + 1)) + min;
-        b = Math.floor(Math.random() * (max - min + 1)) + min;
+        a = randomInt(min, max);
+        b = randomInt(min, max);
         answer = a * b;
         break;
-      case "÷":
-        b = Math.floor(Math.random() * (max - min + 1)) + min;
-        answer = Math.floor(Math.random() * (max - min + 1)) + min;
+      case "÷": {
+        // Keep BOTH displayed numbers (dividend 'a' and divisor 'b') within [min,max],
+        // while ensuring an integer quotient.
+        const guardrails = difficultyGuardrails[difficulty];
+        const divisorMin = Math.max(min, guardrails.minDivisor);
+        const divisorMax = Math.max(divisorMin, max);
+        const quotientMin = Math.max(1, guardrails.minQuotient);
+
+        // Try a few times to find a valid (a,b) within range.
+        for (let i = 0; i < 200; i++) {
+          b = randomInt(divisorMin, divisorMax);
+          const minQuotForA = Math.ceil(min / b);
+          const answerMin = Math.max(quotientMin, minQuotForA);
+          const answerMax = Math.floor(max / b);
+          if (answerMin > answerMax) continue;
+          answer = randomInt(answerMin, answerMax);
+          a = b * answer;
+          // a will be within [min,max] by construction
+          return { a, b, operation, answer };
+        }
+
+        // Fallback: smallest valid division in range
+        b = divisorMin;
+        answer = Math.max(quotientMin, 1);
         a = b * answer;
+        // If this overshoots max (very tight ranges), clamp answer down
+        if (a > max) {
+          answer = Math.max(1, Math.floor(max / b));
+          a = b * answer;
+        }
         break;
+      }
       default:
         a = 1;
         b = 1;
@@ -702,9 +745,26 @@ function generateProblem(
         const quotientMin = guardrails.minQuotient;
         const divisorMax = Math.max(divisorMin, mulTableMax);
         const quotientMax = Math.max(quotientMin, mulWideMax);
-        b = randomInt(divisorMin, divisorMax);
-        answer = randomInt(quotientMin, quotientMax);
+        // Keep BOTH displayed numbers (dividend 'a' and divisor 'b') within the
+        // difficulty's max number range (mulWideMax), while ensuring an integer quotient.
+        for (let i = 0; i < 200; i++) {
+          b = randomInt(divisorMin, divisorMax);
+          const answerMax = Math.min(quotientMax, Math.floor(mulWideMax / b));
+          const answerMin = Math.max(quotientMin, 1);
+          if (answerMin > answerMax) continue;
+          answer = randomInt(answerMin, answerMax);
+          a = b * answer;
+          return { a, b, operation, answer };
+        }
+
+        // Fallback: smallest valid division (still within bounds)
+        b = divisorMin;
+        answer = Math.max(quotientMin, 1);
         a = b * answer;
+        if (a > mulWideMax) {
+          answer = Math.max(1, Math.floor(mulWideMax / b));
+          a = b * answer;
+        }
         break;
       }
       default:
@@ -728,6 +788,7 @@ export default function TrainingPage() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [submitMode, setSubmitMode] = useState<SubmitMode>("auto");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [customRangesTouched, setCustomRangesTouched] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [operationRanges, setOperationRanges] = useState<OperationRanges>(defaultRanges);
   const [problem, setProblem] = useState<Problem | null>(null);
@@ -746,12 +807,7 @@ export default function TrainingPage() {
   const [guestId, setGuestId] = useState<string | null>(null);
   const guestSubmittedRef = useRef(false);
   const sessionPromiseRef = useRef<Promise<string | null> | null>(null);
-  const [scorePercentile, setScorePercentile] = useState<{
-    percentile: number | null;
-    bucket: string | null;
-    total: number | null;
-    score: number | null;
-  } | null>(null);
+  const [scorePercentile, setScorePercentile] = useState<ScoreDistribution | null>(null);
   
   // Learning mode state
   const [showTip, setShowTip] = useState(true);
@@ -856,6 +912,7 @@ export default function TrainingPage() {
   };
 
   const updateRange = (op: Operation, field: "min" | "max", value: number) => {
+    setCustomRangesTouched(true);
     setOperationRanges((prev) => ({
       ...prev,
       [op]: { ...prev[op], [field]: value },
@@ -867,7 +924,9 @@ export default function TrainingPage() {
     if (gameMode === "learning" && selectedSkill) {
       const skill = TRAINING_SKILLS.find(s => s.id === selectedSkill);
       if (skill) {
-        const newProblem = skill.generateProblem();
+        const presetRanges = getPresetRanges(difficulty);
+        const effectiveRange = showAdvanced ? operationRanges[skill.operation] : presetRanges[skill.operation];
+        const newProblem = skill.generateProblem({ range: effectiveRange });
         setProblem(newProblem);
         setUserAnswer("");
         setIsCorrect(null);
@@ -891,12 +950,13 @@ export default function TrainingPage() {
     inputRef.current?.focus();
   }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges, selectedSkill, practiceTimerLimit]);
 
-  // When advanced ranges are shown, prefill with the preset for the current difficulty.
+  // When advanced ranges are shown for the first time (or before the user edits),
+  // prefill with the preset for the current difficulty.
   useEffect(() => {
-    if (showAdvanced) {
-      setOperationRanges(getPresetRanges(difficulty));
-    }
-  }, [showAdvanced, difficulty]);
+    if (!showAdvanced) return;
+    if (customRangesTouched) return;
+    setOperationRanges(getPresetRanges(difficulty));
+  }, [showAdvanced, difficulty, customRangesTouched]);
 
   const ensureGuestId = async () => {
     if (authSession?.user) return;
@@ -1069,32 +1129,65 @@ export default function TrainingPage() {
         const res = await fetch("/api/leaderboard/training/distribution");
         if (res.ok) {
           const data = await res.json();
-          const buckets: { from: number; to: number; count: number }[] = data.buckets || [];
+          const buckets: ScoreBucket[] = data.buckets || [];
           const total: number = data.total || 0;
+          const maxCount = buckets.reduce((max, bucket) => Math.max(max, bucket.count), 0);
+
           if (!total || buckets.length === 0) {
-            setScorePercentile({ percentile: null, bucket: null, total, score: scoreForDistribution });
+            setScorePercentile({
+              percentile: null,
+              bucket: null,
+              total,
+              score: scoreForDistribution,
+              buckets,
+              maxCount,
+              userBucketIndex: null,
+            });
           } else {
             let cumulative = 0;
             let bucketLabel: string | null = null;
-            for (const b of buckets) {
-              if (scoreForDistribution >= b.from && scoreForDistribution <= b.to) {
+            let userBucketIndex: number | null = null;
+
+            for (let i = 0; i < buckets.length; i++) {
+              const b = buckets[i];
+              if (scoreForDistribution > b.to) {
+                cumulative += b.count;
+                continue;
+              }
+
+              if (scoreForDistribution >= b.from) {
+                bucketLabel = `${b.from}-${b.to}`;
+                userBucketIndex = i;
+                cumulative += b.count;
+                break;
+              }
+
+              // Score is below the first bucket; place marker at the start
+              if (i === 0) {
+                userBucketIndex = 0;
                 bucketLabel = `${b.from}-${b.to}`;
               }
-              if (scoreForDistribution >= b.to) {
-                cumulative += b.count;
-              } else if (scoreForDistribution >= b.from) {
-                cumulative += b.count;
-                break;
-              } else {
-                break;
-              }
+              break;
             }
-            const percentile = Math.min(100, Math.round((cumulative / total) * 1000) / 10);
+
+            if (userBucketIndex === null && buckets.length > 0) {
+              userBucketIndex = buckets.length - 1;
+              bucketLabel = `${buckets[buckets.length - 1].from}-${buckets[buckets.length - 1].to}`;
+              cumulative = total;
+            }
+
+            const percentile = Math.min(
+              100,
+              total ? Math.round((cumulative / total) * 1000) / 10 : 0
+            );
             setScorePercentile({
               percentile,
               bucket: bucketLabel,
               total,
               score: scoreForDistribution,
+              buckets,
+              maxCount,
+              userBucketIndex,
             });
           }
         }
@@ -1361,6 +1454,117 @@ export default function TrainingPage() {
     }
   };
 
+  const ScoreDistributionCard = ({
+    data,
+    heading,
+    scoreLabel,
+  }: {
+    data: ScoreDistribution;
+    heading: string;
+    scoreLabel: string;
+  }) => {
+    const hasBuckets = data.buckets.length > 0 && data.maxCount > 0;
+
+    return (
+      <div className="rounded-xl border border-border bg-secondary/30 p-4 text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{heading}</p>
+            <p className="mt-0.5 text-xl font-semibold tabular-nums sm:text-2xl">
+              {data.percentile !== null ? `${data.percentile}th percentile` : "Not enough data yet"}
+            </p>
+          </div>
+          {typeof data.total === "number" ? (
+            <div className="shrink-0 rounded-md border border-border bg-background/50 px-2 py-1 text-xs font-mono text-muted-foreground">
+              n={data.total}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-2 text-sm text-muted-foreground">
+          {scoreLabel}{" "}
+          <span className="font-mono tabular-nums text-foreground">
+            {typeof data.score === "number" ? data.score : "—"}
+          </span>{" "}
+          {data.bucket ? <span className="text-muted-foreground">(bucket {data.bucket})</span> : null}
+        </div>
+
+        {hasBuckets ? (
+          <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
+            <div className="flex gap-2 overflow-x-auto px-2 pb-2">
+              {data.buckets.map((bucket, idx) => {
+                const isUserBucket = idx === data.userBucketIndex;
+                const heightPct = data.maxCount
+                  ? Math.max(4, Math.round((bucket.count / data.maxCount) * 100))
+                  : 4;
+
+                return (
+                  <div
+                    key={`${bucket.from}-${bucket.to}`}
+                    className="flex w-[44px] flex-none flex-col items-center"
+                    title={`${bucket.count} runs scored between ${bucket.from}–${bucket.to}`}
+                  >
+                    <div className="flex h-28 w-full items-end sm:h-36">
+                      <div
+                        className={[
+                          "w-full min-h-[3px] rounded-md transition-[height,background-color] duration-300",
+                          isUserBucket
+                            ? "bg-blue-600 shadow-sm dark:bg-blue-500"
+                            : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
+                          isUserBucket
+                            ? "ring-2 ring-blue-500/40 ring-offset-2 ring-offset-background"
+                            : "",
+                        ].join(" ")}
+                        style={{ height: `${heightPct}%` }}
+                        aria-label={`${bucket.count} runs scored between ${bucket.from}–${bucket.to}${
+                          isUserBucket ? ", you are here" : ""
+                        }`}
+                      />
+                    </div>
+
+                    <span
+                      className={[
+                        "mt-2 text-[11px] font-mono tabular-nums leading-none",
+                        isUserBucket
+                          ? "font-semibold text-blue-600 dark:text-blue-400"
+                          : "text-muted-foreground",
+                      ].join(" ")}
+                    >
+                      {bucket.count}
+                    </span>
+                    <span
+                      className={[
+                        "mt-1 text-center text-[11px] leading-tight",
+                        isUserBucket
+                          ? "font-semibold text-blue-600 dark:text-blue-400"
+                          : "text-muted-foreground",
+                      ].join(" ")}
+                    >
+                      {bucket.from}–{bucket.to}
+                    </span>
+                    {isUserBucket ? (
+                      <span className="mt-1 text-[11px] font-semibold leading-none text-blue-600 dark:text-blue-400">
+                        You
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Distribution of best single-session scores (default timed settings)
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 rounded-lg border border-dashed border-border bg-background/30 p-3 text-sm text-muted-foreground">
+            Distribution will appear once enough runs have been recorded.
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen">
       <div className="border-b border-border">
@@ -1419,17 +1623,12 @@ export default function TrainingPage() {
                   </div>
 
                   {scorePercentile && (
-                    <div className="p-4 rounded-lg border border-border bg-secondary/40 text-left space-y-2 max-w-md mx-auto">
-                      <p className="text-sm font-medium">Your placement</p>
-                      <p className="text-2xl font-semibold">
-                        {scorePercentile.percentile !== null
-                          ? `${scorePercentile.percentile}th percentile`
-                          : "Not enough data yet"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Best score this run: <span className="font-mono text-foreground">{scorePercentile.score ?? 0}</span> correct{" "}
-                        {scorePercentile.bucket ? `(bucket ${scorePercentile.bucket})` : ""}
-                      </p>
+                    <div className="max-w-2xl mx-auto">
+                      <ScoreDistributionCard
+                        data={scorePercentile}
+                        heading="Your placement"
+                        scoreLabel="Best score this run:"
+                      />
                     </div>
                   )}
                 </div>
@@ -1442,17 +1641,12 @@ export default function TrainingPage() {
                 <CardContent className="p-4 md:p-6">
                   <div className="space-y-6">
                     {scorePercentile && gameMode === "timed" && isDefaultTimedConfig() && (
-                      <div className="p-4 rounded-lg border border-border bg-secondary/40 text-left space-y-1.5">
-                        <p className="text-sm font-medium">Your placement (last run)</p>
-                        <p className="text-xl font-semibold">
-                          {scorePercentile.percentile !== null
-                            ? `${scorePercentile.percentile}th percentile`
-                            : "Not enough data yet"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Best score: <span className="font-mono text-foreground">{scorePercentile.score ?? 0}</span>{" "}
-                          {scorePercentile.bucket ? `(bucket ${scorePercentile.bucket})` : ""}
-                        </p>
+                      <div className="max-w-2xl">
+                        <ScoreDistributionCard
+                          data={scorePercentile}
+                          heading="Your placement (last run)"
+                          scoreLabel="Best score:"
+                        />
                       </div>
                     )}
 
@@ -1731,6 +1925,7 @@ export default function TrainingPage() {
                               <button
                                 onClick={() => {
                                   setShowAdvanced(false);
+                                  setCustomRangesTouched(false);
                                 }}
                                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                               >
