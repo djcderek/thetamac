@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ArrowUp,
   ArrowDown,
@@ -214,7 +215,7 @@ export default function LeaderboardPage() {
                     return (
                       <div className="space-y-3">
                         <div className="rounded-lg border border-border bg-background/40 p-3">
-                          <div className="flex gap-2 overflow-x-auto px-2 pb-2">
+                          <div className="flex gap-[3px] overflow-x-auto px-1 pb-2">
                             {distribution.map((bucket, idx) => {
                               const isUserBucket = idx === userBucketIndex;
                               const heightPctRaw =
@@ -225,58 +226,79 @@ export default function LeaderboardPage() {
                                 bucket.count === 0 && !isUserBucket
                                   ? 0
                                   : Math.max(4, heightPctRaw);
+                              const showTickLabel =
+                                isUserBucket ||
+                                idx === 0 ||
+                                idx === distribution.length - 1 ||
+                                bucket.from % 10 === 0;
 
                               return (
-                                <div
-                                  key={`${bucket.from}-${bucket.to}`}
-                                  className="flex w-[44px] flex-none flex-col items-center"
-                                  title={`${bucket.count} runs scored between ${bucket.from}–${bucket.to}`}
-                                >
-                                  <div className="flex h-28 w-full items-end sm:h-36">
+                                <Tooltip key={`${bucket.from}-${bucket.to}`}>
+                                  <TooltipTrigger asChild>
                                     <div
                                       className={[
-                                        "w-full rounded-md transition-[height,background-color] duration-300",
-                                        bucket.count === 0 && !isUserBucket ? "min-h-0" : "min-h-[3px]",
-                                        isUserBucket
-                                          ? "bg-blue-600 shadow-sm dark:bg-blue-500"
-                                          : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
-                                        isUserBucket
-                                          ? "ring-2 ring-blue-500/40 ring-offset-2 ring-offset-background"
-                                          : "",
+                                        "flex w-[18px] flex-none flex-col items-center",
+                                        "cursor-default select-none",
+                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0",
                                       ].join(" ")}
-                                      style={{ height: `${heightPct}%` }}
-                                      aria-label={`${bucket.count} runs scored between ${bucket.from}–${bucket.to}${
+                                      tabIndex={0}
+                                      aria-label={`${bucket.from}–${bucket.to}: ${bucket.count} runs${
                                         isUserBucket ? ", you are here" : ""
                                       }`}
-                                    />
-                                  </div>
+                                    >
+                                      <div className="flex h-28 w-full items-end sm:h-36">
+                                        <div
+                                          className={[
+                                            "w-full rounded-sm transition-[height,background-color] duration-300",
+                                            bucket.count === 0 && !isUserBucket
+                                              ? "min-h-0"
+                                              : "min-h-[2px]",
+                                            isUserBucket
+                                              ? "bg-blue-600 shadow-sm dark:bg-blue-500"
+                                              : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
+                                            isUserBucket ? "ring-2 ring-blue-500/40" : "",
+                                          ].join(" ")}
+                                          style={{ height: `${heightPct}%` }}
+                                        />
+                                      </div>
 
-                                  <span
-                                    className={[
-                                      "mt-2 text-[11px] font-mono tabular-nums leading-none",
-                                      isUserBucket
-                                        ? "font-semibold text-blue-600 dark:text-blue-400"
-                                        : "text-muted-foreground",
-                                    ].join(" ")}
-                                  >
-                                    {bucket.count}
-                                  </span>
-                                  <span
-                                    className={[
-                                      "mt-1 text-center text-[11px] leading-tight",
-                                      isUserBucket
-                                        ? "font-semibold text-blue-600 dark:text-blue-400"
-                                        : "text-muted-foreground",
-                                    ].join(" ")}
-                                  >
-                                    {bucket.from}–{bucket.to}
-                                  </span>
-                                  {isUserBucket ? (
-                                    <span className="mt-1 text-[11px] font-semibold leading-none text-blue-600 dark:text-blue-400">
-                                      You
-                                    </span>
-                                  ) : null}
-                                </div>
+                                      {showTickLabel ? (
+                                        <span
+                                          className={[
+                                            "mt-2 text-[10px] font-mono tabular-nums leading-none",
+                                            isUserBucket
+                                              ? "font-semibold text-blue-600 dark:text-blue-400"
+                                              : "text-muted-foreground",
+                                          ].join(" ")}
+                                        >
+                                          {bucket.from}
+                                        </span>
+                                      ) : (
+                                        <span className="mt-2 h-[10px]" aria-hidden="true" />
+                                      )}
+
+                                      {isUserBucket ? (
+                                        <span
+                                          className="mt-1 h-1 w-1 rounded-full bg-blue-600 dark:bg-blue-500"
+                                          aria-hidden="true"
+                                        />
+                                      ) : null}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" sideOffset={8}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono tabular-nums">
+                                        {bucket.from}–{bucket.to}
+                                      </span>
+                                      <span className="opacity-80">
+                                        {bucket.count} run{bucket.count === 1 ? "" : "s"}
+                                      </span>
+                                      {isUserBucket ? (
+                                        <span className="font-semibold">You</span>
+                                      ) : null}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
                               );
                             })}
                           </div>
