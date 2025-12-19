@@ -6,18 +6,28 @@ const BUCKET_SIZE = 2;
 
 function bucketize(scores: number[]) {
   if (scores.length === 0) return [];
-  const counts = new Map<string, { from: number; to: number; count: number }>();
+  const countsByFrom = new Map<number, { from: number; to: number; count: number }>();
+  let minFrom = Number.POSITIVE_INFINITY;
+  let maxFrom = 0;
   for (const score of scores) {
     const clamped = Math.max(0, Math.floor(score));
     const from = Math.floor(clamped / BUCKET_SIZE) * BUCKET_SIZE;
     const to = from + BUCKET_SIZE - 1;
-    const key = `${from}-${to}`;
-    const existing = counts.get(key) ?? { from, to, count: 0 };
+    minFrom = Math.min(minFrom, from);
+    maxFrom = Math.max(maxFrom, from);
+    const existing = countsByFrom.get(from) ?? { from, to, count: 0 };
     existing.count += 1;
-    counts.set(key, existing);
+    countsByFrom.set(from, existing);
   }
 
-  return Array.from(counts.values()).sort((a, b) => a.from - b.from);
+  // Emit a continuous sequence of buckets so the client can render proportional gaps.
+  const buckets: { from: number; to: number; count: number }[] = [];
+  for (let from = minFrom; from <= maxFrom; from += BUCKET_SIZE) {
+    const to = from + BUCKET_SIZE - 1;
+    buckets.push(countsByFrom.get(from) ?? { from, to, count: 0 });
+  }
+
+  return buckets;
 }
 
 export async function GET() {

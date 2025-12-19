@@ -217,10 +217,14 @@ export default function LeaderboardPage() {
                           <div className="flex gap-2 overflow-x-auto px-2 pb-2">
                             {distribution.map((bucket, idx) => {
                               const isUserBucket = idx === userBucketIndex;
-                              const heightPct =
+                              const heightPctRaw =
                                 maxCount > 0
-                                  ? Math.max(4, Math.round((bucket.count / maxCount) * 100))
-                                  : 4;
+                                  ? Math.round((bucket.count / maxCount) * 100)
+                                  : 0;
+                              const heightPct =
+                                bucket.count === 0 && !isUserBucket
+                                  ? 0
+                                  : Math.max(4, heightPctRaw);
 
                               return (
                                 <div
@@ -231,7 +235,8 @@ export default function LeaderboardPage() {
                                   <div className="flex h-28 w-full items-end sm:h-36">
                                     <div
                                       className={[
-                                        "w-full min-h-[3px] rounded-md transition-[height,background-color] duration-300",
+                                        "w-full rounded-md transition-[height,background-color] duration-300",
+                                        bucket.count === 0 && !isUserBucket ? "min-h-0" : "min-h-[3px]",
                                         isUserBucket
                                           ? "bg-blue-600 shadow-sm dark:bg-blue-500"
                                           : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
