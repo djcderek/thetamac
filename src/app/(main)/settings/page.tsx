@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/components/theme-provider";
-import { Sun, Moon, Monitor, Loader2 } from "lucide-react";
+import { Sun, Moon, Monitor, Loader2, Shield, FileText, Mail, MessageSquarePlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
 interface SettingToggleProps {
   label: string;
@@ -52,6 +53,14 @@ export default function SettingsPage() {
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
+  const contactHref = supportEmail
+    ? `mailto:${supportEmail}?subject=${encodeURIComponent("thetamac Support")}`
+    : `mailto:?subject=${encodeURIComponent("thetamac Support")}`;
+  const [isFeatureRequestDialogOpen, setIsFeatureRequestDialogOpen] = useState(false);
+  const [featureRequestMessage, setFeatureRequestMessage] = useState("");
+  const [isSubmittingFeatureRequest, setIsSubmittingFeatureRequest] = useState(false);
+  const [featureRequestError, setFeatureRequestError] = useState<string | null>(null);
 
   // Profile State
   const [profile, setProfile] = useState({
@@ -237,6 +246,36 @@ export default function SettingsPage() {
     reader.readAsDataURL(file);
 
     event.target.value = "";
+  };
+
+  const handleSubmitFeatureRequest = async () => {
+    const message = featureRequestMessage.trim();
+    if (!message) return;
+
+    setIsSubmittingFeatureRequest(true);
+    setFeatureRequestError(null);
+
+    try {
+      const res = await fetch("/api/feature-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setFeatureRequestError(data?.error || "Failed to submit feature request.");
+        return;
+      }
+
+      setFeatureRequestMessage("");
+      setIsFeatureRequestDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to submit feature request", error);
+      setFeatureRequestError("Failed to submit feature request.");
+    } finally {
+      setIsSubmittingFeatureRequest(false);
+    }
   };
 
   if (isLoading) {
@@ -496,6 +535,128 @@ export default function SettingsPage() {
                     </Button>
                   ))}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Legal & Feedback */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Legal & Feedback</CardTitle>
+            </CardHeader>
+            <CardContent className="divide-y divide-border">
+              <div className="flex items-center justify-between py-4 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Privacy Policy</p>
+                    <p className="text-sm text-muted-foreground">How we handle your data</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/privacy">View</Link>
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between py-4 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Terms of Service</p>
+                    <p className="text-sm text-muted-foreground">Rules and usage terms</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/terms">View</Link>
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between py-4 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Contact</p>
+                    <p className="text-sm text-muted-foreground">Get help or ask a question</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={contactHref}>Email</a>
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between py-4 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <MessageSquarePlus className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Feature Request</p>
+                    <p className="text-sm text-muted-foreground">Tell us what you want next</p>
+                  </div>
+                </div>
+                <Dialog
+                  open={isFeatureRequestDialogOpen}
+                  onOpenChange={(open) => {
+                    setIsFeatureRequestDialogOpen(open);
+                    if (!open) {
+                      setFeatureRequestError(null);
+                    }
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Send
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Feature Request</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-2 py-2">
+                      <Label htmlFor="feature-request-message">What should we build?</Label>
+                      <textarea
+                        id="feature-request-message"
+                        value={featureRequestMessage}
+                        onChange={(e) => setFeatureRequestMessage(e.target.value)}
+                        placeholder="Example: Add custom timer durations and a streak-based XP bonus..."
+                        className="min-h-[120px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      />
+                      {featureRequestError ? (
+                        <p className="text-xs text-destructive">{featureRequestError}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Sent to our backlog. Please avoid including sensitive info.
+                        </p>
+                      )}
+                    </div>
+
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsFeatureRequestDialogOpen(false)}
+                        disabled={isSubmittingFeatureRequest}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSubmitFeatureRequest}
+                        disabled={isSubmittingFeatureRequest || !featureRequestMessage.trim()}
+                      >
+                        {isSubmittingFeatureRequest ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        Submit
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
           </Card>

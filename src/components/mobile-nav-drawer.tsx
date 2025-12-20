@@ -10,7 +10,6 @@ import {
   X,
   LayoutDashboard,
   Trophy,
-  ShoppingBag,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 
@@ -25,7 +24,6 @@ const primaryNavigation = [
 const secondaryNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
-  { name: "Shop", href: "/shop", icon: ShoppingBag },
 ];
 
 export function MobileNavDrawer() {

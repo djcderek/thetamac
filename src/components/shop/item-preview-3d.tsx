@@ -450,6 +450,7 @@ function CarModel({
 
 export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   
   const isSkin = type === 'skin';
@@ -463,8 +464,15 @@ export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
   const wheelId = isWheel ? assetId : undefined;
   const vehicleType = isVehicle ? assetId : "car_standard"; 
 
+  // Ensure we only render Canvas after client-side mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Use Intersection Observer to only render Canvas when visible
   useEffect(() => {
+    if (!mounted) return;
+    
     const container = containerRef.current;
     if (!container) return;
 
@@ -482,7 +490,7 @@ export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [mounted]);
 
   // Get color for the 2D placeholder based on type
   const getPlaceholderColor = () => {
@@ -506,7 +514,7 @@ export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
 
   return (
     <div ref={containerRef} className="w-full h-full">
-      {isVisible ? (
+      {mounted && isVisible ? (
         <Canvas shadows dpr={[1, 2]}>
           <PerspectiveCamera makeDefault position={[3, 3, 3]} fov={50} />
           <ambientLight intensity={0.7} />

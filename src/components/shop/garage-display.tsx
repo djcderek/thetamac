@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, MeshReflectorMaterial, Sparkles, Environment } from "@react-three/drei";
-import { useRef, Suspense, useMemo } from "react";
+import { useRef, Suspense, useMemo, useState, useEffect } from "react";
 import * as THREE from "three";
 
 const VEHICLE_REAR_OFFSETS: Record<string, number> = {
@@ -804,6 +804,21 @@ function CarModel({
 }
 
 export function GarageDisplay({ equippedSkin, equippedTrail, equippedVehicle, equippedWheel }: GarageDisplayProps) {
+  const [mounted, setMounted] = useState(false);
+
+  // Only render Canvas after client-side mount to prevent SSR hydration issues
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="w-full h-full min-h-[400px] bg-neutral-900 rounded-xl overflow-hidden relative border border-neutral-800 flex items-center justify-center">
+        <div className="text-neutral-500 text-sm">Loading garage...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full min-h-[400px] bg-neutral-900 rounded-xl overflow-hidden relative border border-neutral-800">
       <Canvas shadows dpr={[1, 2]} camera={{ position: [5, 3, 6], fov: 45 }}>

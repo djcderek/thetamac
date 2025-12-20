@@ -20,6 +20,7 @@ import {
   BarChart3,
   CreditCard,
   Sparkles,
+  ShoppingBag,
 } from "lucide-react";
 import { getUpgradeUrl } from "@/lib/upgrade";
 
@@ -183,6 +184,12 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
           <Link href="/stats/performance" className="cursor-pointer">
             <BarChart3 className="mr-2 h-4 w-4" />
             My Stats
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/shop" className="cursor-pointer">
+            <ShoppingBag className="mr-2 h-4 w-4" />
+            Shop
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

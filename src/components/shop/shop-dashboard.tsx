@@ -1,14 +1,35 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ShoppingBag, Check, Coins } from "lucide-react";
-import ItemPreview3D from "./item-preview-3d";
-import { GarageDisplay } from "./garage-display";
 import { ThreeErrorBoundary } from "@/components/ui/three-error-boundary";
+
+// Dynamically import 3D components with SSR disabled to prevent hydration issues
+const ItemPreview3D = dynamic(() => import("./item-preview-3d"), { 
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-muted/30 animate-pulse">
+      <div className="w-8 h-8 border-2 border-muted-foreground/30 rounded" />
+    </div>
+  )
+});
+
+const GarageDisplay = dynamic(
+  () => import("./garage-display").then((mod) => mod.GarageDisplay),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full min-h-[400px] bg-neutral-900 rounded-xl flex items-center justify-center">
+        <div className="text-neutral-500 text-sm">Loading garage...</div>
+      </div>
+    )
+  }
+);
 
 interface ShopItem {
   id: string;

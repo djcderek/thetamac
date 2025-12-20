@@ -11,7 +11,6 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeft,
-  ShoppingBag,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -22,7 +21,6 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Multiplayer", href: "/multiplayer", icon: Swords },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
-  { name: "Shop", href: "/shop", icon: ShoppingBag },
 ];
 
 const secondaryNav = [

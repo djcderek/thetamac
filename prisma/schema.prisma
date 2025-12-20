@@ -51,8 +51,27 @@ model User {
   stats         UserStats?
   trainingSessions TrainingSession[]
   problemAttempts  ProblemAttempt[]
+  featureRequests  FeatureRequest[]
 
   @@map("users")
+}
+
+// ============================================
+// PRODUCT FEEDBACK
+// ============================================
+
+model FeatureRequest {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String?
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("feature_requests")
 }
 
 model UserSettings {

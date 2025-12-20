@@ -207,7 +207,7 @@ export default async function UpgradePage({
             <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
             <div className="space-y-6">
               <div className="bg-card rounded-xl p-6 border border-border">
-                <h3 className="font-semibold text-foreground mb-2">What's included in the free trial?</h3>
+                <h3 className="font-semibold text-foreground mb-2">What&apos;s included in the free trial?</h3>
                 <p className="text-sm text-muted-foreground">
                   You get full access to all Pro features for 7 days. No charge until the trial ends, and you can cancel anytime.
                 </p>
@@ -221,7 +221,7 @@ export default async function UpgradePage({
               <div className="bg-card rounded-xl p-6 border border-border">
                 <h3 className="font-semibold text-foreground mb-2">What happens if I downgrade?</h3>
                 <p className="text-sm text-muted-foreground">
-                  You'll keep your account and history, but Pro-only analytics, weak point training, and shop perks will be locked.
+                  You&apos;ll keep your account and history, but Pro-only analytics, weak point training, and shop perks will be locked.
                 </p>
               </div>
             </div>
