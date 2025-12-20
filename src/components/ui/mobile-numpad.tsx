@@ -41,7 +41,7 @@ export function MobileNumpad({
   variant = "default",
 }: MobileNumpadProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number }>>([]);
+  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number; buttonKey: string }>>([]);
   const rippleIdRef = useRef(0);
 
   // Trigger slide-up animation on mount
@@ -51,15 +51,15 @@ export function MobileNumpad({
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Create ripple effect at touch point
-  const createRipple = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+  // Create ripple effect at touch point for a specific button
+  const createRipple = useCallback((e: React.PointerEvent<HTMLButtonElement>, buttonKey: string) => {
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const id = ++rippleIdRef.current;
     
-    setRipples((prev) => [...prev, { id, x, y }]);
+    setRipples((prev) => [...prev, { id, x, y, buttonKey }]);
     
     // Remove ripple after animation
     setTimeout(() => {
@@ -67,12 +67,17 @@ export function MobileNumpad({
     }, 400);
   }, []);
 
+  // Get ripples for a specific button
+  const getRipplesForButton = useCallback((buttonKey: string) => {
+    return ripples.filter((r) => r.buttonKey === buttonKey);
+  }, [ripples]);
+
   // Memoized handlers for performance
   const appendDigit = useCallback(
     (e: React.PointerEvent<HTMLButtonElement>, digit: string) => {
       e.preventDefault();
       if (disabled) return;
-      createRipple(e);
+      createRipple(e, `digit-${digit}`);
       triggerHaptic("light");
       setValue((prev) => `${prev}${digit}`.replace(/[^0-9\-]/g, ""));
     },
@@ -83,7 +88,7 @@ export function MobileNumpad({
     (e: React.PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
       if (disabled) return;
-      createRipple(e);
+      createRipple(e, "minus");
       triggerHaptic("light");
       setValue((prev) => {
         if (prev.startsWith("-")) return prev.slice(1);
@@ -97,7 +102,7 @@ export function MobileNumpad({
     (e: React.PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
       if (disabled) return;
-      createRipple(e);
+      createRipple(e, "backspace");
       triggerHaptic("light");
       setValue((prev) => prev.slice(0, -1));
     },
@@ -108,7 +113,7 @@ export function MobileNumpad({
     (e: React.PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
       if (disabled) return;
-      createRipple(e);
+      createRipple(e, "clear");
       triggerHaptic("medium");
       setValue("");
     },
@@ -119,7 +124,7 @@ export function MobileNumpad({
     (e: React.PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
       if (disabled || !onDone || value.length === 0 || value === "-") return;
-      createRipple(e);
+      createRipple(e, "done");
       triggerHaptic("medium");
       onDone();
     },
@@ -224,7 +229,7 @@ export function MobileNumpad({
                 onPointerDown={(e) => appendDigit(e, d)}
                 disabled={disabled}
               >
-                {ripples.map((r) => (
+                {getRipplesForButton(`digit-${d}`).map((r) => (
                   <RippleEffect key={r.id} x={r.x} y={r.y} />
                 ))}
                 {d}
@@ -239,7 +244,7 @@ export function MobileNumpad({
               disabled={disabled}
               aria-label="Toggle negative sign"
             >
-              {ripples.map((r) => (
+              {getRipplesForButton("minus").map((r) => (
                 <RippleEffect key={r.id} x={r.x} y={r.y} />
               ))}
               +/−
@@ -250,7 +255,7 @@ export function MobileNumpad({
               onPointerDown={(e) => appendDigit(e, "0")}
               disabled={disabled}
             >
-              {ripples.map((r) => (
+              {getRipplesForButton("digit-0").map((r) => (
                 <RippleEffect key={r.id} x={r.x} y={r.y} />
               ))}
               0
@@ -262,7 +267,7 @@ export function MobileNumpad({
               disabled={disabled}
               aria-label="Backspace"
             >
-              {ripples.map((r) => (
+              {getRipplesForButton("backspace").map((r) => (
                 <RippleEffect key={r.id} x={r.x} y={r.y} />
               ))}
               <Delete className="h-5 w-5 opacity-80 mx-auto" />
@@ -275,7 +280,7 @@ export function MobileNumpad({
               onPointerDown={clearAnswer}
               disabled={disabled}
             >
-              {ripples.map((r) => (
+              {getRipplesForButton("clear").map((r) => (
                 <RippleEffect key={r.id} x={r.x} y={r.y} />
               ))}
               Clear
@@ -286,7 +291,7 @@ export function MobileNumpad({
               onPointerDown={handleDone}
               disabled={doneDisabled}
             >
-              {ripples.map((r) => (
+              {getRipplesForButton("done").map((r) => (
                 <RippleEffect key={r.id} x={r.x} y={r.y} />
               ))}
               Done
