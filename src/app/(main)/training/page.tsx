@@ -951,6 +951,13 @@ export default function TrainingPage() {
     inputRef.current?.focus();
   }, [getNextOperation, difficulty, gameMode, showAdvanced, operationRanges, selectedSkill, practiceTimerLimit]);
 
+  const handleSkipProblem = useCallback(() => {
+    // In learning + practice, skipping should break the current streak.
+    // (Timed mode skip is hidden, but keep this safe/explicit anyway.)
+    setStreak(0);
+    startNewProblem();
+  }, [startNewProblem]);
+
   // When advanced ranges are shown for the first time (or before the user edits),
   // prefill with the preset for the current difficulty.
   useEffect(() => {
@@ -1612,7 +1619,17 @@ export default function TrainingPage() {
                     </div>
                   </div>
                   
-                  <div className={`grid grid-cols-1 gap-4 ${submitMode === "manual" ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+                  <div
+                    className={`grid grid-cols-1 gap-4 ${
+                      submitMode === "manual"
+                        ? gameMode === "timed"
+                          ? "sm:grid-cols-3"
+                          : "sm:grid-cols-4"
+                        : gameMode === "timed"
+                          ? "sm:grid-cols-2"
+                          : "sm:grid-cols-3"
+                    }`}
+                  >
                     <div className="p-4 rounded-lg bg-secondary/50">
                       <p className="text-4xl font-mono font-bold">{totalSolved}</p>
                       <p className="text-sm text-muted-foreground">Problems Solved</p>
@@ -1623,10 +1640,12 @@ export default function TrainingPage() {
                         <p className="text-sm text-muted-foreground">Accuracy</p>
                       </div>
                     )}
-                    <div className="p-4 rounded-lg bg-secondary/50">
-                      <p className="text-4xl font-mono font-bold">{bestStreakRef.current}</p>
-                      <p className="text-sm text-muted-foreground">Best Streak</p>
-                    </div>
+                    {gameMode !== "timed" && (
+                      <div className="p-4 rounded-lg bg-secondary/50">
+                        <p className="text-4xl font-mono font-bold">{bestStreakRef.current}</p>
+                        <p className="text-sm text-muted-foreground">Best Streak</p>
+                      </div>
+                    )}
                     <div className="p-4 rounded-lg bg-secondary/50">
                       <p className="text-4xl font-mono font-bold">{avgTime > 0 ? avgTime.toFixed(1) : "0"}s</p>
                       <p className="text-sm text-muted-foreground">Avg Time</p>
@@ -2296,21 +2315,27 @@ export default function TrainingPage() {
               )}
 
               {/* Stats */}
-              <div className={`grid gap-4 ${
-                submitMode === "auto" 
-                  ? "grid-cols-2 sm:grid-cols-3" 
-                  : gameMode === "learning" 
-                    ? "grid-cols-3" 
-                    : "grid-cols-2 sm:grid-cols-4"
-              }`}>
+              <div
+                className={`grid gap-4 ${
+                  submitMode === "auto"
+                    ? "grid-cols-2 sm:grid-cols-3"
+                    : gameMode === "learning"
+                      ? "grid-cols-3"
+                      : gameMode === "timed"
+                        ? "grid-cols-2 sm:grid-cols-3"
+                        : "grid-cols-2 sm:grid-cols-4"
+                }`}
+              >
                 <div className="text-center p-3 rounded-lg bg-secondary/50">
                   <p className="text-2xl font-mono font-semibold">{totalSolved}</p>
                   <p className="text-xs text-muted-foreground">Solved</p>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-secondary/50">
-                  <p className="text-2xl font-mono font-semibold">{streak}</p>
-                  <p className="text-xs text-muted-foreground">Streak</p>
-                </div>
+                {gameMode !== "timed" && (
+                  <div className="text-center p-3 rounded-lg bg-secondary/50">
+                    <p className="text-2xl font-mono font-semibold">{streak}</p>
+                    <p className="text-xs text-muted-foreground">Streak</p>
+                  </div>
+                )}
                 {submitMode === "manual" && (
                   <div className="text-center p-3 rounded-lg bg-secondary/50">
                     <p className="text-2xl font-mono font-semibold">{accuracy}%</p>
@@ -2339,8 +2364,8 @@ export default function TrainingPage() {
                   <Square className="w-4 h-4 mr-2" />
                   Stop
                 </Button>
-                {!hasAnswered && (
-                  <Button variant="outline" onClick={startNewProblem}>
+                {!hasAnswered && gameMode !== "timed" && (
+                  <Button variant="outline" onClick={handleSkipProblem}>
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Skip
                   </Button>

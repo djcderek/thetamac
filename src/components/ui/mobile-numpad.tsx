@@ -71,7 +71,7 @@ export function MobileNumpad({
           </div>
 
           <div className={`grid grid-cols-3 ${isCompact ? "gap-1.5" : "gap-2"} select-none touch-manipulation`}>
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
+            {["7", "8", "9", "4", "5", "6", "1", "2", "3"].map((d) => (
               <Button
                 key={d}
                 type="button"
