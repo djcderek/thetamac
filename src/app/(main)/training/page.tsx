@@ -38,6 +38,7 @@ import Link from "next/link";
 import { TRAINING_SKILLS, SkillId } from "@/lib/training-skills";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
+import { cn } from "@/lib/utils";
 
 type Operation = "+" | "-" | "×" | "÷";
 type Difficulty = "easy" | "medium" | "hard" | "expert";
@@ -816,6 +817,9 @@ export default function TrainingPage() {
   const [tipExpanded, setTipExpanded] = useState(true);
   const [selectedSkill, setSelectedSkill] = useState<SkillId | null>(null);
   
+  // Animation feedback state - key increments to re-trigger animations
+  const [feedbackKey, setFeedbackKey] = useState(0);
+  
   // Session tracking for database persistence
   const [sessionId, setSessionId] = useState<string | null>(null);
   const sessionStartTimeRef = useRef<number>(0);
@@ -1231,6 +1235,7 @@ export default function TrainingPage() {
       // Wrong answer - just clear and let them try again
       setUserAnswer("");
       setIsCorrect(false);
+      setFeedbackKey(k => k + 1);
       setTimeout(() => setIsCorrect(null), 300);
       return;
     }
@@ -1240,6 +1245,7 @@ export default function TrainingPage() {
     if (gameMode === "learning") {
       // Learning mode: show solution breakdown after answering
       setIsCorrect(correct);
+      setFeedbackKey(k => k + 1);
       setHasAnswered(true);
       setTotalSolved((prev) => prev + 1);
       
@@ -1267,6 +1273,7 @@ export default function TrainingPage() {
     } else if (gameMode === "timed") {
       // Timed mode: track all attempts for accuracy
       setIsCorrect(correct);
+      setFeedbackKey(k => k + 1);
       setTotalSolved((prev) => prev + 1);
       
       // Record attempt to database
@@ -1299,6 +1306,7 @@ export default function TrainingPage() {
     } else {
       // Practice mode: original behavior
       setIsCorrect(correct);
+      setFeedbackKey(k => k + 1);
       setTotalSolved((prev) => prev + 1);
       
       // Record attempt to database
@@ -1397,6 +1405,7 @@ export default function TrainingPage() {
       const timeTaken = (Date.now() - startTime) / 1000;
       
       setIsCorrect(true);
+      setFeedbackKey(k => k + 1);
       setTotalSolved((prev) => prev + 1);
       setTotalCorrect((prev) => prev + 1);
       setStreak((prev) => {
@@ -1696,14 +1705,15 @@ export default function TrainingPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <button
                         onClick={() => setGameMode("timed")}
-                        className={`p-4 rounded-lg border text-left transition-colors ${
+                        className={cn(
+                          "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
                           gameMode === "timed"
-                            ? "border-foreground bg-secondary"
-                            : "border-border hover:bg-secondary/50"
-                        }`}
+                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                            : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm hover:-translate-y-0.5"
+                        )}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <Zap className="w-4 h-4" />
+                          <Zap className={cn("w-4 h-4", gameMode === "timed" && "text-primary")} />
                           <span className="font-medium">Timed</span>
                         </div>
                         <span className="text-xs text-muted-foreground">
@@ -1712,14 +1722,15 @@ export default function TrainingPage() {
                       </button>
                       <button
                         onClick={() => setGameMode("practice")}
-                        className={`p-4 rounded-lg border text-left transition-colors ${
+                        className={cn(
+                          "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
                           gameMode === "practice"
-                            ? "border-foreground bg-secondary"
-                            : "border-border hover:bg-secondary/50"
-                        }`}
+                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                            : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm hover:-translate-y-0.5"
+                        )}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <Timer className="w-4 h-4" />
+                          <Timer className={cn("w-4 h-4", gameMode === "practice" && "text-primary")} />
                           <span className="font-medium">Practice</span>
                         </div>
                         <span className="text-xs text-muted-foreground">
@@ -1728,14 +1739,15 @@ export default function TrainingPage() {
                       </button>
                       <button
                         onClick={() => setGameMode("learning")}
-                        className={`p-4 rounded-lg border text-left transition-colors ${
+                        className={cn(
+                          "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
                           gameMode === "learning"
-                            ? "border-foreground bg-secondary"
-                            : "border-border hover:bg-secondary/50"
-                        }`}
+                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                            : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm hover:-translate-y-0.5"
+                        )}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <GraduationCap className="w-4 h-4" />
+                          <GraduationCap className={cn("w-4 h-4", gameMode === "learning" && "text-primary")} />
                           <span className="font-medium">Learning</span>
                         </div>
                         <span className="text-xs text-muted-foreground">
@@ -1743,7 +1755,7 @@ export default function TrainingPage() {
                         </span>
                       </button>
                       <Link href="/training/weak-points" className="block">
-                        <div className="p-4 rounded-lg border border-border bg-secondary/30 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40 h-full">
+                        <div className="p-4 rounded-lg border border-border bg-secondary/30 text-left transition-all duration-200 hover:border-primary/40 hover:bg-secondary/40 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] h-full">
                           <div className="flex items-center gap-2 mb-1">
                             <Target className="w-4 h-4 text-primary" />
                             <span className="font-medium">Weak Points</span>
@@ -1851,11 +1863,11 @@ export default function TrainingPage() {
                   {(!selectedSkill || gameMode !== "learning") && (
                     <button
                       onClick={() => setShowSettings(!showSettings)}
-                      className="w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 transition-colors text-left"
+                      className="w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 hover:border-primary/30 transition-all duration-200 text-left active:scale-[0.99]"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <Settings className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          <Settings className={cn("w-3.5 h-3.5 mt-0.5 shrink-0 transition-transform duration-200", showSettings && "rotate-90")} />
                           <div>
                             <span className="font-medium text-foreground">Settings: </span>
                             {showAdvanced ? (
@@ -1870,11 +1882,7 @@ export default function TrainingPage() {
                             <span>{selectedOperations.join(" ")}</span>
                           </div>
                         </div>
-                        {showSettings ? (
-                          <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                        )}
+                        <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200", showSettings && "rotate-180")} />
                       </div>
                     </button>
                   )}
@@ -1892,13 +1900,17 @@ export default function TrainingPage() {
                             <button
                               key={op}
                               onClick={() => toggleOperation(op)}
-                              className={`p-4 rounded-lg border text-center transition-colors ${
+                              className={cn(
+                                "p-4 rounded-lg border text-center transition-all duration-200 active:scale-95",
                                 selectedOperations.includes(op)
-                                  ? "border-foreground bg-secondary"
-                                  : "border-border hover:bg-secondary/50"
-                              }`}
+                                  ? "border-primary bg-primary/10 shadow-sm"
+                                  : "border-border hover:border-primary/40 hover:bg-secondary/50"
+                              )}
                             >
-                              <span className="text-2xl font-mono block mb-1">{op}</span>
+                              <span className={cn(
+                                "text-2xl font-mono block mb-1",
+                                selectedOperations.includes(op) && "text-primary"
+                              )}>{op}</span>
                               <span className="text-xs text-muted-foreground">{label}</span>
                             </button>
                           ))}
@@ -1922,13 +1934,14 @@ export default function TrainingPage() {
                                 <button
                                   key={d}
                                   onClick={() => setDifficulty(d)}
-                                  className={`py-3 px-3 rounded-lg border text-center transition-colors ${
+                                  className={cn(
+                                    "py-3 px-3 rounded-lg border text-center transition-all duration-200 active:scale-95",
                                     difficulty === d
-                                      ? `border-2 ${getDifficultyColor(d)}`
-                                      : "border-border hover:bg-secondary/50"
-                                  }`}
+                                      ? `border-2 shadow-sm ${getDifficultyColor(d)}`
+                                      : "border-border hover:bg-secondary/50 hover:shadow-sm"
+                                  )}
                                 >
-                                  <span className={`text-sm font-medium capitalize block ${difficulty === d ? "" : ""}`}>
+                                  <span className="text-sm font-medium capitalize block">
                                     {d}
                                   </span>
                                   <span className="text-[10px] text-muted-foreground block mt-0.5">
@@ -2007,11 +2020,12 @@ export default function TrainingPage() {
                               <button
                                 key={time}
                                 onClick={() => setTimedModeLimit(time)}
-                                className={`py-2 px-3 rounded-lg border text-sm transition-colors ${
+                                className={cn(
+                                  "py-2 px-3 rounded-lg border text-sm transition-all duration-200 active:scale-95",
                                   timedModeLimit === time
-                                    ? "border-foreground bg-secondary font-medium"
-                                    : "border-border hover:bg-secondary/50"
-                                }`}
+                                    ? "border-primary bg-primary/10 font-medium shadow-sm"
+                                    : "border-border hover:bg-secondary/50 hover:border-primary/40"
+                                )}
                               >
                                 {formatTime(time)}
                               </button>
@@ -2029,11 +2043,12 @@ export default function TrainingPage() {
                               <button
                                 key={time}
                                 onClick={() => setPracticeTimerLimit(time)}
-                                className={`py-2 px-3 rounded-lg border text-sm transition-colors ${
+                                className={cn(
+                                  "py-2 px-3 rounded-lg border text-sm transition-all duration-200 active:scale-95",
                                   practiceTimerLimit === time
-                                    ? "border-foreground bg-secondary font-medium"
-                                    : "border-border hover:bg-secondary/50"
-                                }`}
+                                    ? "border-primary bg-primary/10 font-medium shadow-sm"
+                                    : "border-border hover:bg-secondary/50 hover:border-primary/40"
+                                )}
                               >
                                 {time}s
                               </button>
@@ -2048,14 +2063,15 @@ export default function TrainingPage() {
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => setSubmitMode("manual")}
-                            className={`p-4 rounded-lg border text-left transition-colors ${
+                            className={cn(
+                              "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
                               submitMode === "manual"
-                                ? "border-foreground bg-secondary"
-                                : "border-border hover:bg-secondary/50"
-                            }`}
+                                ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                                : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm"
+                            )}
                           >
                             <div className="flex items-center gap-2 mb-1">
-                              <CornerDownLeft className="w-4 h-4" />
+                              <CornerDownLeft className={cn("w-4 h-4", submitMode === "manual" && "text-primary")} />
                               <span className="font-medium">Press Enter</span>
                             </div>
                             <span className="text-xs text-muted-foreground">
@@ -2064,14 +2080,15 @@ export default function TrainingPage() {
                           </button>
                           <button
                             onClick={() => setSubmitMode("auto")}
-                            className={`p-4 rounded-lg border text-left transition-colors ${
+                            className={cn(
+                              "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
                               submitMode === "auto"
-                                ? "border-foreground bg-secondary"
-                                : "border-border hover:bg-secondary/50"
-                            }`}
+                                ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                                : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm"
+                            )}
                           >
                             <div className="flex items-center gap-2 mb-1">
-                              <Wand2 className="w-4 h-4" />
+                              <Wand2 className={cn("w-4 h-4", submitMode === "auto" && "text-primary")} />
                               <span className="font-medium">Auto-submit</span>
                             </div>
                             <span className="text-xs text-muted-foreground">
@@ -2094,7 +2111,11 @@ export default function TrainingPage() {
                   )}
 
                   {/* Start Button */}
-                  <Button onClick={startTraining} className="w-full" size="lg">
+                  <Button 
+                    onClick={startTraining} 
+                    className="w-full transition-all duration-200 hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.01] active:scale-[0.99]" 
+                    size="lg"
+                  >
                     <Play className="w-4 h-4 mr-2" />
                     Start Training
                   </Button>
@@ -2212,9 +2233,14 @@ export default function TrainingPage() {
               )}
 
               {/* Problem Display */}
-              <Card className={`transition-colors ${
-                isCorrect === true ? "border-success" : isCorrect === false ? "border-destructive" : ""
-              }`}>
+              <Card 
+                key={feedbackKey}
+                className={cn(
+                  "transition-all duration-200",
+                  isCorrect === true && "border-success animate-pulse-success",
+                  isCorrect === false && "border-destructive animate-shake"
+                )}
+              >
                 <CardContent className="p-6 sm:p-12">
                   {problem && (
                     <div className="text-center">
