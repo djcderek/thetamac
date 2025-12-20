@@ -164,3 +164,35 @@
 .animate-pulse-error {
   animation: pulse-error 0.6s ease-out;
 }
+
+/* Mobile numpad optimizations */
+.touch-action-manipulation {
+  touch-action: manipulation;
+}
+
+.-webkit-tap-highlight-color-transparent {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Numpad ripple effect */
+@keyframes numpad-ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(4);
+    opacity: 0;
+  }
+}
+
+.numpad-ripple {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.3;
+  pointer-events: none;
+  animation: numpad-ripple 0.4s ease-out forwards;
+}

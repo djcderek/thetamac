@@ -1,7 +1,8 @@
 "use client";
 
+import { useCallback, useState, useRef, useEffect } from "react";
 import { Delete } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export type MobileNumpadProps = {
   value: string;
@@ -13,8 +14,24 @@ export type MobileNumpadProps = {
 };
 
 /**
+ * Trigger haptic feedback using the Vibration API.
+ * Gracefully fails on unsupported devices.
+ */
+const triggerHaptic = (intensity: "light" | "medium" = "light") => {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(intensity === "light" ? 10 : 15);
+  }
+};
+
+/**
  * Fixed bottom numeric keypad used in `duel-mode` (reused for training on mobile).
  * Renders digits, minus toggle, backspace, clear, and a Done button.
+ * 
+ * Optimized for responsiveness with:
+ * - onPointerDown for instant touch response
+ * - Haptic feedback on button press
+ * - Ripple animation for visual feedback
+ * - Slide-up entrance animation
  */
 export function MobileNumpad({
   value,
@@ -23,119 +40,260 @@ export function MobileNumpad({
   disabled = false,
   variant = "default",
 }: MobileNumpadProps) {
-  const appendDigit = (digit: string) => {
-    if (disabled) return;
-    setValue((prev) => `${prev}${digit}`.replace(/[^0-9\-]/g, ""));
-  };
+  const [isVisible, setIsVisible] = useState(false);
+  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number }>>([]);
+  const rippleIdRef = useRef(0);
 
-  const toggleMinus = () => {
-    if (disabled) return;
-    setValue((prev) => {
-      if (prev.startsWith("-")) return prev.slice(1);
-      return prev.length === 0 ? "-" : `-${prev.replace(/^-/, "")}`;
-    });
-  };
+  // Trigger slide-up animation on mount
+  useEffect(() => {
+    // Small delay to ensure CSS transition triggers
+    const raf = requestAnimationFrame(() => setIsVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
-  const backspace = () => {
-    if (disabled) return;
-    setValue((prev) => prev.slice(0, -1));
-  };
+  // Create ripple effect at touch point
+  const createRipple = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const button = e.currentTarget;
+    const rect = button.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const id = ++rippleIdRef.current;
+    
+    setRipples((prev) => [...prev, { id, x, y }]);
+    
+    // Remove ripple after animation
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== id));
+    }, 400);
+  }, []);
 
-  const clearAnswer = () => {
-    if (disabled) return;
-    setValue("");
-  };
+  // Memoized handlers for performance
+  const appendDigit = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>, digit: string) => {
+      e.preventDefault();
+      if (disabled) return;
+      createRipple(e);
+      triggerHaptic("light");
+      setValue((prev) => `${prev}${digit}`.replace(/[^0-9\-]/g, ""));
+    },
+    [disabled, setValue, createRipple]
+  );
+
+  const toggleMinus = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      if (disabled) return;
+      createRipple(e);
+      triggerHaptic("light");
+      setValue((prev) => {
+        if (prev.startsWith("-")) return prev.slice(1);
+        return prev.length === 0 ? "-" : `-${prev.replace(/^-/, "")}`;
+      });
+    },
+    [disabled, setValue, createRipple]
+  );
+
+  const backspace = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      if (disabled) return;
+      createRipple(e);
+      triggerHaptic("light");
+      setValue((prev) => prev.slice(0, -1));
+    },
+    [disabled, setValue, createRipple]
+  );
+
+  const clearAnswer = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      if (disabled) return;
+      createRipple(e);
+      triggerHaptic("medium");
+      setValue("");
+    },
+    [disabled, setValue, createRipple]
+  );
+
+  const handleDone = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      if (disabled || !onDone || value.length === 0 || value === "-") return;
+      createRipple(e);
+      triggerHaptic("medium");
+      onDone();
+    },
+    [disabled, onDone, value, createRipple]
+  );
 
   const doneDisabled = disabled || !onDone || value.length === 0 || value === "-";
-
   const isCompact = variant === "compact";
-  const digitBtnClass = isCompact
-    ? "h-10 rounded-xl text-lg font-semibold active:scale-[0.98] transition"
-    : "h-12 rounded-xl text-xl font-semibold active:scale-[0.98] transition";
-  const actionBtnClass = isCompact
-    ? "h-10 rounded-xl text-lg font-semibold active:scale-[0.98] transition"
-    : "h-12 rounded-xl text-xl font-semibold active:scale-[0.98] transition";
-  const backspaceBtnClass = isCompact
-    ? "h-10 rounded-xl active:scale-[0.98] transition"
-    : "h-12 rounded-xl active:scale-[0.98] transition";
-  const footerBtnClass = isCompact
-    ? "h-9 rounded-xl text-sm font-semibold active:scale-[0.99] transition"
-    : "h-11 rounded-xl text-sm font-semibold active:scale-[0.99] transition";
+
+  // Base button classes with performance optimizations
+  const baseButtonClass = cn(
+    "relative overflow-hidden rounded-xl font-semibold",
+    "touch-action-manipulation select-none",
+    "will-change-transform transition-all duration-75",
+    "active:scale-[0.96] active:brightness-90",
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+    "-webkit-tap-highlight-color-transparent"
+  );
+
+  const digitBtnClass = cn(
+    baseButtonClass,
+    "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+    isCompact ? "h-10 text-lg" : "h-12 text-xl"
+  );
+
+  const actionBtnClass = cn(
+    baseButtonClass,
+    "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+    isCompact ? "h-10 text-lg" : "h-12 text-xl"
+  );
+
+  const backspaceBtnClass = cn(
+    baseButtonClass,
+    "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+    isCompact ? "h-10" : "h-12"
+  );
+
+  const footerBtnClass = cn(
+    baseButtonClass,
+    "text-sm",
+    isCompact ? "h-9" : "h-11"
+  );
+
+  const doneBtnClass = cn(
+    footerBtnClass,
+    "bg-primary text-primary-foreground hover:bg-primary/90",
+    "font-bold tracking-wide"
+  );
+
+  const clearBtnClass = cn(
+    footerBtnClass,
+    "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+  );
+
+  // Ripple component
+  const RippleEffect = ({ x, y }: { x: number; y: number }) => (
+    <span
+      className="numpad-ripple"
+      style={{
+        left: x,
+        top: y,
+      }}
+    />
+  );
 
   return (
-    <div id="mobile-numpad" className="fixed left-0 right-0 bottom-0 z-50">
-      <div className="border-t border-border bg-background">
-        <div className={`max-w-md mx-auto px-3 ${isCompact ? "pt-1" : "pt-2"} pb-[calc(env(safe-area-inset-bottom,0.5rem)+8px)]`}>
-          <div className={`flex items-center justify-center ${isCompact ? "pb-1.5" : "pb-2"}`}>
-            <div className="h-1 w-10 rounded-full bg-muted-foreground/20" />
+    <div
+      id="mobile-numpad"
+      className={cn(
+        "fixed left-0 right-0 bottom-0 z-50",
+        "transform transition-transform duration-200 ease-out",
+        isVisible ? "translate-y-0" : "translate-y-full"
+      )}
+    >
+      <div className="border-t border-border bg-background shadow-lg">
+        <div
+          className={cn(
+            "max-w-md mx-auto px-3",
+            isCompact ? "pt-1" : "pt-2",
+            "pb-[calc(env(safe-area-inset-bottom,0.5rem)+8px)]"
+          )}
+        >
+          {/* Handle indicator */}
+          <div className={cn("flex items-center justify-center", isCompact ? "pb-1.5" : "pb-2")}>
+            <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
           </div>
 
-          <div className={`grid grid-cols-3 ${isCompact ? "gap-1.5" : "gap-2"} select-none touch-manipulation`}>
+          {/* Number grid */}
+          <div
+            className={cn(
+              "grid grid-cols-3",
+              isCompact ? "gap-1.5" : "gap-2",
+              "select-none"
+            )}
+          >
+            {/* Digits 7-9, 4-6, 1-3 */}
             {["7", "8", "9", "4", "5", "6", "1", "2", "3"].map((d) => (
-              <Button
+              <button
                 key={d}
                 type="button"
-                variant="secondary"
                 className={digitBtnClass}
-                onClick={() => appendDigit(d)}
+                onPointerDown={(e) => appendDigit(e, d)}
                 disabled={disabled}
               >
+                {ripples.map((r) => (
+                  <RippleEffect key={r.id} x={r.x} y={r.y} />
+                ))}
                 {d}
-              </Button>
+              </button>
             ))}
 
-            <Button
+            {/* Bottom digit row: +/- toggle, 0, backspace */}
+            <button
               type="button"
-              variant="secondary"
               className={actionBtnClass}
-              onClick={toggleMinus}
+              onPointerDown={toggleMinus}
               disabled={disabled}
               aria-label="Toggle negative sign"
             >
-              −
-            </Button>
-            <Button
+              {ripples.map((r) => (
+                <RippleEffect key={r.id} x={r.x} y={r.y} />
+              ))}
+              +/−
+            </button>
+            <button
               type="button"
-              variant="secondary"
               className={actionBtnClass}
-              onClick={() => appendDigit("0")}
+              onPointerDown={(e) => appendDigit(e, "0")}
               disabled={disabled}
             >
+              {ripples.map((r) => (
+                <RippleEffect key={r.id} x={r.x} y={r.y} />
+              ))}
               0
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
-              variant="secondary"
               className={backspaceBtnClass}
-              onClick={backspace}
+              onPointerDown={backspace}
               disabled={disabled}
               aria-label="Backspace"
             >
-              <Delete className="h-5 w-5 opacity-80" />
-            </Button>
+              {ripples.map((r) => (
+                <RippleEffect key={r.id} x={r.x} y={r.y} />
+              ))}
+              <Delete className="h-5 w-5 opacity-80 mx-auto" />
+            </button>
 
-            <Button
+            {/* Footer row: Clear on left, Done spanning 2 cols on right */}
+            <button
               type="button"
-              className={`${footerBtnClass} col-span-2`}
-              onClick={onDone}
-              disabled={doneDisabled}
-            >
-              Done
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className={footerBtnClass}
-              onClick={clearAnswer}
+              className={clearBtnClass}
+              onPointerDown={clearAnswer}
               disabled={disabled}
             >
+              {ripples.map((r) => (
+                <RippleEffect key={r.id} x={r.x} y={r.y} />
+              ))}
               Clear
-            </Button>
+            </button>
+            <button
+              type="button"
+              className={cn(doneBtnClass, "col-span-2", doneDisabled && "opacity-50 cursor-not-allowed")}
+              onPointerDown={handleDone}
+              disabled={doneDisabled}
+            >
+              {ripples.map((r) => (
+                <RippleEffect key={r.id} x={r.x} y={r.y} />
+              ))}
+              Done
+            </button>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-
