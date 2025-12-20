@@ -138,8 +138,8 @@ export function MobileNumpad({
   const baseButtonClass = cn(
     "relative overflow-hidden rounded-xl font-semibold",
     "touch-action-manipulation select-none",
-    "will-change-transform transition-all duration-75",
-    "active:scale-[0.96] active:brightness-90",
+    "will-change-transform transition-all duration-100 ease-out",
+    "active:scale-[0.98] active:opacity-80",
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
     "-webkit-tap-highlight-color-transparent"
   );
@@ -195,7 +195,7 @@ export function MobileNumpad({
       id="mobile-numpad"
       className={cn(
         "fixed left-0 right-0 bottom-0 z-50",
-        "transform transition-transform duration-200 ease-out",
+        "transform transition-transform duration-250 ease-out",
         isVisible ? "translate-y-0" : "translate-y-full"
       )}
     >
