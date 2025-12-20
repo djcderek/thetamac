@@ -134,11 +134,11 @@ export default async function UpgradePage({
               </div>
 
               <div className="mb-2">
-                <span className="text-5xl font-bold text-[#2563eb]">$1.99</span>
+                <span className="text-5xl font-bold text-[#2563eb]">$0.99</span>
                 <span className="text-muted-foreground ml-1">/ month</span>
               </div>
               <p className="text-xs text-muted-foreground mb-6">
-                or $11.99/year (save 50%)
+                or $5.99/year (save 50%)
               </p>
 
               <ul className="space-y-4">

@@ -52,7 +52,7 @@ export function PremiumPaywall({
               <p className="text-sm font-medium text-muted-foreground mb-1">
                 Monthly
               </p>
-              <p className="text-3xl font-bold">$1.99</p>
+              <p className="text-3xl font-bold">$0.99</p>
               <p className="text-xs text-muted-foreground mb-4">
                 7-day free trial, then billed monthly. Cancel anytime.
               </p>
@@ -62,7 +62,7 @@ export function PremiumPaywall({
               <p className="text-sm font-medium text-primary mb-1">
                 Yearly (best value)
               </p>
-              <p className="text-3xl font-bold">$11.99</p>
+              <p className="text-3xl font-bold">$5.99</p>
               <p className="text-xs text-muted-foreground mb-4">
                 7-day free trial, then billed annually. Save 50%.
               </p>
