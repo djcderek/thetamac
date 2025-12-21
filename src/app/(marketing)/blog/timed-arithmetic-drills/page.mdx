@@ -1,0 +1,263 @@
+import { FAQSection } from "@/components/blog/faq-section";
+
+export const metadata = {
+  title: "Timed Arithmetic Drills: How to Measure and Improve Speed",
+  description:
+    "Use timed drills effectively to track your mental math progress and systematically get faster at addition, subtraction, multiplication, and division.",
+  alternates: {
+    canonical: "/blog/timed-arithmetic-drills",
+  },
+  keywords: [
+    "timed arithmetic drills",
+    "mental math speed",
+    "arithmetic practice",
+    "math drills",
+    "improve mental math",
+    "problems per minute",
+    "accuracy training",
+    "math speed training",
+  ],
+  openGraph: {
+    title: "Timed Arithmetic Drills: How to Measure and Improve Speed | thetamac",
+    description:
+      "Use timed drills effectively to track your mental math progress and systematically get faster at addition, subtraction, multiplication, and division.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Timed Arithmetic Drills: How to Measure and Improve Speed",
+    description:
+      "A practical framework for timed practice: session structure, metrics to track, and a progression plan to improve speed without losing accuracy.",
+  },
+};
+
+export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
+export const url = `${siteUrl}/blog/timed-arithmetic-drills`;
+export const datePublished = "2025-08-19";
+export const dateModified = "2025-08-19";
+export const readingTime = "6 min read";
+
+export const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "Timed Arithmetic Drills: How to Measure and Improve Speed",
+  description:
+    "Use timed drills effectively to track your mental math progress and systematically get faster at addition, subtraction, multiplication, and division.",
+  datePublished,
+  dateModified,
+  author: {
+    "@type": "Organization",
+    name: "thetamac",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "thetamac",
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/icon.svg`,
+    },
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": url,
+  },
+  url,
+  inLanguage: "en-US",
+};
+
+export const faq = [
+  {
+    question: "How long should timed drills be?",
+    answer:
+      "Short sessions work best: 2 minutes for benchmarks and 8–12 minutes for practice blocks. Short drills keep intensity high while minimizing sloppy errors from fatigue.",
+  },
+  {
+    question: "What’s a good accuracy target for speed training?",
+    answer:
+      "Aim for about 90–95% accuracy. If you’re below 90%, slow down slightly or drop difficulty; if you’re above 98% consistently, tighten the timer or increase difficulty.",
+  },
+  {
+    question: "How do I improve my weakest operation (like division)?",
+    answer:
+      "Isolate it. Do division-only drills at an easier level, then gradually mix it back into full sessions. Targeted practice is faster than repeating mixed sets where your strengths hide weaknesses.",
+  },
+];
+
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer,
+    },
+  })),
+};
+
+<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+
+# Timed Arithmetic Drills: How to Measure and Improve Speed
+
+<div className="text-sm text-muted-foreground">
+  Published August 19, 2025 • {readingTime}
+</div>
+
+If you want to get faster at mental math, you need a feedback loop: attempt problems under time pressure, see how you did, identify weak spots, and repeat. Timed arithmetic drills provide exactly that—and they’re one of the fastest ways to improve interview math and everyday calculation speed.
+
+This guide explains why timed practice works, how to structure your sessions, and what metrics to track for consistent improvement.
+
+---
+
+## Why timed practice works
+
+1. **It exposes your actual speed.** Without a clock, it's easy to think you're "pretty fast." A timer removes that illusion.
+2. **Pressure builds automaticity.** When you can't afford to slowly work through steps, your brain learns to shortcut.
+3. **Progress becomes visible.** Tracking problems-per-minute or average-time-per-problem over weeks shows real growth.
+
+---
+
+## Choosing the right mode
+
+On [thetamac](/), you have three training modes:
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Timed</strong></td>
+      <td>Measuring peak performance; leaderboard competition</td>
+    </tr>
+    <tr>
+      <td><strong>Practice</strong></td>
+      <td>Building consistency with per-question timers</td>
+    </tr>
+    <tr>
+      <td><strong>Learning</strong></td>
+      <td>Understanding techniques (no time pressure)</td>
+    </tr>
+  </tbody>
+</table>
+
+For speed improvement, alternate between **Practice** (to build stamina) and **Timed** (to benchmark progress).
+
+---
+
+## Structuring a drill session
+
+A solid 10–15 minute session might look like this:
+
+1. **Warm-up (2 min):** Practice mode, 12 s/problem, easy difficulty.
+2. **Main drill (8 min):** Practice mode, 8–10 s/problem, medium difficulty.
+3. **Benchmark (2 min):** Timed mode, 2 min session, medium difficulty, all operations.
+
+Record the benchmark score (problems correct) and your average time per problem. Compare week over week.
+
+**Pro tip:** if your benchmark score stalls, change only one variable at a time (difficulty, timer, operations). That way you can tell what actually helped.
+
+---
+
+## Key metrics to track
+
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>What it tells you</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Problems correct</strong></td>
+      <td>Raw throughput under pressure</td>
+    </tr>
+    <tr>
+      <td><strong>Accuracy</strong></td>
+      <td>Whether you're rushing and making errors</td>
+    </tr>
+    <tr>
+      <td><strong>Avg time/problem</strong></td>
+      <td>Speed per problem (lower is better, but watch accuracy)</td>
+    </tr>
+    <tr>
+      <td><strong>Best streak</strong></td>
+      <td>Consistency—long streaks mean fewer careless mistakes</td>
+    </tr>
+  </tbody>
+</table>
+
+If accuracy drops below ~90%, slow down slightly or revisit techniques in Learning mode.
+
+**A simple scorecard:** write down these four numbers after each benchmark:
+
+- **Correct** (throughput)
+- **Accuracy**
+- **Avg time/problem**
+- **Notes** (what felt slow—division, carrying, percent mental steps, etc.)
+
+---
+
+## Progression plan
+
+<table>
+  <thead>
+    <tr>
+      <th>Phase</th>
+      <th>Duration</th>
+      <th>Goal</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Foundation</strong></td>
+      <td>Weeks 1–2</td>
+      <td>Complete 2-min timed sessions without timeout; aim for 20+ correct</td>
+    </tr>
+    <tr>
+      <td><strong>Speed push</strong></td>
+      <td>Weeks 3–4</td>
+      <td>Increase to 30+ correct; tighten per-question timer in Practice mode</td>
+    </tr>
+    <tr>
+      <td><strong>Peak</strong></td>
+      <td>Weeks 5+</td>
+      <td>Compete on leaderboard; target 40+ correct or top percentile</td>
+    </tr>
+  </tbody>
+</table>
+
+Consistency matters more than intensity. Short daily sessions beat long sporadic ones.
+
+---
+
+## Common mistakes
+
+- **Ignoring accuracy.** Speed without accuracy is meaningless—wrong answers still cost time.
+- **Skipping warm-ups.** Cold starts lead to slow first problems and frustration.
+- **Not reviewing weak points.** If division always trips you up, isolate it in Practice mode with ÷-only sessions.
+
+---
+
+## Related reading
+
+- [Fast Multiplication Without a Calculator](/blog/fast-multiplication-techniques)
+- [Mental Math for Interviews: A 10-Minute Daily Routine](/blog/mental-math-interview-drills)
+
+---
+
+## FAQ
+
+<FAQSection items={faq} />
+
+---
+
+## Start your first timed session
+
+Head to [thetamac](/) and run a 2-minute **Timed** session at Medium difficulty with all operations enabled. Note your score, then come back tomorrow and beat it.
+
+

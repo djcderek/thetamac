@@ -1,0 +1,256 @@
+import { FAQSection } from "@/components/blog/faq-section";
+
+export const metadata = {
+  title: "Mental Math for Interviews: A 10-Minute Daily Routine",
+  description:
+    "Build speed and confidence for finance, consulting, and tech interviews with a focused daily mental math practice routine.",
+  alternates: {
+    canonical: "/blog/mental-math-interview-drills",
+  },
+  keywords: [
+    "mental math for interviews",
+    "consulting mental math",
+    "finance interview math",
+    "case interview math",
+    "mental arithmetic practice",
+    "percentage calculation",
+    "estimation techniques",
+    "speed math drills",
+  ],
+  openGraph: {
+    title: "Mental Math for Interviews: A 10-Minute Daily Routine | thetamac",
+    description:
+      "Build speed and confidence for finance, consulting, and tech interviews with a focused daily mental math practice routine.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Mental Math for Interviews: A 10-Minute Daily Routine",
+    description:
+      "A simple 10-minute daily mental math routine to improve speed and accuracy for finance, consulting, and tech interviews.",
+  },
+};
+
+export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
+export const url = `${siteUrl}/blog/mental-math-interview-drills`;
+export const datePublished = "2025-11-12";
+export const dateModified = "2025-11-12";
+export const readingTime = "7 min read";
+
+export const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "Mental Math for Interviews: A 10-Minute Daily Routine",
+  description:
+    "Build speed and confidence for finance, consulting, and tech interviews with a focused daily mental math practice routine.",
+  datePublished,
+  dateModified,
+  author: {
+    "@type": "Organization",
+    name: "thetamac",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "thetamac",
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/icon.svg`,
+    },
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": url,
+  },
+  url,
+  inLanguage: "en-US",
+};
+
+export const faq = [
+  {
+    question: "How long does it take to get noticeably faster at mental math?",
+    answer:
+      "Most people see measurable improvements in 2–4 weeks with consistent 10-minute daily practice, especially if they track accuracy and time under light pressure.",
+  },
+  {
+    question: "What mental math skills matter most in interviews?",
+    answer:
+      "Percentages, quick multiplication/division for averages, and estimation/rounding show up constantly in consulting and finance cases. Reliability (accuracy) matters as much as speed.",
+  },
+  {
+    question: "Should I round numbers in an interview?",
+    answer:
+      "Yes—when you’re estimating. State your assumptions, round to clean numbers, and sanity-check the order of magnitude. Interviewers care more about your reasoning than exact decimals.",
+  },
+];
+
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer,
+    },
+  })),
+};
+
+<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+
+# Mental Math for Interviews: A 10-Minute Daily Routine
+
+<div className="text-sm text-muted-foreground">
+  Published November 12, 2025 • {readingTime}
+</div>
+
+Quick arithmetic comes up more often in interviews than most candidates expect. Whether you're in a case study calculating market size, a finance interview estimating revenue growth, or a product interview ballparking user metrics, **mental math speed and accuracy** help you communicate clearly and stay focused on strategy—not calculator-level details.
+
+This guide gives you a structured 10-minute daily routine you can follow for a few weeks before your interview (or indefinitely if you want to stay sharp). If you want a timer + scorecard, you can practice inside [thetamac](/) and use **Practice** and **Timed** modes to simulate interview pressure.
+
+---
+
+## Why mental math matters in interviews
+
+1. **Speed signals competence.** Interviewers notice when you can multiply two-digit numbers without reaching for a calculator.
+2. **It reduces cognitive load.** If arithmetic is automatic, you can focus on the logic of the case or the structure of your answer.
+3. **Mistakes are costly.** A careless multiplication error can derail a whole case—or undermine your credibility.
+
+---
+
+## The 10-minute routine
+
+Break your practice into three blocks. Use a timer and stick to the clock.
+
+### Block 1 — Warm-up (2 min)
+
+Start with single-digit multiplication and simple two-digit addition/subtraction. The goal is to get your brain into "math mode."
+
+- 7 × 8, 6 × 9, 12 + 47, 83 − 29, etc.
+- Keep moving—don't overthink.
+
+### Block 2 — Core drills (6 min)
+
+Focus on the operations that appear most in interviews:
+
+<table>
+  <thead>
+    <tr>
+      <th>Skill</th>
+      <th>Example</th>
+      <th>Tip</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Two-digit × one-digit</td>
+      <td>47 × 6</td>
+      <td>Break into (40 × 6) + (7 × 6)</td>
+    </tr>
+    <tr>
+      <td>Percentage of a number</td>
+      <td>15% of 240</td>
+      <td>10% = 24, 5% = 12, total = 36</td>
+    </tr>
+    <tr>
+      <td>Division for averages</td>
+      <td>840 ÷ 7</td>
+      <td>Think: 7 × 120 = 840</td>
+    </tr>
+    <tr>
+      <td>Estimation / rounding</td>
+      <td>4,892 × 21 ≈ ?</td>
+      <td>Round to 5,000 × 20 = 100,000</td>
+    </tr>
+  </tbody>
+</table>
+
+Rotate through these each day—spend about 90 seconds on each.
+
+**Make it interview-realistic:** include at least one “businessy” prompt per day:
+
+- **Growth math:** “Revenue grew 18% from \$250M—what’s the new revenue (approx)?”
+- **Unit economics:** “If CAC is \$120 and payback is 6 months, what’s monthly gross profit per customer?”
+- **Market sizing:** “1.2M users × \$8/month—what’s annual revenue?”
+
+### Block 3 — Timed challenge (2 min)
+
+End with a short timed session on [thetamac](/) using **Timed mode** (2 min, Medium difficulty, all operations). This simulates interview pressure and tracks your progress over time. If you want a more controlled build-up, use [Focused training](/training/focused) to isolate a skill (e.g., percentages-only) before switching back to mixed problems.
+
+---
+
+## Sample weekly schedule
+
+<table>
+  <thead>
+    <tr>
+      <th>Day</th>
+      <th>Block 2 focus</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Mon</td>
+      <td>Two-digit × one-digit</td>
+    </tr>
+    <tr>
+      <td>Tue</td>
+      <td>Percentages</td>
+    </tr>
+    <tr>
+      <td>Wed</td>
+      <td>Division & averages</td>
+    </tr>
+    <tr>
+      <td>Thu</td>
+      <td>Estimation (round + multiply)</td>
+    </tr>
+    <tr>
+      <td>Fri</td>
+      <td>Mixed (all of the above)</td>
+    </tr>
+    <tr>
+      <td>Sat/Sun</td>
+      <td>Rest or light review</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+## Tracking progress
+
+Use the thetamac **Dashboard** (requires free account) to see:
+
+- Problems solved per session
+- Average time per problem
+- Accuracy trends
+- Weak-point analysis (Pro) via [Weak Points training](/training/weak-points)
+
+Aim for steady improvement over 2–4 weeks rather than cramming the night before.
+
+---
+
+## Quick tips for interview day
+
+- **Talk through your math.** Saying "40 times 6 is 240, plus 42 is 282" shows your process and catches errors early.
+- **Round aggressively when appropriate.** Interviewers care about your logic, not the fifth digit.
+- **Practice under slight stress.** Use timed drills so the pressure feels familiar.
+
+---
+
+## FAQ
+
+<FAQSection items={faq} />
+
+---
+
+## Start practicing
+
+Ready to build your routine? [Open thetamac](/) and run a quick 2-minute timed session right now. Then bookmark these related guides:
+
+- [Fast Multiplication Without a Calculator](/blog/fast-multiplication-techniques)
+- [Timed Arithmetic Drills: How to Measure and Improve Speed](/blog/timed-arithmetic-drills)
+
+Consistency beats intensity—10 minutes a day adds up fast.
+
+

@@ -2,96 +2,26 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  RotateCcw,
-  Play,
-  Square,
-  Timer,
-  Zap,
-  LogIn,
-  UserPlus,
-  Settings,
-  ChevronDown,
-  ChevronUp,
-  GraduationCap,
-  Lightbulb,
-  ArrowRight,
-  Eye,
-  EyeOff,
-  Sparkles,
-  Info,
-  CornerDownLeft,
-  Wand2,
-  AlertCircle,
-  Target,
-  Circle,
-  Copy,
-  Divide,
-  LayoutGrid,
-  Shuffle,
-} from "lucide-react";
-import Link from "next/link";
-import { TRAINING_SKILLS, SkillId } from "@/lib/training-skills";
+import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
-import { cn } from "@/lib/utils";
-
-type Operation = "+" | "-" | "×" | "÷";
-type Difficulty = "easy" | "medium" | "hard" | "expert";
-type GameMode = "timed" | "practice" | "learning";
-type SubmitMode = "manual" | "auto";
-
-type ScoreBucket = {
-  from: number;
-  to: number;
-  count: number;
-};
-
-type ScoreDistribution = {
-  percentile: number | null;
-  bucket: string | null;
-  total: number | null;
-  score: number | null;
-  buckets: ScoreBucket[];
-  maxCount: number;
-  userBucketIndex: number | null;
-};
-
-interface Problem {
-  a: number;
-  b: number;
-  operation: Operation;
-  answer: number;
-}
-
-interface OperationRange {
-  min: number;
-  max: number;
-}
-
-interface MathTip {
-  title: string;
-  description: string;
-  steps: string[];
-  technique: string;
-}
-
-type OperationRanges = Record<Operation, OperationRange>;
-
-interface DifficultySettings {
-  label: string;
-  addSubMax: number;
-  mulTableMax: number;
-  mulWideMax: number;
-  timeLimit: number;
-  description: string;
-}
+import type {
+  Difficulty,
+  DifficultySettings,
+  GameMode,
+  MathTip,
+  Operation,
+  OperationRanges,
+  Problem,
+  ScoreBucket,
+  ScoreDistribution,
+  SubmitMode,
+} from "@/components/training/training-types";
+import { TrainingHeader } from "@/components/training/training-header";
+import { TrainingSetup } from "@/components/training/training-setup";
+import { TrainingRun } from "@/components/training/training-run";
+import { TrainingGameOver } from "@/components/training/training-game-over";
 
 const difficultyConfig: Record<Difficulty, DifficultySettings> = {
   easy: {
@@ -772,7 +702,6 @@ export default function TrainingPage() {
   const [submitMode, setSubmitMode] = useState<SubmitMode>("auto");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customRangesTouched, setCustomRangesTouched] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [operationRanges, setOperationRanges] = useState<OperationRanges>(defaultRanges);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [userAnswer, setUserAnswer] = useState("");
@@ -1447,6 +1376,7 @@ export default function TrainingPage() {
 
   const currentTip = problem ? getTipForProblem(problem) : null;
   const currentConfig = difficultyConfig[difficulty];
+  const containerWidthClass = isPlaying ? "max-w-3xl" : isGameOver ? "max-w-3xl" : "max-w-5xl";
 
   // Persist a guest id locally for leaderboard submissions
   useEffect(() => {
@@ -1476,915 +1406,94 @@ export default function TrainingPage() {
     }
   };
 
-  const ScoreDistributionCard = ({
-    data,
-    heading,
-    scoreLabel,
-  }: {
-    data: ScoreDistribution;
-    heading: string;
-    scoreLabel: string;
-  }) => {
-    const hasBuckets = data.buckets.length > 0 && data.maxCount > 0;
-
-    return (
-      <div className="rounded-xl border border-border bg-secondary/30 p-4 text-left">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{heading}</p>
-            <p className="mt-0.5 text-xl font-semibold tabular-nums sm:text-2xl">
-              {data.percentile !== null ? `${data.percentile}th percentile` : "Not enough data yet"}
-            </p>
-          </div>
-          {typeof data.total === "number" ? (
-            <div className="shrink-0 rounded-md border border-border bg-background/50 px-2 py-1 text-xs font-mono text-muted-foreground">
-              n={data.total}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-2 text-sm text-muted-foreground">
-          {scoreLabel}{" "}
-          <span className="font-mono tabular-nums text-foreground">
-            {typeof data.score === "number" ? data.score : "—"}
-          </span>{" "}
-          {data.bucket ? <span className="text-muted-foreground">(bucket {data.bucket})</span> : null}
-        </div>
-
-        {hasBuckets ? (
-          <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
-            <div className="flex gap-[3px] overflow-x-auto px-1 pb-2">
-              {data.buckets.map((bucket, idx) => {
-                const isUserBucket = idx === data.userBucketIndex;
-                const heightPctRaw = data.maxCount ? Math.round((bucket.count / data.maxCount) * 100) : 0;
-                const heightPct = bucket.count === 0 && !isUserBucket ? 0 : Math.max(4, heightPctRaw);
-                const showTickLabel =
-                  isUserBucket ||
-                  idx === 0 ||
-                  idx === data.buckets.length - 1 ||
-                  bucket.from % 10 === 0;
-
-                return (
-                  <Tooltip key={`${bucket.from}-${bucket.to}`}>
-                    <TooltipTrigger asChild>
-                      <div
-                        className={[
-                          "flex w-[18px] flex-none flex-col items-center",
-                          "cursor-default select-none",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0",
-                        ].join(" ")}
-                        tabIndex={0}
-                        aria-label={`${bucket.from}–${bucket.to}: ${bucket.count} runs${
-                          isUserBucket ? ", you are here" : ""
-                        }`}
-                      >
-                        <div className="flex h-28 w-full items-end sm:h-36">
-                          <div
-                            className={[
-                              "w-full rounded-sm transition-[height,background-color] duration-300",
-                              bucket.count === 0 && !isUserBucket ? "min-h-0" : "min-h-[2px]",
-                              isUserBucket
-                                ? "bg-blue-600 shadow-sm dark:bg-blue-500"
-                                : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
-                              isUserBucket ? "ring-2 ring-blue-500/40" : "",
-                            ].join(" ")}
-                            style={{ height: `${heightPct}%` }}
-                          />
-                        </div>
-
-                        {showTickLabel ? (
-                          <span
-                            className={[
-                              "mt-2 text-[10px] font-mono tabular-nums leading-none",
-                              isUserBucket ? "font-semibold text-blue-600 dark:text-blue-400" : "text-muted-foreground",
-                            ].join(" ")}
-                          >
-                            {bucket.from}
-                          </span>
-                        ) : (
-                          <span className="mt-2 h-[10px]" aria-hidden="true" />
-                        )}
-
-                        {isUserBucket ? (
-                          <span className="mt-1 h-1 w-1 rounded-full bg-blue-600 dark:bg-blue-500" aria-hidden="true" />
-                        ) : null}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" sideOffset={8}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono tabular-nums">
-                          {bucket.from}–{bucket.to}
-                        </span>
-                        <span className="opacity-80">
-                          {bucket.count} run{bucket.count === 1 ? "" : "s"}
-                        </span>
-                        {isUserBucket ? <span className="font-semibold">You</span> : null}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </div>
-
-            <div className="text-xs text-muted-foreground">
-              Distribution of best single-session scores (default timed settings)
-            </div>
-          </div>
-        ) : (
-          <div className="mt-3 rounded-lg border border-dashed border-border bg-background/30 p-3 text-sm text-muted-foreground">
-            Distribution will appear once enough runs have been recorded.
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen">
-      <div className="border-b border-border">
-        <div className="px-6 py-4">
-          <h1 className="text-lg font-semibold">Training</h1>
-          <p className="text-sm text-muted-foreground">Practice mental math at your own pace</p>
-        </div>
-      </div>
+      <TrainingHeader />
 
       <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+340px)]" : ""}`}>
-        <div className="max-w-2xl mx-auto">
-          {/* Game Over Screen for Timed Mode */}
-          {isGameOver && (
-            <Card>
-              <CardContent className="p-4 md:p-8">
-                <div className="text-center space-y-6">
-                  <div>
-                    <h2 className="text-2xl font-semibold mb-2">Time&apos;s Up!</h2>
-                    <p className="text-muted-foreground">Great session!</p>
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border mt-2 ${getDifficultyColor(difficulty)}`}>
-                      {currentConfig.label} difficulty
-                    </div>
-                  </div>
-
-                  <div
-                    className={`grid grid-cols-1 gap-4 ${
-                      submitMode === "manual"
-                        ? gameMode === "timed"
-                          ? "sm:grid-cols-3"
-                          : "sm:grid-cols-4"
-                        : gameMode === "timed"
-                          ? "sm:grid-cols-2"
-                          : "sm:grid-cols-3"
-                    }`}
-                  >
-                    <div className="p-4 rounded-lg bg-secondary/50">
-                      <p className="text-4xl font-mono font-bold">{totalSolved}</p>
-                      <p className="text-sm text-muted-foreground">Problems Solved</p>
-                    </div>
-                    {submitMode === "manual" && (
-                      <div className="p-4 rounded-lg bg-secondary/50">
-                        <p className="text-4xl font-mono font-bold">{accuracy}%</p>
-                        <p className="text-sm text-muted-foreground">Accuracy</p>
-                      </div>
-                    )}
-                    {gameMode !== "timed" && (
-                      <div className="p-4 rounded-lg bg-secondary/50">
-                        <p className="text-4xl font-mono font-bold">{bestStreakRef.current}</p>
-                        <p className="text-sm text-muted-foreground">Best Streak</p>
-                      </div>
-                    )}
-                    <div className="p-4 rounded-lg bg-secondary/50">
-                      <p className="text-4xl font-mono font-bold">{avgTime > 0 ? avgTime.toFixed(1) : "0"}s</p>
-                      <p className="text-sm text-muted-foreground">Avg Time</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 justify-center">
-                    <Button onClick={startTraining} size="lg">
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Play Again
-                    </Button>
-                    <Button variant="outline" onClick={stopTraining} size="lg">
-                      Change Settings
-                    </Button>
-                  </div>
-
-                  {scorePercentile && (
-                    <div className="max-w-2xl mx-auto">
-                      <ScoreDistributionCard data={scorePercentile} heading="Your placement" scoreLabel="Best score this run:" />
-                    </div>
-                  )}
-
-                  {!authSession?.user && (
-                    <div className="max-w-xl mx-auto rounded-xl border border-border bg-secondary/20 p-4 text-left">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-semibold">Want to keep track of your scores?</p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Sign in (or create an account) to save your progress, streaks, and history.
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Link href="/auth/signin?callbackUrl=%2Fdashboard">
-                            <Button variant="outline" size="sm">
-                              <LogIn className="w-4 h-4 mr-2" />
-                              Sign in
-                            </Button>
-                          </Link>
-                          <Link href="/auth/signup?callbackUrl=%2Fdashboard">
-                            <Button size="sm">
-                              <UserPlus className="w-4 h-4 mr-2" />
-                              Create account
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {!isPlaying && !isGameOver ? (
-            <Card>
-              <CardContent className="p-4 md:p-6">
-                <div className="space-y-6">
-                  {scorePercentile && gameMode === "timed" && isDefaultTimedConfig() && (
-                    <div className="max-w-2xl">
-                      <ScoreDistributionCard data={scorePercentile} heading="Your placement (last run)" scoreLabel="Best score:" />
-                    </div>
-                  )}
-
-                  {/* Game Mode Selection */}
-                  <div>
-                    <label className="text-sm font-medium mb-3 block">Game Mode</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <button
-                        onClick={() => setGameMode("timed")}
-                        className={cn(
-                          "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
-                          gameMode === "timed"
-                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                            : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm hover:-translate-y-0.5"
-                        )}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Zap className={cn("w-4 h-4", gameMode === "timed" && "text-primary")} />
-                          <span className="font-medium">Timed</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">Race the clock</span>
-                      </button>
-                      <button
-                        onClick={() => setGameMode("practice")}
-                        className={cn(
-                          "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
-                          gameMode === "practice"
-                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                            : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm hover:-translate-y-0.5"
-                        )}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Timer className={cn("w-4 h-4", gameMode === "practice" && "text-primary")} />
-                          <span className="font-medium">Practice</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">Per-question timer</span>
-                      </button>
-                      <button
-                        onClick={() => setGameMode("learning")}
-                        className={cn(
-                          "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
-                          gameMode === "learning"
-                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                            : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm hover:-translate-y-0.5"
-                        )}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <GraduationCap className={cn("w-4 h-4", gameMode === "learning" && "text-primary")} />
-                          <span className="font-medium">Learning</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">Tips & tricks</span>
-                      </button>
-                      <Link href="/training/weak-points" className="block">
-                        <div className="p-4 rounded-lg border border-border bg-secondary/30 text-left transition-all duration-200 hover:border-primary/40 hover:bg-secondary/40 hover:shadow-sm hover:-translate-y-0.5 active:scale-[0.98] h-full">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Target className="w-4 h-4 text-primary" />
-                            <span className="font-medium">Weak Points</span>
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-primary/20 text-primary font-semibold">
-                              PRO
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">Target problem areas</span>
-                        </div>
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Learning Mode Description */}
-                  {gameMode === "learning" && (
-                    <div className="p-4 rounded-lg bg-linear-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20">
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="p-2 rounded-lg bg-amber-500/20">
-                          <Lightbulb className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-amber-900 dark:text-amber-100 mb-1">
-                            Learn Mental Math Secrets
-                          </h3>
-                          <p className="text-sm text-amber-800/80 dark:text-amber-200/80">
-                            Get expert tips and proven techniques. See step-by-step breakdowns for every problem!
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                          Choose a Focus:
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {/* Mixed Practice Option */}
-                          <button
-                            onClick={() => setSelectedSkill(null)}
-                            className={`p-3 rounded-lg border text-left transition-all ${
-                              selectedSkill === null
-                                ? "bg-background border-amber-500 ring-1 ring-amber-500 shadow-sm"
-                                : "bg-background/50 border-transparent hover:bg-background hover:border-amber-500/30"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <div
-                                className={`p-1.5 rounded-md ${
-                                  selectedSkill === null ? "bg-amber-100 text-amber-700" : "bg-secondary text-muted-foreground"
-                                }`}
-                              >
-                                <Shuffle className="w-4 h-4" />
-                              </div>
-                              <span
-                                className={`font-medium ${
-                                  selectedSkill === null ? "text-foreground" : "text-muted-foreground"
-                                }`}
-                              >
-                                Mixed Practice
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground pl-9">Random problems with tips as you go</p>
-                          </button>
-
-                          {/* Skill Options */}
-                          {TRAINING_SKILLS.map((skill) => {
-                            // Dynamic icon mapping
-                            const Icon =
-                              skill.iconName === "Zap"
-                                ? Zap
-                                : skill.iconName === "Circle"
-                                  ? Circle
-                                  : skill.iconName === "Box"
-                                    ? Square
-                                    : skill.iconName === "Copy"
-                                      ? Copy
-                                      : skill.iconName === "Divide"
-                                        ? Divide
-                                        : LayoutGrid;
-
-                            return (
-                              <button
-                                key={skill.id}
-                                onClick={() => setSelectedSkill(skill.id)}
-                                className={`relative p-3 rounded-lg border text-left transition-all ${
-                                  selectedSkill === skill.id
-                                    ? "bg-background border-amber-500 ring-1 ring-amber-500 shadow-sm"
-                                    : "bg-background/50 border-transparent hover:bg-background hover:border-amber-500/30"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div
-                                    className={`p-1.5 rounded-md ${
-                                      selectedSkill === skill.id
-                                        ? "bg-amber-100 text-amber-700"
-                                        : "bg-secondary text-muted-foreground"
-                                    }`}
-                                  >
-                                    <Icon className="w-4 h-4" />
-                                  </div>
-                                  <span
-                                    className={`font-medium ${
-                                      selectedSkill === skill.id ? "text-foreground" : "text-muted-foreground"
-                                    }`}
-                                  >
-                                    {skill.name}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground pl-9 truncate">{skill.description}</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Summary of settings - clickable to expand */}
-                  {(!selectedSkill || gameMode !== "learning") && (
-                    <button
-                      onClick={() => setShowSettings(!showSettings)}
-                      className="w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 hover:border-primary/30 transition-all duration-200 text-left active:scale-[0.99]"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <Settings className={cn("w-3.5 h-3.5 mt-0.5 shrink-0 transition-transform duration-200", showSettings && "rotate-90")} />
-                          <div>
-                            <span className="font-medium text-foreground">Settings: </span>
-                            {showAdvanced ? <span>Custom ranges • </span> : <span className="capitalize">{difficulty} difficulty • </span>}
-                            {gameMode === "timed" && <span>{formatTime(timedModeLimit)} session • </span>}
-                            {gameMode === "practice" && <span>{practiceTimerLimit}s per question • </span>}
-                            {gameMode === "learning" && <span>No time limit • </span>}
-                            <span>{submitMode === "auto" ? "Auto-submit" : "Press Enter"} • </span>
-                            <span>{selectedOperations.join(" ")}</span>
-                          </div>
-                        </div>
-                        <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200", showSettings && "rotate-180")} />
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Collapsible Settings Section */}
-                  {showSettings && (!selectedSkill || gameMode !== "learning") && (
-                    <div className="space-y-6 p-4 rounded-lg border border-border bg-secondary/20">
-                      {/* Operation Selection - Multi-select */}
-                      <div>
-                        <label className="text-sm font-medium mb-3 block">
-                          Operations <span className="text-muted-foreground font-normal">(select multiple)</span>
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {operations.map(({ op, label }) => (
-                            <button
-                              key={op}
-                              onClick={() => toggleOperation(op)}
-                              className={cn(
-                                "p-4 rounded-lg border text-center transition-all duration-200 active:scale-95",
-                                selectedOperations.includes(op)
-                                  ? "border-primary bg-primary/10 shadow-sm"
-                                  : "border-border hover:border-primary/40 hover:bg-secondary/50"
-                              )}
-                            >
-                              <span className={cn("text-2xl font-mono block mb-1", selectedOperations.includes(op) && "text-primary")}>
-                                {op}
-                              </span>
-                              <span className="text-xs text-muted-foreground">{label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Difficulty Selection - Always visible, shows what it affects */}
-                      {!showAdvanced && (
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <label className="text-sm font-medium">Difficulty</label>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Info className="w-3 h-3" />
-                              Affects number range
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {(["easy", "medium", "hard", "expert"] as Difficulty[]).map((d) => {
-                              const cfg = difficultyConfig[d];
-                              return (
-                                <button
-                                  key={d}
-                                  onClick={() => setDifficulty(d)}
-                                  className={cn(
-                                    "py-3 px-3 rounded-lg border text-center transition-all duration-200 active:scale-95",
-                                    difficulty === d ? `border-2 shadow-sm ${getDifficultyColor(d)}` : "border-border hover:bg-secondary/50 hover:shadow-sm"
-                                  )}
-                                >
-                                  <span className="text-sm font-medium capitalize block">{d}</span>
-                                  <span className="text-[10px] text-muted-foreground block mt-0.5">
-                                    +/− ≤{cfg.addSubMax}, × ≤{cfg.mulWideMax} (tables ≤{cfg.mulTableMax})
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Advanced Settings */}
-                      <div>
-                        <button
-                          onClick={() => setShowAdvanced(!showAdvanced)}
-                          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <Settings className="w-4 h-4" />
-                          Custom Ranges
-                          {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-
-                        {showAdvanced && (
-                          <div className="mt-4 space-y-4 p-4 rounded-lg border border-border bg-secondary/30">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-muted-foreground">Custom ranges override difficulty presets</p>
-                              <button
-                                onClick={() => {
-                                  setShowAdvanced(false);
-                                  setCustomRangesTouched(false);
-                                }}
-                                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                Use difficulty presets instead
-                              </button>
-                            </div>
-                            {operations.map(({ op, label }) => (
-                              <div key={op} className="flex items-center gap-3">
-                                <span className="w-20 text-sm font-medium">{label}</span>
-                                <div className="flex items-center gap-2 flex-1">
-                                  <Input
-                                    type="number"
-                                    value={operationRanges[op].min}
-                                    onChange={(e) => updateRange(op, "min", parseInt(e.target.value) || 1)}
-                                    className="w-20 h-8 text-center text-sm"
-                                    min={1}
-                                  />
-                                  <span className="text-muted-foreground">to</span>
-                                  <Input
-                                    type="number"
-                                    value={operationRanges[op].max}
-                                    onChange={(e) => updateRange(op, "max", parseInt(e.target.value) || 1)}
-                                    className="w-20 h-8 text-center text-sm"
-                                    min={1}
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Timed Mode Time Selection */}
-                      {gameMode === "timed" && (
-                        <div>
-                          <label className="text-sm font-medium mb-3 block">Session Duration</label>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {timedModeLimits.map((time) => (
-                              <button
-                                key={time}
-                                onClick={() => setTimedModeLimit(time)}
-                                className={cn(
-                                  "py-2 px-3 rounded-lg border text-sm transition-all duration-200 active:scale-95",
-                                  timedModeLimit === time
-                                    ? "border-primary bg-primary/10 font-medium shadow-sm"
-                                    : "border-border hover:bg-secondary/50 hover:border-primary/40"
-                                )}
-                              >
-                                {formatTime(time)}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Practice Mode Timer Selection */}
-                      {gameMode === "practice" && (
-                        <div>
-                          <label className="text-sm font-medium mb-3 block">Time Per Question</label>
-                          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                            {practiceTimerOptions.map((time) => (
-                              <button
-                                key={time}
-                                onClick={() => setPracticeTimerLimit(time)}
-                                className={cn(
-                                  "py-2 px-3 rounded-lg border text-sm transition-all duration-200 active:scale-95",
-                                  practiceTimerLimit === time
-                                    ? "border-primary bg-primary/10 font-medium shadow-sm"
-                                    : "border-border hover:bg-secondary/50 hover:border-primary/40"
-                                )}
-                              >
-                                {time}s
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Submission Mode Selection */}
-                      <div>
-                        <label className="text-sm font-medium mb-3 block">Answer Submission</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => setSubmitMode("manual")}
-                            className={cn(
-                              "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
-                              submitMode === "manual"
-                                ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                                : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm"
-                            )}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <CornerDownLeft className={cn("w-4 h-4", submitMode === "manual" && "text-primary")} />
-                              <span className="font-medium">Press Enter</span>
-                            </div>
-                            <span className="text-xs text-muted-foreground">Submit with Enter key</span>
-                          </button>
-                          <button
-                            onClick={() => setSubmitMode("auto")}
-                            className={cn(
-                              "p-4 rounded-lg border text-left transition-all duration-200 active:scale-[0.98]",
-                              submitMode === "auto"
-                                ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                                : "border-border hover:border-primary/40 hover:bg-secondary/50 hover:shadow-sm"
-                            )}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <Wand2 className={cn("w-4 h-4", submitMode === "auto" && "text-primary")} />
-                              <span className="font-medium">Auto-submit</span>
-                            </div>
-                            <span className="text-xs text-muted-foreground">Submit when correct</span>
-                          </button>
-                        </div>
-                        {submitMode === "auto" && (
-                          <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                            <div className="flex items-start gap-2">
-                              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                              <p className="text-xs text-amber-800 dark:text-amber-200">
-                                <span className="font-medium">Note:</span> Accuracy is not recorded in auto-submit mode. Switch to Press Enter to track accuracy.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Start Button */}
-                  <Button
-                    onClick={startTraining}
-                    className="w-full transition-all duration-200 hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.01] active:scale-[0.99]"
-                    size="lg"
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Start Training
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+        <div className={`${containerWidthClass} mx-auto`}>
+          {isGameOver ? (
+            <TrainingGameOver
+              difficultyLabel={currentConfig.label}
+              difficultyBadgeClassName={getDifficultyColor(difficulty)}
+              totalSolved={totalSolved}
+              accuracy={accuracy}
+              avgTimeSeconds={avgTime}
+              bestStreak={bestStreakRef.current}
+              showAccuracyCard={submitMode === "manual"}
+              showBestStreakCard={gameMode !== "timed"}
+              onPlayAgain={startTraining}
+              onChangeSettings={stopTraining}
+              scorePercentile={scorePercentile}
+              showAuthCallout={!authSession?.user}
+            />
+          ) : !isPlaying ? (
+            <TrainingSetup
+              scorePercentile={scorePercentile}
+              showLastRunPlacementCard={!!scorePercentile && gameMode === "timed" && isDefaultTimedConfig()}
+              gameMode={gameMode}
+              setGameMode={setGameMode}
+              selectedSkill={selectedSkill}
+              setSelectedSkill={setSelectedSkill}
+              showAdvanced={showAdvanced}
+              setShowAdvanced={setShowAdvanced}
+              setCustomRangesTouched={setCustomRangesTouched}
+              operationRanges={operationRanges}
+              updateRange={updateRange}
+              operations={operations}
+              selectedOperations={selectedOperations}
+              toggleOperation={toggleOperation}
+              difficulty={difficulty}
+              setDifficulty={setDifficulty}
+              difficultyConfig={difficultyConfig}
+              getDifficultyColor={getDifficultyColor}
+              timedModeLimits={timedModeLimits}
+              timedModeLimit={timedModeLimit}
+              setTimedModeLimit={setTimedModeLimit}
+              practiceTimerOptions={practiceTimerOptions}
+              practiceTimerLimit={practiceTimerLimit}
+              setPracticeTimerLimit={setPracticeTimerLimit}
+              submitMode={submitMode}
+              setSubmitMode={setSubmitMode}
+              formatTime={formatTime}
+              startTraining={startTraining}
+            />
           ) : (
-            isPlaying && (
-              <div className="space-y-4 sm:space-y-6">
-                {/* Header with difficulty badge */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {gameMode === "learning" ? (
-                      <>
-                        <GraduationCap className="w-4 h-4 text-amber-500" />
-                        <span className="text-sm font-medium">Learning Mode</span>
-                      </>
-                    ) : gameMode === "timed" ? (
-                      <>
-                        <Zap className="w-4 h-4" />
-                        <span className="text-sm font-medium">Timed Mode</span>
-                      </>
-                    ) : (
-                      <>
-                        <Timer className="w-4 h-4" />
-                        <span className="text-sm font-medium">Practice Mode</span>
-                      </>
-                    )}
-                    {!showAdvanced && (
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getDifficultyColor(difficulty)}`}>
-                        {currentConfig.label}
-                      </span>
-                    )}
-                  </div>
-                  {gameMode === "learning" && (
-                    <button
-                      onClick={() => setShowTip(!showTip)}
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showTip ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      {showTip ? "Hide Tips" : "Show Tips"}
-                    </button>
-                  )}
-                </div>
-
-                {/* Timer - Only for timed and practice modes */}
-                <div ref={timerAndProblemRef} className="space-y-2 scroll-mt-4">
-                  {gameMode === "practice" ? (
-                    <>
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <span>Time remaining</span>
-                        <span className="font-mono">{timeLeft}s</span>
-                      </div>
-                      <Progress value={(timeLeft / practiceTimerLimit) * 100} className="h-1" />
-                    </>
-                  ) : gameMode === "timed" ? (
-                    <>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Time remaining</span>
-                        <span className={`font-mono text-lg font-semibold ${overallTimeLeft <= 10 ? "text-destructive" : ""}`}>
-                          {formatTime(overallTimeLeft)}
-                        </span>
-                      </div>
-                      <Progress value={(overallTimeLeft / timedModeLimit) * 100} className="h-2" />
-                    </>
-                  ) : (
-                    // Learning mode - show number ranges info
-                    <div className="text-xs text-muted-foreground text-center">Take your time — no timer in learning mode</div>
-                  )}
-                </div>
-
-                {/* Tip Card - Before problem in Learning mode */}
-                {gameMode === "learning" && showTip && currentTip && !hasAnswered && (
-                  <Card className="border-amber-500/30 bg-linear-to-br from-amber-500/5 to-orange-500/5">
-                    <CardContent className="p-4">
-                      <button onClick={() => setTipExpanded(!tipExpanded)} className="w-full flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Lightbulb className="w-4 h-4 text-amber-500" />
-                          <span className="font-medium text-amber-900 dark:text-amber-100">{currentTip.title}</span>
-                        </div>
-                        {tipExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </button>
-
-                      {tipExpanded && (
-                        <div className="mt-3 space-y-3">
-                          <div className="flex items-start gap-2 text-sm">
-                            <Sparkles className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                            <p className="text-amber-800 dark:text-amber-200 font-medium">{currentTip.technique}</p>
-                          </div>
-                          <p className="text-sm text-muted-foreground pl-6">{currentTip.description}</p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Problem Display */}
-                <Card
-                  key={feedbackKey}
-                  className={cn(
-                    "transition-all duration-200",
-                    isCorrect === true && "border-success animate-pulse-success",
-                    isCorrect === false && "border-destructive animate-shake"
-                  )}
-                >
-                  <CardContent className="p-6 sm:p-12">
-                    {problem && (
-                      <div className="text-center">
-                        <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-5 sm:mb-8">
-                          {problem.a} {problem.operation} {problem.b}
-                        </div>
-
-                        <form onSubmit={handleSubmit}>
-                          {useCustomKeypad ? (
-                            <div
-                              role="textbox"
-                              aria-label="Answer"
-                              aria-readonly="true"
-                              className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
-                                answerInputDisabled ? "opacity-50" : ""
-                              }`}
-                            >
-                              {userAnswer.length > 0 ? userAnswer : "?"}
-                            </div>
-                          ) : (
-                            <Input
-                              ref={inputRef}
-                              type="number"
-                              value={userAnswer}
-                              onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
-                              placeholder="?"
-                              className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto"
-                              autoFocus
-                              disabled={gameMode === "learning" && hasAnswered}
-                            />
-                          )}
-                        </form>
-
-                        {isCorrect === false && gameMode === "practice" && (
-                          <p className="text-sm text-muted-foreground mt-4">
-                            Answer: <span className="font-mono font-medium text-foreground">{problem.answer}</span>
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Solution Breakdown - After answering in Learning mode */}
-                {gameMode === "learning" && hasAnswered && currentTip && (
-                  <Card className={`${isCorrect ? "border-success/50 bg-success/5" : "border-destructive/50 bg-destructive/5"}`}>
-                    <CardContent className="p-5">
-                      <div className="space-y-4">
-                        {/* Result header */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {isCorrect ? (
-                              <>
-                                <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center">
-                                  <span className="text-success text-sm">✓</span>
-                                </div>
-                                <span className="font-medium text-success">Correct!</span>
-                              </>
-                            ) : (
-                              <>
-                                <div className="w-6 h-6 rounded-full bg-destructive/20 flex items-center justify-center">
-                                  <span className="text-destructive text-sm">✗</span>
-                                </div>
-                                <span className="font-medium text-destructive">
-                                  Incorrect — Answer: <span className="font-mono">{problem?.answer}</span>
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Step-by-step breakdown */}
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium flex items-center gap-2">
-                            <Lightbulb className="w-4 h-4 text-amber-500" />
-                            Step-by-Step: {currentTip.title}
-                          </h4>
-                          <div className="space-y-2 pl-6">
-                            {currentTip.steps.map((step, index) => (
-                              <div key={index} className="flex items-start gap-2 text-sm">
-                                <span className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center text-xs font-medium shrink-0">
-                                  {index + 1}
-                                </span>
-                                <span className="font-mono text-muted-foreground">{step}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Next button */}
-                        <Button onClick={startNewProblem} className="w-full mt-2">
-                          Next Problem
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Stats */}
-                <div
-                  className={`grid gap-4 ${
-                    submitMode === "auto"
-                      ? "grid-cols-2 sm:grid-cols-3"
-                      : gameMode === "learning"
-                        ? "grid-cols-3"
-                        : gameMode === "timed"
-                          ? "grid-cols-2 sm:grid-cols-3"
-                          : "grid-cols-2 sm:grid-cols-4"
-                  }`}
-                >
-                  <div className="text-center p-3 rounded-lg bg-secondary/50">
-                    <p className="text-2xl font-mono font-semibold">{totalSolved}</p>
-                    <p className="text-xs text-muted-foreground">Solved</p>
-                  </div>
-                  {gameMode !== "timed" && (
-                    <div className="text-center p-3 rounded-lg bg-secondary/50">
-                      <p className="text-2xl font-mono font-semibold">{streak}</p>
-                      <p className="text-xs text-muted-foreground">Streak</p>
-                    </div>
-                  )}
-                  {submitMode === "manual" && (
-                    <div className="text-center p-3 rounded-lg bg-secondary/50">
-                      <p className="text-2xl font-mono font-semibold">{accuracy}%</p>
-                      <p className="text-xs text-muted-foreground">Accuracy</p>
-                    </div>
-                  )}
-                  {gameMode !== "learning" && (
-                    <div className="text-center p-3 rounded-lg bg-secondary/50">
-                      <p className="text-2xl font-mono font-semibold">{avgTime > 0 ? avgTime.toFixed(1) : "0"}s</p>
-                      <p className="text-xs text-muted-foreground">Avg Time</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Auto-submit indicator */}
-                {submitMode === "auto" && (
-                  <div className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
-                    <Wand2 className="w-3 h-3" />
-                    Auto-submit enabled • Accuracy only tracked in Press Enter mode
-                  </div>
-                )}
-
-                {/* Controls */}
-                <div className="flex justify-center gap-3">
-                  <Button variant="outline" onClick={stopTraining}>
-                    <Square className="w-4 h-4 mr-2" />
-                    Stop
-                  </Button>
-                  {!hasAnswered && gameMode !== "timed" && (
-                    <Button variant="outline" onClick={handleSkipProblem}>
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Skip
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )
+            <TrainingRun
+              gameMode={gameMode}
+              submitMode={submitMode}
+              showAdvanced={showAdvanced}
+              difficultyLabel={currentConfig.label}
+              difficultyBadgeClassName={getDifficultyColor(difficulty)}
+              showTip={showTip}
+              setShowTip={setShowTip}
+              tipExpanded={tipExpanded}
+              setTipExpanded={setTipExpanded}
+              currentTip={currentTip}
+              hasAnswered={hasAnswered}
+              totalSolved={totalSolved}
+              streak={streak}
+              accuracy={accuracy}
+              avgTimeSeconds={avgTime}
+              timeLeft={timeLeft}
+              practiceTimerLimit={practiceTimerLimit}
+              overallTimeLeft={overallTimeLeft}
+              timedModeLimit={timedModeLimit}
+              formatTime={formatTime}
+              timerAndProblemRef={timerAndProblemRef}
+              feedbackKey={feedbackKey}
+              isCorrect={isCorrect}
+              problem={problem}
+              useCustomKeypad={useCustomKeypad}
+              answerInputDisabled={answerInputDisabled}
+              userAnswer={userAnswer}
+              setUserAnswer={setUserAnswer}
+              inputRef={inputRef}
+              onSubmit={handleSubmit}
+              onStop={stopTraining}
+              onSkip={handleSkipProblem}
+              onNextProblem={startNewProblem}
+            />
           )}
         </div>
       </div>

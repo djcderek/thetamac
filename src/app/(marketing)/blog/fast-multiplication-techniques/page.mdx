@@ -1,0 +1,265 @@
+import { FAQSection } from "@/components/blog/faq-section";
+
+export const metadata = {
+  title: "Fast Multiplication Without a Calculator: Techniques & Drills",
+  description:
+    "Learn the 11 trick, squaring shortcuts, and distributive strategies to multiply large numbers in your head quickly.",
+  alternates: {
+    canonical: "/blog/fast-multiplication-techniques",
+  },
+  keywords: [
+    "fast multiplication",
+    "multiply without a calculator",
+    "mental math multiplication",
+    "multiplication tricks",
+    "11 trick",
+    "square numbers ending in 5",
+    "distributive method",
+    "mental math drills",
+  ],
+  openGraph: {
+    title: "Fast Multiplication Without a Calculator | thetamac",
+    description:
+      "Learn the 11 trick, squaring shortcuts, and distributive strategies to multiply large numbers in your head quickly.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Fast Multiplication Without a Calculator",
+    description:
+      "Practical mental math multiplication techniques: distributive method, 11 trick, squaring shortcuts, and drills to get faster.",
+  },
+};
+
+export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
+export const url = `${siteUrl}/blog/fast-multiplication-techniques`;
+export const datePublished = "2025-10-02";
+export const dateModified = "2025-10-02";
+export const readingTime = "9 min read";
+
+export const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "Fast Multiplication Without a Calculator: Techniques & Drills",
+  description:
+    "Learn the 11 trick, squaring shortcuts, and distributive strategies to multiply large numbers in your head quickly.",
+  datePublished,
+  dateModified,
+  author: {
+    "@type": "Organization",
+    name: "thetamac",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "thetamac",
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/icon.svg`,
+    },
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": url,
+  },
+  url,
+  inLanguage: "en-US",
+};
+
+export const faq = [
+  {
+    question: "What’s the best mental math method for two-digit multiplication?",
+    answer:
+      "For most people, the distributive (break-apart) method is the most reliable: split into tens and ones, multiply each part, then add. It generalizes well and stays accurate under pressure.",
+  },
+  {
+    question: "How can I get faster without making more mistakes?",
+    answer:
+      "Practice at a comfortable speed first, then gradually tighten time limits. Use short sets (10–20 problems), review errors immediately, and prioritize accuracy over rushing—speed follows repetition.",
+  },
+  {
+    question: "Should I memorize more times tables to multiply faster?",
+    answer:
+      "Memorizing the 1–12 tables helps, but big speed gains usually come from strategies (distributive, round-and-adjust) plus repetition. If you struggle with a specific set (like 7×8, 8×9), drilling those helps too.",
+  },
+];
+
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer,
+    },
+  })),
+};
+
+<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+
+# Fast Multiplication Without a Calculator: Techniques & Drills
+
+<div className="text-sm text-muted-foreground">
+  Published October 2, 2025 • {readingTime}
+</div>
+
+Multiplication is often the bottleneck in mental math. Addition and subtraction feel manageable, but the moment you need 47 × 8 or 23 × 17, things slow down. The good news: a handful of techniques—used by mental math champions and seasoned consultants alike—can make these calculations fast and reliable.
+
+This post covers the most useful shortcuts and shows you how to practice them. If you’re training for interviews, pair this with [Mental Math for Interviews](/blog/mental-math-interview-drills) and use [Focused training](/training/focused) to drill multiplication-only sets.
+
+---
+
+## 1. The distributive (break-apart) method
+
+This is the workhorse technique for most two-digit multiplications.
+
+**Idea:** Split one number into tens and ones, multiply each part, then add.
+
+**Example:** 47 × 6
+
+1. 40 × 6 = 240
+2. 7 × 6 = 42
+3. 240 + 42 = **282**
+
+With practice, steps 1–3 happen almost simultaneously.
+
+---
+
+## 2. The 11 trick
+
+Multiplying any two-digit number by 11 is almost instant once you know the pattern.
+
+**Rule:** Separate the digits, add them, put the sum in the middle.
+
+**Example:** 34 × 11
+
+1. Separate: 3 _ 4
+2. Add: 3 + 4 = 7
+3. Insert: 3 **7** 4 = **374**
+
+**With a carry:** 57 × 11
+
+1. 5 + 7 = 12 (≥ 10, so carry the 1)
+2. Result: (5 + 1) **2** 7 = **627**
+
+---
+
+## 3. Squaring numbers ending in 5
+
+Any number ending in 5 can be squared in two steps.
+
+**Rule:** Multiply the tens digit by (tens digit + 1), then append 25.
+
+**Example:** 35²
+
+1. 3 × 4 = 12
+2. Append 25 → **1225**
+
+**Example:** 85²
+
+1. 8 × 9 = 72
+2. Append 25 → **7225**
+
+---
+
+## 4. The "round and adjust" method
+
+When one factor is close to a round number, exploit that.
+
+**Example:** 49 × 7
+
+1. 50 × 7 = 350
+2. Subtract 1 × 7 = 7
+3. 350 − 7 = **343**
+
+This also works for addition/subtraction-heavy scenarios (e.g., 98 + 47 → 100 + 47 − 2 = 145).
+
+---
+
+## 5. Multiplying numbers close together
+
+When both numbers share the same tens digit, there's a slick shortcut.
+
+**Example:** 23 × 27 (both in the 20s)
+
+1. Base = 20
+2. Add ones of one number to the other: 23 + 7 = 30
+3. Multiply by base: 30 × 20 = 600
+4. Multiply the ones: 3 × 7 = 21
+5. Add: 600 + 21 = **621**
+
+---
+
+## 6. Multiply by 5 (halve then ×10)
+
+**Example:** 48 × 5
+
+1. 48 ÷ 2 = 24
+2. 24 × 10 = **240**
+
+---
+
+## 7. Multiply by 9 (×10 minus original)
+
+**Example:** 37 × 9
+
+1. 37 × 10 = 370
+2. 370 − 37 = **333**
+
+---
+
+## Putting it into practice
+
+Knowing these tricks is one thing; making them automatic is another. Here's a drill plan:
+
+<table>
+  <thead>
+    <tr>
+      <th>Week</th>
+      <th>Focus</th>
+      <th>Suggested thetamac settings</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Distributive method</td>
+      <td>Medium difficulty, × only, Practice mode (10 s/problem)</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>11 trick + squaring 5s</td>
+      <td>Learning mode with tips, × only</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Round-and-adjust, multiply by 5/9</td>
+      <td>Medium, mixed + / − / ×</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Speed test</td>
+      <td>Timed mode (2 min), all operations</td>
+    </tr>
+  </tbody>
+</table>
+
+**Mini-drills (great for daily practice):**
+
+- **10× distributive reps:** do 10 problems like 46×7, 58×6, 73×8. Say the breakdown out loud.
+- **11-trick sprint:** do 15 problems of two-digit × 11. Track accuracy—carry errors are common.
+- **Round-and-adjust set:** do 10 problems with “almost-round” numbers: 49×6, 98×7, 199×4.
+
+---
+
+## Try it now
+
+Open [thetamac](/) and run a quick multiplication-only session. Start in **Learning mode** to see step-by-step breakdowns, then graduate to **Timed mode** once the techniques feel natural. When you’re ready to benchmark, compare your score on the [Leaderboard](/leaderboard).
+
+---
+
+## FAQ
+
+<FAQSection items={faq} />
+
+

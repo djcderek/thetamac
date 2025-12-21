@@ -1,8 +1,19 @@
 import type { NextConfig } from "next";
+import createMDX from "@next/mdx";
+import remarkGfm from "remark-gfm";
+
+const withMDX = createMDX({
+  extension: /\.mdx?$/,
+  options: {
+    remarkPlugins: [remarkGfm],
+  },
+});
 
 const nextConfig: NextConfig = {
   // Required for Docker/Fly.io deployment
   output: "standalone",
+
+  pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
 
   // Security headers
   async headers() {
@@ -80,4 +91,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withMDX(nextConfig);
