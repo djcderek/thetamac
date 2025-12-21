@@ -12,6 +12,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
+import { LogoMark } from "@/components/brand/logo-mark";
 
 // Primary navigation - prioritized for mobile as per plan
 const primaryNavigation = [
@@ -50,7 +51,10 @@ export function MobileNavDrawer() {
       >
         {/* Drawer header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
-          <span className="font-semibold text-lg">Menu</span>
+          <Link href="/" onClick={close} className="flex items-center gap-2">
+            <LogoMark size={24} />
+            <span className="font-semibold">thetamac</span>
+          </Link>
           <button
             onClick={close}
             className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"

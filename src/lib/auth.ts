@@ -14,6 +14,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  theme: {
+    // Used by NextAuth's built-in auth pages (e.g. during OAuth redirects/errors).
+    logo: "/icon.svg",
+  },
   pages: {
     signIn: "/auth/signin",
     error: "/auth/error",

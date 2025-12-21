@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { LogoMark } from "@/components/brand/logo-mark";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -49,9 +50,7 @@ export function SignUpForm() {
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="space-y-1 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded bg-foreground flex items-center justify-center">
-            <span className="text-background text-sm font-bold">θ</span>
-          </div>
+          <LogoMark size={32} />
         </div>
         <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
         <CardDescription>Start your mental math journey today</CardDescription>

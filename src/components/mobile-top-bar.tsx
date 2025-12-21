@@ -5,6 +5,7 @@ import { Menu } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { UserMenu } from "@/components/auth/user-menu";
 import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
+import { LogoMark } from "@/components/brand/logo-mark";
 
 export function MobileTopBar() {
   const { toggle } = useSidebar();
@@ -19,9 +20,7 @@ export function MobileTopBar() {
     >
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded bg-foreground flex items-center justify-center">
-          <span className="text-background text-xs font-bold">θ</span>
-        </div>
+        <LogoMark size={24} />
         <span className="font-semibold">thetamac</span>
       </Link>
 
