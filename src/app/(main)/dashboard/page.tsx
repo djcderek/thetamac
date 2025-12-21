@@ -11,7 +11,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
-  Lock,
 } from "lucide-react";
 import {
   AreaChart,
@@ -24,8 +23,6 @@ import {
   Tooltip,
 } from "recharts";
 import Link from "next/link";
-import { useAuth } from "@/hooks/use-auth";
-import { ChartPaywall } from "@/components/billing/chart-paywall";
 
 interface UserStats {
   totalProblems: number;
@@ -76,8 +73,6 @@ const SimpleTooltip = ({
 };
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const isPremium = user?.isPremium;
   const [stats, setStats] = useState<UserStats | null>(null);
   const [performance, setPerformance] = useState<PerformanceData | null>(null);
   const [activity, setActivity] = useState<ActivityData | null>(null);
@@ -137,6 +132,15 @@ export default function Dashboard() {
   const hasPerformanceData = performanceData.some((d) => d.correct > 0);
   const hasActivityData = activityData.some((d) => d.problems > 0);
   const hasSkillsData = skillsData.some((s) => s.total > 0);
+  const overallAccuracy = hasSkillsData
+    ? Math.round(
+        (skillsData
+          .filter((s) => s.total > 0)
+          .reduce((a, b) => a + b.value, 0) /
+          (skillsData.filter((s) => s.total > 0).length || 1)) *
+          1
+      )
+    : null;
 
   return (
     <div className="min-h-screen">
@@ -236,9 +240,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="h-[240px]">
-                  {!isPremium ? (
-                    <ChartPaywall title="Performance History" />
-                  ) : hasPerformanceData ? (
+                  {hasPerformanceData ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
                         data={performanceData}
@@ -318,12 +320,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {!isPremium ? (
-                    <div className="h-[200px]">
-                       <ChartPaywall title="Skill Breakdown" />
-                    </div>
-                  ) : (
-                    skillsData.map((skill) => (
+                  {skillsData.map((skill) => (
                     <div key={skill.name} className="space-y-2 group cursor-default">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground group-hover:text-foreground transition-colors">
@@ -340,26 +337,13 @@ export default function Dashboard() {
                         />
                       </div>
                     </div>
-                  ))
-                  )}
+                  ))}
                 </div>
                 <div className="mt-4 pt-3 border-t border-border">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Overall accuracy</span>
                     <span className="font-mono font-semibold">
-                      {!isPremium ? (
-                        <span className="flex items-center gap-1">
-                          <Lock className="w-3 h-3" />
-                          Locked
-                        </span>
-                      ) : hasSkillsData
-                        ? `${Math.round(
-                            skillsData
-                              .filter((s) => s.total > 0)
-                              .reduce((a, b) => a + b.value, 0) /
-                              skillsData.filter((s) => s.total > 0).length || 0
-                          )}%`
-                        : "--"}
+                      {overallAccuracy !== null ? `${overallAccuracy}%` : "--"}
                     </span>
                   </div>
                 </div>
@@ -480,7 +464,6 @@ export default function Dashboard() {
                       <div>
                         <p className="text-sm font-medium flex items-center gap-2">
                           Target Your Weak Spots
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-semibold">PRO</span>
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Your {stats.weakestSkill.name.toLowerCase()} is at {stats.weakestSkill.value}%. Get personalized practice.

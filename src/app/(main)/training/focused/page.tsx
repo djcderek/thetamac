@@ -15,6 +15,8 @@ import {
   Target,
   RotateCcw,
   Play,
+  LogIn,
+  UserPlus,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -385,6 +387,29 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                   <p className="text-xs text-muted-foreground">Avg Time</p>
                 </div>
               </div>
+
+              {!authSession?.user && (
+                <div className="rounded-xl border border-border bg-secondary/20 p-4 text-left mb-8">
+                  <p className="text-sm font-semibold">Save your progress</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Sign in (or create an account) to keep track of your scores and improvement over time.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                    <Link href="/auth/signin?callbackUrl=%2Fdashboard">
+                      <Button variant="outline" className="w-full sm:w-auto">
+                        <LogIn className="w-4 h-4 mr-2" />
+                        Sign in
+                      </Button>
+                    </Link>
+                    <Link href="/auth/signup?callbackUrl=%2Fdashboard">
+                      <Button className="w-full sm:w-auto">
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Create account
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 {mistakes.length > 0 && !isRetryRound && (

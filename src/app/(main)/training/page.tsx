@@ -14,6 +14,8 @@ import {
   Square,
   Timer,
   Zap,
+  LogIn,
+  UserPlus,
   Settings,
   ChevronDown,
   ChevronUp,
@@ -1678,6 +1680,33 @@ export default function TrainingPage() {
                         heading="Your placement"
                         scoreLabel="Best score this run:"
                       />
+                    </div>
+                  )}
+
+                  {!authSession?.user && (
+                    <div className="max-w-xl mx-auto rounded-xl border border-border bg-secondary/20 p-4 text-left">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold">Want to keep track of your scores?</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Sign in (or create an account) to save your progress, streaks, and history.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Link href="/auth/signin?callbackUrl=%2Fdashboard">
+                            <Button variant="outline" size="sm">
+                              <LogIn className="w-4 h-4 mr-2" />
+                              Sign in
+                            </Button>
+                          </Link>
+                          <Link href="/auth/signup?callbackUrl=%2Fdashboard">
+                            <Button size="sm">
+                              <UserPlus className="w-4 h-4 mr-2" />
+                              Create account
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
