@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LogIn } from "lucide-react";
@@ -7,6 +8,15 @@ import { getCurrentUserPremiumStatus } from "@/lib/subscription";
 import { SkillsDashboard } from "./skills-dashboard";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Skills Breakdown",
+  description: "View detailed skills breakdown by operation type.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function SkillsPage() {
   // Server-side check - always fresh from database

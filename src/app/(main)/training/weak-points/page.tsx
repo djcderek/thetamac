@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LogIn } from "lucide-react";
@@ -7,6 +8,16 @@ import { getCurrentUserPremiumStatus } from "@/lib/subscription";
 import { WeakPointsDashboard } from "./weak-points-dashboard";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Weak Points Analysis",
+  description:
+    "Identify your weak points in mental math with detailed analytics. Get personalized training recommendations based on your performance.",
+  openGraph: {
+    title: "Weak Points Analysis | thetamac",
+    description: "Identify your weak points and get personalized training recommendations.",
+  },
+};
 
 export default async function WeakPointsPage() {
   const { userId, isPremium } = await getCurrentUserPremiumStatus();

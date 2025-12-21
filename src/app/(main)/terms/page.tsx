@@ -1,6 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description:
+    "Read the thetamac Terms of Service. Understand your rights and responsibilities when using our mental math training platform.",
+  openGraph: {
+    title: "Terms of Service | thetamac",
+    description: "Terms of Service for the thetamac mental math training platform.",
+  },
+};
 
 export default function TermsOfServicePage() {
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;

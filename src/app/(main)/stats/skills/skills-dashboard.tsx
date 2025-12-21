@@ -192,7 +192,7 @@ function EmptyState() {
         <p className="text-sm text-muted-foreground mb-4">
           Start training to see your skills breakdown and performance analytics.
         </p>
-        <Link href="/training">
+        <Link href="/">
           <Button>
             <Zap className="w-4 h-4 mr-2" />
             Start Training
@@ -1055,7 +1055,7 @@ export function SkillsDashboard() {
                           </p>
                           <p className="text-xs text-muted-foreground">{rec.message}</p>
                           {rec.type === "focus" && (
-                            <Link href="/training">
+                            <Link href="/">
                               <Button size="sm" className="mt-2">
                                 <Zap className="w-3 h-3 mr-1" />
                                 Practice {rec.skill}

@@ -16,12 +16,79 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
+
 export const metadata: Metadata = {
-  title: "thetamac",
-  description: "Mental math training platform",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "thetamac — Mental Math Training",
+    template: "%s | thetamac",
+  },
+  description:
+    "Train your mental math skills with timed challenges, multiplayer duels, and racing modes. Track your progress and compete on global leaderboards.",
+  keywords: [
+    "mental math",
+    "math training",
+    "arithmetic practice",
+    "math games",
+    "brain training",
+    "math speed",
+    "multiplication practice",
+    "division practice",
+  ],
+  authors: [{ name: "thetamac" }],
+  creator: "thetamac",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
   },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteUrl,
+    siteName: "thetamac",
+    title: "thetamac — Mental Math Training",
+    description:
+      "Train your mental math skills with timed challenges, multiplayer duels, and racing modes. Track your progress and compete on global leaderboards.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "thetamac — Mental Math Training",
+    description:
+      "Train your mental math skills with timed challenges, multiplayer duels, and racing modes.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
+// JSON-LD structured data for SEO
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      url: siteUrl,
+      name: "thetamac",
+      description:
+        "Train your mental math skills with timed challenges, multiplayer duels, and racing modes.",
+      publisher: {
+        "@id": `${siteUrl}/#organization`,
+      },
+      inLanguage: "en-US",
+    },
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      name: "thetamac",
+      url: siteUrl,
+      logo: {
+        "@type": "ImageObject",
+        url: `${siteUrl}/icon.svg`,
+      },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -31,6 +98,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >

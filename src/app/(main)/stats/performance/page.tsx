@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LogIn } from "lucide-react";
@@ -7,6 +8,15 @@ import { getCurrentUserPremiumStatus } from "@/lib/subscription";
 import { PerformanceDashboard } from "./performance-dashboard";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Performance Analytics",
+  description: "View detailed performance analytics for your mental math training.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function PerformancePage() {
   // Server-side check - always fresh from database

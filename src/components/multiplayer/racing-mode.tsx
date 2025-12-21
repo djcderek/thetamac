@@ -1081,11 +1081,8 @@ export function RacingMode() {
           <div className="max-w-md mx-auto text-center py-20">
             <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-border border-t-primary animate-spin" />
             <h2 className="text-lg font-semibold mb-2">Finding a race...</h2>
-            <p className="text-sm text-muted-foreground mb-2">
+            <p className="text-sm text-muted-foreground mb-8">
               Matching you with other players
-            </p>
-            <p className="text-xs text-muted-foreground mb-8">
-              {queue.playersInQueue} players in queue
             </p>
             <Button variant="outline" onClick={leaveQueue}>
               <ArrowLeft className="w-4 h-4 mr-2" />

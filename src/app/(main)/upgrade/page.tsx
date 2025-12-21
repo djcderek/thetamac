@@ -23,8 +23,14 @@ function normalizeString(value?: string | string[] | null): string | undefined {
 }
 
 export const metadata: Metadata = {
-  title: "Pricing | thetamac",
-  description: "Start for free and upgrade to unlock advanced analytics, weak point training, and premium cosmetics.",
+  title: "Pricing",
+  description:
+    "Start for free and upgrade to unlock advanced analytics, weak point training, and premium cosmetics. Plans from $0.99/month.",
+  openGraph: {
+    title: "Pricing | thetamac",
+    description:
+      "Start for free and upgrade to Pro for advanced analytics, weak point training, and premium cosmetics.",
+  },
 };
 
 const freeFeatures = [

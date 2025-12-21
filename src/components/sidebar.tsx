@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { UserMenu } from "@/components/auth/user-menu";
 
 const navigation = [
-  { name: "Training", href: "/training", icon: Brain },
+  { name: "Training", href: "/", icon: Brain },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Multiplayer", href: "/multiplayer", icon: Swords },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
@@ -97,7 +97,8 @@ export function Sidebar() {
       <nav className="flex-1 p-2">
         <div className="space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === "/" ? pathname === "/" || pathname.startsWith("/training") : pathname === item.href;
             const linkContent = (
               <Link
                 key={item.name}
@@ -141,7 +142,8 @@ export function Sidebar() {
       {/* Secondary Nav */}
       <div className="p-2 border-t border-border">
         {secondaryNav.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            item.href === "/" ? pathname === "/" || pathname.startsWith("/training") : pathname === item.href;
           const linkContent = (
             <Link
               key={item.name}

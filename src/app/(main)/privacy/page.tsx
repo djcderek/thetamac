@@ -1,6 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "Learn how thetamac collects, uses, and protects your personal information. Read our privacy policy for details on data handling practices.",
+  openGraph: {
+    title: "Privacy Policy | thetamac",
+    description: "Privacy Policy for the thetamac mental math training platform.",
+  },
+};
 
 export default function PrivacyPolicyPage() {
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;

@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import {
   Swords,
   Play,
-  Circle,
   Wifi,
   WifiOff,
   Trophy,
@@ -36,7 +35,6 @@ export function DuelMode() {
   const { data: session } = useSession();
   const {
     isConnected,
-    onlineCount,
     identity,
     matchmaking,
     gameplay,
@@ -967,9 +965,6 @@ export function DuelMode() {
                 <p className="text-sm text-muted-foreground mb-2">
                   {searchDetail}
                 </p>
-                <p className="text-xs text-muted-foreground mb-8">
-                  {onlineCount} players online
-                </p>
                 <Button variant="outline" onClick={handleCancelSearch}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Cancel
@@ -1062,10 +1057,6 @@ export function DuelMode() {
                       Connecting...
                     </>
                   )}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  <Circle className="w-2 h-2 mr-1.5 fill-success text-success" />
-                  {onlineCount} online
                 </Badge>
               </div>
             </div>

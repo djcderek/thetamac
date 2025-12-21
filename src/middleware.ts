@@ -15,6 +15,17 @@ const authRoutes = ["/auth/signin", "/auth/signup"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") || "";
+
+  // Redirect apex domain (thetamac.com) to www (www.thetamac.com)
+  if (
+    host === "thetamac.com" &&
+    process.env.NODE_ENV === "production"
+  ) {
+    const wwwUrl = new URL(request.url);
+    wwwUrl.host = "www.thetamac.com";
+    return NextResponse.redirect(wwwUrl, 308); // 308 = permanent redirect preserving method
+  }
 
   // Get the session token
   // Note: We use getToken instead of auth() because auth() uses Prisma

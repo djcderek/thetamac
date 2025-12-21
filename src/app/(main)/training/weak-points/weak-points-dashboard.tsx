@@ -182,7 +182,7 @@ function EmptyState() {
         <p className="text-muted-foreground mb-6 max-w-md mx-auto">
           Start practicing to build up your problem history. We need at least a few training sessions to identify your weak points.
         </p>
-        <Link href="/training">
+        <Link href="/">
           <Button size="lg">
             <Play className="w-4 h-4 mr-2" />
             Start Training
@@ -202,7 +202,7 @@ function GoodJobState() {
         <p className="text-muted-foreground mb-6 max-w-md mx-auto">
           You&apos;re performing well across all operations! Keep practicing to maintain your skills and tackle harder problems.
         </p>
-        <Link href="/training">
+        <Link href="/">
           <Button size="lg">
             <Flame className="w-4 h-4 mr-2" />
             Keep Practicing
@@ -255,7 +255,7 @@ export function WeakPointsDashboard() {
       <div className="min-h-screen">
         <div className="border-b border-border">
           <div className="px-4 md:px-6 py-4">
-            <Link href="/training" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
+            <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back to Training
             </Link>
@@ -294,7 +294,7 @@ export function WeakPointsDashboard() {
     <div className="min-h-screen">
       <div className="border-b border-border">
         <div className="px-4 md:px-6 py-4">
-          <Link href="/training" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
+          <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Training
           </Link>

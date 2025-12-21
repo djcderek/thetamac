@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { SignUpForm } from "@/components/auth/signup-form";
 
-export const metadata = {
-  title: "Sign Up | thetamac",
+export const metadata: Metadata = {
+  title: "Sign Up",
   description: "Create your thetamac account",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function SignUpPage() {

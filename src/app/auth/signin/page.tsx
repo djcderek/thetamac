@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SignInForm } from "@/components/auth/signin-form";
 
-export const metadata = {
-  title: "Sign In | thetamac",
+export const metadata: Metadata = {
+  title: "Sign In",
   description: "Sign in to your thetamac account",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function SignInPage() {

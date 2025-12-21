@@ -16,7 +16,7 @@ import { useSidebar } from "@/components/sidebar-provider";
 // Primary navigation - prioritized for mobile as per plan
 const primaryNavigation = [
   { name: "Multiplayer", href: "/multiplayer", icon: Swords },
-  { name: "Training", href: "/training", icon: Brain },
+  { name: "Training", href: "/", icon: Brain },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -67,7 +67,10 @@ export function MobileNavDrawer() {
           </p>
           <div className="space-y-1">
             {primaryNavigation.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              const isActive =
+                item.href === "/"
+                  ? pathname === "/" || pathname.startsWith("/training")
+                  : pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link
                   key={item.name}
