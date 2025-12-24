@@ -17,7 +17,7 @@ import {
   Track,
   GameCamera,
   EnvironmentScenery,
-  TRACK_WIDTH,
+  getTrackWidth,
   UNIT_SCALE,
 } from "./race-track-scene";
 
@@ -46,6 +46,7 @@ interface RaceTrack3DProps {
     magnetFxUntil?: number;
   }>;
   trackLength: number;
+  laneCount: number;
   myPlayerId: string;
   finishOrder: Array<{ playerId: string; position: number }>;
   obstacles: TrackObstacle[];
@@ -86,6 +87,7 @@ function getCarColorFromSkin(skin?: string): string {
 export default function RaceTrack3D({
   players,
   trackLength,
+  laneCount,
   myPlayerId,
   finishOrder,
   obstacles,
@@ -108,6 +110,7 @@ export default function RaceTrack3D({
           <SceneContent 
             players={players}
             trackLength={trackLength}
+            laneCount={laneCount}
             myPlayerId={myPlayerId}
             finishOrder={finishOrder}
             obstacles={obstacles}
@@ -140,7 +143,7 @@ export default function RaceTrack3D({
           <div className="text-[10px] text-white/60 uppercase tracking-wider mb-1">Race</div>
           {[...players]
             .sort((a, b) => b.position - a.position)
-            .slice(0, 5)
+            .slice(0, 8)
             .map((player, i) => {
               const finishPos = getFinishPosition(player.id);
               
@@ -169,6 +172,7 @@ export default function RaceTrack3D({
 function SceneContent({
   players,
   trackLength,
+  laneCount,
   myPlayerId,
   finishOrder,
   obstacles,
@@ -176,6 +180,7 @@ function SceneContent({
   myPosition,
 }: RaceTrack3DProps) {
   const [now, setNow] = useState<number>(0);
+  const trackWidth = getTrackWidth(laneCount);
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -224,17 +229,17 @@ function SceneContent({
       </directionalLight>
 
       {/* Moving fill lights that follow the player to add depth */}
-      <pointLight position={[TRACK_WIDTH * 0.7, 6, -myPosition * UNIT_SCALE - 8]} intensity={0.55} color="#22d3ee" distance={60} />
-      <pointLight position={[-TRACK_WIDTH * 0.7, 6, -myPosition * UNIT_SCALE - 8]} intensity={0.55} color="#a855f7" distance={60} />
+      <pointLight position={[trackWidth * 0.7, 6, -myPosition * UNIT_SCALE - 8]} intensity={0.55} color="#22d3ee" distance={60} />
+      <pointLight position={[-trackWidth * 0.7, 6, -myPosition * UNIT_SCALE - 8]} intensity={0.55} color="#a855f7" distance={60} />
       
       {/* Environment - Reduced star count for performance */}
       <Environment files="/hdri/city.hdr" />
       <Stars radius={100} depth={50} count={300} factor={4} saturation={0} fade speed={1} />
       <fog attach="fog" args={["#0f172a", 8, 140]} />
-      <EnvironmentScenery length={trackLength} myPosition={myPosition} />
+      <EnvironmentScenery length={trackLength} myPosition={myPosition} laneCount={laneCount} />
       
       {/* Track Elements */}
-      <Track length={trackLength} />
+      <Track length={trackLength} laneCount={laneCount} />
       
       {/* Players */}
       {players.map((player) => (
@@ -242,6 +247,7 @@ function SceneContent({
           key={player.id}
           position={player.position}
           lane={player.lane}
+          laneCount={laneCount}
           color={getCarColorFromSkin(player.selectedSkin)}
           isMe={player.id === myPlayerId}
           username={player.username}
@@ -264,6 +270,7 @@ function SceneContent({
           key={obs.id} 
           type={obs.type} 
           lane={obs.lane} 
+          laneCount={laneCount}
           position={obs.position} 
         />
       ))}
@@ -274,6 +281,7 @@ function SceneContent({
           key={drop.id} 
           type={drop.type} 
           lane={drop.lane} 
+          laneCount={laneCount}
           position={drop.position}
           collected={drop.collected}
         />

@@ -368,8 +368,10 @@ function LobbyScene({
   currentUserId: string;
 }) {
   // Calculate positions in a semi-circle arrangement
+  // Reduce spacing for larger lobbies to keep everything in view
   const positions = useMemo(() => {
-    const spacing = 5;
+    // For 5 players: spacing=5, for 8 players: spacing ~3.5
+    const spacing = maxPlayers <= 5 ? 5 : 3.5;
     const totalWidth = (maxPlayers - 1) * spacing;
     const startX = -totalWidth / 2;
     
@@ -496,18 +498,22 @@ function PlayerCard({
 // CAMERA RIG
 // ============================================
 
-function CameraRig() {
+function CameraRig({ maxPlayers }: { maxPlayers: number }) {
   // On narrow/portrait screens, the horizontal FOV shrinks (even with the same vertical FOV),
   // which can clip vehicles placed across the lobby lineup. Compensate by widening vertical FOV
   // and backing the camera up a bit. Keep the adjustments modest so mobile isn't zoomed too far out.
+  // Also adjust for larger lobbies (8 players needs more distance than 5)
   useFrame((state, delta) => {
     const aspect = state.size.width / Math.max(1, state.size.height);
     const portraitFactor = Math.max(0, 1 - aspect); // 0 on landscape-ish, higher on portrait
+    
+    // For larger lobbies, increase base distance
+    const lobbyFactor = maxPlayers > 5 ? 1.2 : 1;
 
     const targetFov = THREE.MathUtils.clamp(45 + portraitFactor * 45, 45, 100);
     // Slight pull-back on portrait/mobile so the whole lineup stays visible without feeling distant.
-    const targetZ = 19 + portraitFactor * 70;
-    const targetY = 6 + portraitFactor * 14;
+    const targetZ = (19 * lobbyFactor) + portraitFactor * 70;
+    const targetY = (6 * lobbyFactor) + portraitFactor * 14;
 
     const cam = state.camera as THREE.PerspectiveCamera;
     if ("fov" in cam) {
@@ -541,7 +547,7 @@ export function RaceLobby3D({
       <Canvas shadows dpr={[1, 1.5]}>
         <Suspense fallback={null}>
           <PerspectiveCamera makeDefault position={[0, 6, 19]} fov={45} />
-          <CameraRig />
+          <CameraRig maxPlayers={maxPlayers} />
           <LobbyScene 
             players={players}
             maxPlayers={maxPlayers}
@@ -602,7 +608,9 @@ export function RaceLobby3D({
         </div>
 
         {/* Player cards */}
-        <div className="grid grid-cols-3 gap-4 place-items-center sm:flex sm:items-center sm:justify-center sm:gap-8 pointer-events-auto">
+        <div className={`grid gap-3 place-items-center sm:flex sm:items-center sm:justify-center sm:gap-6 pointer-events-auto ${
+          maxPlayers > 5 ? 'grid-cols-4' : 'grid-cols-3'
+        }`}>
           {slots.map((player, index) => (
             <PlayerCard
               key={player?.id || `slot-${index}`}

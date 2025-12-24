@@ -15,7 +15,7 @@ export type DropType = "speed_boost" | "shield" | "freeze_others" | "magnet" | "
 export interface TrackObstacle {
   id: string;
   type: ObstacleType;
-  lane: number;           // 1-5
+  lane: number;           // 1-laneCount
   position: number;       // Distance from start in meters
   width: number;          // How much of the lane it covers (0-1)
 }
@@ -23,7 +23,7 @@ export interface TrackObstacle {
 export interface TrackDrop {
   id: string;
   type: DropType;
-  lane: number;           // 1-5
+  lane: number;           // 1-laneCount
   position: number;       // Distance from start in meters
   collected: boolean;     // Whether it's been picked up
   collectedBy: string | null; // Player ID who collected it
@@ -66,7 +66,7 @@ export interface RacePlayer {
   selectedWheel?: string;
   
   // Race state
-  lane: number;           // 1-5
+  lane: number;           // 1-laneCount
   position: number;       // meters from start (0 to trackLength)
   isStunned: boolean;
   stunEndTime: number;    // timestamp when stun ends
@@ -107,6 +107,7 @@ export type RaceStatus = "waiting" | "countdown" | "racing" | "finished";
 export interface RaceConfig {
   trackLength: number;       // meters to finish (default: 250)
   maxPlayers: number;        // max players (default: 5)
+  laneCount: number;         // number of lanes (default: 5)
   difficulty: Difficulty;    // base difficulty
   operations: Operation[];   // enabled operations
   stunDuration: number;      // ms (default: 2000)
@@ -198,6 +199,23 @@ export interface RaceLobby {
 }
 
 // ============================================
+// PRIVATE RACE ROOM (LINK LOBBY)
+// ============================================
+
+export interface RacePrivateRoomSnapshot {
+  roomCode: string;
+  hostId: string;
+  maxPlayers: number;
+  players: Array<{
+    id: string;
+    username: string;
+    rating: number;
+    cosmetics?: UserCosmetics;
+  }>;
+  config: RaceConfig;
+}
+
+// ============================================
 // SOCKET EVENTS - CLIENT TO SERVER
 // ============================================
 
@@ -212,6 +230,12 @@ export interface RaceClientToServerEvents {
   // Matchmaking
   "race:join_queue": (data: { cosmetics?: UserCosmetics }) => void;
   "race:leave_queue": () => void;
+
+  // Private rooms
+  "race_private:create_room": (data: { cosmetics?: UserCosmetics }) => void;
+  "race_private:join_room": (data: { roomCode: string; cosmetics?: UserCosmetics }) => void;
+  "race_private:leave_room": () => void;
+  "race_private:start_race": () => void;
   
   // Game actions
   "race:submit_answer": (data: {
@@ -386,6 +410,12 @@ export interface RaceServerToClientEvents {
   }) => void;
   
   "race:error": (error: string) => void;
+
+  // Private rooms
+  "race_private:room_joined": (data: { room: RacePrivateRoomSnapshot; youAreHost: boolean; joinUrl?: string }) => void;
+  "race_private:player_joined": (data: { player: { id: string; username: string; rating: number; cosmetics?: UserCosmetics }; totalPlayers: number }) => void;
+  "race_private:player_left": (data: { playerId: string; totalPlayers: number; newHostId?: string }) => void;
+  "race_private:error": (error: string) => void;
 }
 
 // ============================================

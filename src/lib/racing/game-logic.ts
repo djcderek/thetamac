@@ -23,6 +23,7 @@ import type {
 export const DEFAULT_RACE_CONFIG: RaceConfig = {
   trackLength: 150,         // 150 meters
   maxPlayers: 5,
+  laneCount: 5,
   difficulty: "medium",
   operations: ["+", "-", "×", "÷"],
   stunDuration: 2000,       // 2 seconds
@@ -124,7 +125,7 @@ export function generatePlayerProblems(
   return {
     forward: generateProblem(config.difficulty, config.operations, "forward"),
     left: lane > 1 ? generateProblem(config.difficulty, config.operations, "left") : null,
-    right: lane < 5 ? generateProblem(config.difficulty, config.operations, "right") : null,
+    right: lane < config.laneCount ? generateProblem(config.difficulty, config.operations, "right") : null,
     boost: generateProblem(config.difficulty, config.operations, "boost"),
   };
 }
@@ -142,7 +143,7 @@ export function generateTrackObstacles(config: RaceConfig): TrackObstacle[] {
   
   for (let i = 0; i < config.obstacleCount; i++) {
     const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
-    const lane = Math.floor(Math.random() * 5) + 1; // 1-5
+    const lane = Math.floor(Math.random() * config.laneCount) + 1; // 1-laneCount
     const position = minPosition + Math.random() * (maxPosition - minPosition);
     
     // Width based on obstacle type
@@ -172,7 +173,7 @@ export function generateTrackDrops(config: RaceConfig): TrackDrop[] {
 
   // Only coin drops remain
   for (let i = 0; i < config.coinDropCount; i++) {
-    const lane = Math.floor(Math.random() * 5) + 1; // 1-5
+    const lane = Math.floor(Math.random() * config.laneCount) + 1; // 1-laneCount
     const position = minPosition + Math.random() * (maxPosition - minPosition);
     drops.push({
       id: randomUUID(),
@@ -251,7 +252,7 @@ export function createRaceState(
   config: RaceConfig = DEFAULT_RACE_CONFIG
 ): RaceState {
   // Assign starting lanes - distribute evenly
-  const startingLanes = assignStartingLanes(entries.length);
+  const startingLanes = assignStartingLanes(entries.length, config.laneCount);
   
   const players = entries.map((entry, index) => 
     createRacePlayer(entry, startingLanes[index], config)
@@ -270,23 +271,23 @@ export function createRaceState(
   };
 }
 
-function assignStartingLanes(playerCount: number): number[] {
-  // Center players in lanes
-  // 1 player: lane 3
-  // 2 players: lanes 2, 4
-  // 3 players: lanes 2, 3, 4
-  // 4 players: lanes 1, 2, 4, 5
-  // 5 players: lanes 1, 2, 3, 4, 5
-  
-  const laneAssignments: Record<number, number[]> = {
-    1: [3],
-    2: [2, 4],
-    3: [2, 3, 4],
-    4: [1, 2, 4, 5],
-    5: [1, 2, 3, 4, 5],
-  };
-  
-  return laneAssignments[playerCount] || [3];
+function assignStartingLanes(playerCount: number, laneCount: number): number[] {
+  const lanes = Array.from({ length: Math.max(1, laneCount) }, (_, i) => i + 1);
+  const center = (laneCount + 1) / 2;
+  lanes.sort((a, b) => {
+    const da = Math.abs(a - center);
+    const db = Math.abs(b - center);
+    if (da !== db) return da - db;
+    return a - b;
+  });
+
+  // If playerCount > laneCount, some lanes will be shared; this is OK because collision logic
+  // is based on (lane, position) proximity and can handle multiple players in a lane.
+  const out: number[] = [];
+  for (let i = 0; i < playerCount; i++) {
+    out.push(lanes[i % lanes.length]);
+  }
+  return out;
 }
 
 // ============================================
@@ -506,7 +507,7 @@ function processLaneChange(
   const newLane = player.lane + direction;
   
   // Validate lane bounds
-  if (newLane < 1 || newLane > 5) {
+  if (newLane < 1 || newLane > state.config.laneCount) {
     return {
       success: false,
       playerId: player.id,

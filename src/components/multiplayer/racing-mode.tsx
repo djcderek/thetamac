@@ -31,6 +31,8 @@ import {
   Users,
   Flame,
   X,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useRaceSocket } from "@/hooks/use-race-socket";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
@@ -58,6 +60,7 @@ interface ProblemPanelProps {
   onSubmit: (action: ActionType, answer: number, problemId: string) => boolean;
   isStunned: boolean;
   currentLane: number;
+  laneCount: number;
   isOnCooldown: boolean;
   cooldownRemaining: number;
 }
@@ -67,6 +70,7 @@ function ProblemPanel({
   onSubmit,
   isStunned,
   currentLane,
+  laneCount,
   isOnCooldown,
   cooldownRemaining,
 }: ProblemPanelProps) {
@@ -193,7 +197,7 @@ function ProblemPanel({
     }
     if (key === "ArrowRight" || lower === "d") {
       e.preventDefault();
-      if (currentLane < 5 && problems?.right) focusInput("right");
+      if (currentLane < laneCount && problems?.right) focusInput("right");
       return;
     }
     if (key === "ArrowUp" || lower === "w") {
@@ -217,7 +221,7 @@ function ProblemPanel({
   }
 
   const canGoLeft = currentLane > 1 && problems.left;
-  const canGoRight = currentLane < 5 && problems.right;
+  const canGoRight = currentLane < laneCount && problems.right;
   const problemInputsDisabled = isStunned || isOnCooldown;
 
   const openMobileKeypad = (action: ActionType) => {
@@ -765,7 +769,7 @@ function getOrdinal(n: number): string {
 // RACING MODE COMPONENT
 // ============================================
 
-export function RacingMode() {
+export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: string } = {}) {
   const { data: session } = useSession();
   const isMobileDevice = useIsMobileDevice();
   const trackTopRef = useRef<HTMLDivElement | null>(null);
@@ -788,6 +792,12 @@ export function RacingMode() {
     resetAllState,
     getMyPlayer,
     myPlayerId,
+    // Private rooms
+    privateRoom,
+    createPrivateRoom,
+    joinPrivateRoom,
+    leavePrivateRoom,
+    startPrivateRace,
   } = useRaceSocket();
 
   const isSignedIn = !!session?.user?.id;
@@ -797,6 +807,19 @@ export function RacingMode() {
 
   const [racingStats, setRacingStats] = useState<RacingStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(isSignedIn);
+
+  // Private room local UI state
+  const [joinCode, setJoinCode] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Auto-join private room if roomCode is provided via URL
+  useEffect(() => {
+    if (!initialPrivateRoomCode) return;
+    if (!playerId) return;
+    if (privateRoom.inRoom) return;
+    joinPrivateRoom(playerId, initialPrivateRoomCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPrivateRoomCode, playerId]);
 
   const fetchRacingStats = useCallback(async () => {
     if (!isSignedIn) return;
@@ -843,6 +866,8 @@ export function RacingMode() {
 
   const myPlayer = (myPlayerId || playerId) ? getMyPlayer((myPlayerId || playerId)!) : null;
   const hasFinished = race.myFinishPosition !== null;
+  const laneCount = race.config?.laneCount ?? lobby.config?.laneCount ?? 5;
+  const defaultLane = Math.ceil(laneCount / 2);
 
   // On mobile, allow the global top bar (burger + logo) to scroll away while in Racing Mode.
   useEffect(() => {
@@ -937,6 +962,7 @@ export function RacingMode() {
                 <RaceTrack3D
                   players={race.players}
                   trackLength={race.config?.trackLength || 150}
+                  laneCount={laneCount}
                   myPlayerId={myPlayerId || playerId || ""}
                   finishOrder={race.finishOrder}
                   obstacles={race.obstacles || []}
@@ -978,7 +1004,8 @@ export function RacingMode() {
                     problems={race.myProblems}
                     onSubmit={submitAnswer}
                     isStunned={myPlayer?.isStunned || false}
-                    currentLane={myPlayer?.lane || 3}
+                    currentLane={myPlayer?.lane || defaultLane}
+                    laneCount={laneCount}
                     isOnCooldown={isOnCooldown}
                     cooldownRemaining={cooldownRemaining}
                   />
@@ -1031,6 +1058,78 @@ export function RacingMode() {
     );
   }
 
+  // Private room lobby screen
+  if (privateRoom.inRoom && privateRoom.room?.roomCode) {
+    const isHost = privateRoom.youAreHost;
+    const privateJoinUrl = privateRoom.joinUrl ?? (typeof window !== "undefined"
+      ? `${window.location.origin}/multiplayer/private/race/${privateRoom.room.roomCode}`
+      : "");
+    const handleCopyPrivateLink = () => {
+      if (privateJoinUrl) {
+        navigator.clipboard.writeText(privateJoinUrl);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      }
+    };
+
+    return (
+      <div className="min-h-[calc(100vh-200px)]">
+        <div className="border-b border-border">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold">Private Race Lobby</h1>
+              <p className="text-sm text-muted-foreground">
+                Room Code: <span className="font-mono font-bold">{privateRoom.room?.roomCode}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleCopyPrivateLink}>
+                {linkCopied ? <Check className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
+                {linkCopied ? "Copied!" : "Copy Link"}
+              </Button>
+              <Badge variant="outline" className="text-xs">
+                {privateRoom.room?.players.length ?? 0} / 8 Players
+              </Badge>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 md:p-6">
+          <div className="max-w-5xl mx-auto">
+            <RaceLobby3D
+              players={privateRoom.room?.players ?? []}
+              maxPlayers={8}
+              startingIn={null}
+              currentUserId={playerId || ""}
+              onLeave={leavePrivateRoom}
+            />
+            {/* Host-only start button */}
+            {isHost && (privateRoom.room?.players.length ?? 0) >= 2 && (
+              <div className="mt-4 flex justify-center">
+                <Button size="lg" onClick={startPrivateRace}>
+                  <Play className="w-4 h-4 mr-2" />
+                  Start Race
+                </Button>
+              </div>
+            )}
+            {isHost && (privateRoom.room?.players.length ?? 0) < 2 && (
+              <p className="mt-4 text-center text-sm text-muted-foreground">
+                Waiting for at least 2 players to start...
+              </p>
+            )}
+            {!isHost && (
+              <p className="mt-4 text-center text-sm text-muted-foreground">
+                Waiting for the host to start the race...
+              </p>
+            )}
+            {privateRoom.error && (
+              <p className="mt-2 text-center text-sm text-destructive">{privateRoom.error}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Lobby screen - Fortnite-style 3D showcase
   if (lobby.inLobby) {
     return (
@@ -1039,7 +1138,7 @@ export function RacingMode() {
           <div className="max-w-5xl mx-auto">
             <RaceLobby3D
               players={lobby.players}
-              maxPlayers={5}
+              maxPlayers={lobby.config?.maxPlayers ?? 5}
               startingIn={lobby.startingIn}
               currentUserId={playerId || ""}
               onLeave={leaveQueue}
@@ -1172,6 +1271,57 @@ export function RacingMode() {
                   <Play className="w-4 h-4 mr-2" />
                   Find Race
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Private Room Card */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                <div className="w-14 h-14 rounded-xl bg-secondary/60 flex items-center justify-center shrink-0">
+                  <Users className="w-7 h-7 text-foreground" />
+                </div>
+                <div className="flex-1 w-full">
+                  <h2 className="font-semibold text-lg">Private Room</h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Race with friends! Create a room or join with a code. Up to 8 players.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => createPrivateRoom(playerId)}
+                      disabled={!isConnected}
+                      className="sm:w-auto"
+                    >
+                      Create Room
+                    </Button>
+                    <div className="flex gap-2 flex-1">
+                      <Input
+                        value={joinCode}
+                        onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                        placeholder="Paste link or enter code"
+                        className="flex-1 font-mono"
+                        maxLength={8}
+                      />
+                      <Button
+                        onClick={() => {
+                          if (joinCode.trim()) {
+                            joinPrivateRoom(playerId, joinCode.trim());
+                            setJoinCode("");
+                          }
+                        }}
+                        disabled={!isConnected || !joinCode.trim()}
+                      >
+                        Join
+                      </Button>
+                    </div>
+                  </div>
+                  {privateRoom.error && (
+                    <p className="text-sm text-destructive mt-2">{privateRoom.error}</p>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

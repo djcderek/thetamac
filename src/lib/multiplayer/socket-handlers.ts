@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { randomUUID } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { z } from "zod";
 import type {
   ClientToServerEvents,
@@ -10,6 +10,8 @@ import type {
   GameState,
   Player,
   GameConfig,
+  PrivateDuelRoomSnapshot,
+  PrivateDuelPlayerRoundResult,
 } from "./types";
 import {
   createGameState,
@@ -56,6 +58,36 @@ const socketToPlayer: Map<string, { id: string; username: string; isGuest: boole
 // Player to room mapping (persists across reconnects)
 const playerToRoom: Map<string, string> = new Map();
 
+// ============================================
+// PRIVATE DUEL ROOMS (LINK LOBBIES) STATE
+// ============================================
+
+type PrivateDuelRoom = {
+  roomCode: string;
+  socketRoomName: string;
+  hostId: string;
+  players: Player[];
+  status: "waiting" | "countdown" | "playing" | "round_end" | "game_over";
+  countdownValue: number;
+  config: GameConfig;
+  scores: Record<string, number>;
+  currentRound: number;
+  currentProblem: GameState["currentProblem"];
+  roundStartTime: number;
+  answers: Map<string, { answer: number; timeMs: number }>;
+  roundTimer: NodeJS.Timeout | null;
+  countdownTimer: NodeJS.Timeout | null;
+  disconnectTimeouts: Map<string, NodeJS.Timeout>;
+  disconnectedPlayers: Set<string>;
+  createdAt: number;
+  lastActivityAt: number;
+  cleanupTimer: NodeJS.Timeout | null;
+};
+
+const privateDuelRooms: Map<string, PrivateDuelRoom> = new Map(); // roomCode -> room
+const socketToPrivateDuelRoom: Map<string, string> = new Map(); // socketId -> roomCode
+const playerToPrivateDuelRoom: Map<string, string> = new Map(); // playerId -> roomCode
+
 // Fallback timers for bot matchmaking (per socket)
 const botFallbackTimers: Map<string, NodeJS.Timeout> = new Map();
 
@@ -85,6 +117,7 @@ const matchmakingLeaveLimiter = createRateLimiter({ limit: 6, windowMs: 10_000 }
 const submitAnswerLimiter = createRateLimiter({ limit: 20, windowMs: 10_000 }); // ~2/s
 const quickChatLimiter = createRateLimiter({ limit: 5, windowMs: 10_000 });
 const forfeitLimiter = createRateLimiter({ limit: 3, windowMs: 15_000 });
+const privateRoomLimiter = createRateLimiter({ limit: 10, windowMs: 10_000 });
 
 const submitAnswerSchema = z.object({
   answer: z
@@ -101,6 +134,14 @@ const quickChatSchema = z
   .min(1, "Message is required")
   .max(QUICK_CHAT_MAX_LENGTH, "Message too long");
 
+const privateRoomCodeSchema = z.object({
+  roomCode: z.string().trim().min(4).max(16),
+});
+
+const privateStartGameSchema = z.object({
+  rounds: z.number().int().min(3).max(30).optional(),
+});
+
 // Helper to get user rating from database
 async function getUserRating(userId: string): Promise<number> {
   try {
@@ -113,6 +154,280 @@ async function getUserRating(userId: string): Promise<number> {
     console.error(`Failed to fetch rating for user ${userId}:`, error);
     return 1000;
   }
+}
+
+// ============================================
+// PRIVATE DUEL ROOMS (HELPERS)
+// ============================================
+
+const PRIVATE_DUEL_MAX_PLAYERS = 8;
+const PRIVATE_DUEL_IDLE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const PRIVATE_DUEL_DISCONNECT_GRACE_MS = 10_000;
+const PRIVATE_DUEL_POINTS_BY_RANK = [1000, 800, 650, 500, 350, 250, 150, 100];
+
+function generateRoomCode(length = 8) {
+  // Crockford-ish base32 alphabet without ambiguous chars (I, L, O, 0, 1).
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(length);
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += alphabet[bytes[i] % alphabet.length];
+  }
+  return out;
+}
+
+function getJoinUrl(roomCode: string) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  const origin = (() => {
+    try {
+      return new URL(appUrl).origin;
+    } catch {
+      return "";
+    }
+  })();
+  // If origin is unknown, client can still build a relative link.
+  return origin ? `${origin}/multiplayer/private/duel/${roomCode}` : `/multiplayer/private/duel/${roomCode}`;
+}
+
+function privateDuelSnapshot(room: PrivateDuelRoom): PrivateDuelRoomSnapshot {
+  return {
+    roomCode: room.roomCode,
+    hostId: room.hostId,
+    status: room.status,
+    maxPlayers: PRIVATE_DUEL_MAX_PLAYERS,
+    totalRounds: room.config.rounds,
+    players: room.players.map((p) => ({
+      id: p.id,
+      username: p.username,
+      rating: p.rating,
+      avatar: p.avatar,
+      isGuest: p.isGuest,
+    })),
+  };
+}
+
+function clearPrivateDuelTimers(room: PrivateDuelRoom) {
+  if (room.roundTimer) clearTimeout(room.roundTimer);
+  if (room.countdownTimer) clearInterval(room.countdownTimer);
+  if (room.cleanupTimer) clearTimeout(room.cleanupTimer);
+  room.roundTimer = null;
+  room.countdownTimer = null;
+  room.cleanupTimer = null;
+  for (const t of room.disconnectTimeouts.values()) clearTimeout(t);
+  room.disconnectTimeouts.clear();
+  room.disconnectedPlayers.clear();
+}
+
+function cleanupPrivateDuelRoom(roomCode: string) {
+  const room = privateDuelRooms.get(roomCode);
+  if (!room) return;
+  clearPrivateDuelTimers(room);
+  // clear mappings
+  for (const p of room.players) {
+    playerToPrivateDuelRoom.delete(p.id);
+    socketToPrivateDuelRoom.delete(p.socketId);
+  }
+  privateDuelRooms.delete(roomCode);
+}
+
+function schedulePrivateDuelCleanup(room: PrivateDuelRoom, delayMs: number) {
+  if (room.cleanupTimer) clearTimeout(room.cleanupTimer);
+  room.cleanupTimer = setTimeout(() => cleanupPrivateDuelRoom(room.roomCode), delayMs);
+}
+
+function computeRankPoints(correct: Array<{ playerId: string; timeMs: number }>) {
+  const sorted = [...correct].sort((a, b) => a.timeMs - b.timeMs);
+  const byPlayer = new Map<string, { rank: number; points: number }>();
+  let i = 0;
+  let rank = 1;
+  while (i < sorted.length) {
+    const time = sorted[i].timeMs;
+    const group: Array<{ playerId: string; timeMs: number }> = [];
+    while (i < sorted.length && sorted[i].timeMs === time) {
+      group.push(sorted[i]);
+      i++;
+    }
+    const startRank = rank;
+    const endRank = rank + group.length - 1;
+    const pointsSlice = PRIVATE_DUEL_POINTS_BY_RANK.slice(startRank - 1, endRank);
+    const avg = pointsSlice.length
+      ? pointsSlice.reduce((sum, v) => sum + v, 0) / pointsSlice.length
+      : 0;
+    const points = Math.round(avg);
+    for (const entry of group) {
+      byPlayer.set(entry.playerId, { rank: startRank, points });
+    }
+    rank += group.length;
+  }
+  return byPlayer;
+}
+
+function privateDuelStartRound(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  room: PrivateDuelRoom
+) {
+  if (room.players.length < 2) {
+    room.status = "waiting";
+    room.countdownValue = 0;
+    return;
+  }
+
+  room.answers.clear();
+  room.currentRound += 1;
+
+  // Reuse the existing problem generator via startNewRound with a small fake GameState wrapper.
+  const fakeState: GameState = {
+    roomId: room.socketRoomName,
+    players: [room.players[0], room.players[1] ?? room.players[0]],
+    scores: room.scores,
+    currentRound: room.currentRound - 1,
+    totalRounds: room.config.rounds,
+    currentProblem: room.currentProblem,
+    roundStartTime: room.roundStartTime,
+    timePerRound: room.config.timePerRound,
+    status: "playing",
+    winner: null,
+    roundWinner: null,
+  };
+
+  const nextState = startNewRound(fakeState, room.config.difficulty, room.config.operations);
+  room.currentProblem = nextState.currentProblem;
+  room.roundStartTime = nextState.roundStartTime;
+  room.status = "playing";
+  room.lastActivityAt = Date.now();
+
+  io.to(room.socketRoomName).emit("duel_private:new_round", {
+    round: room.currentRound,
+    totalRounds: room.config.rounds,
+    problem: room.currentProblem!,
+  });
+
+  if (room.roundTimer) clearTimeout(room.roundTimer);
+  room.roundTimer = setTimeout(() => {
+    void safelyExecute("[PrivateDuel] roundTimer endRound", async () => {
+      await privateDuelEndRound(io, room.roomCode);
+    });
+  }, room.config.timePerRound);
+}
+
+async function privateDuelEndRound(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  roomCode: string
+) {
+  const room = privateDuelRooms.get(roomCode);
+  if (!room) return;
+  if (room.status !== "playing") return;
+
+  if (room.roundTimer) {
+    clearTimeout(room.roundTimer);
+    room.roundTimer = null;
+  }
+
+  room.status = "round_end";
+  room.lastActivityAt = Date.now();
+
+  const correctAnswer = room.currentProblem?.answer ?? null;
+  const correctSubmissions: Array<{ playerId: string; timeMs: number }> = [];
+
+  if (correctAnswer !== null) {
+    for (const player of room.players) {
+      const submission = room.answers.get(player.id);
+      if (submission && submission.answer === correctAnswer) {
+        correctSubmissions.push({ playerId: player.id, timeMs: submission.timeMs });
+      }
+    }
+  }
+
+  const rankPoints = computeRankPoints(correctSubmissions);
+
+  // Apply points
+  for (const [playerId, rp] of rankPoints.entries()) {
+    room.scores[playerId] = (room.scores[playerId] || 0) + rp.points;
+  }
+
+  const results: PrivateDuelPlayerRoundResult[] = room.players.map((p) => {
+    const submission = room.answers.get(p.id);
+    const isCorrect = correctAnswer !== null && submission?.answer === correctAnswer;
+    const rp = rankPoints.get(p.id);
+    return {
+      playerId: p.id,
+      username: p.username,
+      answer: submission?.answer ?? null,
+      timeMs: submission?.timeMs ?? null,
+      isCorrect,
+      rank: rp?.rank ?? null,
+      pointsAwarded: rp?.points ?? 0,
+      totalScore: room.scores[p.id] || 0,
+    };
+  });
+
+  io.to(room.socketRoomName).emit("duel_private:round_result", {
+    round: room.currentRound,
+    correctAnswer: correctAnswer ?? 0,
+    results,
+    scores: room.scores,
+  });
+
+  // Game over?
+  if (room.currentRound >= room.config.rounds) {
+    await privateDuelEndGame(io, roomCode);
+    return;
+  }
+
+  // Next round after short pause
+  setTimeout(() => {
+    const live = privateDuelRooms.get(roomCode);
+    if (!live) return;
+    if (live.status === "game_over") return;
+    privateDuelStartRound(io, live);
+  }, 2000);
+}
+
+async function privateDuelEndGame(
+  io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  roomCode: string
+) {
+  const room = privateDuelRooms.get(roomCode);
+  if (!room) return;
+  room.status = "game_over";
+  room.lastActivityAt = Date.now();
+
+  if (room.roundTimer) {
+    clearTimeout(room.roundTimer);
+    room.roundTimer = null;
+  }
+  if (room.countdownTimer) {
+    clearInterval(room.countdownTimer);
+    room.countdownTimer = null;
+  }
+
+  const leaderboard = [...room.players]
+    .map((p) => ({ playerId: p.id, username: p.username, score: room.scores[p.id] || 0 }))
+    .sort((a, b) => b.score - a.score);
+
+  const top = leaderboard[0];
+  const topScore = top?.score ?? 0;
+  const tied = leaderboard.filter((e) => e.score === topScore);
+  const winnerId = tied.length === 1 ? top.playerId : null;
+
+  io.to(room.socketRoomName).emit("duel_private:game_over", {
+    winnerId,
+    finalScores: room.scores,
+    leaderboard,
+  });
+
+  // Cleanup after short delay so clients can render results.
+  schedulePrivateDuelCleanup(room, 60_000);
+}
+
+function privateDuelMaybeTransferHost(room: PrivateDuelRoom): string | null {
+  if (room.players.some((p) => p.id === room.hostId)) return null;
+  const next = room.players[0]?.id ?? null;
+  if (next) {
+    room.hostId = next;
+    return next;
+  }
+  return null;
 }
 
 // ============================================
@@ -889,6 +1204,443 @@ export function setupMultiplayerHandlers(
       });
     });
 
+    // ============================================
+    // PRIVATE DUEL ROOM HANDLERS
+    // ============================================
+
+    socket.on("duel_private:create_room", () => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("duel_private:error", "Too many requests");
+        return;
+      }
+
+      void safelyExecute("[PrivateDuel] create_room", async () => {
+        const authResult = await authenticateSocket(
+          socket.handshake.headers.cookie,
+          socket.handshake.auth as { token?: string }
+        );
+
+        if (!authResult) {
+          socket.emit("duel_private:error", "Unauthorized");
+          socket.disconnect(true);
+          return;
+        }
+
+        const { userId, username, isGuest } = authResult;
+        socketToPlayer.set(socket.id, { id: userId, username, isGuest });
+
+        // If user is already in a private duel room, leave it first.
+        const existingRoomCode = playerToPrivateDuelRoom.get(userId);
+        if (existingRoomCode) {
+          const existingRoom = privateDuelRooms.get(existingRoomCode);
+          if (existingRoom) {
+            existingRoom.players = existingRoom.players.filter((p) => p.id !== userId);
+            delete existingRoom.scores[userId];
+            socket.leave(existingRoom.socketRoomName);
+            socketToPrivateDuelRoom.delete(socket.id);
+            playerToPrivateDuelRoom.delete(userId);
+            io.to(existingRoom.socketRoomName).emit("duel_private:player_left", {
+              playerId: userId,
+              totalPlayers: existingRoom.players.length,
+              newHostId: privateDuelMaybeTransferHost(existingRoom) ?? undefined,
+            });
+            if (existingRoom.players.length === 0) cleanupPrivateDuelRoom(existingRoomCode);
+          }
+        }
+
+        const rating = isGuest ? 1000 : await getUserRating(userId);
+
+        let roomCode = generateRoomCode(8);
+        while (privateDuelRooms.has(roomCode)) roomCode = generateRoomCode(8);
+
+        const socketRoomName = `duel_private_${roomCode}`;
+        const config: GameConfig = {
+          rounds: 10,
+          timePerRound: 10000,
+          difficulty: "medium",
+          operations: ["+", "-", "×", "÷"],
+        };
+
+        const player: Player = {
+          id: userId,
+          socketId: socket.id,
+          username,
+          rating,
+          isGuest,
+        };
+
+        const room: PrivateDuelRoom = {
+          roomCode,
+          socketRoomName,
+          hostId: userId,
+          players: [player],
+          status: "waiting",
+          countdownValue: 0,
+          config,
+          scores: { [userId]: 0 },
+          currentRound: 0,
+          currentProblem: null,
+          roundStartTime: 0,
+          answers: new Map(),
+          roundTimer: null,
+          countdownTimer: null,
+          disconnectTimeouts: new Map(),
+          disconnectedPlayers: new Set(),
+          createdAt: Date.now(),
+          lastActivityAt: Date.now(),
+          cleanupTimer: null,
+        };
+
+        privateDuelRooms.set(roomCode, room);
+        playerToPrivateDuelRoom.set(userId, roomCode);
+        socketToPrivateDuelRoom.set(socket.id, roomCode);
+
+        socket.join(socketRoomName);
+        socket.emit("duel_private:room_joined", {
+          room: privateDuelSnapshot(room),
+          youAreHost: true,
+          joinUrl: getJoinUrl(roomCode),
+        });
+      });
+    });
+
+    socket.on("duel_private:join_room", (data) => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("duel_private:error", "Too many requests");
+        return;
+      }
+
+      if (isPayloadTooLarge(data, MAX_PAYLOAD_BYTES)) {
+        socket.emit("duel_private:error", "Payload too large");
+        return;
+      }
+
+      const parsed = parseWithSchema(privateRoomCodeSchema, data);
+      if (!parsed.success) {
+        socket.emit("duel_private:error", "Invalid room code");
+        return;
+      }
+
+      const roomCode = parsed.data.roomCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+      void safelyExecute("[PrivateDuel] join_room", async () => {
+        const authResult = await authenticateSocket(
+          socket.handshake.headers.cookie,
+          socket.handshake.auth as { token?: string }
+        );
+
+        if (!authResult) {
+          socket.emit("duel_private:error", "Unauthorized");
+          socket.disconnect(true);
+          return;
+        }
+
+        const { userId, username, isGuest } = authResult;
+        socketToPlayer.set(socket.id, { id: userId, username, isGuest });
+
+        const room = privateDuelRooms.get(roomCode);
+        if (!room) {
+          socket.emit("duel_private:error", "Room not found");
+          return;
+        }
+
+        room.lastActivityAt = Date.now();
+
+        if (room.status !== "waiting" && room.status !== "countdown") {
+          socket.emit("duel_private:error", "Game already started");
+          return;
+        }
+
+        // Rejoin if already in room
+        const existingPlayer = room.players.find((p) => p.id === userId);
+        if (existingPlayer) {
+          const oldSocketId = existingPlayer.socketId;
+          existingPlayer.socketId = socket.id;
+          socket.join(room.socketRoomName);
+          socketToPrivateDuelRoom.set(socket.id, roomCode);
+          playerToPrivateDuelRoom.set(userId, roomCode);
+          if (oldSocketId && oldSocketId !== socket.id) {
+            socketToPrivateDuelRoom.delete(oldSocketId);
+          }
+
+          const pending = room.disconnectTimeouts.get(userId);
+          if (pending) {
+            clearTimeout(pending);
+            room.disconnectTimeouts.delete(userId);
+          }
+          room.disconnectedPlayers.delete(userId);
+
+          socket.emit("duel_private:room_joined", {
+            room: privateDuelSnapshot(room),
+            youAreHost: room.hostId === userId,
+          });
+          return;
+        }
+
+        if (room.players.length >= PRIVATE_DUEL_MAX_PLAYERS) {
+          socket.emit("duel_private:error", "Room is full");
+          return;
+        }
+
+        const rating = isGuest ? 1000 : await getUserRating(userId);
+        const player: Player = {
+          id: userId,
+          socketId: socket.id,
+          username,
+          rating,
+          isGuest,
+        };
+
+        room.players.push(player);
+        room.scores[userId] = room.scores[userId] ?? 0;
+
+        socket.join(room.socketRoomName);
+        socketToPrivateDuelRoom.set(socket.id, roomCode);
+        playerToPrivateDuelRoom.set(userId, roomCode);
+
+        socket.emit("duel_private:room_joined", {
+          room: privateDuelSnapshot(room),
+          youAreHost: false,
+        });
+
+        if (room.status === "countdown" && room.countdownValue > 0) {
+          socket.emit("duel_private:countdown", { seconds: room.countdownValue });
+        }
+
+        socket.to(room.socketRoomName).emit("duel_private:player_joined", {
+          player: { id: player.id, username: player.username, rating: player.rating, avatar: player.avatar, isGuest: player.isGuest },
+          totalPlayers: room.players.length,
+        });
+      });
+    });
+
+    socket.on("duel_private:leave_room", () => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("duel_private:error", "Too many requests");
+        return;
+      }
+
+      void safelyExecute("[PrivateDuel] leave_room", () => {
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+
+        const roomCode = socketToPrivateDuelRoom.get(socket.id) ?? playerToPrivateDuelRoom.get(player.id);
+        if (!roomCode) return;
+
+        const room = privateDuelRooms.get(roomCode);
+        if (!room) return;
+
+        room.players = room.players.filter((p) => p.id !== player.id);
+        delete room.scores[player.id];
+
+        socket.leave(room.socketRoomName);
+        socketToPrivateDuelRoom.delete(socket.id);
+        playerToPrivateDuelRoom.delete(player.id);
+
+        const newHostId = privateDuelMaybeTransferHost(room) ?? undefined;
+        io.to(room.socketRoomName).emit("duel_private:player_left", {
+          playerId: player.id,
+          totalPlayers: room.players.length,
+          newHostId,
+        });
+
+        if (room.players.length === 0) {
+          cleanupPrivateDuelRoom(roomCode);
+        }
+      });
+    });
+
+    socket.on("duel_private:start_game", (data) => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("duel_private:error", "Too many requests");
+        return;
+      }
+
+      // Parse optional rounds parameter
+      let requestedRounds: number | undefined;
+      if (data !== undefined) {
+        if (isPayloadTooLarge(data, MAX_PAYLOAD_BYTES)) {
+          socket.emit("duel_private:error", "Payload too large");
+          return;
+        }
+        const parsed = parseWithSchema(privateStartGameSchema, data);
+        if (!parsed.success) {
+          socket.emit("duel_private:error", "Invalid rounds value");
+          return;
+        }
+        requestedRounds = parsed.data.rounds;
+      }
+
+      void safelyExecute("[PrivateDuel] start_game", () => {
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+
+        const roomCode = socketToPrivateDuelRoom.get(socket.id) ?? playerToPrivateDuelRoom.get(player.id);
+        if (!roomCode) {
+          socket.emit("duel_private:error", "Not in a room");
+          return;
+        }
+
+        const room = privateDuelRooms.get(roomCode);
+        if (!room) return;
+
+        if (room.hostId !== player.id) {
+          socket.emit("duel_private:error", "Only host can start");
+          return;
+        }
+
+        if (room.players.length < 2) {
+          socket.emit("duel_private:error", "Need at least 2 players");
+          return;
+        }
+
+        if (room.status !== "waiting") {
+          socket.emit("duel_private:error", "Game already started");
+          return;
+        }
+
+        // Apply custom rounds if provided (host can set 3-30 rounds)
+        if (requestedRounds !== undefined) {
+          room.config.rounds = requestedRounds;
+        }
+
+        room.status = "countdown";
+        room.countdownValue = 3;
+        room.lastActivityAt = Date.now();
+
+        let countdown = 3;
+        if (room.countdownTimer) clearInterval(room.countdownTimer);
+        room.countdownTimer = setInterval(() => {
+          room.countdownValue = countdown;
+          io.to(room.socketRoomName).emit("duel_private:countdown", { seconds: countdown });
+          countdown--;
+          if (countdown < 0) {
+            if (room.countdownTimer) clearInterval(room.countdownTimer);
+            room.countdownTimer = null;
+            room.countdownValue = 0;
+            if (room.players.length < 2) {
+              room.status = "waiting";
+              io.to(room.socketRoomName).emit("duel_private:error", "Waiting for more players...");
+              return;
+            }
+            privateDuelStartRound(io, room);
+          }
+        }, 1000);
+      });
+    });
+
+    socket.on("duel_private:submit_answer", (data) => {
+      const rate = submitAnswerLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("duel_private:error", "Too many answers, slow down");
+        return;
+      }
+
+      if (isPayloadTooLarge(data, MAX_PAYLOAD_BYTES)) {
+        socket.emit("duel_private:error", "Payload too large");
+        return;
+      }
+
+      const parsed = parseWithSchema(submitAnswerSchema, data);
+      if (!parsed.success) {
+        socket.emit("duel_private:error", "Invalid answer payload");
+        return;
+      }
+
+      void safelyExecute("[PrivateDuel] submit_answer", () => {
+        const roomCode = socketToPrivateDuelRoom.get(socket.id);
+        if (!roomCode) return;
+
+        const room = privateDuelRooms.get(roomCode);
+        if (!room || room.status !== "playing") return;
+
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+
+        if (!room.players.some((p) => p.id === player.id)) return;
+
+        // No duplicate submissions
+        if (room.answers.has(player.id)) return;
+
+        room.answers.set(player.id, { answer: parsed.data.answer, timeMs: parsed.data.timeMs });
+        room.lastActivityAt = Date.now();
+
+        if (room.answers.size >= room.players.length) {
+          void privateDuelEndRound(io, roomCode);
+        }
+      });
+    });
+
+    socket.on("duel_private:restart_room", () => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("duel_private:error", "Too many requests");
+        return;
+      }
+
+      void safelyExecute("[PrivateDuel] restart_room", () => {
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+
+        const roomCode = socketToPrivateDuelRoom.get(socket.id) ?? playerToPrivateDuelRoom.get(player.id);
+        if (!roomCode) {
+          socket.emit("duel_private:error", "Not in a room");
+          return;
+        }
+
+        const room = privateDuelRooms.get(roomCode);
+        if (!room) return;
+
+        if (room.hostId !== player.id) {
+          socket.emit("duel_private:error", "Only host can restart");
+          return;
+        }
+
+        if (room.status !== "game_over") {
+          socket.emit("duel_private:error", "Game is not over yet");
+          return;
+        }
+
+        // Reset room state back to waiting
+        room.status = "waiting";
+        room.countdownValue = 0;
+        room.currentRound = 0;
+        room.currentProblem = null;
+        room.roundStartTime = 0;
+        room.answers.clear();
+        room.config.rounds = 10; // Reset to default, host can change again
+        room.lastActivityAt = Date.now();
+
+        // Reset scores for all players
+        for (const p of room.players) {
+          room.scores[p.id] = 0;
+        }
+
+        // Clear any pending timers
+        if (room.roundTimer) {
+          clearTimeout(room.roundTimer);
+          room.roundTimer = null;
+        }
+        if (room.countdownTimer) {
+          clearInterval(room.countdownTimer);
+          room.countdownTimer = null;
+        }
+        if (room.cleanupTimer) {
+          clearTimeout(room.cleanupTimer);
+          room.cleanupTimer = null;
+        }
+
+        // Notify all players that the room has been restarted
+        io.to(room.socketRoomName).emit("duel_private:room_restarted", {
+          room: privateDuelSnapshot(room),
+        });
+      });
+    });
+
     socket.on("matchmaking:leave", () => {
       const rate = matchmakingLeaveLimiter(socket.id);
       if (!rate.allowed) {
@@ -1048,6 +1800,43 @@ export function setupMultiplayerHandlers(
         // Remove from matchmaking queue
         matchmakingQueue.delete(socket.id);
 
+        // Handle PRIVATE DUEL room disconnects (grace window)
+        const privateRoomCode = socketToPrivateDuelRoom.get(socket.id);
+        const privatePlayer = socketToPlayer.get(socket.id);
+        if (privateRoomCode && privatePlayer) {
+          const room = privateDuelRooms.get(privateRoomCode);
+          if (room) {
+            room.disconnectedPlayers.add(privatePlayer.id);
+            const existingTimeout = room.disconnectTimeouts.get(privatePlayer.id);
+            if (existingTimeout) clearTimeout(existingTimeout);
+
+            const timeout = setTimeout(() => {
+              const current = privateDuelRooms.get(privateRoomCode);
+              if (!current) return;
+              if (!current.disconnectedPlayers.has(privatePlayer.id)) return;
+
+              current.players = current.players.filter((p) => p.id !== privatePlayer.id);
+              delete current.scores[privatePlayer.id];
+              current.disconnectedPlayers.delete(privatePlayer.id);
+              current.disconnectTimeouts.delete(privatePlayer.id);
+              playerToPrivateDuelRoom.delete(privatePlayer.id);
+
+              const newHostId = privateDuelMaybeTransferHost(current) ?? undefined;
+              io.to(current.socketRoomName).emit("duel_private:player_left", {
+                playerId: privatePlayer.id,
+                totalPlayers: current.players.length,
+                newHostId,
+              });
+
+              if (current.players.length === 0) {
+                cleanupPrivateDuelRoom(privateRoomCode);
+              }
+            }, PRIVATE_DUEL_DISCONNECT_GRACE_MS);
+
+            room.disconnectTimeouts.set(privatePlayer.id, timeout);
+          }
+        }
+
         // Handle game disconnection with a short grace period (reconnect protection)
         const roomId = socketToRoom.get(socket.id);
         const player = socketToPlayer.get(socket.id);
@@ -1099,6 +1888,7 @@ export function setupMultiplayerHandlers(
 
         // Clean up mappings
         socketToRoom.delete(socket.id);
+        socketToPrivateDuelRoom.delete(socket.id);
         socketToPlayer.delete(socket.id);
       });
     });
@@ -1118,5 +1908,17 @@ export function setupMultiplayerHandlers(
       }
     }
   }, 1000);
+
+  // Private duel cleanup loop (idle TTL)
+  setInterval(() => {
+    const now = Date.now();
+    for (const [code, room] of privateDuelRooms.entries()) {
+      if (room.status === "playing" || room.status === "countdown") continue;
+      if (now - room.lastActivityAt > PRIVATE_DUEL_IDLE_TTL_MS) {
+        console.log(`[PrivateDuel] Cleaning idle room ${code}`);
+        cleanupPrivateDuelRoom(code);
+      }
+    }
+  }, 60_000);
 }
 

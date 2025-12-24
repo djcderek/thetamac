@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { randomUUID } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { z } from "zod";
 import type {
   RaceClientToServerEvents,
@@ -9,6 +9,7 @@ import type {
   RaceMatchmakingEntry,
   RaceLobby,
   RaceState,
+  RacePrivateRoomSnapshot,
 } from "./types";
 import {
   DEFAULT_RACE_CONFIG,
@@ -84,6 +85,27 @@ const socketToLobby: Map<string, string> = new Map();
 const socketToPlayer: Map<string, { id: string; username: string; isGuest: boolean }> = new Map();
 
 // ============================================
+// PRIVATE RACE ROOMS (LINK LOBBIES)
+// ============================================
+
+type PrivateRaceRoom = {
+  roomCode: string;
+  socketRoomName: string;
+  hostId: string;
+  players: RaceMatchmakingEntry[];
+  config: ReturnType<typeof getPrivateRaceConfig>;
+  createdAt: number;
+  lastActivityAt: number;
+  disconnectTimeouts: Map<string, NodeJS.Timeout>;
+  disconnectedPlayers: Set<string>;
+  cleanupTimer: NodeJS.Timeout | null;
+};
+
+const privateRaceRooms: Map<string, PrivateRaceRoom> = new Map(); // roomCode -> room
+const socketToPrivateRaceRoom: Map<string, string> = new Map(); // socketId -> roomCode
+const playerToPrivateRaceRoom: Map<string, string> = new Map(); // userId -> roomCode
+
+// ============================================
 // GUARDRAILS
 // ============================================
 
@@ -93,6 +115,7 @@ const raceJoinLimiter = createRateLimiter({ limit: 4, windowMs: 10_000 });
 const raceLeaveLimiter = createRateLimiter({ limit: 8, windowMs: 10_000 });
 const raceActionLimiter = createRateLimiter({ limit: 30, windowMs: 5_000 });
 const raceForfeitLimiter = createRateLimiter({ limit: 3, windowMs: 15_000 });
+const privateRoomLimiter = createRateLimiter({ limit: 10, windowMs: 10_000 });
 
 const cosmeticsSchema = z.object({
   equippedSkin: z.string().max(64).nullable(),
@@ -106,6 +129,11 @@ const raceJoinQueueSchema = z
     cosmetics: cosmeticsSchema.optional(),
   })
   .default({});
+
+const racePrivateJoinSchema = z.object({
+  roomCode: z.string().trim().min(4).max(16),
+  cosmetics: cosmeticsSchema.optional(),
+});
 
 const raceSubmitSchema = z.object({
   action: z.enum(["forward", "left", "right", "boost"]),
@@ -125,6 +153,10 @@ const DISCONNECT_GRACE_PERIOD_MS = 15000; // 15 seconds to reconnect
 const LOBBY_DISCONNECT_GRACE_PERIOD_MS = 10000; // Grace before removing from lobby on disconnect
 const BOT_FALLBACK_DELAY_MS = 10_000;
 
+const PRIVATE_RACE_MAX_PLAYERS = 8;
+const PRIVATE_RACE_IDLE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const PRIVATE_RACE_LOBBY_DISCONNECT_GRACE_MS = 10_000;
+
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -140,6 +172,83 @@ async function getUserRating(userId: string): Promise<number> {
     console.error(`[Race] Failed to fetch rating for user ${userId}:`, error);
     return 1000;
   }
+}
+
+function generateRoomCode(length = 8) {
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(length);
+  let out = "";
+  for (let i = 0; i < length; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
+}
+
+function getPrivateRaceConfig() {
+  return {
+    ...DEFAULT_RACE_CONFIG,
+    maxPlayers: PRIVATE_RACE_MAX_PLAYERS,
+    laneCount: PRIVATE_RACE_MAX_PLAYERS,
+  };
+}
+
+function getPrivateRaceJoinUrl(roomCode: string) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  const origin = (() => {
+    try {
+      return new URL(appUrl).origin;
+    } catch {
+      return "";
+    }
+  })();
+  return origin ? `${origin}/multiplayer/private/race/${roomCode}` : `/multiplayer/private/race/${roomCode}`;
+}
+
+function privateRaceSnapshot(room: PrivateRaceRoom): RacePrivateRoomSnapshot {
+  return {
+    roomCode: room.roomCode,
+    hostId: room.hostId,
+    maxPlayers: PRIVATE_RACE_MAX_PLAYERS,
+    players: room.players.map((p) => ({
+      id: p.playerId,
+      username: p.username,
+      rating: p.rating,
+      cosmetics: p.cosmetics,
+    })),
+    config: room.config,
+  };
+}
+
+function clearPrivateRaceTimers(room: PrivateRaceRoom) {
+  if (room.cleanupTimer) clearTimeout(room.cleanupTimer);
+  room.cleanupTimer = null;
+  for (const t of room.disconnectTimeouts.values()) clearTimeout(t);
+  room.disconnectTimeouts.clear();
+  room.disconnectedPlayers.clear();
+}
+
+function cleanupPrivateRaceRoom(roomCode: string) {
+  const room = privateRaceRooms.get(roomCode);
+  if (!room) return;
+  clearPrivateRaceTimers(room);
+  for (const p of room.players) {
+    playerToPrivateRaceRoom.delete(p.playerId);
+    socketToPrivateRaceRoom.delete(p.socketId);
+  }
+  privateRaceRooms.delete(roomCode);
+}
+
+function schedulePrivateRaceCleanup(room: PrivateRaceRoom, delayMs: number) {
+  if (room.cleanupTimer) clearTimeout(room.cleanupTimer);
+  room.cleanupTimer = setTimeout(() => cleanupPrivateRaceRoom(room.roomCode), delayMs);
+}
+
+function maybeTransferPrivateRaceHost(room: PrivateRaceRoom): string | null {
+  if (room.players.some((p) => p.playerId === room.hostId)) return null;
+  const next = room.players[0]?.playerId ?? null;
+  if (next) {
+    room.hostId = next;
+    return next;
+  }
+  return null;
 }
 
 function isBotEntry(entry: RaceMatchmakingEntry) {
@@ -507,6 +616,82 @@ async function startRace(io: RaceServer, lobby: RaceLobby) {
   startRaceCountdown(io, raceId);
 }
 
+async function startPrivateRace(io: RaceServer, room: PrivateRaceRoom) {
+  const raceId = `race_${randomUUID()}`;
+
+  const entries: RaceMatchmakingEntry[] = room.players;
+  const isRated = false; // private rooms are unrated by default
+
+  const state = createRaceState(raceId, entries, room.config);
+
+  // Apply cosmetics from entry
+  state.players.forEach((p) => {
+    const entry = entries.find((e) => e.playerId === p.id);
+    if (entry?.cosmetics) {
+      p.selectedSkin = entry.cosmetics.equippedSkin || undefined;
+      p.selectedTrail = entry.cosmetics.equippedTrail || undefined;
+      p.selectedVehicle = entry.cosmetics.equippedVehicle || undefined;
+      p.selectedWheel = entry.cosmetics.equippedWheel || undefined;
+    }
+  });
+
+  // Move sockets from private lobby to race room
+  for (const entry of entries) {
+    const socket = io.sockets.sockets.get(entry.socketId);
+    if (socket) {
+      socket.leave(room.socketRoomName);
+      socket.join(raceId);
+      socketToRace.set(entry.socketId, raceId);
+      socketToPrivateRaceRoom.delete(entry.socketId);
+    }
+    playerToPrivateRaceRoom.delete(entry.playerId);
+  }
+
+  // Remove private room
+  clearPrivateRaceTimers(room);
+  privateRaceRooms.delete(room.roomCode);
+
+  // Store race (unrated)
+  const botPlayerId = state.players.find((p) => p.id.startsWith("bot_"))?.id ?? null;
+  activeRaces.set(raceId, {
+    state,
+    gameLoop: null,
+    countdownTimer: null,
+    botLoop: null,
+    botPlayerId,
+    dbRaceId: null,
+    isRated,
+    disconnectTimeouts: new Map(),
+  });
+
+  // Send start event to all players with their specific problems
+  for (const player of state.players) {
+    const socket = io.sockets.sockets.get(player.socketId);
+    if (socket) {
+      socket.emit("race:start", {
+        raceId,
+        players: state.players.map((p) => ({
+          id: p.id,
+          username: p.username,
+          rating: p.rating,
+          lane: p.lane,
+          position: p.position,
+          selectedSkin: p.selectedSkin,
+          selectedTrail: p.selectedTrail,
+          selectedVehicle: p.selectedVehicle,
+          selectedWheel: p.selectedWheel,
+        })),
+        config: state.config,
+        yourProblems: player.problems,
+        obstacles: state.obstacles,
+        drops: state.drops,
+      });
+    }
+  }
+
+  startRaceCountdown(io, raceId);
+}
+
 function startRaceCountdown(io: RaceServer, raceId: string) {
   const race = activeRaces.get(raceId);
   if (!race) return;
@@ -599,7 +784,7 @@ function startBotDriverLoop(io: RaceServer, raceId: string, botPlayerId: string)
             answer: bot.problems.left.answer,
           });
         }
-        if (bot.lane < 5 && bot.problems.right) {
+        if (bot.lane < race.state.config.laneCount && bot.problems.right) {
           candidateActions.push({
             action: "right",
             targetLane: bot.lane + 1,
@@ -1235,6 +1420,320 @@ export function setupRacingHandlers(io: RaceServer) {
         }
       });
     });
+
+    // ========================================
+    // PRIVATE ROOM HANDLERS
+    // ========================================
+
+    socket.on("race_private:create_room", (data) => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("race_private:error", "Too many requests");
+        return;
+      }
+
+      if (isPayloadTooLarge(data, MAX_PAYLOAD_BYTES)) {
+        socket.emit("race_private:error", "Payload too large");
+        return;
+      }
+
+      const parsed = parseWithSchema(raceJoinQueueSchema, data ?? {});
+      if (!parsed.success) {
+        socket.emit("race_private:error", "Invalid payload");
+        return;
+      }
+
+      const cosmetics = parsed.data.cosmetics;
+
+      void safelyExecute("[Race][Private] create_room", async () => {
+        const authResult = await authenticateSocket(
+          socket.handshake.headers.cookie,
+          socket.handshake.auth as { token?: string }
+        );
+
+        if (!authResult) {
+          socket.emit("race_private:error", "Unauthorized");
+          socket.disconnect(true);
+          return;
+        }
+
+        const { userId, username, isGuest } = authResult;
+        socketToPlayer.set(socket.id, { id: userId, username, isGuest });
+
+        // If already in a private room, leave it first.
+        const existingRoomCode = playerToPrivateRaceRoom.get(userId);
+        if (existingRoomCode) {
+          const existing = privateRaceRooms.get(existingRoomCode);
+          if (existing) {
+            existing.players = existing.players.filter((p) => p.playerId !== userId);
+            socket.leave(existing.socketRoomName);
+            socketToPrivateRaceRoom.delete(socket.id);
+            playerToPrivateRaceRoom.delete(userId);
+            io.to(existing.socketRoomName).emit("race_private:player_left", {
+              playerId: userId,
+              totalPlayers: existing.players.length,
+              newHostId: maybeTransferPrivateRaceHost(existing) ?? undefined,
+            });
+            if (existing.players.length === 0) cleanupPrivateRaceRoom(existingRoomCode);
+          }
+        }
+
+        const rating = isGuest ? 1000 : await getUserRating(userId);
+        let roomCode = generateRoomCode(8);
+        while (privateRaceRooms.has(roomCode)) roomCode = generateRoomCode(8);
+
+        const socketRoomName = `race_private_${roomCode}`;
+
+        const entry: RaceMatchmakingEntry = {
+          socketId: socket.id,
+          playerId: userId,
+          username,
+          rating,
+          isGuest,
+          joinedAt: Date.now(),
+          cosmetics,
+        };
+
+        const room: PrivateRaceRoom = {
+          roomCode,
+          socketRoomName,
+          hostId: userId,
+          players: [entry],
+          config: getPrivateRaceConfig(),
+          createdAt: Date.now(),
+          lastActivityAt: Date.now(),
+          disconnectTimeouts: new Map(),
+          disconnectedPlayers: new Set(),
+          cleanupTimer: null,
+        };
+
+        privateRaceRooms.set(roomCode, room);
+        socketToPrivateRaceRoom.set(socket.id, roomCode);
+        playerToPrivateRaceRoom.set(userId, roomCode);
+
+        socket.join(socketRoomName);
+        socket.emit("race_private:room_joined", {
+          room: privateRaceSnapshot(room),
+          youAreHost: true,
+          joinUrl: getPrivateRaceJoinUrl(roomCode),
+        });
+      });
+    });
+
+    socket.on("race_private:join_room", (data) => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("race_private:error", "Too many requests");
+        return;
+      }
+
+      if (isPayloadTooLarge(data, MAX_PAYLOAD_BYTES)) {
+        socket.emit("race_private:error", "Payload too large");
+        return;
+      }
+
+      const parsed = parseWithSchema(racePrivateJoinSchema, data);
+      if (!parsed.success) {
+        socket.emit("race_private:error", "Invalid join payload");
+        return;
+      }
+
+      const roomCode = parsed.data.roomCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const cosmetics = parsed.data.cosmetics;
+
+      void safelyExecute("[Race][Private] join_room", async () => {
+        const authResult = await authenticateSocket(
+          socket.handshake.headers.cookie,
+          socket.handshake.auth as { token?: string }
+        );
+
+        if (!authResult) {
+          socket.emit("race_private:error", "Unauthorized");
+          socket.disconnect(true);
+          return;
+        }
+
+        const { userId, username, isGuest } = authResult;
+        socketToPlayer.set(socket.id, { id: userId, username, isGuest });
+
+        // 1) If user is mid-race, rejoin the race (works for private + public).
+        for (const [raceId, race] of activeRaces) {
+          const playerIndex = race.state.players.findIndex((p) => p.id === userId);
+          const player = playerIndex !== -1 ? race.state.players[playerIndex] : null;
+          if (player && race.state.status !== "finished" && player.finishPosition === null) {
+            console.log(`[Race][Private] Player ${username} rejoining active race ${raceId}`);
+            const pending = race.disconnectTimeouts.get(userId);
+            if (pending) {
+              clearTimeout(pending);
+              race.disconnectTimeouts.delete(userId);
+            }
+            player.socketId = socket.id;
+            socketToRace.set(socket.id, raceId);
+            socket.join(raceId);
+
+            socket.emit("race:start", {
+              raceId,
+              players: race.state.players.map((p) => ({
+                id: p.id,
+                username: p.username,
+                rating: p.rating,
+                lane: p.lane,
+                position: p.position,
+                selectedSkin: p.selectedSkin,
+                selectedTrail: p.selectedTrail,
+                selectedVehicle: p.selectedVehicle,
+                selectedWheel: p.selectedWheel,
+              })),
+              config: race.state.config,
+              yourProblems: player.problems,
+              obstacles: race.state.obstacles,
+              drops: race.state.drops,
+            });
+
+            socket.emit("race:state_update", {
+              players: getRaceSnapshot(race.state),
+            });
+
+            return;
+          }
+        }
+
+        const room = privateRaceRooms.get(roomCode);
+        if (!room) {
+          socket.emit("race_private:error", "Room not found");
+          return;
+        }
+
+        room.lastActivityAt = Date.now();
+
+        // Rejoin if already in room
+        const existing = room.players.find((p) => p.playerId === userId);
+        if (existing) {
+          const oldSocketId = existing.socketId;
+          existing.socketId = socket.id;
+          existing.cosmetics = cosmetics ?? existing.cosmetics;
+          socket.join(room.socketRoomName);
+          socketToPrivateRaceRoom.set(socket.id, roomCode);
+          playerToPrivateRaceRoom.set(userId, roomCode);
+          if (oldSocketId && oldSocketId !== socket.id) socketToPrivateRaceRoom.delete(oldSocketId);
+
+          const pending = room.disconnectTimeouts.get(userId);
+          if (pending) {
+            clearTimeout(pending);
+            room.disconnectTimeouts.delete(userId);
+          }
+          room.disconnectedPlayers.delete(userId);
+
+          socket.emit("race_private:room_joined", {
+            room: privateRaceSnapshot(room),
+            youAreHost: room.hostId === userId,
+          });
+          return;
+        }
+
+        if (room.players.length >= PRIVATE_RACE_MAX_PLAYERS) {
+          socket.emit("race_private:error", "Room is full");
+          return;
+        }
+
+        const rating = isGuest ? 1000 : await getUserRating(userId);
+        const entry: RaceMatchmakingEntry = {
+          socketId: socket.id,
+          playerId: userId,
+          username,
+          rating,
+          isGuest,
+          joinedAt: Date.now(),
+          cosmetics,
+        };
+
+        room.players.push(entry);
+        socket.join(room.socketRoomName);
+        socketToPrivateRaceRoom.set(socket.id, roomCode);
+        playerToPrivateRaceRoom.set(userId, roomCode);
+
+        socket.emit("race_private:room_joined", {
+          room: privateRaceSnapshot(room),
+          youAreHost: false,
+        });
+
+        socket.to(room.socketRoomName).emit("race_private:player_joined", {
+          player: { id: entry.playerId, username: entry.username, rating: entry.rating, cosmetics: entry.cosmetics },
+          totalPlayers: room.players.length,
+        });
+      });
+    });
+
+    socket.on("race_private:leave_room", () => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("race_private:error", "Too many requests");
+        return;
+      }
+
+      void safelyExecute("[Race][Private] leave_room", () => {
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+
+        const roomCode = socketToPrivateRaceRoom.get(socket.id) ?? playerToPrivateRaceRoom.get(player.id);
+        if (!roomCode) return;
+
+        const room = privateRaceRooms.get(roomCode);
+        if (!room) return;
+
+        room.players = room.players.filter((p) => p.playerId !== player.id);
+        socket.leave(room.socketRoomName);
+        socketToPrivateRaceRoom.delete(socket.id);
+        playerToPrivateRaceRoom.delete(player.id);
+
+        const newHostId = maybeTransferPrivateRaceHost(room) ?? undefined;
+        io.to(room.socketRoomName).emit("race_private:player_left", {
+          playerId: player.id,
+          totalPlayers: room.players.length,
+          newHostId,
+        });
+
+        if (room.players.length === 0) {
+          cleanupPrivateRaceRoom(roomCode);
+        }
+      });
+    });
+
+    socket.on("race_private:start_race", () => {
+      const rate = privateRoomLimiter(socket.id);
+      if (!rate.allowed) {
+        socket.emit("race_private:error", "Too many requests");
+        return;
+      }
+
+      void safelyExecute("[Race][Private] start_race", async () => {
+        const player = socketToPlayer.get(socket.id);
+        if (!player) return;
+
+        const roomCode = socketToPrivateRaceRoom.get(socket.id) ?? playerToPrivateRaceRoom.get(player.id);
+        if (!roomCode) {
+          socket.emit("race_private:error", "Not in a room");
+          return;
+        }
+
+        const room = privateRaceRooms.get(roomCode);
+        if (!room) return;
+
+        if (room.hostId !== player.id) {
+          socket.emit("race_private:error", "Only host can start");
+          return;
+        }
+
+        if (room.players.length < 2) {
+          socket.emit("race_private:error", "Need at least 2 players");
+          return;
+        }
+
+        room.lastActivityAt = Date.now();
+
+        await startPrivateRace(io, room);
+      });
+    });
     
     // ========================================
     // GAME ACTION HANDLERS
@@ -1552,6 +2051,40 @@ export function setupRacingHandlers(io: RaceServer) {
         
         // Remove from queue
         raceQueue.delete(socket.id);
+
+        // Handle PRIVATE lobby disconnect (grace window)
+        const privateRoomCode = socketToPrivateRaceRoom.get(socket.id);
+        const privatePlayer = socketToPlayer.get(socket.id);
+        if (privateRoomCode && privatePlayer) {
+          const room = privateRaceRooms.get(privateRoomCode);
+          if (room) {
+            room.disconnectedPlayers.add(privatePlayer.id);
+            const existingTimeout = room.disconnectTimeouts.get(privatePlayer.id);
+            if (existingTimeout) clearTimeout(existingTimeout);
+
+            const timeout = setTimeout(() => {
+              const current = privateRaceRooms.get(privateRoomCode);
+              if (!current) return;
+              if (!current.disconnectedPlayers.has(privatePlayer.id)) return;
+
+              current.players = current.players.filter((p) => p.playerId !== privatePlayer.id);
+              current.disconnectedPlayers.delete(privatePlayer.id);
+              current.disconnectTimeouts.delete(privatePlayer.id);
+              playerToPrivateRaceRoom.delete(privatePlayer.id);
+
+              const newHostId = maybeTransferPrivateRaceHost(current) ?? undefined;
+              io.to(current.socketRoomName).emit("race_private:player_left", {
+                playerId: privatePlayer.id,
+                totalPlayers: current.players.length,
+                newHostId,
+              });
+
+              if (current.players.length === 0) cleanupPrivateRaceRoom(privateRoomCode);
+            }, PRIVATE_RACE_LOBBY_DISCONNECT_GRACE_MS);
+
+            room.disconnectTimeouts.set(privatePlayer.id, timeout);
+          }
+        }
         
         // Handle lobby disconnect
         const lobbyId = socketToLobby.get(socket.id);
@@ -1637,6 +2170,7 @@ export function setupRacingHandlers(io: RaceServer) {
         }
         
         // Clean up player mapping
+        socketToPrivateRaceRoom.delete(socket.id);
         socketToPlayer.delete(socket.id);
       });
     });
@@ -1658,4 +2192,15 @@ export function setupRacingHandlers(io: RaceServer) {
       }
     }
   }, 2000);
+
+  // Private room cleanup loop (idle TTL)
+  setInterval(() => {
+    const now = Date.now();
+    for (const [code, room] of privateRaceRooms.entries()) {
+      if (now - room.lastActivityAt > PRIVATE_RACE_IDLE_TTL_MS) {
+        console.log(`[Race][Private] Cleaning idle room ${code}`);
+        cleanupPrivateRaceRoom(code);
+      }
+    }
+  }, 60_000);
 }

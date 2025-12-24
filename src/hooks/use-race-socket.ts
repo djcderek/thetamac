@@ -12,6 +12,7 @@ import type {
   TrackObstacle,
   TrackDrop,
   UserCosmetics,
+  RacePrivateRoomSnapshot,
 } from "@/lib/racing/types";
 
 type TypedSocket = Socket<RaceServerToClientEvents, RaceClientToServerEvents>;
@@ -37,6 +38,14 @@ interface LobbyState {
   }>;
   config: RaceConfig | null;
   startingIn: number | null;
+}
+
+interface PrivateRoomState {
+  inRoom: boolean;
+  room: RacePrivateRoomSnapshot | null;
+  youAreHost: boolean;
+  joinUrl: string | null;
+  error: string | null;
 }
 
 interface RacePlayerState {
@@ -116,9 +125,11 @@ export function useRaceSocket() {
   const socketRef = useRef<TypedSocket | null>(null);
   const myPlayerIdRef = useRef<string | null>(null);
   const shouldAutoRejoinRef = useRef(false);
+  const shouldAutoRejoinPrivateRef = useRef(false);
   const reconnectResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cachedCosmeticsRef = useRef<UserCosmetics | undefined>(undefined);
   const cosmeticsFetchedRef = useRef(false);
+  const privateRoomCodeRef = useRef<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [identity, setIdentity] = useState<PlayerIdentity | null>(null);
@@ -135,6 +146,14 @@ export function useRaceSocket() {
     players: [],
     config: null,
     startingIn: null,
+  });
+
+  const [privateRoom, setPrivateRoom] = useState<PrivateRoomState>({
+    inRoom: false,
+    room: null,
+    youAreHost: false,
+    joinUrl: null,
+    error: null,
   });
   
   const [race, setRace] = useState<RaceState>({
@@ -182,6 +201,10 @@ export function useRaceSocket() {
       lobby.inLobby ||
       (race.inRace && race.status !== "finished");
   }, [queue.inQueue, lobby.inLobby, race.inRace, race.status]);
+
+  useEffect(() => {
+    shouldAutoRejoinPrivateRef.current = privateRoom.inRoom;
+  }, [privateRoom.inRoom]);
 
   // Reset cached cosmetics when the signed-in user changes
   useEffect(() => {
@@ -278,6 +301,15 @@ export function useRaceSocket() {
       config: null,
       startingIn: null,
     });
+    setPrivateRoom({
+      inRoom: false,
+      room: null,
+      youAreHost: false,
+      joinUrl: null,
+      error: null,
+    });
+    privateRoomCodeRef.current = null;
+    shouldAutoRejoinPrivateRef.current = false;
     setRace({
       inRace: false,
       raceId: null,
@@ -308,10 +340,31 @@ export function useRaceSocket() {
     return true;
   }, [fetchCosmetics]);
 
+  const emitCreatePrivateRoom = useCallback(async () => {
+    if (!socketRef.current) return false;
+    const cosmetics = await fetchCosmetics();
+    socketRef.current.emit("race_private:create_room", cosmetics ? { cosmetics } : {});
+    return true;
+  }, [fetchCosmetics]);
+
+  const emitJoinPrivateRoom = useCallback(async (roomCode: string) => {
+    if (!socketRef.current) return false;
+    const cosmetics = await fetchCosmetics();
+    socketRef.current.emit("race_private:join_room", { roomCode, ...(cosmetics ? { cosmetics } : {}) });
+    return true;
+  }, [fetchCosmetics]);
+
   const attemptAutoRejoin = useCallback(async () => {
-    if (!shouldAutoRejoinRef.current || !socketRef.current || !myPlayerIdRef.current) return;
+    if (!socketRef.current) return;
+
+    if (shouldAutoRejoinPrivateRef.current && privateRoomCodeRef.current) {
+      await emitJoinPrivateRoom(privateRoomCodeRef.current);
+      return;
+    }
+
+    if (!shouldAutoRejoinRef.current || !myPlayerIdRef.current) return;
     await emitJoinQueue({ skipStateUpdate: true });
-  }, [emitJoinQueue]);
+  }, [emitJoinPrivateRoom, emitJoinQueue]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -418,7 +471,7 @@ export function useRaceSocket() {
         console.log("[Race] Socket disconnected:", reason);
         setIsConnected(false);
         
-        if (!shouldAutoRejoinRef.current) {
+        if (!shouldAutoRejoinRef.current && !shouldAutoRejoinPrivateRef.current) {
           resetAllState();
           return;
         }
@@ -468,6 +521,58 @@ export function useRaceSocket() {
       setLobby(prev => ({ ...prev, startingIn: secondsUntilStart }));
     });
 
+    // Private room events
+    socket.on("race_private:room_joined", ({ room, youAreHost, joinUrl }) => {
+      // Ensure we are not showing public queue/lobby UI
+      setQueue({ inQueue: false, playersInQueue: 0, estimatedWait: 0 });
+      setLobby({
+        inLobby: false,
+        lobbyId: null,
+        players: [],
+        config: null,
+        startingIn: null,
+      });
+      privateRoomCodeRef.current = room.roomCode;
+      setPrivateRoom({
+        inRoom: true,
+        room,
+        youAreHost,
+        joinUrl: joinUrl ?? null,
+        error: null,
+      });
+    });
+
+    socket.on("race_private:player_joined", ({ player }) => {
+      setPrivateRoom((prev) => {
+        if (!prev.room) return prev;
+        return {
+          ...prev,
+          room: { ...prev.room, players: [...prev.room.players, player] },
+        };
+      });
+    });
+
+    socket.on("race_private:player_left", ({ playerId, newHostId }) => {
+      setPrivateRoom((prev) => {
+        if (!prev.room) return prev;
+        const nextHostId = newHostId ?? prev.room.hostId;
+        return {
+          ...prev,
+          youAreHost: nextHostId === myPlayerIdRef.current,
+          room: {
+            ...prev.room,
+            hostId: nextHostId,
+            players: prev.room.players.filter((p) => p.id !== playerId),
+          },
+        };
+      });
+    });
+
+    socket.on("race_private:error", (errorMsg) => {
+      setPrivateRoom((prev) => ({ ...prev, error: errorMsg }));
+      setTimeout(() => setPrivateRoom((prev) => ({ ...prev, error: null })), 5000);
+    });
+
     // Race events
     socket.on("race:countdown", ({ seconds }) => {
       setRace(prev => ({ ...prev, status: "countdown", countdown: seconds }));
@@ -482,6 +587,13 @@ export function useRaceSocket() {
         players: [],
         config: null,
         startingIn: null,
+      });
+      setPrivateRoom({
+        inRoom: false,
+        room: null,
+        youAreHost: false,
+        joinUrl: null,
+        error: null,
       });
       setRace({
         inRace: true,
@@ -724,6 +836,45 @@ export function useRaceSocket() {
     }
   }, []);
 
+  const createPrivateRoom = useCallback(async (userId: string) => {
+    if (!socketRef.current) return;
+    myPlayerIdRef.current = userId;
+    setMyPlayerId(userId);
+    shouldAutoRejoinPrivateRef.current = true;
+    await emitCreatePrivateRoom();
+  }, [emitCreatePrivateRoom]);
+
+  const joinPrivateRoom = useCallback(async (userId: string, roomCode: string) => {
+    if (!socketRef.current) return;
+    const cleaned = roomCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!cleaned) return;
+    myPlayerIdRef.current = userId;
+    setMyPlayerId(userId);
+    shouldAutoRejoinPrivateRef.current = true;
+    privateRoomCodeRef.current = cleaned;
+    await emitJoinPrivateRoom(cleaned);
+  }, [emitJoinPrivateRoom]);
+
+  const leavePrivateRoom = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.emit("race_private:leave_room");
+    }
+    shouldAutoRejoinPrivateRef.current = false;
+    privateRoomCodeRef.current = null;
+    setPrivateRoom({
+      inRoom: false,
+      room: null,
+      youAreHost: false,
+      joinUrl: null,
+      error: null,
+    });
+  }, []);
+
+  const startPrivateRace = useCallback(() => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("race_private:start_race");
+  }, []);
+
   const submitAnswer = useCallback((
     action: ActionType,
     answer: number,
@@ -780,6 +931,7 @@ export function useRaceSocket() {
     // State
     queue,
     lobby,
+    privateRoom,
     race,
     result,
     feedback,
@@ -793,6 +945,10 @@ export function useRaceSocket() {
     // Actions
     joinQueue,
     leaveQueue,
+    createPrivateRoom,
+    joinPrivateRoom,
+    leavePrivateRoom,
+    startPrivateRace,
     submitAnswer,
     forfeit,
     leaveRace,

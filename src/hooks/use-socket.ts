@@ -7,6 +7,9 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
   Problem,
+  PrivateDuelPlayerRoundResult,
+  PrivateDuelRoomSnapshot,
+  PrivateDuelRoomStatus,
 } from "@/lib/multiplayer/types";
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -37,6 +40,26 @@ interface GameplayState {
   opponentAnswered: boolean;
 }
 
+interface PrivateDuelState {
+  inRoom: boolean;
+  room: PrivateDuelRoomSnapshot | null;
+  youAreHost: boolean;
+  joinUrl: string | null;
+  countdown: number;
+  currentRound: number;
+  totalRounds: number;
+  problem: Problem | null;
+  scores: Record<string, number>;
+  lastCorrectAnswer: number | null;
+  roundResults: PrivateDuelPlayerRoundResult[] | null;
+  gameOver: {
+    winnerId: string | null;
+    finalScores: Record<string, number>;
+    leaderboard: Array<{ playerId: string; username: string; score: number }>;
+  } | null;
+  error: string | null;
+}
+
 type PlayerIdentity = {
   id: string;
   username: string;
@@ -49,7 +72,10 @@ export function useSocket() {
   const lastUserIdRef = useRef<string | null>(null);
   // If we were mid-search or mid-game when the socket dropped, auto rejoin on reconnect.
   const resumeOnReconnectRef = useRef<boolean>(false);
+  const resumePrivateDuelOnReconnectRef = useRef<boolean>(false);
+  const privateDuelRoomCodeRef = useRef<string | null>(null);
   const lastAutoJoinAtRef = useRef<number>(0);
+  const lastPrivateAutoJoinAtRef = useRef<number>(0);
   const [isConnected, setIsConnected] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
@@ -70,6 +96,22 @@ export function useSocket() {
     roundResult: null,
     gameResult: null,
     opponentAnswered: false,
+  });
+
+  const [privateDuel, setPrivateDuel] = useState<PrivateDuelState>({
+    inRoom: false,
+    room: null,
+    youAreHost: false,
+    joinUrl: null,
+    countdown: 0,
+    currentRound: 0,
+    totalRounds: 10,
+    problem: null,
+    scores: {},
+    lastCorrectAnswer: null,
+    roundResults: null,
+    gameOver: null,
+    error: null,
   });
 
   // Initialize socket connection
@@ -184,6 +226,15 @@ export function useSocket() {
             socket?.emit("matchmaking:join");
           }
         }
+
+        // If we were in a private duel room, try to rejoin automatically.
+        if (resumePrivateDuelOnReconnectRef.current && privateDuelRoomCodeRef.current) {
+          const now = Date.now();
+          if (now - lastPrivateAutoJoinAtRef.current > 2500) {
+            lastPrivateAutoJoinAtRef.current = now;
+            socket?.emit("duel_private:join_room", { roomCode: privateDuelRoomCodeRef.current });
+          }
+        }
       });
 
       socket.on("connect_error", (err) => {
@@ -209,6 +260,22 @@ export function useSocket() {
           gameResult: null,
           opponentAnswered: false,
         });
+        setPrivateDuel((prev) => ({
+          ...prev,
+          // keep joinUrl/roomCode in refs for reconnect; clear volatile UI state
+          inRoom: false,
+          room: null,
+          youAreHost: false,
+          countdown: 0,
+          currentRound: 0,
+          totalRounds: 10,
+          problem: null,
+          scores: {},
+          lastCorrectAnswer: null,
+          roundResults: null,
+          gameOver: null,
+          error: null,
+        }));
       });
 
       // Online count
@@ -356,6 +423,122 @@ export function useSocket() {
           },
         }));
       });
+
+      // ==========================================
+      // PRIVATE DUEL EVENTS
+      // ==========================================
+
+      socket.on("duel_private:room_joined", ({ room, youAreHost, joinUrl }) => {
+        resumePrivateDuelOnReconnectRef.current = true;
+        privateDuelRoomCodeRef.current = room.roomCode;
+        setPrivateDuel((prev) => ({
+          ...prev,
+          inRoom: true,
+          room,
+          youAreHost,
+          joinUrl: joinUrl ?? prev.joinUrl,
+          countdown: 0,
+          currentRound: 0,
+          totalRounds: room.totalRounds,
+          problem: null,
+          scores: {},
+          lastCorrectAnswer: null,
+          roundResults: null,
+          gameOver: null,
+          error: null,
+        }));
+      });
+
+      socket.on("duel_private:player_joined", ({ player, totalPlayers }) => {
+        setPrivateDuel((prev) => {
+          const room = prev.room;
+          if (!room) return prev;
+          return {
+            ...prev,
+            room: {
+              ...room,
+              players: [...room.players, player],
+            },
+          };
+        });
+      });
+
+      socket.on("duel_private:player_left", ({ playerId, totalPlayers, newHostId }) => {
+        setPrivateDuel((prev) => {
+          const room = prev.room;
+          if (!room) return prev;
+          const nextPlayers = room.players.filter((p) => p.id !== playerId);
+          const nextHostId = newHostId ?? room.hostId;
+          return {
+            ...prev,
+            youAreHost: prev.youAreHost ? true : nextHostId === (session?.user?.id ?? identity?.id ?? ""),
+            room: {
+              ...room,
+              hostId: nextHostId,
+              players: nextPlayers,
+            },
+          };
+        });
+      });
+
+      socket.on("duel_private:countdown", ({ seconds }) => {
+        setPrivateDuel((prev) => ({ ...prev, countdown: seconds }));
+      });
+
+      socket.on("duel_private:new_round", ({ round, totalRounds, problem }) => {
+        setPrivateDuel((prev) => ({
+          ...prev,
+          currentRound: round,
+          totalRounds,
+          problem,
+          lastCorrectAnswer: null,
+          roundResults: null,
+          gameOver: null,
+        }));
+      });
+
+      socket.on("duel_private:round_result", ({ round, correctAnswer, results, scores }) => {
+        setPrivateDuel((prev) => ({
+          ...prev,
+          currentRound: round,
+          scores,
+          lastCorrectAnswer: correctAnswer,
+          roundResults: results,
+        }));
+      });
+
+      socket.on("duel_private:game_over", (data) => {
+        resumePrivateDuelOnReconnectRef.current = false;
+        setPrivateDuel((prev) => ({
+          ...prev,
+          gameOver: data,
+        }));
+      });
+
+      socket.on("duel_private:room_restarted", ({ room }) => {
+        resumePrivateDuelOnReconnectRef.current = true;
+        privateDuelRoomCodeRef.current = room.roomCode;
+        setPrivateDuel({
+          inRoom: true,
+          room,
+          youAreHost: room.hostId === (session?.user?.id ?? identity?.id ?? ""),
+          joinUrl: null,
+          countdown: 0,
+          currentRound: 0,
+          totalRounds: room.totalRounds,
+          problem: null,
+          scores: {},
+          lastCorrectAnswer: null,
+          roundResults: null,
+          gameOver: null,
+          error: null,
+        });
+      });
+
+      socket.on("duel_private:error", (error) => {
+        setPrivateDuel((prev) => ({ ...prev, error }));
+        setTimeout(() => setPrivateDuel((prev) => ({ ...prev, error: null })), 5000);
+      });
     }
 
     void initSocket();
@@ -433,6 +616,66 @@ export function useSocket() {
     });
   }, []);
 
+  // ============================================
+  // PRIVATE DUEL ACTIONS
+  // ============================================
+
+  const createPrivateDuelRoom = useCallback(() => {
+    if (!socketRef.current) return;
+    resumePrivateDuelOnReconnectRef.current = true;
+    socketRef.current.emit("duel_private:create_room");
+  }, []);
+
+  const joinPrivateDuelRoom = useCallback((roomCode: string) => {
+    if (!socketRef.current) return;
+    const cleaned = roomCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!cleaned) return;
+    resumePrivateDuelOnReconnectRef.current = true;
+    privateDuelRoomCodeRef.current = cleaned;
+    socketRef.current.emit("duel_private:join_room", { roomCode: cleaned });
+  }, []);
+
+  const leavePrivateDuelRoom = useCallback(() => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("duel_private:leave_room");
+    resumePrivateDuelOnReconnectRef.current = false;
+    privateDuelRoomCodeRef.current = null;
+    setPrivateDuel({
+      inRoom: false,
+      room: null,
+      youAreHost: false,
+      joinUrl: null,
+      countdown: 0,
+      currentRound: 0,
+      totalRounds: 10,
+      problem: null,
+      scores: {},
+      lastCorrectAnswer: null,
+      roundResults: null,
+      gameOver: null,
+      error: null,
+    });
+  }, []);
+
+  const startPrivateDuelGame = useCallback((rounds?: number) => {
+    if (!socketRef.current) return;
+    if (rounds !== undefined) {
+      socketRef.current.emit("duel_private:start_game", { rounds });
+    } else {
+      socketRef.current.emit("duel_private:start_game");
+    }
+  }, []);
+
+  const submitPrivateDuelAnswer = useCallback((answer: number, timeMs: number) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("duel_private:submit_answer", { answer, timeMs });
+  }, []);
+
+  const restartPrivateDuelRoom = useCallback(() => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("duel_private:restart_room");
+  }, []);
+
   return {
     isConnected,
     onlineCount,
@@ -445,6 +688,15 @@ export function useSocket() {
     forfeit,
     sendQuickChat,
     resetGame,
+
+    // Private duel
+    privateDuel,
+    createPrivateDuelRoom,
+    joinPrivateDuelRoom,
+    leavePrivateDuelRoom,
+    startPrivateDuelGame,
+    submitPrivateDuelAnswer,
+    restartPrivateDuelRoom,
   };
 }
 

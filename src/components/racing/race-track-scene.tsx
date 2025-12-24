@@ -11,8 +11,16 @@ import { TrackObstacle, TrackDrop, ObstacleType, DropType } from "@/lib/racing/t
 // ============================================
 
 export const LANE_WIDTH = 3;
-export const TRACK_WIDTH = LANE_WIDTH * 5;
 export const UNIT_SCALE = 2; 
+
+export function getTrackWidth(laneCount: number) {
+  return LANE_WIDTH * Math.max(1, laneCount);
+}
+
+export function laneToX(lane: number, laneCount: number) {
+  const center = (Math.max(1, laneCount) + 1) / 2;
+  return (lane - center) * LANE_WIDTH;
+}
 
 const VEHICLE_REAR_OFFSETS: Record<string, number> = {
   car_truck: 1.55,
@@ -175,6 +183,7 @@ function WindLine({ x, y, z, speed, len, opacity, width, active }: WindLineProps
 export function Car({ 
   position, 
   lane, 
+  laneCount,
   color, 
   isMe, 
   username, 
@@ -191,6 +200,7 @@ export function Car({
 }: { 
   position: number; 
   lane: number; 
+  laneCount: number;
   color: string; 
   isMe: boolean;
   username: string;
@@ -306,7 +316,7 @@ export function Car({
     const newZ = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, delta * 3);
     
     // Lane movement
-    const targetX = (lane - 3) * LANE_WIDTH;
+    const targetX = laneToX(lane, laneCount);
     const newX = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, delta * 8); // Faster lane switching
 
     groupRef.current.position.z = newZ;
@@ -611,8 +621,8 @@ export function Car({
   );
 }
 
-export function Obstacle({ type, lane, position }: { type: ObstacleType, lane: number, position: number }) {
-  const x = (lane - 3) * LANE_WIDTH;
+export function Obstacle({ type, lane, laneCount, position }: { type: ObstacleType, lane: number, laneCount: number, position: number }) {
+  const x = laneToX(lane, laneCount);
   const z = -position * UNIT_SCALE;
   
   return (
@@ -662,7 +672,7 @@ const DROP_SYMBOLS: Record<DropType, string> = {
   coin: "🪙",
 };
 
-export function Drop({ type, lane, position, collected }: { type: DropType, lane: number, position: number, collected: boolean }) {
+export function Drop({ type, lane, laneCount, position, collected }: { type: DropType, lane: number, laneCount: number, position: number, collected: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
   
   useFrame((state) => {
@@ -674,7 +684,7 @@ export function Drop({ type, lane, position, collected }: { type: DropType, lane
 
   if (collected) return null;
 
-  const x = (lane - 3) * LANE_WIDTH;
+  const x = laneToX(lane, laneCount);
   const z = -position * UNIT_SCALE;
   const color = DROP_COLORS[type];
 
@@ -735,30 +745,33 @@ export function Drop({ type, lane, position, collected }: { type: DropType, lane
   );
 }
 
-export function Track({ length }: { length: number }) {
+export function Track({ length, laneCount }: { length: number; laneCount: number }) {
   const lengthUnits = length * UNIT_SCALE;
+  const trackWidth = getTrackWidth(laneCount);
   
   return (
     <group>
       {/* Soft glow underlay */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.06, -lengthUnits / 2]}>
-        <planeGeometry args={[TRACK_WIDTH + 10, lengthUnits + 80]} />
+        <planeGeometry args={[trackWidth + 10, lengthUnits + 80]} />
         <meshBasicMaterial color="#0ea5e9" transparent opacity={0.05} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, -lengthUnits / 2]}>
-        <planeGeometry args={[TRACK_WIDTH + 4, lengthUnits + 40]} />
+        <planeGeometry args={[trackWidth + 4, lengthUnits + 40]} />
         <meshBasicMaterial color="#22d3ee" transparent opacity={0.08} />
       </mesh>
 
       {/* Main Track Surface - removed receiveShadow for performance */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -lengthUnits / 2]}>
-        <planeGeometry args={[TRACK_WIDTH + 2, lengthUnits + 20]} />
+        <planeGeometry args={[trackWidth + 2, lengthUnits + 20]} />
         <meshStandardMaterial color="#1f2937" roughness={0.8} />
       </mesh>
 
       {/* Lane Lines */}
-      {[1, 2, 3, 4].map((i) => {
-        const x = (i - 2.5) * LANE_WIDTH;
+      {Array.from({ length: Math.max(0, laneCount - 1) }).map((_, idx) => {
+        const i = idx + 1;
+        const center = (laneCount + 1) / 2;
+        const x = (i + 0.5 - center) * LANE_WIDTH;
         return (
           <mesh 
             key={i} 
@@ -773,7 +786,7 @@ export function Track({ length }: { length: number }) {
 
       {/* Start Line */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-        <planeGeometry args={[TRACK_WIDTH, 1]} />
+        <planeGeometry args={[trackWidth, 1]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
       <Label3D position={[0, 2, 0]} fontSize={28} color="white">
@@ -783,22 +796,22 @@ export function Track({ length }: { length: number }) {
       {/* Finish Line */}
       <group position={[0, 0, -lengthUnits]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-          <planeGeometry args={[TRACK_WIDTH, 2]} />
+          <planeGeometry args={[trackWidth, 2]} />
           {/* Checkerboard shader or texture would be ideal, simplifying to stripes */}
           <meshStandardMaterial color="#ffffff" />
         </mesh>
         
         {/* Finish Arch - removed castShadow for performance */}
-        <mesh position={[-TRACK_WIDTH/2 - 0.5, 2.5, 0]}>
+        <mesh position={[-trackWidth / 2 - 0.5, 2.5, 0]}>
           <boxGeometry args={[1, 5, 1]} />
           <meshStandardMaterial color="#333" />
         </mesh>
-        <mesh position={[TRACK_WIDTH/2 + 0.5, 2.5, 0]}>
+        <mesh position={[trackWidth / 2 + 0.5, 2.5, 0]}>
           <boxGeometry args={[1, 5, 1]} />
           <meshStandardMaterial color="#333" />
         </mesh>
         <mesh position={[0, 4.5, 0]}>
-          <boxGeometry args={[TRACK_WIDTH + 2, 1, 1]} />
+          <boxGeometry args={[trackWidth + 2, 1, 1]} />
           <meshStandardMaterial color="#333" />
         </mesh>
         
@@ -812,7 +825,7 @@ export function Track({ length }: { length: number }) {
         const dist = (i + 1) * 50;
         if (dist >= length) return null;
         return (
-          <group key={dist} position={[TRACK_WIDTH/2 + 2, 0, -dist * UNIT_SCALE]}>
+          <group key={dist} position={[trackWidth / 2 + 2, 0, -dist * UNIT_SCALE]}>
             <Label3D
               position={[0, 1.2, 0]}
               fontSize={18}
@@ -885,10 +898,11 @@ export function GameCamera({ myPosition, trackLength }: { myPosition: number, tr
 // Visibility culling distance for trees (in world units, which is position * UNIT_SCALE)
 const TREE_VISIBILITY_DISTANCE = 100 * UNIT_SCALE;
 
-export function EnvironmentScenery({ length, myPosition }: { length: number; myPosition: number }) {
+export function EnvironmentScenery({ length, myPosition, laneCount }: { length: number; myPosition: number; laneCount: number }) {
   // Simple low-poly trees or rocks along the side
   const lengthUnits = length * UNIT_SCALE;
   const myPositionUnits = myPosition * UNIT_SCALE;
+  const trackWidth = getTrackWidth(laneCount);
   
   const allTrees = useMemo(() => {
     const items: Array<{ x: number; z: number; scale: number }> = [];
@@ -903,13 +917,13 @@ export function EnvironmentScenery({ length, myPosition }: { length: number; myP
     for (let z = 0; z < lengthUnits; z += 30) {
       // Left side
       items.push({ 
-        x: -TRACK_WIDTH - 5 - pseudoRandom(z) * 10, 
+        x: -trackWidth - 5 - pseudoRandom(z) * 10, 
         z: -z, 
         scale: 0.5 + pseudoRandom(z + 1) * 0.5 
       });
       // Right side
       items.push({ 
-        x: TRACK_WIDTH + 5 + pseudoRandom(z + 2) * 10, 
+        x: trackWidth + 5 + pseudoRandom(z + 2) * 10, 
         z: -z, 
         scale: 0.5 + pseudoRandom(z + 3) * 0.5 
       });
