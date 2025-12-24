@@ -100,6 +100,34 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
   const [selectedRounds, setSelectedRounds] = useState(10);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // Private duel custom keypad helpers
+  const privateAppendDigit = (digit: string) => {
+    if (privateAnswerSubmitted) return;
+    if (!privateDuel.problem) return;
+    setPrivateAnswer((prev) => `${prev}${digit}`.replace(/[^0-9\-]/g, ""));
+  };
+
+  const privateToggleMinus = () => {
+    if (privateAnswerSubmitted) return;
+    if (!privateDuel.problem) return;
+    setPrivateAnswer((prev) => {
+      if (prev.startsWith("-")) return prev.slice(1);
+      return prev.length === 0 ? "-" : `-${prev.replace(/^-/, "")}`;
+    });
+  };
+
+  const privateBackspace = () => {
+    if (privateAnswerSubmitted) return;
+    if (!privateDuel.problem) return;
+    setPrivateAnswer((prev) => prev.slice(0, -1));
+  };
+
+  const privateClearAnswer = () => {
+    if (privateAnswerSubmitted) return;
+    if (!privateDuel.problem) return;
+    setPrivateAnswer("");
+  };
+
   useEffect(() => {
     if (!initialPrivateRoomCode) return;
     if (privateDuel.inRoom) return;
@@ -807,7 +835,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
           </div>
         </div>
 
-        <div className="p-4 md:p-6">
+        <div className={`p-4 md:p-6 ${isMobileDevice && privateDuel.problem && !sortedRoundResults ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+260px)]" : ""}`}>
           <div className="max-w-3xl mx-auto space-y-4">
             {privateDuel.error && (
               <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
@@ -915,30 +943,48 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                           e.preventDefault();
                           submitPrivate();
                         }}
-                        className="flex items-center justify-center gap-2"
+                        className="flex items-center justify-center gap-2 max-w-[280px] mx-auto"
                       >
-                        <Input
-                          value={privateAnswer}
-                          onChange={(e) => {
-                            if (privateAnswerSubmitted) return;
-                            setPrivateAnswer(e.target.value.replace(/[^0-9\-]/g, ""));
-                          }}
-                          placeholder="?"
-                          className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono w-full max-w-[220px]"
-                          inputMode="decimal"
-                          autoComplete="off"
-                        />
-                        <Button
-                          type="submit"
-                          disabled={
-                            privateAnswerSubmitted ||
-                            privateTimeLeft <= 0 ||
-                            privateAnswer.length === 0 ||
-                            privateAnswer === "-"
-                          }
-                        >
-                          Submit
-                        </Button>
+                        {isMobileDevice ? (
+                          <div className="w-full">
+                            <div
+                              role="textbox"
+                              aria-label="Answer"
+                              aria-readonly="true"
+                              className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-md border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
+                                privateAnswerSubmitted ? "border-success text-success" : "border-input"
+                              }`}
+                            >
+                              {privateAnswer.length > 0 ? privateAnswer : "?"}
+                            </div>
+                          </div>
+                        ) : (
+                          <Input
+                            value={privateAnswer}
+                            onChange={(e) => {
+                              if (privateAnswerSubmitted) return;
+                              setPrivateAnswer(e.target.value.replace(/[^0-9\-]/g, ""));
+                            }}
+                            placeholder="?"
+                            className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono w-full max-w-[220px]"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            autoFocus
+                          />
+                        )}
+                        {!isMobileDevice && (
+                          <Button
+                            type="submit"
+                            disabled={
+                              privateAnswerSubmitted ||
+                              privateTimeLeft <= 0 ||
+                              privateAnswer.length === 0 ||
+                              privateAnswer === "-"
+                            }
+                          >
+                            Submit
+                          </Button>
+                        )}
                       </form>
                       {privateAnswerSubmitted && (
                         <p className="text-sm text-success mt-3 flex items-center justify-center gap-2">
@@ -974,6 +1020,87 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
             )}
           </div>
         </div>
+
+        {/* Mobile custom keypad for private duel */}
+        {isMobileDevice && privateDuel.problem && !sortedRoundResults && (
+          <div className="fixed left-0 right-0 bottom-0 z-50">
+            <div className="border-t border-border bg-background">
+              <div className="max-w-md mx-auto px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0.5rem)+8px)]">
+                <div className="flex items-center justify-center pb-2">
+                  <div className="h-1 w-10 rounded-full bg-muted-foreground/20" />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 select-none touch-manipulation">
+                  {["1","2","3","4","5","6","7","8","9"].map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      variant="secondary"
+                      className="h-12 rounded-xl text-xl font-semibold active:scale-[0.98] transition"
+                      onClick={() => privateAppendDigit(d)}
+                      disabled={privateAnswerSubmitted || !privateDuel.problem}
+                    >
+                      {d}
+                    </Button>
+                  ))}
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 rounded-xl text-xl font-semibold active:scale-[0.98] transition"
+                    onClick={privateToggleMinus}
+                    disabled={privateAnswerSubmitted || !privateDuel.problem}
+                    aria-label="Toggle negative sign"
+                  >
+                    −
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 rounded-xl text-xl font-semibold active:scale-[0.98] transition"
+                    onClick={() => privateAppendDigit("0")}
+                    disabled={privateAnswerSubmitted || !privateDuel.problem}
+                  >
+                    0
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 rounded-xl active:scale-[0.98] transition"
+                    onClick={privateBackspace}
+                    disabled={privateAnswerSubmitted || !privateDuel.problem}
+                    aria-label="Backspace"
+                  >
+                    <Delete className="h-5 w-5 opacity-80" />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    className="h-11 rounded-xl text-sm font-semibold col-span-2 active:scale-[0.99] transition"
+                    onClick={submitPrivate}
+                    disabled={
+                      privateAnswerSubmitted ||
+                      !privateDuel.problem ||
+                      privateAnswer.length === 0 ||
+                      privateAnswer === "-"
+                    }
+                  >
+                    Done
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-11 rounded-xl text-sm font-semibold active:scale-[0.99] transition"
+                    onClick={privateClearAnswer}
+                    disabled={privateAnswerSubmitted || !privateDuel.problem}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
