@@ -245,6 +245,11 @@ export function useSocket() {
       socket.on("disconnect", (reason) => {
         console.log("Socket disconnected:", reason);
         setIsConnected(false);
+        
+        // Only fully reset state for intentional disconnects (user-initiated)
+        // For transport-related disconnects, preserve state for reconnection
+        const isIntentionalDisconnect = reason === "io client disconnect" || reason === "io server disconnect";
+        
         setMatchmaking({
           isSearching: false,
           position: 0,
@@ -260,22 +265,37 @@ export function useSocket() {
           gameResult: null,
           opponentAnswered: false,
         });
-        setPrivateDuel((prev) => ({
-          ...prev,
-          // keep joinUrl/roomCode in refs for reconnect; clear volatile UI state
-          inRoom: false,
-          room: null,
-          youAreHost: false,
-          countdown: 0,
-          currentRound: 0,
-          totalRounds: 10,
-          problem: null,
-          scores: {},
-          lastCorrectAnswer: null,
-          roundResults: null,
-          gameOver: null,
-          error: null,
-        }));
+        
+        if (isIntentionalDisconnect) {
+          // Full reset for intentional disconnects
+          setPrivateDuel({
+            inRoom: false,
+            room: null,
+            youAreHost: false,
+            joinUrl: null,
+            countdown: 0,
+            currentRound: 0,
+            totalRounds: 10,
+            problem: null,
+            scores: {},
+            lastCorrectAnswer: null,
+            roundResults: null,
+            gameOver: null,
+            error: null,
+          });
+        } else {
+          // Transport disconnect (switching apps, network issues) - preserve room info for UI
+          // The refs are preserved for auto-rejoin, but we also keep joinUrl for display
+          setPrivateDuel((prev) => ({
+            ...prev,
+            // Keep room info and joinUrl for display during reconnection
+            // inRoom stays true so the UI shows "Reconnecting..." instead of resetting to lobby
+            countdown: 0,
+            problem: null,
+            roundResults: null,
+            error: "Reconnecting...",
+          }));
+        }
       });
 
       // Online count
@@ -552,6 +572,42 @@ export function useSocket() {
       }
     };
   }, [session?.user?.id, session?.user?.name, socketUrl]);
+
+  // Handle page visibility changes (app switching on mobile)
+  // When user returns to the app, quickly attempt to reconnect if disconnected
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const socket = socketRef.current;
+        if (!socket) return;
+
+        // If socket is disconnected, force reconnect immediately
+        if (!socket.connected) {
+          console.log("[socket] Page became visible, attempting reconnect...");
+          socket.connect();
+        } else {
+          // Socket still connected - rejoin private duel room if we were in one
+          // This handles cases where the socket stayed connected but we lost room state
+          if (resumePrivateDuelOnReconnectRef.current && privateDuelRoomCodeRef.current) {
+            const now = Date.now();
+            if (now - lastPrivateAutoJoinAtRef.current > 2500) {
+              lastPrivateAutoJoinAtRef.current = now;
+              console.log("[socket] Page became visible, rejoining private duel room...");
+              socket.emit("duel_private:join_room", { roomCode: privateDuelRoomCodeRef.current });
+            }
+          }
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   // Matchmaking actions
   const joinMatchmaking = useCallback(() => {

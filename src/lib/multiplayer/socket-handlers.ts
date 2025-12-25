@@ -162,7 +162,9 @@ async function getUserRating(userId: string): Promise<number> {
 
 const PRIVATE_DUEL_MAX_PLAYERS = 8;
 const PRIVATE_DUEL_IDLE_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const PRIVATE_DUEL_DISCONNECT_GRACE_MS = 10_000;
+// Grace period for disconnections - longer for lobby (waiting), shorter during active game
+const PRIVATE_DUEL_LOBBY_DISCONNECT_GRACE_MS = 60_000; // 60 seconds when in lobby/waiting
+const PRIVATE_DUEL_GAME_DISCONNECT_GRACE_MS = 15_000; // 15 seconds during active game
 const PRIVATE_DUEL_POINTS_BY_RANK = [1000, 800, 650, 500, 350, 250, 150, 100];
 
 function generateRoomCode(length = 8) {
@@ -1810,10 +1812,25 @@ export function setupMultiplayerHandlers(
             const existingTimeout = room.disconnectTimeouts.get(privatePlayer.id);
             if (existingTimeout) clearTimeout(existingTimeout);
 
+            // Use longer grace period for lobby/waiting, shorter for active game
+            const isActiveGame = room.status === "playing" || room.status === "countdown" || room.status === "round_end";
+            const graceMs = isActiveGame 
+              ? PRIVATE_DUEL_GAME_DISCONNECT_GRACE_MS 
+              : PRIVATE_DUEL_LOBBY_DISCONNECT_GRACE_MS;
+            
+            console.log(
+              `[PrivateDuel] Player ${privatePlayer.username} disconnected from room ${privateRoomCode}, ` +
+              `status=${room.status}, grace=${graceMs}ms, waiting for reconnect...`
+            );
+
             const timeout = setTimeout(() => {
               const current = privateDuelRooms.get(privateRoomCode);
               if (!current) return;
               if (!current.disconnectedPlayers.has(privatePlayer.id)) return;
+
+              console.log(
+                `[PrivateDuel] Player ${privatePlayer.username} timed out (${graceMs}ms), removing from room ${privateRoomCode}`
+              );
 
               current.players = current.players.filter((p) => p.id !== privatePlayer.id);
               delete current.scores[privatePlayer.id];
@@ -1831,7 +1848,7 @@ export function setupMultiplayerHandlers(
               if (current.players.length === 0) {
                 cleanupPrivateDuelRoom(privateRoomCode);
               }
-            }, PRIVATE_DUEL_DISCONNECT_GRACE_MS);
+            }, graceMs);
 
             room.disconnectTimeouts.set(privatePlayer.id, timeout);
           }
