@@ -128,12 +128,20 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
     setPrivateAnswer("");
   };
 
+  // Auto-join private room when visiting via invite link
+  // Wait for socket connection before attempting to join
   useEffect(() => {
     if (!initialPrivateRoomCode) return;
-    if (privateDuel.inRoom) return;
-    joinPrivateDuelRoom(initialPrivateRoomCode);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialPrivateRoomCode]);
+    if (!isConnected) return; // Wait for socket to be connected
+    if (privateDuel.inRoom) return; // Already in a room
+    
+    // Small delay to ensure socket is fully ready after connection
+    const timer = setTimeout(() => {
+      joinPrivateDuelRoom(initialPrivateRoomCode);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [initialPrivateRoomCode, isConnected, privateDuel.inRoom, joinPrivateDuelRoom]);
 
   const extractRoomCode = (raw: string) => {
     const trimmed = raw.trim();
@@ -534,6 +542,68 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Show loading state when user is joining via invite link
+  if (initialPrivateRoomCode && !privateDuel.inRoom) {
+    return (
+      <div className="min-h-[calc(100vh-200px)] flex flex-col">
+        <div className="border-b border-border">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg font-semibold">Joining Room</h1>
+              <p className="text-sm text-muted-foreground">
+                Room code: <span className="font-mono">{initialPrivateRoomCode.toUpperCase()}</span>
+              </p>
+            </div>
+            <Badge variant="outline" className="text-xs shrink-0">
+              {isConnected ? (
+                <>
+                  <Wifi className="w-3 h-3 mr-1.5 text-success" />
+                  Connected
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
+                  Connecting...
+                </>
+              )}
+            </Badge>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            {privateDuel.error ? (
+              <>
+                <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <X className="w-8 h-8 text-destructive" />
+                </div>
+                <h2 className="text-lg font-semibold mb-2">Unable to Join Room</h2>
+                <p className="text-sm text-muted-foreground mb-6">{privateDuel.error}</p>
+                <Link href="/multiplayer">
+                  <Button>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Multiplayer
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-border border-t-foreground animate-spin" />
+                <h2 className="text-lg font-semibold mb-2">
+                  {isConnected ? "Joining room..." : "Connecting..."}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {isConnected 
+                    ? "Please wait while we connect you to the room" 
+                    : "Establishing connection to the game server"}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
