@@ -28,6 +28,7 @@ export default async function LeaderboardPage() {
     <LeaderboardClient
       initialLeaderboard={initialLeaderboard}
       initialDistribution={distributionResult.buckets}
+      initialDistributionMedian={distributionResult.median}
       initialMode="training"
       initialPeriod="all"
     />

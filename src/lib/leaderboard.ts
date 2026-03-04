@@ -39,6 +39,7 @@ export interface DistributionBucket {
 export interface DistributionResult {
   buckets: DistributionBucket[];
   total: number;
+  median: number | null;
 }
 
 function getPeriodStart(period: Period): Date | null {
@@ -482,17 +483,25 @@ export async function getLeaderboard(
   return buildDuelLeaderboard(period, currentUserId);
 }
 
-const BUCKET_SIZE = 2;
+const MAX_BUCKET_COUNT = 48;
 
-function bucketize(scores: number[]): DistributionBucket[] {
+function getBucketSize(scores: number[]): number {
+  if (scores.length === 0) return 1;
+  const minScore = Math.min(...scores);
+  const maxScore = Math.max(...scores);
+  const range = maxScore - minScore + 1;
+  return Math.max(1, Math.ceil(range / MAX_BUCKET_COUNT));
+}
+
+function bucketize(scores: number[], bucketSize: number): DistributionBucket[] {
   if (scores.length === 0) return [];
   const countsByFrom = new Map<number, { from: number; to: number; count: number }>();
   let minFrom = Number.POSITIVE_INFINITY;
   let maxFrom = 0;
   for (const score of scores) {
     const clamped = Math.max(0, Math.floor(score));
-    const from = Math.floor(clamped / BUCKET_SIZE) * BUCKET_SIZE;
-    const to = from + BUCKET_SIZE - 1;
+    const from = Math.floor(clamped / bucketSize) * bucketSize;
+    const to = from + bucketSize - 1;
     minFrom = Math.min(minFrom, from);
     maxFrom = Math.max(maxFrom, from);
     const existing = countsByFrom.get(from) ?? { from, to, count: 0 };
@@ -501,12 +510,22 @@ function bucketize(scores: number[]): DistributionBucket[] {
   }
 
   const buckets: DistributionBucket[] = [];
-  for (let from = minFrom; from <= maxFrom; from += BUCKET_SIZE) {
-    const to = from + BUCKET_SIZE - 1;
+  for (let from = minFrom; from <= maxFrom; from += bucketSize) {
+    const to = from + bucketSize - 1;
     buckets.push(countsByFrom.get(from) ?? { from, to, count: 0 });
   }
 
   return buckets;
+}
+
+function getMedian(scores: number[]): number | null {
+  if (scores.length === 0) return null;
+  const sorted = [...scores].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) {
+    return sorted[mid];
+  }
+  return (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 export async function getTrainingDistribution(): Promise<DistributionResult> {
@@ -542,10 +561,11 @@ export async function getTrainingDistribution(): Promise<DistributionResult> {
   }
 
   if (scores.length === 0) {
-    return { buckets: [], total: 0 };
+    return { buckets: [], total: 0, median: null };
   }
 
-  const buckets = bucketize(scores);
-  return { buckets, total: scores.length };
+  const bucketSize = getBucketSize(scores);
+  const buckets = bucketize(scores, bucketSize);
+  const median = getMedian(scores);
+  return { buckets, total: scores.length, median };
 }
-
