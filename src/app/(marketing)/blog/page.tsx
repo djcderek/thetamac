@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "Blog",
   description:
     "Tips, techniques, and drills for faster mental math. Improve arithmetic speed for interviews, everyday calculations, and competitive training.",
+  alternates: {
+    canonical: "/blog",
+  },
   openGraph: {
     title: "Blog | thetamac",
     description:
@@ -22,7 +25,14 @@ export default function BlogIndexPage() {
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl">
           Techniques, drills, and insights to sharpen your mental math skills —
-          whether you're prepping for interviews or just want to calculate faster.
+          whether you&apos;re prepping for interviews or just want to calculate faster.
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          For interview-specific practice paths, see the{" "}
+          <Link href="/interview-math" className="text-primary hover:underline">
+            Interview Math Hub
+          </Link>
+          .
         </p>
       </header>
 
@@ -49,6 +59,11 @@ export default function BlogIndexPage() {
               <p className="mt-2 text-sm text-muted-foreground">
                 {post.readingTime}
               </p>
+              {post.lastReviewed ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Last reviewed: {new Date(post.lastReviewed).toLocaleDateString("en-US")}
+                </p>
+              ) : null}
             </Link>
           </article>
         ))}
@@ -69,4 +84,3 @@ export default function BlogIndexPage() {
     </div>
   );
 }
-

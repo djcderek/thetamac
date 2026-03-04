@@ -114,6 +114,9 @@ export function TrainingSeoSection() {
 
           {/* Footer links */}
           <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
+            <Link href="/interview-math" className="hover:text-foreground transition-colors">
+              Interview Prep Guides
+            </Link>
             <Link href="/leaderboard" className="hover:text-foreground transition-colors">
               Leaderboards
             </Link>

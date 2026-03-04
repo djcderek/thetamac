@@ -4,6 +4,10 @@ export interface BlogPost {
   description: string;
   date: string; // ISO date string
   readingTime: string;
+  primaryKeyword?: string;
+  targetIntent?: "informational" | "commercial";
+  lastReviewed?: string; // ISO date string
+  conversionGoal?: "start-training" | "create-account";
 }
 
 /**
@@ -19,6 +23,10 @@ export const blogPosts: BlogPost[] = [
       "Build speed and confidence for finance, consulting, and tech interviews with a focused daily mental math practice routine.",
     date: "2025-11-12",
     readingTime: "7 min read",
+    primaryKeyword: "mental math for interviews",
+    targetIntent: "informational",
+    lastReviewed: "2026-03-04",
+    conversionGoal: "start-training",
   },
   {
     slug: "fast-multiplication-techniques",
@@ -27,6 +35,10 @@ export const blogPosts: BlogPost[] = [
       "Learn the 11 trick, squaring shortcuts, and distributive strategies to multiply large numbers in your head quickly.",
     date: "2025-10-02",
     readingTime: "9 min read",
+    primaryKeyword: "fast multiplication without calculator",
+    targetIntent: "informational",
+    lastReviewed: "2026-03-04",
+    conversionGoal: "start-training",
   },
   {
     slug: "timed-arithmetic-drills",
@@ -35,6 +47,9 @@ export const blogPosts: BlogPost[] = [
       "Use timed drills effectively to track your mental math progress and systematically get faster at addition, subtraction, multiplication, and division.",
     date: "2025-08-19",
     readingTime: "6 min read",
+    primaryKeyword: "timed arithmetic drills",
+    targetIntent: "informational",
+    lastReviewed: "2026-03-04",
+    conversionGoal: "start-training",
   },
 ];
-

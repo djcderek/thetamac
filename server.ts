@@ -83,7 +83,8 @@ let nextReady = false;
 let handle: ReturnType<typeof next>["getRequestHandler"] extends () => infer R ? R : never;
 
 // Only initialize Next.js if not in WebSocket-only mode
-const app = websocketOnly ? null : next({ dev, hostname, port });
+// Force webpack in custom-server dev to avoid intermittent Turbopack panics.
+const app = websocketOnly ? null : next({ dev, hostname, port, webpack: true });
 
 // Start listening immediately so health checks pass
 httpServer.listen(port, hostname, () => {
@@ -159,7 +160,5 @@ if (app) {
     console.log(`> Running on Fly.io: ${process.env.FLY_APP_NAME}`);
   }
 }
-
-
 
 

@@ -45,6 +45,12 @@ export default function MarketingLayout({
               Blog
             </Link>
             <Link
+              href="/interview-math"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Interview Prep
+            </Link>
+            <Link
               href="/"
               className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground hover:bg-primary/90 transition-colors"
             >
@@ -68,6 +74,9 @@ export default function MarketingLayout({
             <Link href="/blog" className="hover:text-foreground transition-colors">
               Blog
             </Link>
+            <Link href="/interview-math" className="hover:text-foreground transition-colors">
+              Interview Prep
+            </Link>
             <Link href="/leaderboard" className="hover:text-foreground transition-colors">
               Leaderboard
             </Link>
@@ -83,4 +92,3 @@ export default function MarketingLayout({
     </div>
   );
 }
-

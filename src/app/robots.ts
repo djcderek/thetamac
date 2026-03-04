@@ -19,11 +19,25 @@ export default function robots(): MetadataRoute.Robots {
           "/shop/",
           "/stats",
           "/stats/",
-          "/_next/",
+        ],
+      },
+      {
+        userAgent: ["PerplexityBot", "Perplexity-User"],
+        allow: "/",
+        disallow: [
+          "/api/",
+          "/auth/",
+          "/dashboard",
+          "/dashboard/",
+          "/settings",
+          "/settings/",
+          "/shop",
+          "/shop/",
+          "/stats",
+          "/stats/",
         ],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,
   };
 }
-
