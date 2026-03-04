@@ -24,6 +24,8 @@ interface LeaderboardClientProps {
   initialLeaderboard: LeaderboardResult;
   initialDistribution: DistributionBucket[];
   initialDistributionMedian: number | null;
+  initialDistributionMean: number | null;
+  initialDistributionStdDev: number | null;
   initialMode: Mode;
   initialPeriod: Period;
 }
@@ -32,6 +34,8 @@ export function LeaderboardClient({
   initialLeaderboard,
   initialDistribution,
   initialDistributionMedian,
+  initialDistributionMean,
+  initialDistributionStdDev,
   initialMode,
   initialPeriod,
 }: LeaderboardClientProps) {
@@ -51,6 +55,13 @@ export function LeaderboardClient({
   const [distributionMedian, setDistributionMedian] = useState<number | null>(
     initialDistributionMedian
   );
+  const [distributionMean, setDistributionMean] = useState<number | null>(
+    initialDistributionMean
+  );
+  const [distributionStdDev, setDistributionStdDev] = useState<number | null>(
+    initialDistributionStdDev
+  );
+  const [showAdvancedStats, setShowAdvancedStats] = useState(false);
   const [isDistributionLoading, setIsDistributionLoading] = useState(false);
 
   // Track if we've changed from initial values (to know when to fetch)
@@ -94,6 +105,8 @@ export function LeaderboardClient({
           const data = await res.json();
           setDistribution(data.buckets || []);
           setDistributionMedian(typeof data.median === "number" ? data.median : null);
+          setDistributionMean(typeof data.mean === "number" ? data.mean : null);
+          setDistributionStdDev(typeof data.stdDev === "number" ? data.stdDev : null);
         }
       } catch (error) {
         console.error("Failed to fetch distribution", error);
@@ -162,6 +175,9 @@ export function LeaderboardClient({
     const clamped = Math.max(0, Math.min(100, value));
     return `P${clamped.toFixed(1)}`;
   };
+
+  const formatStatValue = (value: number | null) =>
+    typeof value === "number" ? value.toFixed(1) : "—";
 
   return (
     <div className="min-h-screen">
@@ -256,19 +272,6 @@ export function LeaderboardClient({
                             (b) => userRank.score >= b.from && userRank.score <= b.to
                           )
                         : -1;
-                    const medianBucketIndex =
-                      typeof distributionMedian === "number"
-                        ? (() => {
-                            const exactIdx = distribution.findIndex(
-                              (b) => distributionMedian >= b.from && distributionMedian <= b.to
-                            );
-                            if (exactIdx !== -1) return exactIdx;
-                            const floorMedian = Math.floor(distributionMedian);
-                            return distribution.findIndex(
-                              (b) => floorMedian >= b.from && floorMedian <= b.to
-                            );
-                          })()
-                        : -1;
                     let runningCount = 0;
                     const bucketPercentiles = distribution.map((bucket) => {
                       const startCount = runningCount;
@@ -279,9 +282,79 @@ export function LeaderboardClient({
                         end: totalRuns > 0 ? (endCount / totalRuns) * 100 : 0,
                       };
                     });
+                    const resolveBucketIndex = (value: number) => {
+                      const exactIdx = distribution.findIndex(
+                        (b) => value >= b.from && value <= b.to
+                      );
+                      if (exactIdx !== -1) return exactIdx;
+                      const floorValue = Math.floor(value);
+                      return distribution.findIndex(
+                        (b) => floorValue >= b.from && floorValue <= b.to
+                      );
+                    };
+                    const markers: Array<{
+                      key: string;
+                      label: string;
+                      value: number;
+                      color: string;
+                      bucketIndex: number;
+                    }> = [];
+
+                    if (typeof distributionMedian === "number") {
+                      markers.push({
+                        key: "median",
+                        label: "Median",
+                        value: distributionMedian,
+                        color: "#f59e0b",
+                        bucketIndex: resolveBucketIndex(distributionMedian),
+                      });
+                    }
+
+                    if (typeof distributionMean === "number") {
+                      markers.push({
+                        key: "mean",
+                        label: "Mean",
+                        value: distributionMean,
+                        color: "#10b981",
+                        bucketIndex: resolveBucketIndex(distributionMean),
+                      });
+                    }
+
+                    if (
+                      showAdvancedStats &&
+                      typeof distributionMean === "number" &&
+                      typeof distributionStdDev === "number" &&
+                      distributionStdDev > 0
+                    ) {
+                      const advancedMarkers = [
+                        { key: "minus-1sigma", label: "-1σ", value: distributionMean - distributionStdDev, color: "#06b6d4" },
+                        { key: "plus-1sigma", label: "+1σ", value: distributionMean + distributionStdDev, color: "#06b6d4" },
+                        { key: "minus-2sigma", label: "-2σ", value: distributionMean - distributionStdDev * 2, color: "#8b5cf6" },
+                        { key: "plus-2sigma", label: "+2σ", value: distributionMean + distributionStdDev * 2, color: "#8b5cf6" },
+                      ];
+                      for (const marker of advancedMarkers) {
+                        markers.push({
+                          ...marker,
+                          bucketIndex: resolveBucketIndex(marker.value),
+                        });
+                      }
+                    }
+
                     return (
                       <div className="space-y-3">
                         <div className="rounded-lg border border-border bg-background/40 p-3">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                              onClick={() => setShowAdvancedStats((prev) => !prev)}
+                            >
+                              {showAdvancedStats ? "Hide advanced stats" : "Show advanced stats"}
+                            </button>
+                            <span className="text-xs text-muted-foreground">
+                              Median + Mean are always shown.
+                            </span>
+                          </div>
                           <div
                             className="grid gap-[3px] px-1 pb-2"
                             style={{
@@ -290,7 +363,7 @@ export function LeaderboardClient({
                           >
                             {distribution.map((bucket, idx) => {
                               const isUserBucket = idx === userBucketIndex;
-                              const isMedianBucket = idx === medianBucketIndex;
+                              const markersInBucket = markers.filter((marker) => marker.bucketIndex === idx);
                               const percentile = bucketPercentiles[idx];
                               const heightPctRaw =
                                 maxCount > 0
@@ -302,22 +375,10 @@ export function LeaderboardClient({
                                   : Math.max(4, heightPctRaw);
                               const showTickLabel =
                                 isUserBucket ||
-                                isMedianBucket ||
+                                markersInBucket.length > 0 ||
                                 idx === 0 ||
                                 idx === distribution.length - 1 ||
                                 bucket.from % 10 === 0;
-                              const bucketSpan = Math.max(1, bucket.to - bucket.from + 1);
-                              const medianOffsetPct =
-                                typeof distributionMedian === "number"
-                                  ? Math.max(
-                                      0,
-                                      Math.min(
-                                        100,
-                                        ((distributionMedian - bucket.from + 0.5) / bucketSpan) *
-                                          100
-                                      )
-                                    )
-                                  : 50;
 
                               return (
                                 <Tooltip key={`${bucket.from}-${bucket.to}`}>
@@ -334,13 +395,27 @@ export function LeaderboardClient({
                                       }`}
                                     >
                                       <div className="relative flex h-28 w-full items-end sm:h-36">
-                                        {isMedianBucket ? (
-                                          <div
-                                            className="pointer-events-none absolute inset-y-0 z-10 w-px bg-amber-500"
-                                            style={{ left: `${medianOffsetPct}%` }}
-                                            aria-hidden="true"
-                                          />
-                                        ) : null}
+                                        {markersInBucket.map((marker) => {
+                                          const bucketSpan = Math.max(1, bucket.to - bucket.from + 1);
+                                          const markerOffsetPct = Math.max(
+                                            0,
+                                            Math.min(
+                                              100,
+                                              ((marker.value - bucket.from + 0.5) / bucketSpan) * 100
+                                            )
+                                          );
+                                          return (
+                                            <div
+                                              key={marker.key}
+                                              className="pointer-events-none absolute inset-y-0 z-10 w-px"
+                                              style={{
+                                                left: `${markerOffsetPct}%`,
+                                                backgroundColor: marker.color,
+                                              }}
+                                              aria-hidden="true"
+                                            />
+                                          );
+                                        })}
                                         <div
                                           className={[
                                             "w-full rounded-sm transition-[height,background-color] duration-300",
@@ -380,23 +455,34 @@ export function LeaderboardClient({
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" sideOffset={8}>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono tabular-nums">
-                                        {bucket.from}–{bucket.to}
-                                      </span>
-                                      <span className="opacity-80">
-                                        {bucket.count} run{bucket.count === 1 ? "" : "s"}
-                                      </span>
-                                      <span className="opacity-80">
-                                        {formatPercentile(percentile.start)}–{formatPercentile(percentile.end)}
-                                      </span>
-                                      {isMedianBucket ? (
-                                        <span className="font-semibold text-amber-600 dark:text-amber-400">
-                                          Median
+                                    <div className="flex flex-col gap-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono tabular-nums">
+                                          {bucket.from}–{bucket.to}
                                         </span>
-                                      ) : null}
-                                      {isUserBucket ? (
-                                        <span className="font-semibold">You</span>
+                                        <span className="opacity-80">
+                                          {bucket.count} run{bucket.count === 1 ? "" : "s"}
+                                        </span>
+                                        <span className="opacity-80">
+                                          {formatPercentile(percentile.start)}–{formatPercentile(percentile.end)}
+                                        </span>
+                                        {isUserBucket ? (
+                                          <span className="font-semibold">You</span>
+                                        ) : null}
+                                      </div>
+                                      {markersInBucket.length > 0 ? (
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/50 pt-1">
+                                          {markersInBucket.map((marker) => (
+                                            <span key={marker.key} className="inline-flex items-center gap-1 text-xs">
+                                              <span
+                                                className="h-2 w-2 rounded-full"
+                                                style={{ backgroundColor: marker.color }}
+                                                aria-hidden="true"
+                                              />
+                                              {marker.label}: {formatStatValue(marker.value)}
+                                            </span>
+                                          ))}
+                                        </div>
                                       ) : null}
                                     </div>
                                   </TooltipContent>
@@ -408,13 +494,41 @@ export function LeaderboardClient({
                             {typeof distributionMedian === "number" ? (
                               <span className="inline-flex items-center gap-1">
                                 <span className="h-3 w-px bg-amber-500" aria-hidden="true" />
-                                Median: {distributionMedian.toFixed(1)}
+                                Median: {formatStatValue(distributionMedian)}
+                              </span>
+                            ) : null}
+                            {typeof distributionMean === "number" ? (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="h-3 w-px bg-emerald-500" aria-hidden="true" />
+                                Mean: {formatStatValue(distributionMean)}
+                              </span>
+                            ) : null}
+                            {showAdvancedStats && typeof distributionStdDev === "number" ? (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="h-3 w-px bg-cyan-500" aria-hidden="true" />
+                                σ: {formatStatValue(distributionStdDev)}
                               </span>
                             ) : null}
                             <span>
                               {totalRuns.toLocaleString()} run{totalRuns === 1 ? "" : "s"}
                             </span>
                           </div>
+                          {showAdvancedStats &&
+                          typeof distributionMean === "number" &&
+                          typeof distributionStdDev === "number" ? (
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                              <span className="inline-flex items-center gap-1">
+                                <span className="h-3 w-px bg-cyan-500" aria-hidden="true" />
+                                ±1σ: {formatStatValue(distributionMean - distributionStdDev)} to{" "}
+                                {formatStatValue(distributionMean + distributionStdDev)}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <span className="h-3 w-px bg-violet-500" aria-hidden="true" />
+                                ±2σ: {formatStatValue(distributionMean - distributionStdDev * 2)} to{" "}
+                                {formatStatValue(distributionMean + distributionStdDev * 2)}
+                              </span>
+                            </div>
+                          ) : null}
                           <div className="text-xs text-muted-foreground">
                             Distribution of best single-session scores (default timed settings)
                           </div>

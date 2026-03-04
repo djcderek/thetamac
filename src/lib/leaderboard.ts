@@ -40,6 +40,8 @@ export interface DistributionResult {
   buckets: DistributionBucket[];
   total: number;
   median: number | null;
+  mean: number | null;
+  stdDev: number | null;
 }
 
 function getPeriodStart(period: Period): Date | null {
@@ -528,6 +530,22 @@ function getMedian(scores: number[]): number | null {
   return (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function getMean(scores: number[]): number | null {
+  if (scores.length === 0) return null;
+  const sum = scores.reduce((acc, score) => acc + score, 0);
+  return sum / scores.length;
+}
+
+function getStdDev(scores: number[], mean: number | null): number | null {
+  if (scores.length === 0 || mean === null) return null;
+  const variance =
+    scores.reduce((acc, score) => {
+      const delta = score - mean;
+      return acc + delta * delta;
+    }, 0) / scores.length;
+  return Math.sqrt(variance);
+}
+
 export async function getTrainingDistribution(): Promise<DistributionResult> {
   const sessions = await db.trainingSession.findMany({
     where: {
@@ -561,11 +579,13 @@ export async function getTrainingDistribution(): Promise<DistributionResult> {
   }
 
   if (scores.length === 0) {
-    return { buckets: [], total: 0, median: null };
+    return { buckets: [], total: 0, median: null, mean: null, stdDev: null };
   }
 
   const bucketSize = getBucketSize(scores);
   const buckets = bucketize(scores, bucketSize);
   const median = getMedian(scores);
-  return { buckets, total: scores.length, median };
+  const mean = getMean(scores);
+  const stdDev = getStdDev(scores, mean);
+  return { buckets, total: scores.length, median, mean, stdDev };
 }

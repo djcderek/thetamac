@@ -29,6 +29,8 @@ export default async function LeaderboardPage() {
       initialLeaderboard={initialLeaderboard}
       initialDistribution={distributionResult.buckets}
       initialDistributionMedian={distributionResult.median}
+      initialDistributionMean={distributionResult.mean}
+      initialDistributionStdDev={distributionResult.stdDev}
       initialMode="training"
       initialPeriod="all"
     />
