@@ -1,0 +1,247 @@
+import { FAQSection } from "@/components/blog/faq-section";
+
+export const metadata = {
+  title: "Rule of 72 and CAGR Interview Math: Fast Methods That Hold Up",
+  description:
+    "Use Rule of 72, doubling/halving heuristics, and quick CAGR approximations to answer growth questions faster in finance and consulting interviews.",
+  alternates: {
+    canonical: "/blog/rule-of-72-cagr-interview-math",
+  },
+  keywords: [
+    "rule of 72 interview math",
+    "cagr mental math",
+    "growth rate interview questions",
+    "doubling time math",
+    "finance interview cagr",
+    "consulting growth math",
+    "annualized growth shortcut",
+  ],
+  openGraph: {
+    title: "Rule of 72 and CAGR Interview Math | thetamac",
+    description:
+      "Fast and defensible methods for CAGR and growth-rate math with worked interview-style examples.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Rule of 72 and CAGR Interview Math",
+    description:
+      "Learn fast CAGR approximations, doubling-time shortcuts, and sanity checks for interview math.",
+  },
+};
+
+export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
+export const url = `${siteUrl}/blog/rule-of-72-cagr-interview-math`;
+export const datePublished = "2026-03-05";
+export const dateModified = "2026-03-05";
+export const readingTime = "10 min read";
+
+export const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "Rule of 72 and CAGR Interview Math: Fast Methods That Hold Up",
+  description:
+    "Use Rule of 72, doubling/halving heuristics, and quick CAGR approximations to answer growth questions faster in finance and consulting interviews.",
+  datePublished,
+  dateModified,
+  author: {
+    "@type": "Organization",
+    name: "thetamac",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "thetamac",
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/icon.svg`,
+    },
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": url,
+  },
+  url,
+  inLanguage: "en-US",
+};
+
+export const faq = [
+  {
+    question: "When is Rule of 72 accurate enough in interviews?",
+    answer:
+      "It is usually accurate enough for growth rates between roughly 4% and 15%, especially when the interviewer is testing reasoning speed rather than exact spreadsheet precision.",
+  },
+  {
+    question: "How should I estimate CAGR quickly without a calculator?",
+    answer:
+      "Use doubling logic first, then refine with nearby benchmark rates. For example, if value grows 2x in 5 years, CAGR is a bit above 14% because 72/5 is about 14.4.",
+  },
+  {
+    question: "Should I present an exact number or a range?",
+    answer:
+      "Lead with a range and your method, then give a tighter estimate if asked. Interviewers typically reward transparent logic and a reasonable bound more than fake precision.",
+  },
+];
+
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer,
+    },
+  })),
+};
+
+<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+
+# Rule of 72 and CAGR Interview Math: Fast Methods That Hold Up
+
+<div className="text-sm text-muted-foreground">
+  Published March 5, 2026 • {readingTime}
+</div>
+
+Growth math shows up everywhere in interviews: revenue cases, TAM forecasts, product adoption, and fund-return discussions. Candidates usually lose time in two places: translating the prompt into the right growth frame, and trying to do exact compounding arithmetic mentally.
+
+Quick answer: use Rule of 72 for fast first-pass growth estimates, anchor with one benchmark CAGR, then adjust using a sanity range. If your base arithmetic is rusty, start with the [daily mental math routine](/blog/mental-math-interview-drills) and layer these growth shortcuts on top.
+
+---
+
+## Why interviewers ask growth-rate math
+
+Interviewers are not only testing whether you know CAGR. They are checking if you can:
+
+1. Pick a reasonable model quickly.
+2. Communicate assumptions under mild pressure.
+3. Keep arithmetic reliable while discussing business implications.
+
+That is why a clean heuristic often beats a messy "exact" answer. If you consistently freeze on percentages, review [how to do percentages fast](/interview-math/percentages-fast) before drilling CAGR itself.
+
+---
+
+## Quick answer block: Rule of 72 + CAGR in 30 seconds
+
+Use this sequence when you hear any multi-year growth prompt:
+
+1. Ask if the interviewer wants an estimate or an exact value.
+2. Convert to a doubling/halving frame when possible.
+3. Apply Rule of 72 for an initial annual rate.
+4. Tighten with one correction based on timeframe or rate level.
+5. State a confidence range and move on.
+
+Example script: "If value doubles in 6 years, Rule of 72 gives ~12%. Since 12% compounded for 6 years is slightly above 2x, I would call CAGR roughly 12%, maybe 12-13%."
+
+---
+
+## Worked examples
+
+### Example 1: Doubling in 5 years
+
+Prompt: "Revenue grew from $50M to $100M in 5 years. Estimate CAGR."
+
+Fast solve:
+
+1. This is a 2x multiple.
+2. Rule of 72: 72 / 5 = 14.4.
+3. Report: CAGR is approximately **14-15%**.
+
+How to present it: "Using Rule of 72, doubling in 5 years implies about 14.4% annual growth, so I would say around 14-15%."
+
+Need more repetition on this pattern? Pair this with [case interview math question patterns](/blog/case-interview-math-questions).
+
+### Example 2: 3x growth in 10 years
+
+Prompt: "A business tripled in 10 years. What is CAGR?"
+
+Fast solve:
+
+1. Doubling in 10 years would be ~7.2%.
+2. Tripling must be higher than that, but not close to 12-15%.
+3. Estimate around **11-12%**.
+
+A useful mental check: 1.11^10 is around 2.85; 1.12^10 is around 3.1. So 11-12% is defendable.
+
+### Example 3: Decline case (halving)
+
+Prompt: "Volume dropped from 80 to 40 in 4 years. Annual decline rate?"
+
+Fast solve:
+
+1. This is a 50% decline over 4 years.
+2. Rule of 72 on halving: 72 / 4 = 18.
+3. Rate is about **-18% annually**.
+
+If you struggle with signs, write the direction first: "decline" then compute magnitude. This prevents a common interview error.
+
+### Example 4: CAGR to endpoint
+
+Prompt: "Start at $120M and grow 12% for 3 years. Rough endpoint?"
+
+Fast solve:
+
+1. 12% yearly is close to 1.12^3.
+2. 1.12^2 = 1.2544, then x1.12 ~ 1.40.
+3. 120 x 1.4 = **~$168M**.
+
+If you are short on time, you can approximate with 10% compounding first, then adjust upward.
+
+---
+
+## Rule of 72 caveats (and how to avoid sounding sloppy)
+
+Rule of 72 is a heuristic. It works best in typical interview ranges, but accuracy drifts at very low or very high rates. Handle this by speaking in ranges:
+
+- 4-8%: usually close enough for strategy discussions.
+- 8-15%: still highly useful for fast first-pass answers.
+- Above ~20%: state it is a coarse estimate and tighten if needed.
+
+This phrasing shows judgment without losing pace. You can benchmark your speed on these transitions with the [mental math speed test](/interview-math/mental-math-speed-test).
+
+---
+
+## Practice framework for a 12-minute session
+
+1. 3 minutes: pure doubling/halving cards.
+2. 5 minutes: mixed CAGR estimation prompts.
+3. 2 minutes: endpoint calculations from annual growth.
+4. 2 minutes: timed benchmark in [training mode](/training/focused).
+
+Then log one note: where did you pause longest, setup or arithmetic? If setup is slow, revisit [growth rates and CAGR mental math](/interview-math/growth-rates-and-cagr). If arithmetic is slow, run [timed arithmetic drills](/blog/timed-arithmetic-drills) twice this week.
+
+---
+
+## Interview language that sounds senior
+
+Instead of saying "I think it is around 11% maybe," use:
+
+- "Quick estimate using Rule of 72 gives 14.4%; I would round to 14-15%."
+- "As a first pass, I get roughly 11-12% CAGR; happy to tighten if you want exact compounding."
+- "Directionally this implies mid-teens growth, which is consistent with the business context."
+
+That wording demonstrates speed, transparency, and business sense.
+
+---
+
+## Related reading
+
+- [Mental Math for Interviews: A 10-Minute Daily Routine](/blog/mental-math-interview-drills)
+- [Timed Arithmetic Drills: How to Measure and Improve Speed](/blog/timed-arithmetic-drills)
+- [Fast Multiplication Without a Calculator](/blog/fast-multiplication-techniques)
+- [Interview Math Hub](/interview-math)
+- [Growth Rates and CAGR Mental Math](/interview-math/growth-rates-and-cagr)
+- [Rounding and Estimation Under Interview Pressure](/interview-math/rounding-and-estimation)
+- [Break-Even and Contribution Margin Interview Math](/blog/break-even-contribution-margin-interview-math)
+- [Interview Math Aggregate Insights](/interview-math/insights)
+
+---
+
+## FAQ
+
+<FAQSection items={faq} />
+
+---
+
+## Next step: run a growth benchmark today
+
+Open [thetamac training](/), run a 2-minute mixed round, and call out each growth prompt aloud before you solve it. Afterward, compare your pace on the [Leaderboard](/leaderboard). If growth questions still feel sticky, isolate them in [Focused training](/training/focused) for 6 minutes tomorrow.

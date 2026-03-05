@@ -1,0 +1,240 @@
+import { FAQSection } from "@/components/blog/faq-section";
+
+export const metadata = {
+  title: "Case Interview Math Questions: 15 Fast-Solve Patterns",
+  description:
+    "Practice common case interview math question types with fast mental frameworks, worked solutions, and a timed drill workflow.",
+  alternates: {
+    canonical: "/blog/case-interview-math-questions",
+  },
+  keywords: [
+    "case interview math questions",
+    "consulting interview math",
+    "mental math case interview",
+    "case math practice",
+    "market sizing math questions",
+    "percentage change interview math",
+    "quick arithmetic for interviews",
+  ],
+  openGraph: {
+    title: "Case Interview Math Questions: 15 Fast-Solve Patterns | thetamac",
+    description:
+      "A practical set of case interview math questions with worked answers and speed-focused solving patterns.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Case Interview Math Questions: 15 Fast-Solve Patterns",
+    description:
+      "Use these question patterns, shortcuts, and timed drills to get faster at case interview math.",
+  },
+};
+
+export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
+export const url = `${siteUrl}/blog/case-interview-math-questions`;
+export const datePublished = "2026-03-05";
+export const dateModified = "2026-03-05";
+export const readingTime = "8 min read";
+
+export const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "Case Interview Math Questions: 15 Fast-Solve Patterns",
+  description:
+    "Practice common case interview math question types with fast mental frameworks, worked solutions, and a timed drill workflow.",
+  datePublished,
+  dateModified,
+  author: {
+    "@type": "Organization",
+    name: "thetamac",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "thetamac",
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/icon.svg`,
+    },
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": url,
+  },
+  url,
+  inLanguage: "en-US",
+};
+
+export const faq = [
+  {
+    question: "What kind of math shows up most in case interviews?",
+    answer:
+      "Percentages, growth rates, market sizing arithmetic, break-even math, and quick average calculations show up repeatedly. You rarely need advanced formulas; you need fast and reliable execution.",
+  },
+  {
+    question: "Should I prioritize speed or accuracy first?",
+    answer:
+      "Keep accuracy above 90%, then increase speed. If you race too early, you build bad habits and spend interview time correcting arithmetic errors.",
+  },
+  {
+    question: "How do I get faster in two weeks?",
+    answer:
+      "Run short daily blocks: 6 minutes focused drills plus a 2-minute timed benchmark. Track score, accuracy, and where you slowed down.",
+  },
+];
+
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer,
+    },
+  })),
+};
+
+<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+
+# Case Interview Math Questions: 15 Fast-Solve Patterns
+
+<div className="text-sm text-muted-foreground">
+  Published March 5, 2026 • {readingTime}
+</div>
+
+Case interviews rarely fail because of strategy alone. Many candidates lose momentum on arithmetic they should be able to do in under 10 seconds. The fix is not “do more random math.” The fix is recognizing patterns and applying the same solve sequence every time.
+
+Quick answer: focus on repeatable question families, solve with lightweight mental frameworks, and finish each day with one timed benchmark. If you already run a daily routine, pair this post with the [Mental Math for Interviews routine](/blog/mental-math-interview-drills) and the [Interview Math Hub](/interview-math).
+
+---
+
+## The 15 question patterns interviewers reuse
+
+These are the patterns that appear in consulting, finance, and product cases:
+
+1. Revenue after percentage growth
+2. Profit after margin change
+3. Blended average across segments
+4. Market size from population x penetration x spend
+5. Units required to hit target revenue
+6. Break-even units from fixed cost and contribution margin
+7. Monthly to annual conversion (and reverse)
+8. Share-of-market from total and segment size
+9. Growth from base and delta
+10. CAC payback from CAC and monthly contribution
+11. Weighted average price
+12. Productivity per rep/team
+13. Capacity utilization percentage
+14. Retention/churn conversion
+15. Sanity-check estimate against rounded assumptions
+
+You can map almost every case arithmetic prompt into one of these patterns.
+
+---
+
+## Fast frameworks for the most common prompts
+
+### 1) Revenue growth prompt
+
+Prompt: Revenue was $240M, up 18%. What is new revenue?
+
+Fast path:
+
+1. 10% = 24
+2. 5% = 12
+3. 3% = 7.2
+4. 18% = 43.2
+5. 240 + 43.2 = **283.2M**
+
+If you need a quick estimate first, use 20% = 48, then adjust down.
+
+### 2) Blended average prompt
+
+Prompt: Segment A is 60% of users at $12 ARPU. Segment B is 40% at $8 ARPU. Blended ARPU?
+
+Fast path:
+
+1. 0.6 x 12 = 7.2
+2. 0.4 x 8 = 3.2
+3. Total = **10.4**
+
+Say the weighted formula out loud so the interviewer follows your logic.
+
+### 3) Break-even prompt
+
+Prompt: Fixed cost is $1.2M. Price is $60. Variable cost is $35. Break-even units?
+
+Fast path:
+
+1. Contribution per unit = 60 - 35 = 25
+2. Break-even units = 1,200,000 / 25 = **48,000 units**
+
+If division is slow for you, train this directly with [division and averages for interviews](/interview-math/division-and-averages).
+
+### 4) Market sizing prompt
+
+Prompt: Estimate annual coffee shop revenue in a city with 2M adults, 40% weekly buyers, $18 average weekly spend.
+
+Fast path:
+
+1. Active buyers = 2,000,000 x 0.4 = 800,000
+2. Weekly spend = 800,000 x 18 = 14,400,000
+3. Annual = 14.4M x 52 ≈ **749M**
+
+For more setups like this, use [market sizing math guide](/interview-math/market-sizing-math) and [market sizing examples with answers](/blog/market-sizing-examples-answers).
+
+---
+
+## A practical drill workflow (15 minutes)
+
+Use this if you want performance gains in 2-4 weeks.
+
+1. **Block A (5 min):** percentage/growth prompts only.
+2. **Block B (5 min):** average/division/break-even prompts.
+3. **Block C (5 min):** mixed case-style prompts under time pressure.
+
+Then run a 2-minute benchmark in [Timed mode](/) and track:
+
+- Correct answers
+- Accuracy
+- Avg time/problem
+- Which pattern slowed you down
+
+If your score plateaus, switch one block to [Focused training](/training/focused) for your weakest pattern.
+
+---
+
+## Common mistakes that cost candidates points
+
+- Solving before framing the equation
+- Mixing percentage points and percentage change
+- Skipping unit checks (monthly vs annual)
+- Giving exact numbers when estimation was expected
+- Not sanity-checking final magnitude
+
+A quick rule: if the answer sounds implausible, do a 10-second approximation before moving on.
+Another useful guardrail is to state the unit and timeframe in your final sentence (for example, \"annual revenue\" or \"monthly users\"). That one habit catches many avoidable errors before they reach the interviewer.
+
+---
+
+## Related reading
+
+- [Mental Math for Interviews: A 10-Minute Daily Routine](/blog/mental-math-interview-drills)
+- [Timed Arithmetic Drills: How to Measure and Improve Speed](/blog/timed-arithmetic-drills)
+- [Fast Multiplication Without a Calculator](/blog/fast-multiplication-techniques)
+- [Interview Math Practice Hub](/interview-math)
+- [Mental Math Speed Test for Interview Readiness](/interview-math/mental-math-speed-test)
+- [Unit Economics Math Guide](/interview-math/unit-economics-math)
+- [Interview Math Aggregate Insights](/interview-math/insights)
+
+---
+
+## FAQ
+
+<FAQSection items={faq} />
+
+---
+
+## Next step: run one benchmark now
+
+Open [thetamac training](/), complete a 2-minute mixed benchmark, and write down one pattern that slowed you down. Tomorrow, spend 6 minutes drilling only that pattern. Repeat for a week and compare your score trend on the [Leaderboard](/leaderboard).

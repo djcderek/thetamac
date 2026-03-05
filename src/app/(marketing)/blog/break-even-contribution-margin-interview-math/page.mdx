@@ -1,0 +1,247 @@
+import { FAQSection } from "@/components/blog/faq-section";
+
+export const metadata = {
+  title: "Break-Even and Contribution Margin Interview Math: Fast Solve Guide",
+  description:
+    "Master break-even, contribution margin, and target-profit interview questions with quick setup rules and worked examples.",
+  alternates: {
+    canonical: "/blog/break-even-contribution-margin-interview-math",
+  },
+  keywords: [
+    "break-even interview math",
+    "contribution margin formula",
+    "unit economics interview",
+    "target profit units",
+    "cvp analysis interview",
+    "case interview profitability math",
+    "fixed vs variable cost math",
+  ],
+  openGraph: {
+    title: "Break-Even and Contribution Margin Interview Math | thetamac",
+    description:
+      "A practical, interview-ready method for solving break-even and contribution margin math quickly and accurately.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Break-Even and Contribution Margin Interview Math",
+    description:
+      "Fast setup and solve patterns for break-even and profitability questions in interviews.",
+  },
+};
+
+export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
+export const url = `${siteUrl}/blog/break-even-contribution-margin-interview-math`;
+export const datePublished = "2026-03-05";
+export const dateModified = "2026-03-05";
+export const readingTime = "11 min read";
+
+export const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "Break-Even and Contribution Margin Interview Math: Fast Solve Guide",
+  description:
+    "Master break-even, contribution margin, and target-profit interview questions with quick setup rules and worked examples.",
+  datePublished,
+  dateModified,
+  author: {
+    "@type": "Organization",
+    name: "thetamac",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "thetamac",
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/icon.svg`,
+    },
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": url,
+  },
+  url,
+  inLanguage: "en-US",
+};
+
+export const faq = [
+  {
+    question: "What is the fastest way to compute break-even units in an interview?",
+    answer:
+      "Compute contribution per unit first (price minus variable cost), then divide fixed cost by contribution per unit. Say the equation out loud before calculating.",
+  },
+  {
+    question: "How is contribution margin ratio used in case questions?",
+    answer:
+      "Contribution margin ratio helps you convert revenue targets into profit contribution quickly. Multiply revenue by the ratio to estimate contribution dollars.",
+  },
+  {
+    question: "Should I use exact decimals for break-even answers?",
+    answer:
+      "Not usually. Give a clean estimate and round units up to the next whole unit when deciding if the business has actually broken even.",
+  },
+];
+
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer,
+    },
+  })),
+};
+
+<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+
+# Break-Even and Contribution Margin Interview Math: Fast Solve Guide
+
+<div className="text-sm text-muted-foreground">
+  Published March 5, 2026 • {readingTime}
+</div>
+
+Break-even math is one of the highest-frequency topics in consulting, growth, and product interviews. It looks simple, but candidates still lose points because they confuse margins, forget units, or skip the setup and jump straight into arithmetic.
+
+Quick answer: write three lines first, then calculate. Line 1 is contribution per unit, line 2 is break-even formula, line 3 is interpretation. If your arithmetic speed is inconsistent, warm up with [timed arithmetic drills](/blog/timed-arithmetic-drills) before practicing these prompts.
+
+---
+
+## Why this topic decides interview outcomes
+
+Break-even questions are often used as a proxy for business judgment. Interviewers care about more than the number:
+
+1. Can you separate fixed and variable cost quickly?
+2. Can you translate words into a formula without hesitation?
+3. Can you explain what the result means for decisions?
+
+That is why this topic sits at the center of [unit economics math](/interview-math/unit-economics-math) and case profitability work.
+
+---
+
+## Quick answer block: the 3-line setup
+
+Use this template every time:
+
+1. **Contribution per unit** = Price - Variable cost.
+2. **Break-even units** = Fixed cost / Contribution per unit.
+3. **Business readout** = "Above X units we generate operating profit."
+
+If the prompt asks for revenue break-even instead of unit break-even, use contribution margin ratio:
+
+- Contribution margin ratio = Contribution / Revenue.
+- Break-even revenue = Fixed cost / Contribution margin ratio.
+
+You can build speed on this translation with [business word problems for interviews](/interview-math/business-word-problems).
+
+---
+
+## Worked examples
+
+### Example 1: Classic unit break-even
+
+Prompt: "Price is $80, variable cost is $50, fixed cost is $900,000. What are break-even units?"
+
+1. Contribution per unit = 80 - 50 = 30.
+2. Break-even units = 900,000 / 30 = **30,000 units**.
+3. Interpretation: at 30,000 units profit is zero; above that, each unit contributes $30.
+
+Short verbal answer: "Break-even is 30,000 units; each incremental unit above that contributes $30 to profit."
+
+### Example 2: Break-even revenue using margin ratio
+
+Prompt: "Gross margin is 40% and fixed cost is $2M. Break-even revenue?"
+
+1. Contribution margin ratio = 40%.
+2. Break-even revenue = 2,000,000 / 0.4 = **$5M**.
+
+If the interviewer asks for monthly numbers, convert units explicitly before you speak the result.
+
+### Example 3: Target profit units
+
+Prompt: "Same assumptions as Example 1, but target operating profit is $300,000. Units required?"
+
+1. Required contribution = Fixed cost + target profit.
+2. Required contribution = 900,000 + 300,000 = 1,200,000.
+3. Units = 1,200,000 / 30 = **40,000 units**.
+
+### Example 4: Mix of two products
+
+Prompt: "Product A contributes $20/unit and sells 60% of volume. Product B contributes $50/unit and sells 40%. Fixed cost is $1.4M. Break-even total units?"
+
+1. Weighted contribution per unit = 0.6 x 20 + 0.4 x 50 = 12 + 20 = 32.
+2. Break-even total units = 1,400,000 / 32 = **43,750 units**.
+
+When division is awkward, estimate first (44k), then refine if needed. Drill this on [division and averages for interviews](/interview-math/division-and-averages).
+
+---
+
+## Common traps and quick fixes
+
+### Trap 1: Using gross margin and contribution margin interchangeably
+
+Fix: confirm definitions out loud. If variable costs are close to COGS and fixed overhead is separate, gross margin may approximate contribution margin, but do not assume silently.
+
+### Trap 2: Forgetting to round directionally
+
+Fix: for minimum units needed, round up. 29,401 units means 29,401, not 29,400.
+
+### Trap 3: Mixing time windows
+
+Fix: if fixed costs are annual and per-unit economics are monthly, convert one side before solving.
+
+### Trap 4: Solving before structuring
+
+Fix: translate the words first. This is exactly why [case interview math question patterns](/blog/case-interview-math-questions) are useful.
+
+---
+
+## 15-minute practice structure
+
+1. 4 minutes: 6 quick setup-only prompts (no arithmetic).
+2. 6 minutes: 4 break-even and target-profit calculations.
+3. 3 minutes: mixed unit-economics interpretation prompts.
+4. 2 minutes: timed benchmark in [Focused training](/training/focused).
+
+After each session, write one sentence: "Where did I lose the most time?" Usually it is either setup clarity or division speed. If it is multiplication friction, revisit [fast multiplication techniques](/blog/fast-multiplication-techniques).
+
+---
+
+## What good answers sound like
+
+Strong candidates do three things in one sentence:
+
+- Give the formula.
+- Give the number.
+- Give the business implication.
+
+Example: "Contribution per unit is $25, so break-even is 48,000 units; above that, each unit adds $25 to operating profit."
+
+That short structure sounds confident because it is explicit and decision-ready.
+
+---
+
+## Related reading
+
+- [Mental Math for Interviews: A 10-Minute Daily Routine](/blog/mental-math-interview-drills)
+- [Timed Arithmetic Drills: How to Measure and Improve Speed](/blog/timed-arithmetic-drills)
+- [Fast Multiplication Without a Calculator](/blog/fast-multiplication-techniques)
+- [Interview Math Hub](/interview-math)
+- [Unit Economics Math for Product and Growth Interviews](/interview-math/unit-economics-math)
+- [Division and Averages for Interviews](/interview-math/division-and-averages)
+- [Business Word Problems: Fast Translation to Math](/interview-math/business-word-problems)
+- [Rule of 72 and CAGR Interview Math](/blog/rule-of-72-cagr-interview-math)
+- [Interview Math Aggregate Insights](/interview-math/insights)
+
+---
+
+## FAQ
+
+<FAQSection items={faq} />
+
+---
+
+## Next step: test this in live practice
+
+Start a short [thetamac session](/) and force yourself to say "contribution first" before every profitability problem. Then do one 2-minute benchmark and compare consistency on the [Leaderboard](/leaderboard). If your setup is still slow, run one extra block in [Focused training](/training/focused) tomorrow.

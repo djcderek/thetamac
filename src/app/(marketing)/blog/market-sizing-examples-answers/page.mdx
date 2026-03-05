@@ -1,0 +1,256 @@
+import { FAQSection } from "@/components/blog/faq-section";
+
+export const metadata = {
+  title: "Market Sizing Examples With Answers: Interview Math Walkthroughs",
+  description:
+    "Practice market sizing interview questions with complete worked answers, assumption frameworks, and sanity-check steps.",
+  alternates: {
+    canonical: "/blog/market-sizing-examples-answers",
+  },
+  keywords: [
+    "market sizing examples",
+    "market sizing interview answers",
+    "guesstimate interview math",
+    "back of the envelope market size",
+    "consulting case market sizing",
+    "product market estimation",
+    "tam sam som interview",
+  ],
+  openGraph: {
+    title: "Market Sizing Examples With Answers | thetamac",
+    description:
+      "Four interview-style market sizing examples with fast math setup, worked answers, and common mistake checks.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Market Sizing Examples With Answers",
+    description:
+      "Use these market sizing walkthroughs to improve interview math speed and answer clarity.",
+  },
+};
+
+export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
+export const url = `${siteUrl}/blog/market-sizing-examples-answers`;
+export const datePublished = "2026-03-05";
+export const dateModified = "2026-03-05";
+export const readingTime = "11 min read";
+
+export const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "Market Sizing Examples With Answers: Interview Math Walkthroughs",
+  description:
+    "Practice market sizing interview questions with complete worked answers, assumption frameworks, and sanity-check steps.",
+  datePublished,
+  dateModified,
+  author: {
+    "@type": "Organization",
+    name: "thetamac",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "thetamac",
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/icon.svg`,
+    },
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": url,
+  },
+  url,
+  inLanguage: "en-US",
+};
+
+export const faq = [
+  {
+    question: "How detailed should assumptions be in market sizing interviews?",
+    answer:
+      "Use only enough assumptions to make the equation workable and defendable. Too many assumptions increase error risk and slow your communication.",
+  },
+  {
+    question: "Should I compute exact numbers or rounded estimates?",
+    answer:
+      "Start with rounded estimates and state that they are directional. Tighten only if the interviewer asks for precision.",
+  },
+  {
+    question: "What is the fastest way to avoid arithmetic mistakes in market sizing?",
+    answer:
+      "Compute in layers, keep units explicit at each step, and run a quick top-down sanity check before giving your final answer.",
+  },
+];
+
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer,
+    },
+  })),
+};
+
+<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+
+# Market Sizing Examples With Answers: Interview Math Walkthroughs
+
+<div className="text-sm text-muted-foreground">
+  Published March 5, 2026 • {readingTime}
+</div>
+
+Market sizing questions are one of the fastest ways for interviewers to test structured thinking and mental math together. Most candidates know the idea, but many still drift into unclear assumptions, messy units, and arithmetic errors that could have been avoided.
+
+Quick answer: define a simple equation first, choose round inputs, calculate in layers, and close with a sanity check. If your setup process is inconsistent, start with the [market sizing math guide](/interview-math/market-sizing-math), then use the worked examples below under time pressure.
+
+---
+
+## Quick answer block: a reusable 4-step framework
+
+Use this framework for almost every market sizing prompt:
+
+1. **Equation first:** population x participation x frequency x price.
+2. **Assumptions second:** pick realistic round numbers.
+3. **Layered math:** compute one dimension at a time.
+4. **Reasonableness check:** compare against a known benchmark.
+
+If the prompt is ambiguous, state two scenarios (conservative and aggressive). That sounds much stronger than pretending one estimate is exact. You can practice that communication style in [guesstimate framework drills](/interview-math/guesstimate-framework).
+
+---
+
+## Worked examples with full answers
+
+### Example 1: Annual revenue of city car washes
+
+Prompt: "Estimate annual revenue of car washes in a city with 1.5M people."
+
+Setup assumptions:
+
+- 2.5 people per household -> 600k households.
+- 80% own at least one car -> 480k car-owning households.
+- Average 1.3 cars per owning household -> 624k cars.
+- Average paid wash frequency: 8 per year.
+- Average price per wash: $14.
+
+Math:
+
+1. Annual washes = 624k x 8 = 4.992M.
+2. Revenue = 4.992M x $14 ≈ **$69.9M**.
+
+Sanity check: roughly $70M in a mid-sized city is directionally plausible.
+
+### Example 2: TAM for interview prep subscription in the US
+
+Prompt: "Estimate annual TAM for a premium interview prep tool."
+
+Assumptions:
+
+- 4M job seekers targeting analytical roles.
+- 25% willing to pay for structured prep -> 1M.
+- Average paid period: 3 months.
+- Monthly price: $25.
+
+Math:
+
+1. Paying users = 1M.
+2. Revenue per user = 3 x $25 = $75.
+3. TAM = 1M x 75 = **$75M annually**.
+
+If interviewer asks for SAM, narrow to channels you can actually reach in 12 months.
+
+### Example 3: Snack vending revenue in office district
+
+Prompt: "Estimate monthly snack vending revenue in a downtown office district."
+
+Assumptions:
+
+- 120k office workers in district.
+- 45% buy from vending at least once per week.
+- Average purchases per active buyer per week: 1.6.
+- Average ticket: $3.20.
+- 4.3 weeks/month.
+
+Math:
+
+1. Active buyers = 120k x 0.45 = 54k.
+2. Weekly transactions = 54k x 1.6 = 86.4k.
+3. Monthly transactions = 86.4k x 4.3 ≈ 371.5k.
+4. Revenue = 371.5k x 3.2 ≈ **$1.19M per month**.
+
+When numbers are awkward, round once, not at every step. Use [rounding and estimation under pressure](/interview-math/rounding-and-estimation) to avoid drift.
+
+### Example 4: EV charging demand in a metro area
+
+Prompt: "Estimate annual public charging sessions in a metro with 900k registered cars."
+
+Assumptions:
+
+- 12% EV share -> 108k EVs.
+- 40% of charging happens in public stations.
+- Average EV charging events: 4 per month.
+
+Math:
+
+1. Monthly public sessions = 108k x 0.4 x 4 = 172.8k.
+2. Annual sessions = 172.8k x 12 = **2.07M sessions**.
+
+Business implication: this estimate can anchor station-capacity discussion quickly.
+
+---
+
+## How to communicate assumptions without sounding shaky
+
+Use the sentence pattern: "I will assume X because Y, and I can sensitivity-test it." Example: "I will assume 8 paid washes per car per year because it balances winter and summer behavior, and I can check 6-10 as a range."
+
+This keeps you in control of the conversation. It also mirrors the process in [case interview math question patterns](/blog/case-interview-math-questions), where setup clarity beats raw speed.
+
+---
+
+## Frequent mistakes in market sizing
+
+1. **No equation up front.** You start multiplying random numbers and lose the interviewer.
+2. **Unit mismatch.** Monthly frequency with annual population gives nonsense output.
+3. **Assumption overload.** Ten tiny assumptions create fragile results.
+4. **No reasonableness check.** You report $3B for a neighborhood market with no pause.
+
+To fix this, practice one session weekly where the only goal is clean setup, not speed. Then run one timed benchmark from the [mental math speed test](/interview-math/mental-math-speed-test).
+
+---
+
+## 15-minute drill session for this skill
+
+1. 4 minutes: write equations only for 4 prompts.
+2. 6 minutes: solve 3 prompts with rounded assumptions.
+3. 3 minutes: redo one prompt with tighter assumptions.
+4. 2 minutes: benchmark in [Focused training](/training/focused).
+
+Log where time disappeared: assumption selection, multiplication, or explanation. If multiplication was the bottleneck, run [fast multiplication drills](/blog/fast-multiplication-techniques). If pacing was the issue, do one block of [timed arithmetic drills](/blog/timed-arithmetic-drills).
+
+---
+
+## Related reading
+
+- [Mental Math for Interviews: A 10-Minute Daily Routine](/blog/mental-math-interview-drills)
+- [Timed Arithmetic Drills: How to Measure and Improve Speed](/blog/timed-arithmetic-drills)
+- [Fast Multiplication Without a Calculator](/blog/fast-multiplication-techniques)
+- [Interview Math Hub](/interview-math)
+- [Market Sizing Math: Fast Back-of-the-Envelope Calculations](/interview-math/market-sizing-math)
+- [Guesstimate Framework for Case Interviews](/interview-math/guesstimate-framework)
+- [Rounding and Estimation Under Interview Pressure](/interview-math/rounding-and-estimation)
+- [Rule of 72 and CAGR Interview Math](/blog/rule-of-72-cagr-interview-math)
+- [Interview Math Aggregate Insights](/interview-math/insights)
+
+---
+
+## FAQ
+
+<FAQSection items={faq} />
+
+---
+
+## Next step: run one full market-sizing rep now
+
+Open [thetamac](/), solve one market-sizing-style prompt with the 4-step framework, and keep your answer to 90 seconds. Then compare pace trends on the [Leaderboard](/leaderboard). If setup quality is inconsistent, run two focused reps in [training mode](/training/focused) tomorrow.
