@@ -716,8 +716,8 @@ export default function TrainingPage() {
   const [avgTime, setAvgTime] = useState(0);
   const [, setTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState<number>(0);
-  const [guestId, setGuestId] = useState<string | null>(null);
   const guestSubmittedRef = useRef(false);
+  const guestCookieReadyRef = useRef(false);
   const sessionPromiseRef = useRef<Promise<string | null> | null>(null);
   const [scorePercentile, setScorePercentile] = useState<ScoreDistribution | null>(null);
 
@@ -891,22 +891,30 @@ export default function TrainingPage() {
     setOperationRanges(getPresetRanges(difficulty));
   }, [showAdvanced, difficulty, customRangesTouched]);
 
-  const ensureGuestId = async () => {
+  const ensureGuestCookie = async () => {
     if (authSession?.user) return;
-    if (guestId) return;
-    if (typeof window === "undefined") return;
-    const existing = localStorage.getItem("guestLeaderboardId");
-    if (existing) {
-      setGuestId(existing);
-      return;
+    if (guestCookieReadyRef.current) return;
+
+    try {
+      const response = await fetch("/api/auth/guest-token", {
+        method: "GET",
+        cache: "no-store",
+      });
+      if (response.ok) {
+        guestCookieReadyRef.current = true;
+      }
+    } catch (error) {
+      console.error("Failed to initialize guest identity:", error);
     }
-    const randomId = crypto.randomUUID();
-    localStorage.setItem("guestLeaderboardId", randomId);
-    setGuestId(randomId);
   };
 
   const startTraining = async () => {
-    await ensureGuestId();
+    if (!authSession?.user) {
+      await ensureGuestCookie();
+      if (!guestCookieReadyRef.current) {
+        return;
+      }
+    }
     // Reset operation queue for fresh even distribution
     operationQueueRef.current = shuffleArray([...selectedOperations]);
 
@@ -995,8 +1003,11 @@ export default function TrainingPage() {
 
   const submitGuestScore = async (solved: number, correct: number, bestStreak: number, avgTimeVal: number) => {
     if (guestSubmittedRef.current) return;
-    if (!guestId) return;
     if (!isDefaultTimedConfig()) return;
+
+    await ensureGuestCookie();
+    if (!guestCookieReadyRef.current) return;
+
     guestSubmittedRef.current = true;
 
     try {
@@ -1004,8 +1015,6 @@ export default function TrainingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          guestId,
-          displayName: "Guest",
           totalProblems: solved,
           correctAnswers: correct,
           averageTime: avgTimeVal,
@@ -1052,7 +1061,9 @@ export default function TrainingPage() {
 
       setSessionId(null);
       sessionPromiseRef.current = null;
-    } else if (!authSession?.user) {
+      return;
+    }
+    if (!authSession?.user) {
       await submitGuestScore(solved, correct, bestStreak, avgTimeVal);
     }
 
@@ -1378,20 +1389,6 @@ export default function TrainingPage() {
   const currentConfig = difficultyConfig[difficulty];
   const containerWidthClass = isPlaying ? "max-w-3xl" : isGameOver ? "max-w-3xl" : "max-w-5xl";
 
-  // Persist a guest id locally for leaderboard submissions
-  useEffect(() => {
-    if (guestId) return;
-    if (typeof window === "undefined") return;
-    const existing = localStorage.getItem("guestLeaderboardId");
-    if (existing) {
-      setGuestId(existing);
-      return;
-    }
-    const randomId = crypto.randomUUID();
-    localStorage.setItem("guestLeaderboardId", randomId);
-    setGuestId(randomId);
-  }, [guestId]);
-
   // Get difficulty badge color
   const getDifficultyColor = (d: Difficulty) => {
     switch (d) {
@@ -1504,5 +1501,4 @@ export default function TrainingPage() {
     </div>
   );
 }
-
 

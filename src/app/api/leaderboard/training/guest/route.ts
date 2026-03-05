@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { GUEST_COOKIE_NAME, verifyGuestToken } from "@/lib/guest";
+import { checkRateLimit, guestLeaderboardRatelimit } from "@/lib/rate-limit";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 function isDefaultSettings(payload: {
@@ -27,6 +30,23 @@ function isDefaultSettings(payload: {
   );
 }
 
+const MAX_PROBLEMS_PER_SUBMISSION = 500;
+const MAX_AVERAGE_TIME_SECONDS = 30;
+const REPLAY_THROTTLE_MS = 90_000;
+const DUPLICATE_WINDOW_MS = 120_000;
+
+function getClientIp(request: Request): string {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const firstForwarded = forwardedFor?.split(",")[0]?.trim();
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  return firstForwarded || realIp || "unknown";
+}
+
+function sanitizeDisplayName(value: unknown, fallback: string): string {
+  const normalized = (typeof value === "string" ? value : fallback).trim().slice(0, 24);
+  return normalized || fallback;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -44,10 +64,29 @@ export async function POST(request: Request) {
       showAdvanced,
     } = body;
 
-    if (!guestId || typeof guestId !== "string" || guestId.length < 8) {
+    const guestCookie = (await cookies()).get(GUEST_COOKIE_NAME)?.value;
+    const verifiedGuest = guestCookie ? await verifyGuestToken(guestCookie) : null;
+
+    // Prefer server-verified cookie identity, but keep fallback for compatibility.
+    const resolvedGuestId = verifiedGuest?.guestId || (typeof guestId === "string" ? guestId : null);
+    const identityVerified = Boolean(verifiedGuest);
+    if (!resolvedGuestId || resolvedGuestId.length < 8) {
+      return NextResponse.json({ error: "guestId required" }, { status: 400 });
+    }
+    const resolvedDisplayName = sanitizeDisplayName(
+      verifiedGuest?.guestName || displayName,
+      "Guest"
+    );
+
+    const clientIp = getClientIp(request);
+    const rateLimit = await checkRateLimit(
+      guestLeaderboardRatelimit,
+      `${resolvedGuestId}:${clientIp}`
+    );
+    if (!rateLimit.success) {
       return NextResponse.json(
-        { error: "guestId required" },
-        { status: 400 }
+        { error: "Too many submissions. Please slow down." },
+        { status: 429, headers: rateLimit.headers }
       );
     }
 
@@ -63,17 +102,64 @@ export async function POST(request: Request) {
     const avgTime = Number(averageTime) || 0;
     const streak = Number(bestStreak) || 0;
 
-    if (total <= 0 || correct < 0 || correct > total) {
+    if (
+      total <= 0 ||
+      total > MAX_PROBLEMS_PER_SUBMISSION ||
+      correct < 0 ||
+      correct > total ||
+      avgTime < 0 ||
+      avgTime > MAX_AVERAGE_TIME_SECONDS ||
+      streak < 0 ||
+      streak > total
+    ) {
       return NextResponse.json(
         { error: "Invalid score payload" },
         { status: 400 }
       );
     }
 
+    const now = Date.now();
+    const latestSubmission = await db.guestTrainingScore.findFirst({
+      where: { guestId: resolvedGuestId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    if (latestSubmission) {
+      const msSinceLatest = now - latestSubmission.createdAt.getTime();
+      if (msSinceLatest < REPLAY_THROTTLE_MS) {
+        return NextResponse.json(
+          { error: "Please wait before submitting another score." },
+          { status: 429 }
+        );
+      }
+    }
+
+    const duplicate = await db.guestTrainingScore.findFirst({
+      where: {
+        guestId: resolvedGuestId,
+        createdAt: { gte: new Date(now - DUPLICATE_WINDOW_MS) },
+        totalProblems: total,
+        correctAnswers: correct,
+        averageTime: avgTime > 0 ? avgTime : 0,
+        bestStreak: streak > 0 ? streak : 0,
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      return NextResponse.json(
+        { error: "Duplicate score submission ignored." },
+        { status: 409 }
+      );
+    }
+
     await db.guestTrainingScore.create({
       data: {
-        guestId,
-        displayName: (displayName || "Guest").toString().trim().slice(0, 24) || "Guest",
+        guestId: resolvedGuestId,
+        displayName: resolvedDisplayName,
+        identityVerified,
         totalProblems: total,
         correctAnswers: correct,
         averageTime: avgTime > 0 ? avgTime : 0,

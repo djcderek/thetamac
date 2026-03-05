@@ -5,6 +5,31 @@ export type Period = "all" | "weekly" | "daily";
 export type Mode = "duel" | "racing" | "training";
 
 const DEFAULT_RATING = 1000;
+const MAX_LEGACY_GUEST_SCORE_PER_RUN = 500;
+const LEGACY_GUEST_OUTLIER_BY_PERIOD: Record<Period, number> = {
+  all: 5000,
+  weekly: 1500,
+  daily: 500,
+};
+
+type GuestScoreRow = {
+  guestId: string;
+  displayName: string;
+  identityVerified: boolean;
+  totalProblems: number;
+  correctAnswers: number;
+  averageTime: number;
+  bestStreak: number;
+};
+
+function isImplausibleLegacyGuestRun(score: Pick<GuestScoreRow, "identityVerified" | "totalProblems" | "correctAnswers">): boolean {
+  if (score.identityVerified) return false;
+  if (score.totalProblems < 0 || score.correctAnswers < 0) return true;
+  if (score.totalProblems > MAX_LEGACY_GUEST_SCORE_PER_RUN) return true;
+  if (score.correctAnswers > MAX_LEGACY_GUEST_SCORE_PER_RUN) return true;
+  if (score.correctAnswers > score.totalProblems) return true;
+  return false;
+}
 
 interface BaseEntry {
   userId: string;
@@ -327,11 +352,29 @@ async function buildTrainingLeaderboard(
     where: {
       ...(startTime ? { createdAt: { gte: startTime } } : {}),
     },
+    select: {
+      guestId: true,
+      displayName: true,
+      identityVerified: true,
+      totalProblems: true,
+      correctAnswers: true,
+      averageTime: true,
+      bestStreak: true,
+    },
   });
 
   const stats = new Map<
     string,
-    { correct: number; attempts: number; totalTime: number; bestStreak: number; isGuest?: boolean; name?: string }
+    {
+      correct: number;
+      attempts: number;
+      totalTime: number;
+      bestStreak: number;
+      isGuest?: boolean;
+      name?: string;
+      verified?: boolean;
+      submissions?: number;
+    }
   >();
 
   for (const session of sessions) {
@@ -352,16 +395,45 @@ async function buildTrainingLeaderboard(
     }
   }
 
+  const legacyOutlierThreshold = LEGACY_GUEST_OUTLIER_BY_PERIOD[period];
   for (const score of guestScores) {
+    if (isImplausibleLegacyGuestRun(score)) {
+      continue;
+    }
+
     if (!stats.has(score.guestId)) {
-      stats.set(score.guestId, { correct: 0, attempts: 0, totalTime: 0, bestStreak: 0, isGuest: true, name: score.displayName });
+      stats.set(score.guestId, {
+        correct: 0,
+        attempts: 0,
+        totalTime: 0,
+        bestStreak: 0,
+        isGuest: true,
+        name: score.displayName,
+        verified: score.identityVerified,
+        submissions: 0,
+      });
     }
     const entry = stats.get(score.guestId)!;
+    entry.verified = Boolean(entry.verified || score.identityVerified);
+    entry.submissions = (entry.submissions ?? 0) + 1;
+    if (score.identityVerified && score.displayName) {
+      entry.name = score.displayName;
+    } else if (!entry.name && score.displayName) {
+      entry.name = score.displayName;
+    }
     entry.correct += score.correctAnswers ?? 0;
     entry.attempts += score.totalProblems ?? 0;
     entry.bestStreak = Math.max(entry.bestStreak, score.bestStreak ?? 0);
     if (score.totalProblems > 0 && score.averageTime > 0) {
       entry.totalTime += score.averageTime * score.totalProblems;
+    }
+  }
+
+  for (const [entryId, data] of stats.entries()) {
+    if (!data.isGuest) continue;
+    if (data.verified) continue;
+    if (data.correct > legacyOutlierThreshold) {
+      stats.delete(entryId);
     }
   }
 
@@ -562,11 +634,27 @@ export async function getTrainingDistribution(): Promise<DistributionResult> {
 
   const guestSessions = await db.guestTrainingScore.findMany({
     select: {
+      guestId: true,
+      identityVerified: true,
+      totalProblems: true,
       correctAnswers: true,
     },
   });
 
   const scores: number[] = [];
+  const legacyGuestTotals = new Map<string, number>();
+
+  for (const guest of guestSessions) {
+    if (isImplausibleLegacyGuestRun(guest)) {
+      continue;
+    }
+    if (!guest.identityVerified) {
+      legacyGuestTotals.set(
+        guest.guestId,
+        (legacyGuestTotals.get(guest.guestId) ?? 0) + (guest.correctAnswers ?? 0)
+      );
+    }
+  }
 
   for (const session of sessions) {
     const score = session.correctAnswers ?? session.totalProblems ?? 0;
@@ -574,6 +662,15 @@ export async function getTrainingDistribution(): Promise<DistributionResult> {
   }
 
   for (const guest of guestSessions) {
+    if (isImplausibleLegacyGuestRun(guest)) {
+      continue;
+    }
+    if (!guest.identityVerified) {
+      const aggregateCorrect = legacyGuestTotals.get(guest.guestId) ?? 0;
+      if (aggregateCorrect > LEGACY_GUEST_OUTLIER_BY_PERIOD.all) {
+        continue;
+      }
+    }
     const score = guest.correctAnswers ?? 0;
     scores.push(score);
   }

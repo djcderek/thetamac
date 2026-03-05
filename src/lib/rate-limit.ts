@@ -79,6 +79,19 @@ export const billingPortalRatelimit = redis
   : null;
 
 /**
+ * Guest leaderboard submit rate limit: 20 requests per 5 minutes
+ * Prevents guest score submit abuse/spam.
+ */
+export const guestLeaderboardRatelimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(20, "5 m"),
+      prefix: "ratelimit:guest-leaderboard",
+      analytics: true,
+    })
+  : null;
+
+/**
  * Helper to check rate limit and return appropriate response
  */
 export async function checkRateLimit(
@@ -113,4 +126,3 @@ export async function checkRateLimit(
     },
   };
 }
-

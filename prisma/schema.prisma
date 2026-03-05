@@ -239,6 +239,7 @@ model GuestTrainingScore {
   id             String   @id @default(cuid())
   guestId        String
   displayName    String
+  identityVerified Boolean @default(false)
   totalProblems  Int      @default(0)
   correctAnswers Int      @default(0)
   averageTime    Float    @default(0)
@@ -247,6 +248,7 @@ model GuestTrainingScore {
 
   @@index([guestId])
   @@index([createdAt])
+  @@index([identityVerified, createdAt])
   @@map("guest_training_scores")
 }
 
