@@ -1,4 +1,4 @@
-import { DefaultSession, DefaultUser } from "next-auth";
+import { DefaultUser } from "next-auth";
 import { DefaultJWT } from "next-auth/jwt";
 import { SubscriptionPlan } from "@prisma/client";
 
@@ -40,5 +40,4 @@ declare module "next-auth/jwt" {
     stripeSubscriptionId?: string | null;
   }
 }
-
 

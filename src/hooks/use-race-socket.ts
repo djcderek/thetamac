@@ -503,14 +503,14 @@ export function useRaceSocket() {
       });
     });
 
-    socket.on("race:player_joined", ({ player, totalPlayers }) => {
+    socket.on("race:player_joined", ({ player }) => {
       setLobby(prev => ({
         ...prev,
         players: [...prev.players, player],
       }));
     });
 
-    socket.on("race:player_left", ({ playerId, totalPlayers }) => {
+    socket.on("race:player_left", ({ playerId }) => {
       setLobby(prev => ({
         ...prev,
         players: prev.players.filter(p => p.id !== playerId),
@@ -674,7 +674,7 @@ export function useRaceSocket() {
       }
     });
 
-    socket.on("race:player_bumped", ({ bumperId, victimId, victimNewPosition, victimNewLane, stunDuration }) => {
+    socket.on("race:player_bumped", ({ victimId, victimNewPosition, victimNewLane, stunDuration }) => {
       setRace(prev => ({
         ...prev,
         players: prev.players.map(p => {
@@ -704,7 +704,7 @@ export function useRaceSocket() {
       }, stunDuration);
     });
 
-    socket.on("race:wrong_answer", ({ playerId, action, cooldownMs }) => {
+    socket.on("race:wrong_answer", ({ cooldownMs }) => {
       setCooldownUntil(Date.now() + cooldownMs);
     });
 
@@ -745,7 +745,7 @@ export function useRaceSocket() {
       }));
     });
 
-    socket.on("race:obstacle_hit", ({ playerId, obstacleId, obstacleType, stunDuration, pushback }) => {
+    socket.on("race:obstacle_hit", ({ playerId, obstacleType, stunDuration }) => {
       if (playerId === myPlayerIdRef.current) {
         addFeedback("wrong", `Hit ${obstacleType.replace("_", " ")}! Stunned for ${stunDuration / 1000}s`);
       }
@@ -813,7 +813,8 @@ export function useRaceSocket() {
   // ACTIONS
   // ============================================
 
-  const joinQueue = useCallback(async (userId: string, _username: string) => {
+  const joinQueue = useCallback(async (userId: string, username: string) => {
+    void username;
     if (socketRef.current) {
       myPlayerIdRef.current = userId;
       setMyPlayerId(userId);

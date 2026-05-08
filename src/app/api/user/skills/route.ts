@@ -409,9 +409,6 @@ export async function GET(request: Request) {
       });
     }
 
-    // Calculate combination matrices for each operation (0-MAX_NUMBER)
-    const operations = ["+", "-", "×", "÷"] as const;
-    
     // Initialize matrices
     const initializeMatrix = (): { attempts: number; correct: number; totalTime: number }[][] => {
       const matrix: { attempts: number; correct: number; totalTime: number }[][] = [];
@@ -532,5 +529,4 @@ export async function GET(request: Request) {
     );
   }
 }
-
 

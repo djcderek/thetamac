@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { DuelMode } from "@/components/multiplayer/duel-mode";
 
@@ -16,4 +15,3 @@ export default function PrivateDuelPage() {
 
   return <DuelMode initialPrivateRoomCode={roomCode} />;
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -201,27 +201,6 @@ function EmptyState() {
       </CardContent>
     </Card>
   );
-}
-
-// Get color for accuracy value - gradient from red (0%) to yellow (50%) to green (100%)
-function getAccuracyColor(accuracy: number | null, hasAttempts: boolean): string {
-  if (!hasAttempts) return "bg-secondary/30";
-  if (accuracy === null) return "bg-secondary/30";
-  
-  // Red (0%) -> Yellow (50%) -> Green (100%)
-  if (accuracy < 50) {
-    // Red to Yellow (0-50)
-    const ratio = accuracy / 50;
-    return `bg-gradient-to-br from-red-500/${Math.round(60 + ratio * 20)} to-orange-500/${Math.round(40 + ratio * 40)}`;
-  } else if (accuracy < 75) {
-    // Yellow to Light Green (50-75)
-    const ratio = (accuracy - 50) / 25;
-    return `bg-gradient-to-br from-orange-400/${Math.round(70 - ratio * 20)} to-yellow-400/${Math.round(60 + ratio * 20)}`;
-  } else {
-    // Light Green to Green (75-100)
-    const ratio = (accuracy - 75) / 25;
-    return `bg-gradient-to-br from-lime-400/${Math.round(60 + ratio * 20)} to-emerald-500/${Math.round(60 + ratio * 30)}`;
-  }
 }
 
 // Simpler, more reliable color function using Tailwind classes
@@ -471,7 +450,7 @@ export function SkillsDashboard() {
   const [matrixLoading, setMatrixLoading] = useState(false);
 
   // Fetch skills data with optional matrix size
-  const fetchSkillsData = async (maxNumber: number = 15, isInitial: boolean = true) => {
+  const fetchSkillsData = useCallback(async (maxNumber: number = 15, isInitial: boolean = true) => {
     try {
       if (isInitial) {
         setLoading(true);
@@ -497,11 +476,11 @@ export function SkillsDashboard() {
         setMatrixLoading(false);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSkillsData(matrixSize, true);
-  }, []);
+  }, [fetchSkillsData, matrixSize]);
   
   // Debounced matrix size change handler
   const handleMatrixSizeChange = (newSize: number) => {
@@ -1075,5 +1054,4 @@ export function SkillsDashboard() {
     </div>
   );
 }
-
 

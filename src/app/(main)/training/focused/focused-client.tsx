@@ -16,7 +16,6 @@ import {
   RotateCcw,
   Play,
   LogIn,
-  UserPlus,
   Loader2,
   Trophy,
   Settings,
@@ -660,4 +659,3 @@ export function FocusedTrainingClient() {
     </Suspense>
   );
 }
-

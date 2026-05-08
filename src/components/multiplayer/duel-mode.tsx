@@ -294,6 +294,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
   const isMatchFound = hasOpponent && gameplay.status === "idle";
   const isGameActive = gameplay.status === "playing" || gameplay.status === "round_end" || gameplay.status === "countdown";
   const isLobby = !isSearching && !isMatchFound && !isGameActive;
+  const privateProblemId = privateDuel.problem?.id;
   const useCustomKeypad = isMobileDevice;
   const showCustomKeypad = isGameActive && useCustomKeypad;
   const [searchHeading, setSearchHeading] = useState("Finding opponent...");
@@ -415,12 +416,12 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
 
   // Private duel: reset answer + local timer when a new problem arrives
   useEffect(() => {
-    if (!privateDuel.problem) return;
+    if (!privateProblemId) return;
     setPrivateAnswer("");
     setPrivateAnswerSubmitted(false);
     setPrivateRoundStartTime(Date.now());
     setPrivateTimeLeft(10);
-  }, [privateDuel.problem?.id]);
+  }, [privateProblemId]);
 
   // Keep the answer box focused while playing (helps after clicks elsewhere)
   useEffect(() => {
@@ -469,7 +470,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
 
   // Private duel timer
   useEffect(() => {
-    if (!privateDuel.problem) return;
+    if (!privateProblemId) return;
     if (privateDuel.roundResults) return; // stop ticking during results overlay
 
     const timer = setInterval(() => {
@@ -480,7 +481,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
     }, 100);
 
     return () => clearInterval(timer);
-  }, [privateDuel.problem?.id, privateDuel.roundResults, privateRoundStartTime]);
+  }, [privateProblemId, privateDuel.roundResults, privateRoundStartTime]);
 
   const handleStartSearch = () => {
     // Focus input immediately on user interaction to ensure keyboard opens on mobile

@@ -9,7 +9,6 @@ import type {
   Problem,
   PrivateDuelPlayerRoundResult,
   PrivateDuelRoomSnapshot,
-  PrivateDuelRoomStatus,
 } from "@/lib/multiplayer/types";
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -80,6 +79,7 @@ export function useSocket() {
   const [onlineCount, setOnlineCount] = useState(0);
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
   const [identity, setIdentity] = useState<PlayerIdentity | null>(null);
+  const identityIdRef = useRef<string | null>(null);
   
   const [matchmaking, setMatchmaking] = useState<MatchmakingState>({
     isSearching: false,
@@ -162,11 +162,13 @@ export function useSocket() {
           if (guestRes.ok) {
             const guestData = await guestRes.json();
             if (guestData?.guest?.id && guestData?.guest?.name) {
-              setIdentity({
+              const guestIdentity = {
                 id: guestData.guest.id,
                 username: guestData.guest.name,
                 isGuest: true,
-              });
+              };
+              identityIdRef.current = guestIdentity.id;
+              setIdentity(guestIdentity);
             }
           }
 
@@ -184,16 +186,20 @@ export function useSocket() {
           authToken = data.token;
 
           if (sessionIdentity) {
+            identityIdRef.current = sessionIdentity.id;
             setIdentity(sessionIdentity);
           } else if (data.userId && data.username) {
-            setIdentity({
+            const tokenIdentity = {
               id: data.userId,
               username: data.username,
               isGuest: data.isGuest === true,
-            });
+            };
+            identityIdRef.current = tokenIdentity.id;
+            setIdentity(tokenIdentity);
           }
         } else if (sessionIdentity) {
           // Still expose the signed-in identity even if socket token fetch failed.
+          identityIdRef.current = sessionIdentity.id;
           setIdentity(sessionIdentity);
         }
       } catch (err) {
@@ -469,7 +475,7 @@ export function useSocket() {
         }));
       });
 
-      socket.on("duel_private:player_joined", ({ player, totalPlayers }) => {
+      socket.on("duel_private:player_joined", ({ player }) => {
         setPrivateDuel((prev) => {
           const room = prev.room;
           if (!room) return prev;
@@ -483,7 +489,7 @@ export function useSocket() {
         });
       });
 
-      socket.on("duel_private:player_left", ({ playerId, totalPlayers, newHostId }) => {
+      socket.on("duel_private:player_left", ({ playerId, newHostId }) => {
         setPrivateDuel((prev) => {
           const room = prev.room;
           if (!room) return prev;
@@ -491,7 +497,7 @@ export function useSocket() {
           const nextHostId = newHostId ?? room.hostId;
           return {
             ...prev,
-            youAreHost: prev.youAreHost ? true : nextHostId === (session?.user?.id ?? identity?.id ?? ""),
+            youAreHost: prev.youAreHost ? true : nextHostId === (session?.user?.id ?? identityIdRef.current ?? ""),
             room: {
               ...room,
               hostId: nextHostId,
@@ -541,7 +547,7 @@ export function useSocket() {
         setPrivateDuel({
           inRoom: true,
           room,
-          youAreHost: room.hostId === (session?.user?.id ?? identity?.id ?? ""),
+          youAreHost: room.hostId === (session?.user?.id ?? identityIdRef.current ?? ""),
           joinUrl: null,
           countdown: 0,
           currentRound: 0,
@@ -755,4 +761,3 @@ export function useSocket() {
     restartPrivateDuelRoom,
   };
 }
-

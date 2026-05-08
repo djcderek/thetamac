@@ -236,11 +236,6 @@ function cleanupPrivateRaceRoom(roomCode: string) {
   privateRaceRooms.delete(roomCode);
 }
 
-function schedulePrivateRaceCleanup(room: PrivateRaceRoom, delayMs: number) {
-  if (room.cleanupTimer) clearTimeout(room.cleanupTimer);
-  room.cleanupTimer = setTimeout(() => cleanupPrivateRaceRoom(room.roomCode), delayMs);
-}
-
 function maybeTransferPrivateRaceHost(room: PrivateRaceRoom): string | null {
   if (room.players.some((p) => p.playerId === room.hostId)) return null;
   const next = room.players[0]?.playerId ?? null;

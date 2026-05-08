@@ -2,8 +2,9 @@
 
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, MeshReflectorMaterial, Sparkles, Environment } from "@react-three/drei";
-import { useRef, Suspense, useMemo, useState, useEffect } from "react";
+import { useRef, Suspense, useMemo } from "react";
 import * as THREE from "three";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 const VEHICLE_REAR_OFFSETS: Record<string, number> = {
   car_truck: 1.55,
@@ -669,7 +670,6 @@ function CarModel({
 
       {/* Wheels */}
       {wheelPositions.map((pos, i) => {
-          const isRear = i > 1;
           // Adjust size for offroad
           const scale = wheel === 'wheel_offroad' ? 1.2 : 1;
           
@@ -804,12 +804,7 @@ function CarModel({
 }
 
 export function GarageDisplay({ equippedSkin, equippedTrail, equippedVehicle, equippedWheel }: GarageDisplayProps) {
-  const [mounted, setMounted] = useState(false);
-
-  // Only render Canvas after client-side mount to prevent SSR hydration issues
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useHydrated();
 
   if (!mounted) {
     return (

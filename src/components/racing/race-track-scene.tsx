@@ -4,7 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { Sparkles, Html } from "@react-three/drei";
 import { useRef, useMemo, ReactNode } from "react";
 import * as THREE from "three";
-import { TrackObstacle, TrackDrop, ObstacleType, DropType } from "@/lib/racing/types";
+import { ObstacleType, DropType } from "@/lib/racing/types";
 
 // ============================================
 // CONSTANTS & TYPES
@@ -929,7 +929,7 @@ export function EnvironmentScenery({ length, myPosition, laneCount }: { length: 
       });
     }
     return items;
-  }, [lengthUnits]);
+  }, [lengthUnits, trackWidth]);
 
   // Filter trees based on visibility distance
   const visibleTrees = useMemo(() => {
@@ -942,7 +942,7 @@ export function EnvironmentScenery({ length, myPosition, laneCount }: { length: 
 
   return (
     <group>
-      {visibleTrees.map((tree, i) => (
+      {visibleTrees.map((tree) => (
         <group key={`tree-${tree.z}-${tree.x}`} position={[tree.x, 0, tree.z]} scale={[tree.scale, tree.scale, tree.scale]}>
           {/* Trunk - removed castShadow for performance */}
           <mesh position={[0, 1, 0]}>

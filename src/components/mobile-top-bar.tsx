@@ -6,6 +6,7 @@ import { useSidebar } from "@/components/sidebar-provider";
 import { UserMenu } from "@/components/auth/user-menu";
 import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
 import { LogoMark } from "@/components/brand/logo-mark";
+import { FeatureRequestDialog } from "@/components/feature-request-dialog";
 
 export function MobileTopBar() {
   const { toggle } = useSidebar();
@@ -26,6 +27,11 @@ export function MobileTopBar() {
 
       {/* Right side: User menu and hamburger */}
       <div className="flex items-center gap-2">
+        <FeatureRequestDialog
+          triggerVariant="default"
+          triggerSize="icon-sm"
+          iconOnly
+        />
         <UserMenu collapsed />
         <button
           onClick={toggle}

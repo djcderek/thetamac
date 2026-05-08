@@ -256,7 +256,7 @@ function handleYearlyData(attempts: Attempt[], now: Date) {
 
   // Convert to array format for chart
   const performanceData = Object.entries(performanceByMonth).map(([monthKey, data]) => {
-    const [year, month] = monthKey.split("-");
+    const [, month] = monthKey.split("-");
     const monthName = monthNames[parseInt(month) - 1];
     const accuracy = data.total > 0 ? Math.round((data.correct / data.total) * 100) : null;
     
@@ -284,6 +284,5 @@ function handleYearlyData(attempts: Attempt[], now: Date) {
     },
   });
 }
-
 
 

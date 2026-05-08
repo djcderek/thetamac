@@ -13,6 +13,7 @@ import { useSession } from "next-auth/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { FeatureRequestDialog } from "@/components/feature-request-dialog";
 
 interface SettingToggleProps {
   label: string;
@@ -57,10 +58,6 @@ export function SettingsClient() {
   const contactHref = supportEmail
     ? `mailto:${supportEmail}?subject=${encodeURIComponent("thetamac Support")}`
     : `mailto:?subject=${encodeURIComponent("thetamac Support")}`;
-  const [isFeatureRequestDialogOpen, setIsFeatureRequestDialogOpen] = useState(false);
-  const [featureRequestMessage, setFeatureRequestMessage] = useState("");
-  const [isSubmittingFeatureRequest, setIsSubmittingFeatureRequest] = useState(false);
-  const [featureRequestError, setFeatureRequestError] = useState<string | null>(null);
 
   // Profile State
   const [profile, setProfile] = useState({
@@ -246,36 +243,6 @@ export function SettingsClient() {
     reader.readAsDataURL(file);
 
     event.target.value = "";
-  };
-
-  const handleSubmitFeatureRequest = async () => {
-    const message = featureRequestMessage.trim();
-    if (!message) return;
-
-    setIsSubmittingFeatureRequest(true);
-    setFeatureRequestError(null);
-
-    try {
-      const res = await fetch("/api/feature-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setFeatureRequestError(data?.error || "Failed to submit feature request.");
-        return;
-      }
-
-      setFeatureRequestMessage("");
-      setIsFeatureRequestDialogOpen(false);
-    } catch (error) {
-      console.error("Failed to submit feature request", error);
-      setFeatureRequestError("Failed to submit feature request.");
-    } finally {
-      setIsSubmittingFeatureRequest(false);
-    }
   };
 
   if (isLoading) {
@@ -600,63 +567,7 @@ export function SettingsClient() {
                     <p className="text-sm text-muted-foreground">Tell us what you want next</p>
                   </div>
                 </div>
-                <Dialog
-                  open={isFeatureRequestDialogOpen}
-                  onOpenChange={(open) => {
-                    setIsFeatureRequestDialogOpen(open);
-                    if (!open) {
-                      setFeatureRequestError(null);
-                    }
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Send
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Feature Request</DialogTitle>
-                    </DialogHeader>
-
-                    <div className="space-y-2 py-2">
-                      <Label htmlFor="feature-request-message">What should we build?</Label>
-                      <textarea
-                        id="feature-request-message"
-                        value={featureRequestMessage}
-                        onChange={(e) => setFeatureRequestMessage(e.target.value)}
-                        placeholder="Example: Add custom timer durations and a streak-based XP bonus..."
-                        className="min-h-[120px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
-                      {featureRequestError ? (
-                        <p className="text-xs text-destructive">{featureRequestError}</p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          Sent to our backlog. Please avoid including sensitive info.
-                        </p>
-                      )}
-                    </div>
-
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsFeatureRequestDialogOpen(false)}
-                        disabled={isSubmittingFeatureRequest}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleSubmitFeatureRequest}
-                        disabled={isSubmittingFeatureRequest || !featureRequestMessage.trim()}
-                      >
-                        {isSubmittingFeatureRequest ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : null}
-                        Submit
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <FeatureRequestDialog triggerLabel="Send" />
               </div>
             </CardContent>
           </Card>

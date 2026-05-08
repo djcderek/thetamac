@@ -4,6 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, Sparkles, Environment } from "@react-three/drei";
 import { useRef, useState, useEffect } from "react";
 import * as THREE from "three";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 const VEHICLE_REAR_OFFSETS: Record<string, number> = {
   car_truck: 1.55,
@@ -310,7 +311,6 @@ function CarModel({
 
       {/* Wheels */}
       {wheelPositions.map((pos, i) => {
-          const isRear = i > 1;
           // Adjust size for offroad
           const scale = wheel === 'wheel_offroad' ? 1.2 : 1;
           
@@ -450,7 +450,7 @@ function CarModel({
 
 export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const [isVisible, setIsVisible] = useState(false);
   
   const isSkin = type === 'skin';
@@ -463,11 +463,6 @@ export default function ItemPreview3D({ type, assetId }: ItemPreview3DProps) {
   const trailId = isTrail ? assetId : undefined;
   const wheelId = isWheel ? assetId : undefined;
   const vehicleType = isVehicle ? assetId : "car_standard"; 
-
-  // Ensure we only render Canvas after client-side mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Use Intersection Observer to only render Canvas when visible
   useEffect(() => {

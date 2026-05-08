@@ -15,6 +15,7 @@ import {
 import { useSidebar } from "@/components/sidebar-provider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserMenu } from "@/components/auth/user-menu";
+import { FeatureRequestDialog } from "@/components/feature-request-dialog";
 
 const navigation = [
   { name: "Training", href: "/", icon: Brain },
@@ -136,6 +137,22 @@ export function Sidebar() {
 
             return <div key={item.name}>{linkContent}</div>;
           })}
+        </div>
+        <div className="mt-3 border-t border-border pt-3">
+          {showExpanded ? (
+            <FeatureRequestDialog
+              triggerVariant="default"
+              triggerSize="sm"
+              triggerClassName="w-full justify-start"
+            />
+          ) : (
+            <FeatureRequestDialog
+              triggerVariant="default"
+              triggerSize="icon-sm"
+              iconOnly
+              triggerClassName="w-full"
+            />
+          )}
         </div>
       </nav>
 

@@ -1,4 +1,4 @@
-import React from "react";
+import Image from "next/image";
 
 /**
  * Brand logo mark that reuses the app favicon (`/icon.svg`).
@@ -22,14 +22,15 @@ export function LogoMark({
       style={{ width: size, height: size }}
       aria-label="thetamac"
     >
-      <img
+      <Image
         src="/icon.svg"
         alt=""
+        width={Math.round(size * 0.7)}
+        height={Math.round(size * 0.7)}
         className="h-[70%] w-[70%] invert"
         draggable={false}
       />
     </div>
   );
 }
-
 
