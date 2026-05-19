@@ -165,6 +165,10 @@ export default function ArithmeticSpeedTestPage() {
         For a full practice framework, read{" "}
         <Link href="/blog/timed-arithmetic-drills" className="text-primary hover:underline">
           Timed Arithmetic Drills
+        </Link>{" "}
+        or compare thetamac as a{" "}
+        <Link href="/zetamac-alternative" className="text-primary hover:underline">
+          Zetamac alternative
         </Link>
         .
       </p>

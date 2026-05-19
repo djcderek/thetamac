@@ -82,6 +82,9 @@ export default function MentalMathPracticePage() {
           <Link href="/arithmetic-speed-test" className="text-primary hover:underline">
             Arithmetic speed test
           </Link>
+          <Link href="/zetamac-alternative" className="text-primary hover:underline">
+            Zetamac alternative
+          </Link>
           <Link href="/interview-math" className="text-primary hover:underline">
             Interview math guides
           </Link>

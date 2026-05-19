@@ -15,6 +15,7 @@ const staticRouteUpdatedAt: Record<string, string> = {
   "/arithmetic-speed-test": "2026-05-18",
   "/mental-math-practice": "2026-05-18",
   "/case-interview-math-practice": "2026-05-18",
+  "/zetamac-alternative": "2026-05-19",
   "/practice/addition": "2026-05-18",
   "/practice/subtraction": "2026-05-18",
   "/practice/multiplication": "2026-05-18",
@@ -75,6 +76,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: getRouteLastModified("/case-interview-math-practice"),
       changeFrequency: "weekly",
       priority: 0.85,
+    },
+    {
+      url: `${siteUrl}/zetamac-alternative`,
+      lastModified: getRouteLastModified("/zetamac-alternative"),
+      changeFrequency: "weekly",
+      priority: 0.8,
     },
     ...["addition", "subtraction", "multiplication", "division"].map((operation) => ({
       url: `${siteUrl}/practice/${operation}`,
