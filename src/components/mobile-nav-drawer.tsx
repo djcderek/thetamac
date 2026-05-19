@@ -10,6 +10,7 @@ import {
   X,
   LayoutDashboard,
   Trophy,
+  Info,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { LogoMark } from "@/components/brand/logo-mark";
@@ -23,6 +24,7 @@ const primaryNavigation = [
 
 // Secondary navigation - accessible but lower priority
 const secondaryNavigation = [
+  { name: "About", href: "/about", icon: Info },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
 ];

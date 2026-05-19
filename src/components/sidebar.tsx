@@ -11,6 +11,7 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeft,
+  Info,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -25,6 +26,7 @@ const navigation = [
 ];
 
 const secondaryNav = [
+  { name: "About", href: "/about", icon: Info },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

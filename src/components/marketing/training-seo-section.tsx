@@ -117,6 +117,9 @@ export function TrainingSeoSection() {
             <Link href="/interview-math" className="hover:text-foreground transition-colors">
               Interview Prep Guides
             </Link>
+            <Link href="/about" className="hover:text-foreground transition-colors">
+              About
+            </Link>
             <Link href="/leaderboard" className="hover:text-foreground transition-colors">
               Leaderboards
             </Link>

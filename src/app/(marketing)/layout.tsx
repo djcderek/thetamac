@@ -39,6 +39,12 @@ export default function MarketingLayout({
           </Link>
           <nav className="flex shrink-0 items-center gap-3 text-sm sm:gap-4">
             <Link
+              href="/about"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              About
+            </Link>
+            <Link
               href="/blog"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -70,6 +76,9 @@ export default function MarketingLayout({
           <nav className="flex flex-wrap justify-center gap-x-4 gap-y-2">
             <Link href="/" className="hover:text-foreground transition-colors">
               Training
+            </Link>
+            <Link href="/about" className="hover:text-foreground transition-colors">
+              About
             </Link>
             <Link href="/blog" className="hover:text-foreground transition-colors">
               Blog
