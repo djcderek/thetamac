@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   title: "Weak Points Analysis",
   description:
     "Identify your weak points in mental math with detailed analytics. Get personalized training recommendations based on your performance.",
+  robots: {
+    index: false,
+    follow: false,
+  },
   openGraph: {
     title: "Weak Points Analysis | thetamac",
     description: "Identify your weak points and get personalized training recommendations.",
@@ -50,5 +54,4 @@ export default async function WeakPointsPage() {
   // Premium user - show dashboard
   return <WeakPointsDashboard />;
 }
-
 

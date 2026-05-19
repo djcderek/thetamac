@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import type { DifficultySettings, ScoreDistribution } from "@/components/training/training-types";
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
+import { trackEvent } from "@/lib/telemetry-client";
 
 export function TrainingGameOver({
   difficultyLabel,
@@ -110,13 +111,33 @@ export function TrainingGameOver({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Link href="/auth/signin?callbackUrl=%2Fdashboard">
+                <Link
+                  href="/auth/signin?callbackUrl=%2Fdashboard"
+                  onClick={() =>
+                    trackEvent("signup_cta_click", {
+                      landingPath: "/",
+                      source: "training-game-over",
+                      pageType: "training",
+                      ctaLabel: "Sign in",
+                    })
+                  }
+                >
                   <Button variant="outline" size="sm">
                     <LogIn className="w-4 h-4 mr-2" />
                     Sign in
                   </Button>
                 </Link>
-                <Link href="/auth/signup?callbackUrl=%2Fdashboard">
+                <Link
+                  href="/auth/signup?callbackUrl=%2Fdashboard"
+                  onClick={() =>
+                    trackEvent("signup_cta_click", {
+                      landingPath: "/",
+                      source: "training-game-over",
+                      pageType: "training",
+                      ctaLabel: "Create account",
+                    })
+                  }
+                >
                   <Button size="sm">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Create account
@@ -130,5 +151,4 @@ export function TrainingGameOver({
     </Card>
   );
 }
-
 

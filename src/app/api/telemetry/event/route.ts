@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
-const ALLOWED_EVENTS = new Set(["upgrade_page_view", "upgrade_cta_click"]);
+const ALLOWED_EVENTS = new Set([
+  "upgrade_page_view",
+  "upgrade_cta_click",
+  "seo_cta_click",
+  "training_start",
+  "training_first_answer",
+  "training_complete",
+  "signup_cta_click",
+]);
 
 function normalizeProperties(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};

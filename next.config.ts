@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
 
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
 
+  async redirects() {
+    return [
+      {
+        source: "/training",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
+
   // Security headers
   async headers() {
     // Get the socket URL for CSP (defaults to same origin if not set)

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrainingCta } from "@/components/marketing/training-cta";
 import { INTERVIEW_MATH_GUIDES } from "@/content/interview-math/guides";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
@@ -119,6 +120,24 @@ export default function InterviewMathHubPage() {
             className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             Start Training
+          </Link>
+          <TrainingCta
+            href="/?preset=interview-math&source=seo&page=/interview-math"
+            preset="interview-math"
+            sourcePage="/interview-math"
+            label="Start Interview Drill"
+          />
+          <Link
+            href="/case-interview-math-practice"
+            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+          >
+            Case Math Practice
+          </Link>
+          <Link
+            href="/arithmetic-speed-test"
+            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+          >
+            Arithmetic Speed Test
           </Link>
           <Link
             href="/interview-math/insights"

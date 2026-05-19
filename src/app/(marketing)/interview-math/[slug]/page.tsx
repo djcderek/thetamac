@@ -152,9 +152,21 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
           Use these drills in short sessions and track your score/accuracy trend each week.
         </p>
         <div className="flex flex-wrap gap-3">
+          {guide.slug === "mental-math-speed-test" ? (
+            <Link
+              href="/arithmetic-speed-test"
+              className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Take Arithmetic Speed Test
+            </Link>
+          ) : null}
           <Link
             href="/"
-            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              guide.slug === "mental-math-speed-test"
+                ? "border border-border hover:bg-secondary/50"
+                : "bg-primary text-primary-foreground hover:bg-primary/90"
+            }`}
           >
             Start Training
           </Link>

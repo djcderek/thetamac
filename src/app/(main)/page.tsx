@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import TrainingPage from "@/components/training/training-page";
 import { TrainingSeoSection } from "@/components/marketing/training-seo-section";
 import { TRAINING_SEO_FAQ } from "@/content/training-faq";
 
 export const metadata: Metadata = {
-  title: "thetamac — Mental Math Training",
+  title: "Mental Math Training Online",
   description:
     "Sharpen your mental math skills with timed training, multiplayer duels, and racing modes. Track progress and compete on global leaderboards.",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "thetamac — Mental Math Training",
+    title: "Mental Math Training Online | thetamac",
     description:
       "Sharpen your mental math skills with timed training, multiplayer duels, and racing modes.",
   },
@@ -48,7 +52,9 @@ export default function HomePage() {
         // Keep JSON-LD in sync with visible on-page content.
         dangerouslySetInnerHTML={{ __html: JSON.stringify([faqJsonLd, webAppJsonLd]) }}
       />
-      <TrainingPage />
+      <Suspense fallback={null}>
+        <TrainingPage />
+      </Suspense>
       <TrainingSeoSection />
     </>
   );

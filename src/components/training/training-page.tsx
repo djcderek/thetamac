@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
+import { getTrainingPreset } from "@/lib/training-presets";
+import { trackEvent } from "@/lib/telemetry-client";
 import type {
   Difficulty,
   DifficultySettings,
@@ -692,6 +695,10 @@ function generateProblem(
 
 export default function TrainingPage() {
   const { data: authSession } = useSession();
+  const searchParams = useSearchParams();
+  const activePreset = getTrainingPreset(searchParams.get("preset"));
+  const seoSource = searchParams.get("source") || undefined;
+  const seoLandingPath = searchParams.get("page") || "/";
 
   const [selectedOperations, setSelectedOperations] = useState<Operation[]>(["+", "-", "×", "÷"]);
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
@@ -719,6 +726,9 @@ export default function TrainingPage() {
   const guestSubmittedRef = useRef(false);
   const guestCookieReadyRef = useRef(false);
   const sessionPromiseRef = useRef<Promise<string | null> | null>(null);
+  const presetAppliedRef = useRef(false);
+  const firstAnswerTrackedRef = useRef(false);
+  const completionTrackedRef = useRef(false);
   const [scorePercentile, setScorePercentile] = useState<ScoreDistribution | null>(null);
 
   // Learning mode state
@@ -746,6 +756,19 @@ export default function TrainingPage() {
     useCustomKeypad && isPlaying && !!problem && !(gameMode === "learning" && hasAnswered);
   const answerInputDisabled = !isPlaying || !problem || hasAnswered;
 
+  useEffect(() => {
+    if (!activePreset || presetAppliedRef.current) return;
+
+    setGameMode(activePreset.gameMode);
+    setDifficulty(activePreset.difficulty);
+    setSelectedOperations(activePreset.operations);
+    setTimedModeLimit(activePreset.timedModeLimit);
+    setSelectedSkill(activePreset.selectedSkill ?? null);
+    setShowAdvanced(false);
+    setCustomRangesTouched(false);
+    presetAppliedRef.current = true;
+  }, [activePreset]);
+
   // On mobile, keep the timer + question card in view when the custom keypad is open / problem changes.
   useEffect(() => {
     if (!showCustomKeypad) return;
@@ -769,6 +792,10 @@ export default function TrainingPage() {
   // Load user settings on mount
   useEffect(() => {
     if (!authSession?.user || settingsLoaded) return;
+    if (activePreset) {
+      setSettingsLoaded(true);
+      return;
+    }
 
     async function loadSettings() {
       try {
@@ -800,7 +827,7 @@ export default function TrainingPage() {
     }
 
     loadSettings();
-  }, [authSession?.user, settingsLoaded]);
+  }, [authSession?.user, settingsLoaded, activePreset]);
 
   // Get next operation from queue, refilling with shuffled operations when empty
   const getNextOperation = useCallback(() => {
@@ -908,6 +935,33 @@ export default function TrainingPage() {
     }
   };
 
+  const getTrainingTelemetryProperties = useCallback(() => ({
+    landingPath: seoLandingPath,
+    source: seoSource,
+    preset: activePreset?.id,
+    pageType: activePreset?.id ? "seo-training-preset" : "training",
+    gameMode,
+    difficulty,
+    operations: selectedOperations.join(" "),
+    timedModeLimit,
+    showAdvanced,
+  }), [
+    activePreset?.id,
+    seoLandingPath,
+    seoSource,
+    gameMode,
+    difficulty,
+    selectedOperations,
+    timedModeLimit,
+    showAdvanced,
+  ]);
+
+  const trackFirstAnswer = useCallback(() => {
+    if (firstAnswerTrackedRef.current) return;
+    firstAnswerTrackedRef.current = true;
+    trackEvent("training_first_answer", getTrainingTelemetryProperties());
+  }, [getTrainingTelemetryProperties]);
+
   const startTraining = async () => {
     if (!authSession?.user) {
       await ensureGuestCookie();
@@ -929,6 +983,10 @@ export default function TrainingPage() {
     setTipExpanded(true);
     bestStreakRef.current = 0;
     sessionStartTimeRef.current = Date.now();
+    firstAnswerTrackedRef.current = false;
+    completionTrackedRef.current = false;
+
+    trackEvent("training_start", getTrainingTelemetryProperties());
 
     if (gameMode === "timed") {
       setOverallTimeLeft(timedModeLimit);
@@ -1033,6 +1091,18 @@ export default function TrainingPage() {
 
   // End the training session and save to database or guest leaderboard
   const endSession = async (solved: number, correct: number, bestStreak: number, avgTimeVal: number) => {
+    if (!completionTrackedRef.current) {
+      completionTrackedRef.current = true;
+      trackEvent("training_complete", {
+        ...getTrainingTelemetryProperties(),
+        totalSolved: solved,
+        totalCorrect: correct,
+        accuracy: solved > 0 ? Math.round((correct / solved) * 100) : 0,
+        bestStreak,
+        avgTimeSeconds: avgTimeVal,
+      });
+    }
+
     if (authSession?.user) {
       let finalSessionId = sessionId;
       if (!finalSessionId && sessionPromiseRef.current) {
@@ -1156,6 +1226,7 @@ export default function TrainingPage() {
     const answerNum = parseInt(userAnswer);
     if (isNaN(answerNum)) return;
     const correct = answerNum === problem.answer;
+    trackFirstAnswer();
 
     // In auto-submit mode, correct answers are handled by the effect
     // Incorrect answers just clear the input (no tracking)
@@ -1332,6 +1403,7 @@ export default function TrainingPage() {
     if (!isNaN(answerNum) && answerNum === problem.answer) {
       // Correct answer typed - auto submit
       const timeTaken = (Date.now() - startTime) / 1000;
+      trackFirstAnswer();
 
       setIsCorrect(true);
       setFeedbackKey((k) => k + 1);
@@ -1375,6 +1447,7 @@ export default function TrainingPage() {
     sessionId,
     startNewProblem,
     recordAttempt,
+    trackFirstAnswer,
   ]);
 
   const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
@@ -1501,4 +1574,3 @@ export default function TrainingPage() {
     </div>
   );
 }
-
