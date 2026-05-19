@@ -1,5 +1,6 @@
 import { FAQSection } from "@/components/blog/faq-section";
-import { TrainingCta } from "@/components/marketing/training-cta";
+import { BlogPracticeCta } from "@/components/blog/blog-practice-cta";
+import { createBlogJsonLd } from "@/lib/blog-seo";
 
 export const metadata = {
   title: "Timed Arithmetic Drills: How to Measure and Improve Speed",
@@ -31,39 +32,9 @@ export const metadata = {
   },
 };
 
-export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
-export const url = `${siteUrl}/blog/timed-arithmetic-drills`;
 export const datePublished = "2025-08-19";
 export const dateModified = "2026-03-05";
 export const readingTime = "6 min read";
-
-export const articleJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "Timed Arithmetic Drills: How to Measure and Improve Speed",
-  description:
-    "Use timed drills effectively to track your mental math progress and systematically get faster at addition, subtraction, multiplication, and division.",
-  datePublished,
-  dateModified,
-  author: {
-    "@type": "Organization",
-    name: "thetamac",
-  },
-  publisher: {
-    "@type": "Organization",
-    name: "thetamac",
-    logo: {
-      "@type": "ImageObject",
-      url: `${siteUrl}/icon.svg`,
-    },
-  },
-  mainEntityOfPage: {
-    "@type": "WebPage",
-    "@id": url,
-  },
-  url,
-  inLanguage: "en-US",
-};
 
 export const faq = [
   {
@@ -83,20 +54,17 @@ export const faq = [
   },
 ];
 
-export const faqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faq.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: item.answer,
-    },
-  })),
-};
+export const jsonLd = createBlogJsonLd({
+  title: "Timed Arithmetic Drills: How to Measure and Improve Speed",
+  description:
+    "Use timed drills effectively to track your mental math progress and systematically get faster at addition, subtraction, multiplication, and division.",
+  slug: "timed-arithmetic-drills",
+  datePublished,
+  dateModified,
+  faq,
+});
 
-<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
 
 # Timed Arithmetic Drills: How to Measure and Improve Speed
 
@@ -108,22 +76,15 @@ If you want to get faster at mental math, you need a feedback loop: attempt prob
 
 This guide explains why timed practice works, how to structure your sessions, and what metrics to track for consistent improvement.
 
-<div className="my-6 rounded-xl border border-border bg-secondary/25 p-5">
-  <p className="mb-3 text-sm text-muted-foreground">
-    Want a clean benchmark first? Run the two-minute arithmetic speed test, then use focused drills for the operation that slows you down.
-  </p>
-  <div className="flex flex-wrap gap-3">
-    <TrainingCta
-      href="/?preset=arithmetic-speed-test&source=seo&page=/blog/timed-arithmetic-drills"
-      preset="arithmetic-speed-test"
-      sourcePage="/blog/timed-arithmetic-drills"
-      label="Start Speed Test"
-    />
-    <a href="/arithmetic-speed-test" className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors">
-      Speed test guide
-    </a>
-  </div>
-</div>
+<BlogPracticeCta
+  sourcePage="/blog/timed-arithmetic-drills"
+  body="Want a clean benchmark first? Run the two-minute arithmetic speed test, then use operation drills for the skill that slows you down."
+  primaryHref="/?preset=arithmetic-speed-test&source=seo&page=/blog/timed-arithmetic-drills"
+  primaryPreset="arithmetic-speed-test"
+  primaryLabel="Start Speed Test"
+  secondaryHref="/arithmetic-speed-test"
+  secondaryLabel="Speed test guide"
+/>
 
 ---
 
@@ -137,7 +98,7 @@ This guide explains why timed practice works, how to structure your sessions, an
 
 ## Choosing the right mode
 
-On [thetamac](/), you have three training modes:
+On thetamac, you have three training modes:
 
 <table>
   <thead>
@@ -276,7 +237,7 @@ Consistency matters more than intensity. Short daily sessions beat long sporadic
 If your goal is consulting/finance interview speed, use this sequence:
 
 1. Start with the [Interview Math Practice Hub](/interview-math) and pick one weak topic.
-2. Run [Focused Training](/training/focused) for 6 minutes on that skill only.
+2. Run one matching operation drill for 6 minutes: [addition](/practice/addition), [subtraction](/practice/subtraction), [multiplication](/practice/multiplication), or [division](/practice/division).
 3. Finish with a 2-minute benchmark and compare your percentile on the [Leaderboard](/leaderboard).
 
 ---
@@ -300,4 +261,4 @@ After you finish your benchmark, layer in one of these targeted guides:
 
 ## Start your first timed session
 
-Head to [thetamac](/) and run a 2-minute **Timed** session at Medium difficulty with all operations enabled. Note your score, then come back tomorrow and beat it.
+Use the speed test CTA above and run a 2-minute **Timed** session at Medium difficulty with all operations enabled. Note your score, then come back tomorrow and beat it.

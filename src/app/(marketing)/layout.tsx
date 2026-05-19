@@ -32,12 +32,12 @@ export default function MarketingLayout({
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-4xl mx-auto flex h-14 items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-4 sm:px-6">
+          <Link href="/" className="flex min-w-0 items-center gap-2 font-semibold">
             <ThetamacMark className="w-5 h-5" />
             <span>thetamac</span>
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex shrink-0 items-center gap-3 text-sm sm:gap-4">
             <Link
               href="/blog"
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -52,7 +52,7 @@ export default function MarketingLayout({
             </Link>
             <Link
               href="/"
-              className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="hidden rounded-md bg-primary px-3 py-1.5 text-primary-foreground transition-colors hover:bg-primary/90 sm:inline-flex"
             >
               Start Training
             </Link>
@@ -67,7 +67,7 @@ export default function MarketingLayout({
       <footer className="border-t border-border py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} thetamac</p>
-          <nav className="flex gap-4">
+          <nav className="flex flex-wrap justify-center gap-x-4 gap-y-2">
             <Link href="/" className="hover:text-foreground transition-colors">
               Training
             </Link>

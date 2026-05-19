@@ -1,4 +1,6 @@
 import { FAQSection } from "@/components/blog/faq-section";
+import { BlogPracticeCta } from "@/components/blog/blog-practice-cta";
+import { createBlogJsonLd } from "@/lib/blog-seo";
 
 export const metadata = {
   title: "Break-Even and Contribution Margin Interview Math: Fast Solve Guide",
@@ -29,39 +31,9 @@ export const metadata = {
   },
 };
 
-export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
-export const url = `${siteUrl}/blog/break-even-contribution-margin-interview-math`;
 export const datePublished = "2026-03-05";
 export const dateModified = "2026-03-05";
 export const readingTime = "11 min read";
-
-export const articleJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "Break-Even and Contribution Margin Interview Math: Fast Solve Guide",
-  description:
-    "Master break-even, contribution margin, and target-profit interview questions with quick setup rules and worked examples.",
-  datePublished,
-  dateModified,
-  author: {
-    "@type": "Organization",
-    name: "thetamac",
-  },
-  publisher: {
-    "@type": "Organization",
-    name: "thetamac",
-    logo: {
-      "@type": "ImageObject",
-      url: `${siteUrl}/icon.svg`,
-    },
-  },
-  mainEntityOfPage: {
-    "@type": "WebPage",
-    "@id": url,
-  },
-  url,
-  inLanguage: "en-US",
-};
 
 export const faq = [
   {
@@ -81,20 +53,17 @@ export const faq = [
   },
 ];
 
-export const faqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faq.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: item.answer,
-    },
-  })),
-};
+export const jsonLd = createBlogJsonLd({
+  title: "Break-Even and Contribution Margin Interview Math: Fast Solve Guide",
+  description:
+    "Master break-even, contribution margin, and target-profit interview questions with quick setup rules and worked examples.",
+  slug: "break-even-contribution-margin-interview-math",
+  datePublished,
+  dateModified,
+  faq,
+});
 
-<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
 
 # Break-Even and Contribution Margin Interview Math: Fast Solve Guide
 
@@ -105,6 +74,16 @@ export const faqJsonLd = {
 Break-even math is one of the highest-frequency topics in consulting, growth, and product interviews. It looks simple, but candidates still lose points because they confuse margins, forget units, or skip the setup and jump straight into arithmetic.
 
 Quick answer: write three lines first, then calculate. Line 1 is contribution per unit, line 2 is break-even formula, line 3 is interpretation. If your arithmetic speed is inconsistent, warm up with [timed arithmetic drills](/blog/timed-arithmetic-drills) before practicing these prompts.
+
+<BlogPracticeCta
+  sourcePage="/blog/break-even-contribution-margin-interview-math"
+  body="Warm up with a timed interview-math drill, then use the unit economics guide to practice break-even setup and contribution margin logic."
+  primaryHref="/?preset=interview-math&source=seo&page=/blog/break-even-contribution-margin-interview-math"
+  primaryPreset="interview-math"
+  primaryLabel="Start Break-Even Math Drill"
+  secondaryHref="/interview-math/unit-economics-math"
+  secondaryLabel="Unit economics guide"
+/>
 
 ---
 
@@ -202,7 +181,7 @@ Fix: translate the words first. This is exactly why [case interview math questio
 1. 4 minutes: 6 quick setup-only prompts (no arithmetic).
 2. 6 minutes: 4 break-even and target-profit calculations.
 3. 3 minutes: mixed unit-economics interpretation prompts.
-4. 2 minutes: timed benchmark in [Focused training](/training/focused).
+4. 2 minutes: timed benchmark with the break-even math drill above.
 
 After each session, write one sentence: "Where did I lose the most time?" Usually it is either setup clarity or division speed. If it is multiplication friction, revisit [fast multiplication techniques](/blog/fast-multiplication-techniques).
 
@@ -244,4 +223,4 @@ That short structure sounds confident because it is explicit and decision-ready.
 
 ## Next step: test this in live practice
 
-Start a short [thetamac session](/) and force yourself to say "contribution first" before every profitability problem. Then do one 2-minute benchmark and compare consistency on the [Leaderboard](/leaderboard). If your setup is still slow, run one extra block in [Focused training](/training/focused) tomorrow.
+Start the break-even math drill above and force yourself to say "contribution first" before every profitability problem. Then do one 2-minute benchmark and compare consistency on the [Leaderboard](/leaderboard). If your setup is still slow, work through one extra block from the [unit economics guide](/interview-math/unit-economics-math) tomorrow.

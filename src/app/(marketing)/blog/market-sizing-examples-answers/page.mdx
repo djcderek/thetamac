@@ -1,4 +1,6 @@
 import { FAQSection } from "@/components/blog/faq-section";
+import { BlogPracticeCta } from "@/components/blog/blog-practice-cta";
+import { createBlogJsonLd } from "@/lib/blog-seo";
 
 export const metadata = {
   title: "Market Sizing Examples With Answers: Interview Math Walkthroughs",
@@ -29,39 +31,9 @@ export const metadata = {
   },
 };
 
-export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
-export const url = `${siteUrl}/blog/market-sizing-examples-answers`;
 export const datePublished = "2026-03-05";
 export const dateModified = "2026-03-05";
 export const readingTime = "11 min read";
-
-export const articleJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "Market Sizing Examples With Answers: Interview Math Walkthroughs",
-  description:
-    "Practice market sizing interview questions with complete worked answers, assumption frameworks, and sanity-check steps.",
-  datePublished,
-  dateModified,
-  author: {
-    "@type": "Organization",
-    name: "thetamac",
-  },
-  publisher: {
-    "@type": "Organization",
-    name: "thetamac",
-    logo: {
-      "@type": "ImageObject",
-      url: `${siteUrl}/icon.svg`,
-    },
-  },
-  mainEntityOfPage: {
-    "@type": "WebPage",
-    "@id": url,
-  },
-  url,
-  inLanguage: "en-US",
-};
 
 export const faq = [
   {
@@ -81,20 +53,17 @@ export const faq = [
   },
 ];
 
-export const faqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faq.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: item.answer,
-    },
-  })),
-};
+export const jsonLd = createBlogJsonLd({
+  title: "Market Sizing Examples With Answers: Interview Math Walkthroughs",
+  description:
+    "Practice market sizing interview questions with complete worked answers, assumption frameworks, and sanity-check steps.",
+  slug: "market-sizing-examples-answers",
+  datePublished,
+  dateModified,
+  faq,
+});
 
-<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
 
 # Market Sizing Examples With Answers: Interview Math Walkthroughs
 
@@ -105,6 +74,16 @@ export const faqJsonLd = {
 Market sizing questions are one of the fastest ways for interviewers to test structured thinking and mental math together. Most candidates know the idea, but many still drift into unclear assumptions, messy units, and arithmetic errors that could have been avoided.
 
 Quick answer: define a simple equation first, choose round inputs, calculate in layers, and close with a sanity check. If your setup process is inconsistent, start with the [market sizing math guide](/interview-math/market-sizing-math), then use the worked examples below under time pressure.
+
+<BlogPracticeCta
+  sourcePage="/blog/market-sizing-examples-answers"
+  body="Practice the arithmetic under interview pressure, then use the market-sizing guide to refine assumptions and structure."
+  primaryHref="/?preset=interview-math&source=seo&page=/blog/market-sizing-examples-answers"
+  primaryPreset="interview-math"
+  primaryLabel="Start Interview Math Drill"
+  secondaryHref="/interview-math/market-sizing-math"
+  secondaryLabel="Market sizing guide"
+/>
 
 ---
 
@@ -225,7 +204,7 @@ To fix this, practice one session weekly where the only goal is clean setup, not
 1. 4 minutes: write equations only for 4 prompts.
 2. 6 minutes: solve 3 prompts with rounded assumptions.
 3. 3 minutes: redo one prompt with tighter assumptions.
-4. 2 minutes: benchmark in [Focused training](/training/focused).
+4. 2 minutes: benchmark with an [interview math drill](/?preset=interview-math&source=seo&page=/blog/market-sizing-examples-answers).
 
 Log where time disappeared: assumption selection, multiplication, or explanation. If multiplication was the bottleneck, run [fast multiplication drills](/blog/fast-multiplication-techniques). If pacing was the issue, do one block of [timed arithmetic drills](/blog/timed-arithmetic-drills).
 
@@ -253,4 +232,4 @@ Log where time disappeared: assumption selection, multiplication, or explanation
 
 ## Next step: run one full market-sizing rep now
 
-Open [thetamac](/), solve one market-sizing-style prompt with the 4-step framework, and keep your answer to 90 seconds. Then compare pace trends on the [Leaderboard](/leaderboard). If setup quality is inconsistent, run two focused reps in [training mode](/training/focused) tomorrow.
+Start the interview math drill above, solve one market-sizing-style prompt with the 4-step framework, and keep your answer to 90 seconds. Then compare pace trends on the [Leaderboard](/leaderboard). If setup quality is inconsistent, run two reps from the [market sizing math guide](/interview-math/market-sizing-math) tomorrow.

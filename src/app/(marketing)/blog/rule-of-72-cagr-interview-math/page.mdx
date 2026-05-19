@@ -1,4 +1,6 @@
 import { FAQSection } from "@/components/blog/faq-section";
+import { BlogPracticeCta } from "@/components/blog/blog-practice-cta";
+import { createBlogJsonLd } from "@/lib/blog-seo";
 
 export const metadata = {
   title: "Rule of 72 and CAGR Interview Math: Fast Methods That Hold Up",
@@ -29,39 +31,9 @@ export const metadata = {
   },
 };
 
-export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
-export const url = `${siteUrl}/blog/rule-of-72-cagr-interview-math`;
 export const datePublished = "2026-03-05";
 export const dateModified = "2026-03-05";
 export const readingTime = "10 min read";
-
-export const articleJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "Rule of 72 and CAGR Interview Math: Fast Methods That Hold Up",
-  description:
-    "Use Rule of 72, doubling/halving heuristics, and quick CAGR approximations to answer growth questions faster in finance and consulting interviews.",
-  datePublished,
-  dateModified,
-  author: {
-    "@type": "Organization",
-    name: "thetamac",
-  },
-  publisher: {
-    "@type": "Organization",
-    name: "thetamac",
-    logo: {
-      "@type": "ImageObject",
-      url: `${siteUrl}/icon.svg`,
-    },
-  },
-  mainEntityOfPage: {
-    "@type": "WebPage",
-    "@id": url,
-  },
-  url,
-  inLanguage: "en-US",
-};
 
 export const faq = [
   {
@@ -81,20 +53,17 @@ export const faq = [
   },
 ];
 
-export const faqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faq.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: item.answer,
-    },
-  })),
-};
+export const jsonLd = createBlogJsonLd({
+  title: "Rule of 72 and CAGR Interview Math: Fast Methods That Hold Up",
+  description:
+    "Use Rule of 72, doubling/halving heuristics, and quick CAGR approximations to answer growth questions faster in finance and consulting interviews.",
+  slug: "rule-of-72-cagr-interview-math",
+  datePublished,
+  dateModified,
+  faq,
+});
 
-<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
 
 # Rule of 72 and CAGR Interview Math: Fast Methods That Hold Up
 
@@ -105,6 +74,16 @@ export const faqJsonLd = {
 Growth math shows up everywhere in interviews: revenue cases, TAM forecasts, product adoption, and fund-return discussions. Candidates usually lose time in two places: translating the prompt into the right growth frame, and trying to do exact compounding arithmetic mentally.
 
 Quick answer: use Rule of 72 for fast first-pass growth estimates, anchor with one benchmark CAGR, then adjust using a sanity range. If your base arithmetic is rusty, start with the [daily mental math routine](/blog/mental-math-interview-drills) and layer these growth shortcuts on top.
+
+<BlogPracticeCta
+  sourcePage="/blog/rule-of-72-cagr-interview-math"
+  body="Warm up with a timed interview-math drill, then use the growth-rates guide to apply Rule of 72 and CAGR shortcuts to business prompts."
+  primaryHref="/?preset=interview-math&source=seo&page=/blog/rule-of-72-cagr-interview-math"
+  primaryPreset="interview-math"
+  primaryLabel="Start Growth Math Drill"
+  secondaryHref="/interview-math/growth-rates-and-cagr"
+  secondaryLabel="Growth rates guide"
+/>
 
 ---
 
@@ -205,7 +184,7 @@ This phrasing shows judgment without losing pace. You can benchmark your speed o
 1. 3 minutes: pure doubling/halving cards.
 2. 5 minutes: mixed CAGR estimation prompts.
 3. 2 minutes: endpoint calculations from annual growth.
-4. 2 minutes: timed benchmark in [training mode](/training/focused).
+4. 2 minutes: timed benchmark with the growth math drill above.
 
 Then log one note: where did you pause longest, setup or arithmetic? If setup is slow, revisit [growth rates and CAGR mental math](/interview-math/growth-rates-and-cagr). If arithmetic is slow, run [timed arithmetic drills](/blog/timed-arithmetic-drills) twice this week.
 
@@ -244,4 +223,4 @@ That wording demonstrates speed, transparency, and business sense.
 
 ## Next step: run a growth benchmark today
 
-Open [thetamac training](/), run a 2-minute mixed round, and call out each growth prompt aloud before you solve it. Afterward, compare your pace on the [Leaderboard](/leaderboard). If growth questions still feel sticky, isolate them in [Focused training](/training/focused) for 6 minutes tomorrow.
+Start the growth math drill above, run a 2-minute mixed round, and call out each growth prompt aloud before you solve it. Afterward, compare your pace on the [Leaderboard](/leaderboard). If growth questions still feel sticky, work through the [growth rates and CAGR guide](/interview-math/growth-rates-and-cagr) for 6 minutes tomorrow.

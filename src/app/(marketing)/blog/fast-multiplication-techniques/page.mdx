@@ -1,5 +1,6 @@
 import { FAQSection } from "@/components/blog/faq-section";
-import { TrainingCta } from "@/components/marketing/training-cta";
+import { BlogPracticeCta } from "@/components/blog/blog-practice-cta";
+import { createBlogJsonLd } from "@/lib/blog-seo";
 
 export const metadata = {
   title: "Fast Multiplication Without a Calculator: Techniques & Drills",
@@ -31,39 +32,9 @@ export const metadata = {
   },
 };
 
-export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
-export const url = `${siteUrl}/blog/fast-multiplication-techniques`;
 export const datePublished = "2025-10-02";
 export const dateModified = "2026-03-05";
 export const readingTime = "9 min read";
-
-export const articleJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "Fast Multiplication Without a Calculator: Techniques & Drills",
-  description:
-    "Learn the 11 trick, squaring shortcuts, and distributive strategies to multiply large numbers in your head quickly.",
-  datePublished,
-  dateModified,
-  author: {
-    "@type": "Organization",
-    name: "thetamac",
-  },
-  publisher: {
-    "@type": "Organization",
-    name: "thetamac",
-    logo: {
-      "@type": "ImageObject",
-      url: `${siteUrl}/icon.svg`,
-    },
-  },
-  mainEntityOfPage: {
-    "@type": "WebPage",
-    "@id": url,
-  },
-  url,
-  inLanguage: "en-US",
-};
 
 export const faq = [
   {
@@ -83,20 +54,17 @@ export const faq = [
   },
 ];
 
-export const faqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faq.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: item.answer,
-    },
-  })),
-};
+export const jsonLd = createBlogJsonLd({
+  title: "Fast Multiplication Without a Calculator: Techniques & Drills",
+  description:
+    "Learn the 11 trick, squaring shortcuts, and distributive strategies to multiply large numbers in your head quickly.",
+  slug: "fast-multiplication-techniques",
+  datePublished,
+  dateModified,
+  faq,
+});
 
-<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
 
 # Fast Multiplication Without a Calculator: Techniques & Drills
 
@@ -106,24 +74,17 @@ export const faqJsonLd = {
 
 Multiplication is often the bottleneck in mental math. Addition and subtraction feel manageable, but the moment you need 47 × 8 or 23 × 17, things slow down. The good news: a handful of techniques—used by mental math champions and seasoned consultants alike—can make these calculations fast and reliable.
 
-This post covers the most useful shortcuts and shows you how to practice them. If you’re training for interviews, pair this with [Mental Math for Interviews](/blog/mental-math-interview-drills) and use [Focused training](/training/focused) to drill multiplication-only sets.
+This post covers the most useful shortcuts and shows you how to practice them. If you’re training for interviews, pair this with [Mental Math for Interviews](/blog/mental-math-interview-drills) and use the [multiplication practice page](/practice/multiplication) to drill multiplication-only sets.
 
-<div className="my-6 rounded-xl border border-border bg-secondary/25 p-5">
-  <p className="mb-3 text-sm text-muted-foreground">
-    Put the technique into a timed multiplication-only set.
-  </p>
-  <div className="flex flex-wrap gap-3">
-    <TrainingCta
-      href="/?preset=multiplication-practice&source=seo&page=/blog/fast-multiplication-techniques"
-      preset="multiplication-practice"
-      sourcePage="/blog/fast-multiplication-techniques"
-      label="Start Multiplication Practice"
-    />
-    <a href="/practice/multiplication" className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors">
-      Multiplication practice guide
-    </a>
-  </div>
-</div>
+<BlogPracticeCta
+  sourcePage="/blog/fast-multiplication-techniques"
+  body="Put the technique into a timed multiplication-only set."
+  primaryHref="/?preset=multiplication-practice&source=seo&page=/blog/fast-multiplication-techniques"
+  primaryPreset="multiplication-practice"
+  primaryLabel="Start Multiplication Practice"
+  secondaryHref="/practice/multiplication"
+  secondaryLabel="Multiplication practice guide"
+/>
 
 ---
 
@@ -282,7 +243,7 @@ If multiplication speed is holding back your case math:
 
 ## Try it now
 
-Open [thetamac](/) and run a quick multiplication-only session. Start in **Learning mode** to see step-by-step breakdowns, then graduate to **Timed mode** once the techniques feel natural. When you’re ready to benchmark, compare your score on the [Leaderboard](/leaderboard).
+Run a quick multiplication-only session from the CTA above. Start in **Learning mode** to see step-by-step breakdowns, then graduate to **Timed mode** once the techniques feel natural. When you’re ready to benchmark, compare your score on the [Leaderboard](/leaderboard).
 
 ---
 

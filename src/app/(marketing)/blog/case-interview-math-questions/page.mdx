@@ -1,4 +1,6 @@
 import { FAQSection } from "@/components/blog/faq-section";
+import { BlogPracticeCta } from "@/components/blog/blog-practice-cta";
+import { createBlogJsonLd } from "@/lib/blog-seo";
 
 export const metadata = {
   title: "Case Interview Math Questions: 15 Fast-Solve Patterns",
@@ -29,39 +31,9 @@ export const metadata = {
   },
 };
 
-export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
-export const url = `${siteUrl}/blog/case-interview-math-questions`;
 export const datePublished = "2026-03-05";
 export const dateModified = "2026-03-05";
 export const readingTime = "8 min read";
-
-export const articleJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "Case Interview Math Questions: 15 Fast-Solve Patterns",
-  description:
-    "Practice common case interview math question types with fast mental frameworks, worked solutions, and a timed drill workflow.",
-  datePublished,
-  dateModified,
-  author: {
-    "@type": "Organization",
-    name: "thetamac",
-  },
-  publisher: {
-    "@type": "Organization",
-    name: "thetamac",
-    logo: {
-      "@type": "ImageObject",
-      url: `${siteUrl}/icon.svg`,
-    },
-  },
-  mainEntityOfPage: {
-    "@type": "WebPage",
-    "@id": url,
-  },
-  url,
-  inLanguage: "en-US",
-};
 
 export const faq = [
   {
@@ -81,20 +53,17 @@ export const faq = [
   },
 ];
 
-export const faqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faq.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: item.answer,
-    },
-  })),
-};
+export const jsonLd = createBlogJsonLd({
+  title: "Case Interview Math Questions: 15 Fast-Solve Patterns",
+  description:
+    "Practice common case interview math question types with fast mental frameworks, worked solutions, and a timed drill workflow.",
+  slug: "case-interview-math-questions",
+  datePublished,
+  dateModified,
+  faq,
+});
 
-<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
 
 # Case Interview Math Questions: 15 Fast-Solve Patterns
 
@@ -105,6 +74,16 @@ export const faqJsonLd = {
 Case interviews rarely fail because of strategy alone. Many candidates lose momentum on arithmetic they should be able to do in under 10 seconds. The fix is not “do more random math.” The fix is recognizing patterns and applying the same solve sequence every time.
 
 Quick answer: focus on repeatable question families, solve with lightweight mental frameworks, and finish each day with one timed benchmark. If you already run a daily routine, pair this post with the [Mental Math for Interviews routine](/blog/mental-math-interview-drills) and the [Interview Math Hub](/interview-math).
+
+<BlogPracticeCta
+  sourcePage="/blog/case-interview-math-questions"
+  body="Turn the patterns below into a timed interview-math benchmark, then review the case practice page for topic-specific prompts."
+  primaryHref="/?preset=interview-math&source=seo&page=/blog/case-interview-math-questions"
+  primaryPreset="interview-math"
+  primaryLabel="Start Case Math Drill"
+  secondaryHref="/case-interview-math-practice"
+  secondaryLabel="Case math practice"
+/>
 
 ---
 
@@ -193,14 +172,14 @@ Use this if you want performance gains in 2-4 weeks.
 2. **Block B (5 min):** average/division/break-even prompts.
 3. **Block C (5 min):** mixed case-style prompts under time pressure.
 
-Then run a 2-minute benchmark in [Timed mode](/) and track:
+Then run a 2-minute benchmark with the case math drill above and track:
 
 - Correct answers
 - Accuracy
 - Avg time/problem
 - Which pattern slowed you down
 
-If your score plateaus, switch one block to [Focused training](/training/focused) for your weakest pattern.
+If your score plateaus, switch one block to [case interview math practice](/case-interview-math-practice) for your weakest pattern.
 
 ---
 
@@ -237,4 +216,4 @@ Another useful guardrail is to state the unit and timeframe in your final senten
 
 ## Next step: run one benchmark now
 
-Open [thetamac training](/), complete a 2-minute mixed benchmark, and write down one pattern that slowed you down. Tomorrow, spend 6 minutes drilling only that pattern. Repeat for a week and compare your score trend on the [Leaderboard](/leaderboard).
+Use the case math drill above, complete a 2-minute mixed benchmark, and write down one pattern that slowed you down. Tomorrow, spend 6 minutes drilling only that pattern from the [case interview math practice page](/case-interview-math-practice). Repeat for a week and compare your score trend on the [Leaderboard](/leaderboard).

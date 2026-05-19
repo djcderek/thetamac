@@ -1,5 +1,6 @@
 import { FAQSection } from "@/components/blog/faq-section";
-import { TrainingCta } from "@/components/marketing/training-cta";
+import { BlogPracticeCta } from "@/components/blog/blog-practice-cta";
+import { createBlogJsonLd } from "@/lib/blog-seo";
 
 export const metadata = {
   title: "Mental Math for Interviews: A 10-Minute Daily Routine",
@@ -31,39 +32,9 @@ export const metadata = {
   },
 };
 
-export const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
-export const url = `${siteUrl}/blog/mental-math-interview-drills`;
 export const datePublished = "2025-11-12";
 export const dateModified = "2026-03-05";
 export const readingTime = "7 min read";
-
-export const articleJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "Mental Math for Interviews: A 10-Minute Daily Routine",
-  description:
-    "Build speed and confidence for finance, consulting, and tech interviews with a focused daily mental math practice routine.",
-  datePublished,
-  dateModified,
-  author: {
-    "@type": "Organization",
-    name: "thetamac",
-  },
-  publisher: {
-    "@type": "Organization",
-    name: "thetamac",
-    logo: {
-      "@type": "ImageObject",
-      url: `${siteUrl}/icon.svg`,
-    },
-  },
-  mainEntityOfPage: {
-    "@type": "WebPage",
-    "@id": url,
-  },
-  url,
-  inLanguage: "en-US",
-};
 
 export const faq = [
   {
@@ -83,20 +54,17 @@ export const faq = [
   },
 ];
 
-export const faqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faq.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: item.answer,
-    },
-  })),
-};
+export const jsonLd = createBlogJsonLd({
+  title: "Mental Math for Interviews: A 10-Minute Daily Routine",
+  description:
+    "Build speed and confidence for finance, consulting, and tech interviews with a focused daily mental math practice routine.",
+  slug: "mental-math-interview-drills",
+  datePublished,
+  dateModified,
+  faq,
+});
 
-<script type="application/ld+json">{JSON.stringify([articleJsonLd, faqJsonLd])}</script>
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
 
 # Mental Math for Interviews: A 10-Minute Daily Routine
 
@@ -106,24 +74,17 @@ export const faqJsonLd = {
 
 Quick arithmetic comes up more often in interviews than most candidates expect. Whether you're in a case study calculating market size, a finance interview estimating revenue growth, or a product interview ballparking user metrics, **mental math speed and accuracy** help you communicate clearly and stay focused on strategy—not calculator-level details.
 
-This guide gives you a structured 10-minute daily routine you can follow for a few weeks before your interview (or indefinitely if you want to stay sharp). If you want a timer + scorecard, you can practice inside [thetamac](/) and use **Practice** and **Timed** modes to simulate interview pressure.
+This guide gives you a structured 10-minute daily routine you can follow for a few weeks before your interview (or indefinitely if you want to stay sharp). If you want a timer + scorecard, start with the interview math drill below and use **Practice** and **Timed** modes to simulate interview pressure.
 
-<div className="my-6 rounded-xl border border-border bg-secondary/25 p-5">
-  <p className="mb-3 text-sm text-muted-foreground">
-    Start with an interview-style mixed arithmetic drill, then review the case math practice page for business prompt types.
-  </p>
-  <div className="flex flex-wrap gap-3">
-    <TrainingCta
-      href="/?preset=interview-math&source=seo&page=/blog/mental-math-interview-drills"
-      preset="interview-math"
-      sourcePage="/blog/mental-math-interview-drills"
-      label="Start Interview Math Drill"
-    />
-    <a href="/case-interview-math-practice" className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors">
-      Case math practice
-    </a>
-  </div>
-</div>
+<BlogPracticeCta
+  sourcePage="/blog/mental-math-interview-drills"
+  body="Start with an interview-style mixed arithmetic drill, then review the case math practice page for business prompt types."
+  primaryHref="/?preset=interview-math&source=seo&page=/blog/mental-math-interview-drills"
+  primaryPreset="interview-math"
+  primaryLabel="Start Interview Math Drill"
+  secondaryHref="/case-interview-math-practice"
+  secondaryLabel="Case math practice"
+/>
 
 ---
 
@@ -192,7 +153,7 @@ Rotate through these each day—spend about 90 seconds on each.
 
 ### Block 3 — Timed challenge (2 min)
 
-End with a short timed session on [thetamac](/) using **Timed mode** (2 min, Medium difficulty, all operations). This simulates interview pressure and tracks your progress over time. If you want a more controlled build-up, use [Focused training](/training/focused) to isolate a skill (e.g., percentages-only) before switching back to mixed problems.
+End with a short timed session using the interview drill CTA above: 2 minutes, Medium difficulty, all operations. This simulates interview pressure and tracks your progress over time. If you want a more controlled build-up, use [case interview math practice](/case-interview-math-practice) to isolate the business prompt types that slow you down.
 
 ---
 
@@ -242,7 +203,7 @@ Use the thetamac **Dashboard** (requires free account) to see:
 - Problems solved per session
 - Average time per problem
 - Accuracy trends
-- Weak-point analysis (Pro) via [Weak Points training](/training/weak-points)
+- Weak-point analysis for Pro accounts after you have enough practice history
 
 Aim for steady improvement over 2–4 weeks rather than cramming the night before.
 
@@ -275,7 +236,7 @@ If you want to go deeper by question type, use these next:
 
 ## Start practicing
 
-Ready to build your routine? [Open thetamac](/) and run a quick 2-minute timed session right now. Then bookmark these related guides:
+Ready to build your routine? Run the interview math drill above for a quick 2-minute timed session right now. Then bookmark these related guides:
 
 - [Fast Multiplication Without a Calculator](/blog/fast-multiplication-techniques)
 - [Timed Arithmetic Drills: How to Measure and Improve Speed](/blog/timed-arithmetic-drills)
