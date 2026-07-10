@@ -61,7 +61,7 @@ export const blogPosts: BlogPost[] = [
     readingTime: "11 min read",
     primaryKeyword: "market sizing examples",
     targetIntent: "informational",
-    lastReviewed: "2026-03-05",
+    lastReviewed: "2026-07-10",
     conversionGoal: "start-training",
   },
   {
@@ -73,7 +73,7 @@ export const blogPosts: BlogPost[] = [
     readingTime: "7 min read",
     primaryKeyword: "mental math for interviews",
     targetIntent: "informational",
-    lastReviewed: "2026-03-05",
+    lastReviewed: "2026-07-10",
     conversionGoal: "start-training",
   },
   {
@@ -85,7 +85,7 @@ export const blogPosts: BlogPost[] = [
     readingTime: "9 min read",
     primaryKeyword: "fast multiplication without calculator",
     targetIntent: "informational",
-    lastReviewed: "2026-03-05",
+    lastReviewed: "2026-07-10",
     conversionGoal: "start-training",
   },
   {

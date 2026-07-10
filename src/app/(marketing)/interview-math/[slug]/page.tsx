@@ -146,6 +146,31 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
         </ul>
       </section>
 
+      {guide.workedExample ? (
+        <section className="mb-8 rounded-xl border border-border bg-card p-5">
+          <h2 className="text-2xl font-semibold mb-2">Worked Example: {guide.workedExample.title}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{guide.workedExample.prompt}</p>
+          <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
+            {guide.workedExample.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <p className="mt-4 text-sm font-medium">Answer: {guide.workedExample.answer}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{guide.workedExample.takeaway}</p>
+        </section>
+      ) : null}
+
+      {guide.practicePrompts?.length ? (
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-3">Try These Practice Prompts</h2>
+          <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
+            {guide.practicePrompts.map((prompt) => (
+              <li key={prompt}>{prompt}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
       <section className="mb-8 rounded-xl border border-border p-5 bg-card">
         <h2 className="text-xl font-semibold mb-2">Practice Now</h2>
         <p className="text-sm text-muted-foreground mb-4">

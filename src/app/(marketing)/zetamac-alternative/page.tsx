@@ -63,16 +63,16 @@ const features = [
 ];
 
 export const metadata: Metadata = {
-  title: "Zetamac Alternative for Timed Arithmetic Practice",
+  title: "Free Zetamac Alternative: Timed Arithmetic Practice",
   description:
-    "Try a modern Zetamac-style arithmetic speed test with timed drills, leaderboards, learning mode, racing, and progress tracking.",
+    "Use a free Zetamac alternative for two-minute timed arithmetic practice, focused drills, leaderboards, and progress tracking.",
   alternates: {
     canonical: pagePath,
   },
   openGraph: {
-    title: "Zetamac Alternative for Timed Arithmetic Practice | thetamac",
+    title: "Free Zetamac Alternative | thetamac",
     description:
-      "A modern timed arithmetic trainer with leaderboards, learning mode, racing, and progress tracking.",
+      "A free timed arithmetic trainer with focused drills, leaderboards, learning mode, racing, and progress tracking.",
     url: pageUrl,
   },
 };
@@ -130,12 +130,12 @@ export default function ZetamacAlternativePage() {
           Timed Arithmetic Practice
         </p>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
-          Zetamac Alternative for Timed Arithmetic Practice
+          Free Zetamac Alternative for Timed Arithmetic Practice
         </h1>
         <p className="text-lg text-muted-foreground max-w-3xl">
-          Looking for Zetamac-style mental math speed practice with more feedback? thetamac gives
-          you fast timed arithmetic drills plus learning mode, leaderboards, racing, multiplayer,
-          and progress analytics.
+          thetamac is a free Zetamac alternative for people who want timed arithmetic practice
+          with focused drills, leaderboards, learning mode, racing, multiplayer, and progress
+          analytics.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <TrainingCta
@@ -154,11 +154,11 @@ export default function ZetamacAlternativePage() {
       </header>
 
       <section className="mb-10 rounded-xl border border-border bg-secondary/25 p-6">
-        <h2 className="text-xl font-semibold mb-3">Quick Answer</h2>
+        <h2 className="text-xl font-semibold mb-3">Is thetamac a free Zetamac alternative?</h2>
         <p className="text-sm text-muted-foreground">
-          If you like the simplicity of timed arithmetic tests, start with the two-minute mixed
-          benchmark. Then use focused drills and learning mode to improve the specific operations
-          that are slowing you down.
+          Yes. Start with the two-minute mixed benchmark, then use focused drills and learning
+          mode to improve the operations that are slowing you down. You can begin as a guest and
+          create an account later if you want saved progress and deeper analytics.
         </p>
       </section>
 

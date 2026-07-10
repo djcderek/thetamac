@@ -149,6 +149,20 @@ export default function ArithmeticSpeedTestPage() {
         </div>
       </section>
 
+      <section className="mb-10 rounded-xl border border-border bg-secondary/25 p-6">
+        <h2 className="text-xl font-semibold mb-3">Looking for a free Zetamac alternative?</h2>
+        <p className="text-sm text-muted-foreground">
+          Compare thetamac&apos;s two-minute benchmark, focused drills, and progress tracking with
+          the timed-arithmetic practice experience you&apos;re looking for.
+        </p>
+        <Link
+          href="/zetamac-alternative"
+          className="mt-4 inline-flex text-sm font-medium text-primary hover:underline"
+        >
+          Compare thetamac as a free Zetamac alternative
+        </Link>
+      </section>
+
       <section className="mb-10 rounded-xl border border-border bg-card p-6">
         <h2 className="text-xl font-semibold mb-3">FAQ</h2>
         <div className="space-y-5">
