@@ -9,8 +9,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/components/theme-provider";
 import { Sun, Moon, Monitor, Loader2, Shield, FileText, Mail, MessageSquarePlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { signOut, useSession } from "next-auth/react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
@@ -54,6 +62,10 @@ export function SettingsClient() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const themeHydratedFromServerRef = useRef(false);
   const themeChangedByUserRef = useRef(false);
@@ -268,6 +280,45 @@ export function SettingsClient() {
     reader.readAsDataURL(file);
 
     event.target.value = "";
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== "DELETE" || isDeletingAccount) return;
+
+    setIsDeletingAccount(true);
+    setDeleteAccountError(null);
+
+    try {
+      const response = await fetch("/api/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: deleteConfirmation }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to delete your account.");
+      }
+
+      localStorage.removeItem("thetamac-theme");
+      await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      setDeleteAccountError(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete your account. Please try again."
+      );
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleDeleteDialogChange = (open: boolean) => {
+    if (isDeletingAccount) return;
+    setIsDeleteDialogOpen(open);
+    if (!open) {
+      setDeleteConfirmation("");
+      setDeleteAccountError(null);
+    }
   };
 
   if (isLoading) {
@@ -613,7 +664,65 @@ export function SettingsClient() {
                     Permanently delete your account and data
                   </p>
                 </div>
-                <Button variant="destructive" size="sm">Delete</Button>
+                <Dialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogChange}>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive" size="sm">Delete</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete your account?</DialogTitle>
+                      <DialogDescription>
+                        This permanently deletes your profile, training history, statistics,
+                        cosmetics, and multiplayer records. Any active subscription will be
+                        cancelled immediately. This action cannot be undone.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-2 py-2">
+                      <Label htmlFor="delete-account-confirmation">
+                        Type <span className="font-mono font-semibold text-foreground">DELETE</span> to confirm
+                      </Label>
+                      <Input
+                        id="delete-account-confirmation"
+                        value={deleteConfirmation}
+                        onChange={(event) => setDeleteConfirmation(event.target.value)}
+                        autoComplete="off"
+                        disabled={isDeletingAccount}
+                      />
+                      {deleteAccountError && (
+                        <p className="text-sm text-destructive" role="alert">
+                          {deleteAccountError}
+                        </p>
+                      )}
+                    </div>
+
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleDeleteDialogChange(false)}
+                        disabled={isDeletingAccount}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={handleDeleteAccount}
+                        disabled={deleteConfirmation !== "DELETE" || isDeletingAccount}
+                      >
+                        {isDeletingAccount ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          "Permanently delete account"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
           </Card>

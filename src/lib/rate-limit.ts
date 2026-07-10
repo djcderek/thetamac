@@ -66,6 +66,19 @@ export const settingsRatelimit = redis
   : null;
 
 /**
+ * Account deletion rate limit: 3 attempts per hour.
+ * Protects the destructive endpoint while still allowing a retry after a transient failure.
+ */
+export const accountDeletionRatelimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(3, "1 h"),
+      prefix: "ratelimit:account-deletion",
+      analytics: true,
+    })
+  : null;
+
+/**
  * Billing portal rate limit: 5 requests per minute
  * Prevents portal session spam
  */
