@@ -8,8 +8,6 @@ import {
   Target,
   Clock,
   ArrowRight,
-  ArrowUpRight,
-  ArrowDownRight,
   Loader2,
 } from "lucide-react";
 import {
@@ -23,6 +21,7 @@ import {
   Tooltip,
 } from "recharts";
 import Link from "next/link";
+import { BrandedEmptyState, MetricTile, PageHeader, SectionLabel } from "@/components/ui/visual-system";
 
 interface UserStats {
   totalProblems: number;
@@ -144,97 +143,43 @@ export function DashboardClient() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-border">
-        <div className="px-6 py-4">
-          <h1 className="text-lg font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Track your mental math progress
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Dashboard" description="Track your mental math progress and find the next skill worth improving." />
 
       <div className="p-4 md:p-6 space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Problems Solved</p>
-                  <p className="text-2xl font-semibold mt-1">
-                    {stats?.totalProblems.toLocaleString() || "0"}
-                  </p>
-                </div>
-                {stats && stats.totalProblems > 0 && (
-                  <div className="flex items-center text-sm text-success">
-                    <ArrowUpRight className="w-4 h-4 mr-1" />
-                    {stats.totalProblems}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Current Streak</p>
-                  <p className="text-2xl font-semibold mt-1">
-                    {stats?.currentStreak || 0} days
-                  </p>
-                </div>
-                <Flame className={`w-5 h-5 ${stats?.currentStreak ? "text-warning" : "text-muted-foreground"}`} />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Accuracy</p>
-                  <p className="text-2xl font-semibold mt-1">
-                    {stats?.accuracy || 0}%
-                  </p>
-                </div>
-                {stats && stats.accuracy > 0 && (
-                  <div className="flex items-center text-sm text-success">
-                    <ArrowUpRight className="w-4 h-4 mr-1" />
-                    {stats.accuracy}%
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg. Speed</p>
-                  <p className="text-2xl font-semibold mt-1">
-                    {stats?.avgTime ? `${stats.avgTime}s` : "--"}
-                  </p>
-                </div>
-                {stats && stats.avgTime > 0 && (
-                  <div className="flex items-center text-sm text-success">
-                    <ArrowDownRight className="w-4 h-4 mr-1" />
-                    {stats.avgTime}s
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricTile
+            label="Problems solved"
+            value={(stats?.totalProblems || 0).toLocaleString()}
+            detail="All recorded training attempts"
+          />
+          <MetricTile
+            label="Current streak"
+            value={`${stats?.currentStreak || 0} ${stats?.currentStreak === 1 ? "day" : "days"}`}
+            detail={<span className="inline-flex items-center gap-1.5"><Flame className="h-3.5 w-3.5 text-warning" />Best: {stats?.longestStreak || 0} days</span>}
+          />
+          <MetricTile
+            label="Accuracy"
+            value={`${stats?.accuracy || 0}%`}
+            detail="Across every operation"
+          />
+          <MetricTile
+            label="Average speed"
+            value={stats?.avgTime ? `${stats.avgTime}s` : "—"}
+            detail="Average response time"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Performance Chart */}
           <Link href="/stats/performance" className="lg:col-span-8 block">
-            <Card className="h-full hover:bg-secondary/30 transition-colors cursor-pointer">
+            <Card className="h-full transition-all hover:border-brand/35 hover:shadow-md cursor-pointer">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium">Performance</CardTitle>
+                  <div>
+                    <SectionLabel className="mb-1 text-brand">Last 7 days</SectionLabel>
+                    <CardTitle className="text-lg tracking-tight">Performance</CardTitle>
+                  </div>
                   <p className="text-xs text-muted-foreground">Correct answers (Timed Mode) →</p>
                 </div>
               </CardHeader>
@@ -248,7 +193,7 @@ export function DashboardClient() {
                       >
                         <defs>
                           <linearGradient id="correctGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="currentColor" stopOpacity={0.15} />
+                            <stop offset="5%" stopColor="currentColor" stopOpacity={0.22} />
                             <stop offset="95%" stopColor="currentColor" stopOpacity={0} />
                           </linearGradient>
                         </defs>
@@ -273,20 +218,14 @@ export function DashboardClient() {
                           stroke="currentColor"
                           strokeWidth={2}
                           fill="url(#correctGradient)"
-                          className="text-foreground"
+                          className="text-brand"
                           dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }}
                           activeDot={{ r: 5, fill: "hsl(var(--foreground))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">
-                      <div className="text-center">
-                        <Brain className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No performance data yet</p>
-                        <p className="text-xs mt-1">Start a timed training session to see your progress</p>
-                      </div>
-                    </div>
+                    <BrandedEmptyState title="No performance data yet" description="Start a timed training session to see your progress take shape." />
                   )}
                 </div>
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
@@ -311,10 +250,13 @@ export function DashboardClient() {
 
           {/* Skills */}
           <Link href="/stats/skills" className="lg:col-span-4 block">
-            <Card className="h-full hover:bg-secondary/30 transition-colors cursor-pointer">
+            <Card className="h-full transition-all hover:border-brand/35 hover:shadow-md cursor-pointer">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium">Skills</CardTitle>
+                  <div>
+                    <SectionLabel className="mb-1 text-brand">Accuracy</SectionLabel>
+                    <CardTitle className="text-lg tracking-tight">Skills</CardTitle>
+                  </div>
                   <p className="text-xs text-muted-foreground">Accuracy by type →</p>
                 </div>
               </CardHeader>
@@ -332,7 +274,7 @@ export function DashboardClient() {
                       </div>
                       <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-foreground rounded-full transition-all duration-300"
+                          className="h-full bg-brand rounded-full transition-all duration-300"
                           style={{ width: `${skill.value}%` }}
                         />
                       </div>
@@ -352,10 +294,13 @@ export function DashboardClient() {
           </Link>
 
           {/* Weekly Activity */}
-          <Card className="lg:col-span-5">
+          <Card className="lg:col-span-5 overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">This Week</CardTitle>
+                <div>
+                  <SectionLabel className="mb-1 text-brand">Rhythm</SectionLabel>
+                  <CardTitle className="text-lg tracking-tight">This week</CardTitle>
+                </div>
                 <p className="text-xs text-muted-foreground">Problems solved</p>
               </div>
             </CardHeader>
@@ -379,18 +324,12 @@ export function DashboardClient() {
                         dataKey="problems"
                         fill="currentColor"
                         radius={[4, 4, 0, 0]}
-                        className="text-foreground"
+                        className="text-brand"
                       />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No activity yet</p>
-                      <p className="text-xs mt-1">Complete problems to track your progress</p>
-                    </div>
-                  </div>
+                  <BrandedEmptyState title="No activity yet" description="Complete a few problems to begin your weekly rhythm." />
                 )}
               </div>
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
@@ -411,34 +350,30 @@ export function DashboardClient() {
           </Card>
 
           {/* Quick Actions */}
-          <Card className="lg:col-span-7 flex flex-col">
+          <Card className="lg:col-span-7 flex flex-col overflow-hidden bg-foreground text-background border-foreground">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Quick Start</CardTitle>
-                <p className="text-xs text-muted-foreground">Jump into action</p>
+                <div>
+                  <SectionLabel className="mb-1 text-brand">Keep moving</SectionLabel>
+                  <CardTitle className="text-lg tracking-tight">Quick start</CardTitle>
+                </div>
+                <p className="text-xs text-background/60">Jump into action</p>
               </div>
             </CardHeader>
             <CardContent className="flex-1 flex">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
                 <Link href="/" className="block">
-                  <div className="h-full p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group flex flex-col">
-                    <Brain className="w-5 h-5 mb-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <div className="h-full p-4 rounded-2xl border border-background/20 hover:border-brand hover:bg-background/5 transition-colors cursor-pointer group flex flex-col">
+                    <Brain className="w-5 h-5 mb-3 text-brand" />
                     <p className="font-medium text-sm">Practice</p>
-                    <p className="text-xs text-muted-foreground mt-1">Start a training session</p>
-                  </div>
-                </Link>
-                <Link href="/" className="block">
-                  <div className="h-full p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group flex flex-col">
-                    <Target className="w-5 h-5 mb-3 text-muted-foreground group-hover:text-foreground transition-colors" />
-                    <p className="font-medium text-sm">Daily Challenge</p>
-                    <p className="text-xs text-muted-foreground mt-1">Complete for bonus XP</p>
+                    <p className="text-xs text-background/60 mt-1">Start a training session</p>
                   </div>
                 </Link>
                 <Link href="/multiplayer" className="block">
-                  <div className="h-full p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer group flex flex-col">
-                    <Swords className="w-5 h-5 mb-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <div className="h-full p-4 rounded-2xl border border-background/20 hover:border-brand hover:bg-background/5 transition-colors cursor-pointer group flex flex-col">
+                    <Swords className="w-5 h-5 mb-3 text-brand" />
                     <p className="font-medium text-sm">1v1 Match</p>
-                    <p className="text-xs text-muted-foreground mt-1">Challenge a player</p>
+                    <p className="text-xs text-background/60 mt-1">Challenge a player</p>
                   </div>
                 </Link>
               </div>
@@ -560,4 +495,3 @@ function Swords(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-

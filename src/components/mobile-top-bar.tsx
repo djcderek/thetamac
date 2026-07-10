@@ -15,14 +15,14 @@ export function MobileTopBar() {
   return (
     <header
       className={[
-        "h-14 bg-background border-b border-border z-50 flex items-center justify-between px-4 md:hidden",
+        "h-14 bg-background/90 border-b border-dashed border-border z-50 flex items-center justify-between px-4 backdrop-blur-xl md:hidden",
         isPinned ? "fixed top-0 left-0 right-0" : "relative",
       ].join(" ")}
     >
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2">
         <LogoMark size={24} />
-        <span className="font-semibold">thetamac</span>
+        <span className="font-semibold tracking-[-0.03em]">thetamac</span>
       </Link>
 
       {/* Right side: User menu and hamburger */}
@@ -35,7 +35,7 @@ export function MobileTopBar() {
         <UserMenu collapsed />
         <button
           onClick={toggle}
-          className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+          className="rounded-full border border-border bg-card p-2 text-muted-foreground transition-colors hover:border-brand/50 hover:text-foreground"
           aria-label="Open navigation menu"
         >
           <Menu className="w-5 h-5" />

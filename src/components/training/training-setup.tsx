@@ -130,9 +130,9 @@ export function TrainingSetup({
     <div className={cn("grid gap-6", settingsOpen ? "lg:grid-cols-12" : "")}>
       {/* Left: Quick start */}
       <div className={cn("space-y-6", settingsOpen ? "lg:col-span-5" : "lg:col-span-12")}>
-        <Card>
+        <Card className="overflow-hidden border-brand/20">
           <CardHeader>
-            <CardTitle className="text-sm">Quick start</CardTitle>
+            <CardTitle className="editorial-label text-brand">Quick start</CardTitle>
             <CardDescription>Pick a mode, then hit start.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -150,7 +150,7 @@ export function TrainingSetup({
               </TabsList>
             </Tabs>
 
-            <div className="rounded-lg border border-border bg-secondary/20 px-3 py-2">
+            <div className="rounded-xl border border-border bg-secondary/20 px-3 py-3">
               <div className="flex items-center gap-2 text-sm">
                 {modeIcon}
                 <span className="font-medium capitalize">{gameMode}</span>
@@ -208,7 +208,7 @@ export function TrainingSetup({
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={startTraining} size="lg" className="w-full">
+              <Button onClick={startTraining} size="lg" className="w-full bg-brand text-brand-foreground hover:bg-brand/85">
                 <Play className="mr-2 h-4 w-4" />
                 Start
               </Button>
@@ -570,5 +570,3 @@ export function TrainingSetup({
     </div>
   );
 }
-
-

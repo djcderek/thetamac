@@ -1,27 +1,5 @@
 import Link from "next/link";
-
-function ThetamacMark({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 100 100"
-      className={className}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <g
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="14"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="50" cy="50" r="40" />
-        <path d="M 12 55 Q 50 25 88 55" />
-      </g>
-    </svg>
-  );
-}
+import { LogoMark } from "@/components/brand/logo-mark";
 
 export default function MarketingLayout({
   children,
@@ -29,13 +7,13 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background/65">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-4 sm:px-6">
+      <header className="sticky top-0 z-40 px-3 pt-3">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 rounded-full border border-border bg-card/90 px-3 shadow-lg backdrop-blur-xl sm:px-5">
           <Link href="/" className="flex min-w-0 items-center gap-2 font-semibold">
-            <ThetamacMark className="w-5 h-5" />
-            <span>thetamac</span>
+            <LogoMark size={26} />
+            <span className="tracking-[-0.03em]">thetamac</span>
           </Link>
           <nav className="flex shrink-0 items-center gap-3 text-sm sm:gap-4">
             <Link
@@ -58,7 +36,7 @@ export default function MarketingLayout({
             </Link>
             <Link
               href="/"
-              className="hidden rounded-md bg-primary px-3 py-1.5 text-primary-foreground transition-colors hover:bg-primary/90 sm:inline-flex"
+              className="hidden rounded-full bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-brand hover:text-brand-foreground sm:inline-flex"
             >
               Start Training
             </Link>
@@ -70,7 +48,7 @@ export default function MarketingLayout({
       <main className="flex-1">{children}</main>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
+      <footer className="border-t border-border bg-card/70 py-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} thetamac</p>
           <nav className="flex flex-wrap justify-center gap-x-4 gap-y-2">

@@ -18,12 +18,11 @@ export function MainContent({ children }: { children: ReactNode }) {
         isMobile 
           ? cn("ml-0", isPinned ? "pt-14" : "pt-0")
           : isCollapsed 
-            ? "ml-[60px]" 
-            : "ml-[240px]"
+            ? "ml-[72px]"
+            : "ml-[252px]"
       )}
     >
-      {children}
+      <div className="min-h-screen overflow-hidden bg-background/70">{children}</div>
     </main>
   );
 }
-

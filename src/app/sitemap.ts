@@ -6,7 +6,7 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
 const siteLastUpdated = new Date("2026-03-04");
 
 const staticRouteUpdatedAt: Record<string, string> = {
-  "/": "2026-03-04",
+  "/": "2026-07-10",
   "/about": "2026-05-19",
   "/leaderboard": "2026-03-04",
   "/multiplayer": "2026-03-04",
@@ -14,7 +14,7 @@ const staticRouteUpdatedAt: Record<string, string> = {
   "/upgrade": "2026-03-04",
   "/blog": "2026-03-04",
   "/arithmetic-speed-test": "2026-07-10",
-  "/mental-math-practice": "2026-05-18",
+  "/mental-math-practice": "2026-07-10",
   "/case-interview-math-practice": "2026-05-18",
   "/zetamac-alternative": "2026-07-10",
   "/practice/addition": "2026-05-18",

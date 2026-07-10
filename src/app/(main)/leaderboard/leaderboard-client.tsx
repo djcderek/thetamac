@@ -19,6 +19,7 @@ import type {
   Mode,
   Period,
 } from "@/lib/leaderboard";
+import { PageHeader } from "@/components/ui/visual-system";
 
 interface LeaderboardClientProps {
   initialLeaderboard: LeaderboardResult;
@@ -181,21 +182,11 @@ export function LeaderboardClient({
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-border">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold">Leaderboard</h1>
-            <p className="text-sm text-muted-foreground">
-              Global rankings across duels, racing, and timed training (default settings)
-            </p>
-          </div>
-          {userRank && (
-            <Badge variant="outline">
-              Your {getRankLabel()}: #{userRank.rank}
-            </Badge>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Leaderboard"
+        description="Global rankings across duels, racing, and timed training using default settings."
+        action={userRank ? <Badge variant="outline" className="bg-card">Your {getRankLabel()}: #{userRank.rank}</Badge> : undefined}
+      />
 
       <div className="p-4 md:p-6">
         <div className="max-w-3xl mx-auto space-y-6">

@@ -7,6 +7,7 @@ import { Swords, Flag, ArrowLeft, Trophy, Zap, Users, Clock } from "lucide-react
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DitherIllustration } from "@/components/ui/visual-system";
 
 type Mode = "duel" | "racing" | null;
 
@@ -50,13 +51,14 @@ export function MultiplayerClient() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-background/70 p-4 md:p-8 animate-in fade-in duration-500">
       <div className="max-w-5xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Multiplayer Arena</h1>
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-card px-6 py-10 text-center shadow-sm md:py-14">
+          <h1 className="text-3xl font-semibold tracking-[-0.04em] md:text-5xl">Multiplayer Arena</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Challenge other players in real-time. Choose your preferred game mode to start competing.
           </p>
+          <DitherIllustration className="mx-auto mt-4 h-20 w-28" />
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -65,10 +67,10 @@ export function MultiplayerClient() {
             className="group relative cursor-pointer"
             onClick={() => setMode("duel")}
           >
-            <Card className="h-full overflow-hidden border bg-card transition-all duration-300 hover:shadow-lg hover:border-violet-500">
+            <Card className="h-full overflow-hidden border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-brand/60">
               <CardContent className="p-8 flex flex-col h-full">
-                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center mb-6">
-                  <Swords className="w-8 h-8 text-violet-500" />
+                <div className="dot-field w-16 h-16 rounded-2xl border border-brand/30 bg-brand/15 flex items-center justify-center mb-6">
+                  <Swords className="w-8 h-8 text-brand" />
                 </div>
                 
                 <div className="space-y-2 mb-4">
@@ -109,10 +111,10 @@ export function MultiplayerClient() {
             className="group relative cursor-pointer"
             onClick={() => setMode("racing")}
           >
-            <Card className="h-full overflow-hidden border bg-card transition-all duration-300 hover:shadow-lg hover:border-emerald-500">
+            <Card className="h-full overflow-hidden border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-brand/60">
               <CardContent className="p-8 flex flex-col h-full">
-                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center mb-6">
-                  <Flag className="w-8 h-8 text-emerald-500" />
+                <div className="dot-field w-16 h-16 rounded-2xl border border-brand/30 bg-brand/15 flex items-center justify-center mb-6">
+                  <Flag className="w-8 h-8 text-brand" />
                 </div>
                 
                 <div className="space-y-2 mb-4">
@@ -158,4 +160,3 @@ export function MultiplayerClient() {
     </div>
   );
 }
-

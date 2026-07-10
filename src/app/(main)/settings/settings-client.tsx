@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
+import { PageHeader } from "@/components/ui/visual-system";
 
 interface SettingToggleProps {
   label: string;
@@ -255,14 +256,11 @@ export function SettingsClient() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-border">
-        <div className="px-6 py-4">
-          <h1 className="text-lg font-semibold">Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your preferences
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Make it yours"
+        title="Settings"
+        description="Manage your training, account, and appearance preferences."
+      />
 
       <div className="p-4 md:p-6">
         <div className="max-w-2xl mx-auto space-y-6">

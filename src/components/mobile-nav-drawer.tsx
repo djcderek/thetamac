@@ -47,12 +47,12 @@ export function MobileNavDrawer() {
       {/* Drawer */}
       <aside
         className={cn(
-          "fixed top-0 right-0 h-screen w-[280px] bg-background border-l border-border z-50 transform transition-transform duration-300 ease-in-out md:hidden",
+          "fixed top-2 right-2 h-[calc(100vh-1rem)] w-[min(320px,calc(100vw-1rem))] overflow-hidden rounded-2xl bg-sidebar border border-sidebar-border shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden",
           isOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         {/* Drawer header */}
-        <div className="h-14 flex items-center justify-between px-4 border-b border-border">
+        <div className="h-14 flex items-center justify-between px-4 border-b border-dashed border-border">
           <Link href="/" onClick={close} className="flex items-center gap-2">
             <LogoMark size={24} />
             <span className="font-semibold">thetamac</span>
@@ -83,9 +83,9 @@ export function MobileNavDrawer() {
                   href={item.href}
                   onClick={close}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors",
+                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors",
                     isActive
-                      ? "bg-secondary text-foreground font-medium"
+                      ? "bg-brand/12 text-foreground font-semibold ring-1 ring-inset ring-brand/25"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                   )}
                 >
@@ -111,7 +111,7 @@ export function MobileNavDrawer() {
                   href={item.href}
                   onClick={close}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors",
+                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors",
                     isActive
                       ? "bg-secondary text-foreground font-medium"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"

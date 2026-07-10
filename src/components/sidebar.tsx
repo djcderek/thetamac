@@ -17,6 +17,7 @@ import { useSidebar } from "@/components/sidebar-provider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserMenu } from "@/components/auth/user-menu";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
+import { LogoMark } from "@/components/brand/logo-mark";
 
 const navigation = [
   { name: "Training", href: "/", icon: Brain },
@@ -30,29 +31,6 @@ const secondaryNav = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-function ThetamacMark({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 100 100"
-      className={cn("w-5 h-5 shrink-0", className)}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <g
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="14"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="50" cy="50" r="40" />
-        <path d="M 12 55 Q 50 25 88 55" />
-      </g>
-    </svg>
-  );
-}
-
 export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, toggle } = useSidebar();
@@ -63,7 +41,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 h-screen border-r border-border bg-background flex-col transition-all duration-300 z-50",
+        "fixed left-3 top-3 h-[calc(100vh-1.5rem)] overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar/95 shadow-[0_16px_48px_color-mix(in_oklch,var(--foreground)_8%,transparent)] backdrop-blur-xl flex-col transition-all duration-300 z-50",
         "hidden md:flex", // Hide on mobile - MobileTopBar + MobileNavDrawer handle mobile nav
         isCollapsed ? "w-[60px]" : "w-[240px]"
       )}
@@ -77,8 +55,8 @@ export function Sidebar() {
       >
         {showExpanded && (
           <Link href="/" className="flex items-center gap-2">
-            <ThetamacMark className="text-foreground" />
-            <span className="font-semibold">thetamac</span>
+            <LogoMark size={26} />
+            <span className="font-semibold tracking-[-0.03em]">thetamac</span>
           </Link>
         )}
         <button
@@ -101,20 +79,22 @@ export function Sidebar() {
         <div className="space-y-1">
           {navigation.map((item) => {
             const isActive =
-              item.href === "/" ? pathname === "/" || pathname.startsWith("/training") : pathname === item.href;
+              item.href === "/"
+                ? pathname === "/" || pathname.startsWith("/training")
+                : pathname === item.href || pathname.startsWith(item.href + "/");
             const linkContent = (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  "group flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "bg-secondary text-foreground font-medium"
+                    ? "bg-brand/12 text-foreground font-semibold ring-1 ring-inset ring-brand/25"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
                   !showExpanded && "justify-center px-2"
                 )}
               >
-                <item.icon className="w-4 h-4 shrink-0" />
+                <item.icon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-105" />
                 <span
                   className={cn(
                     "whitespace-nowrap transition-all duration-300",
@@ -140,7 +120,7 @@ export function Sidebar() {
             return <div key={item.name}>{linkContent}</div>;
           })}
         </div>
-        <div className="mt-3 border-t border-border pt-3">
+        <div className="mt-3 border-t border-dashed border-border pt-3">
           {showExpanded ? (
             <FeatureRequestDialog
               triggerVariant="default"
@@ -159,7 +139,7 @@ export function Sidebar() {
       </nav>
 
       {/* Secondary Nav */}
-      <div className="p-2 border-t border-border">
+      <div className="p-2 border-t border-dashed border-border">
         {secondaryNav.map((item) => {
           const isActive =
             item.href === "/" ? pathname === "/" || pathname.startsWith("/training") : pathname === item.href;
@@ -168,7 +148,7 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                "flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
                 isActive
                   ? "bg-secondary text-foreground font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
@@ -203,7 +183,7 @@ export function Sidebar() {
       </div>
 
       {/* User Menu */}
-      <div className="p-2 border-t border-border">
+      <div className="p-2 border-t border-dashed border-border bg-secondary/20">
         <UserMenu collapsed={!showExpanded} />
       </div>
     </aside>
