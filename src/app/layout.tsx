@@ -18,6 +18,23 @@ const geistMono = Geist_Mono({
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
 
+const themeScript = `
+  (function () {
+    try {
+      var preference = localStorage.getItem("thetamac-theme");
+      if (preference !== "light" && preference !== "dark" && preference !== "system") {
+        preference = "system";
+      }
+      var resolved = preference === "system"
+        ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : preference;
+      document.documentElement.classList.remove("light", "dark");
+      document.documentElement.classList.add(resolved);
+      document.documentElement.dataset.themePreference = preference;
+    } catch (_) {}
+  })();
+`;
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -99,6 +116,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

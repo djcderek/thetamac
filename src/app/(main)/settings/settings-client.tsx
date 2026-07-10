@@ -48,13 +48,16 @@ function SettingToggle({ label, description, enabled, onToggle }: SettingToggleP
 
 export function SettingsClient() {
   const { theme, setTheme } = useTheme();
-  const { data: session, update: updateSession } = useSession();
+  const { data: session, status: sessionStatus, update: updateSession } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const themeHydratedFromServerRef = useRef(false);
+  const themeChangedByUserRef = useRef(false);
+  const themeSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
   const contactHref = supportEmail
     ? `mailto:${supportEmail}?subject=${encodeURIComponent("thetamac Support")}`
@@ -82,6 +85,8 @@ export function SettingsClient() {
 
   // Fetch initial data
   useEffect(() => {
+    if (sessionStatus === "loading") return;
+
     async function fetchData() {
       try {
         const res = await fetch("/api/settings");
@@ -100,7 +105,12 @@ export function SettingsClient() {
             defaultTimer: data.settings.defaultTimer
           });
           // Sync theme if it was stored in DB
-          if (data.settings.theme && data.settings.theme !== theme) {
+          if (
+            !themeHydratedFromServerRef.current &&
+            !themeChangedByUserRef.current &&
+            ["light", "dark", "system"].includes(data.settings.theme)
+          ) {
+            themeHydratedFromServerRef.current = true;
             setTheme(data.settings.theme);
           }
         }
@@ -111,7 +121,13 @@ export function SettingsClient() {
       }
     }
     fetchData();
-  }, [session, theme, setTheme]);
+  }, [
+    session?.user?.email,
+    session?.user?.image,
+    session?.user?.name,
+    sessionStatus,
+    setTheme,
+  ]);
 
   const updateProfileImageValue = async (image: string) => {
     setIsUploadingAvatar(true);
@@ -166,20 +182,28 @@ export function SettingsClient() {
     }
   };
 
-  const updateTheme = async (newTheme: "light" | "dark" | "system") => {
+  const updateTheme = (newTheme: "light" | "dark" | "system") => {
+    themeChangedByUserRef.current = true;
     setTheme(newTheme);
-    try {
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "settings",
-          data: { theme: newTheme }
-        })
+    themeSaveQueueRef.current = themeSaveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const response = await fetch("/api/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "settings",
+            data: { theme: newTheme }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to save theme preference (${response.status})`);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to update theme preference", error);
       });
-    } catch (error) {
-      console.error("Failed to update theme preference", error);
-    }
   };
 
   const handleProfileSave = async () => {
@@ -401,6 +425,8 @@ export function SettingsClient() {
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   <button
+                    type="button"
+                    aria-pressed={theme === "light"}
                     onClick={() => updateTheme("light")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
                       theme === "light"
@@ -412,6 +438,8 @@ export function SettingsClient() {
                     <span className="text-sm font-medium">Light</span>
                   </button>
                   <button
+                    type="button"
+                    aria-pressed={theme === "dark"}
                     onClick={() => updateTheme("dark")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
                       theme === "dark"
@@ -423,6 +451,8 @@ export function SettingsClient() {
                     <span className="text-sm font-medium">Dark</span>
                   </button>
                   <button
+                    type="button"
+                    aria-pressed={theme === "system"}
                     onClick={() => updateTheme("system")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
                       theme === "system"
