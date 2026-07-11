@@ -56,6 +56,7 @@ export function ShopDashboard() {
   const [data, setData] = useState<ShopData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ itemId: string; message: string } | null>(null);
   const [garageCategory, setGarageCategory] = useState<string>("vehicle");
 
   useEffect(() => {
@@ -82,16 +83,17 @@ export function ShopDashboard() {
 
   const handleBuy = async (itemId: string) => {
     setActionLoading(itemId);
+    setActionError(null);
     try {
       const res = await fetch("/api/shop", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemId }),
       });
-      
+
       if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "Failed to buy item");
+        const err = await res.json().catch(() => ({}));
+        setActionError({ itemId, message: err.error || "Failed to buy item" });
         return;
       }
 
@@ -104,6 +106,7 @@ export function ShopDashboard() {
       } : null);
     } catch (error) {
       console.error(error);
+      setActionError({ itemId, message: "Something went wrong. Please try again." });
     } finally {
       setActionLoading(null);
     }
@@ -111,16 +114,17 @@ export function ShopDashboard() {
 
   const handleEquip = async (itemId: string, type: string, action: "equip" | "unequip") => {
     setActionLoading(itemId);
+    setActionError(null);
     try {
       const res = await fetch("/api/shop/equip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemId, action }),
       });
-      
+
       if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "Failed to equip item");
+        const err = await res.json().catch(() => ({}));
+        setActionError({ itemId, message: err.error || "Failed to equip item" });
         return;
       }
 
@@ -141,6 +145,7 @@ export function ShopDashboard() {
       });
     } catch (error) {
       console.error(error);
+      setActionError({ itemId, message: "Something went wrong. Please try again." });
     } finally {
       setActionLoading(null);
     }
@@ -225,15 +230,18 @@ export function ShopDashboard() {
                     </div>
                     <CardDescription>{item.description}</CardDescription>
                   </CardHeader>
-                  <CardFooter>
-                    <Button 
-                        className="w-full gap-2" 
+                  <CardFooter className="flex-col items-stretch gap-2">
+                    <Button
+                        className="w-full gap-2"
                         onClick={() => handleBuy(item.id)}
                         disabled={actionLoading === item.id || data.userCoins < item.cost}
                     >
                         {actionLoading === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag className="w-4 h-4" />}
                         {item.cost === 0 ? "Free" : `Buy for ${item.cost}`}
                     </Button>
+                    {actionError?.itemId === item.id && (
+                      <p className="font-mono text-xs text-destructive">{actionError.message}</p>
+                    )}
                   </CardFooter>
                 </Card>
               ))}
@@ -337,8 +345,8 @@ export function ShopDashboard() {
                             if (item.type === 'wheel') isEquipped = data.equippedWheelId === item.id;
 
                             return (
+                                <div key={item.id} className="space-y-1">
                                 <Button
-                                    key={item.id}
                                     variant="outline"
                                     className={`w-full justify-start h-auto py-3 px-4 ${isEquipped ? 'border-primary bg-primary/5' : ''}`}
                                     onClick={() => !isEquipped && handleEquip(item.id, item.type, 'equip')}
@@ -361,6 +369,10 @@ export function ShopDashboard() {
                                         ) : null}
                                     </div>
                                 </Button>
+                                {actionError?.itemId === item.id && (
+                                    <p className="px-1 font-mono text-xs text-destructive">{actionError.message}</p>
+                                )}
+                                </div>
                             );
                         })}
                         

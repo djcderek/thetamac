@@ -304,10 +304,10 @@ export function PerformanceDashboard() {
                               <stop offset="95%" stopColor="currentColor" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, weeklyMaxCorrect]} />
+                          <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, weeklyMaxCorrect]} />
                           <Tooltip content={<SimpleTooltip />} />
-                          <Area type="monotone" dataKey="correct" stroke="currentColor" strokeWidth={2} fill="url(#correctGradient)" className="text-foreground" dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }} />
+                          <Area type="monotone" dataKey="correct" stroke="currentColor" strokeWidth={2} fill="url(#correctGradient)" className="text-foreground" dot={{ r: 3, fill: "var(--background)", stroke: "currentColor", strokeWidth: 2 }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (
@@ -327,10 +327,10 @@ export function PerformanceDashboard() {
                     {hasWeeklyData ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={weeklyData?.data.map(d => ({ ...d, speed: d.speed ?? 0 }))} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                          <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, weeklyMaxSpeed]} tickFormatter={(v) => `${v}s`} reversed />
+                          <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, weeklyMaxSpeed]} tickFormatter={(v) => `${v}s`} reversed />
                           <Tooltip content={<SimpleTooltip />} />
-                          <Line type="monotone" dataKey="speed" stroke="currentColor" strokeWidth={2} className="text-foreground" dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }} connectNulls />
+                          <Line type="monotone" dataKey="speed" stroke="currentColor" strokeWidth={2} className="text-foreground" dot={{ r: 3, fill: "var(--background)", stroke: "currentColor", strokeWidth: 2 }} connectNulls />
                         </LineChart>
                       </ResponsiveContainer>
                     ) : (
@@ -352,9 +352,9 @@ export function PerformanceDashboard() {
                   {hasWeeklyData ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={weeklyData?.data} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                        <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                        <Tooltip content={<SimpleTooltip />} cursor={{ fill: "hsl(var(--secondary))", opacity: 0.5 }} />
+                        <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                        <Tooltip content={<SimpleTooltip />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
                         <Bar dataKey="total" fill="currentColor" radius={[4, 4, 0, 0]} className="text-foreground" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -386,10 +386,10 @@ export function PerformanceDashboard() {
                             <stop offset="95%" stopColor="currentColor" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, monthlyMaxAccuracy]} tickFormatter={(v) => `${v}%`} />
+                        <XAxis dataKey="week" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, monthlyMaxAccuracy]} tickFormatter={(v) => `${v}%`} />
                         <Tooltip content={<SimpleTooltip />} />
-                        <Area type="monotone" dataKey="accuracy" stroke="currentColor" strokeWidth={2} fill="url(#monthlyGradient)" className="text-foreground" dot={{ r: 4, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }} connectNulls />
+                        <Area type="monotone" dataKey="accuracy" stroke="currentColor" strokeWidth={2} fill="url(#monthlyGradient)" className="text-foreground" dot={{ r: 4, fill: "var(--background)", stroke: "currentColor", strokeWidth: 2 }} connectNulls />
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
@@ -420,10 +420,10 @@ export function PerformanceDashboard() {
                             <stop offset="95%" stopColor="currentColor" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, yearlyMaxAccuracy]} tickFormatter={(v) => `${v}%`} />
+                        <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, yearlyMaxAccuracy]} tickFormatter={(v) => `${v}%`} />
                         <Tooltip content={<SimpleTooltip />} />
-                        <Area type="monotone" dataKey="accuracy" stroke="currentColor" strokeWidth={2} fill="url(#yearlyGradient)" className="text-foreground" dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }} connectNulls />
+                        <Area type="monotone" dataKey="accuracy" stroke="currentColor" strokeWidth={2} fill="url(#yearlyGradient)" className="text-foreground" dot={{ r: 3, fill: "var(--background)", stroke: "currentColor", strokeWidth: 2 }} connectNulls />
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (

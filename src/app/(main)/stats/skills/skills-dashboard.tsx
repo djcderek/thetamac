@@ -621,7 +621,7 @@ export function SkillsDashboard() {
                           />
                           <PolarAngleAxis 
                             dataKey="skill" 
-                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} 
+                            tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} 
                           />
                           <Tooltip 
                             content={({ active, payload }) => {
@@ -639,14 +639,14 @@ export function SkillsDashboard() {
                           <Radar
                             name="Accuracy"
                             dataKey="value"
-                            stroke="hsl(var(--foreground))"
-                            fill="hsl(var(--foreground))"
+                            stroke="var(--foreground)"
+                            fill="var(--foreground)"
                             fillOpacity={0.15}
                             strokeWidth={2.5}
                             dot={{ 
                               r: 4, 
-                              fill: "hsl(var(--background))", 
-                              stroke: "hsl(var(--foreground))", 
+                              fill: "var(--background)", 
+                              stroke: "var(--foreground)", 
                               strokeWidth: 2 
                             }}
                           />
@@ -671,7 +671,7 @@ export function SkillsDashboard() {
                           />
                           <PolarAngleAxis 
                             dataKey="skill" 
-                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} 
+                            tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} 
                           />
                           <Tooltip 
                             content={({ active, payload }) => {
@@ -694,14 +694,14 @@ export function SkillsDashboard() {
                           <Radar
                             name="Score"
                             dataKey="score"
-                            stroke="hsl(var(--foreground))"
-                            fill="hsl(var(--foreground))"
+                            stroke="var(--foreground)"
+                            fill="var(--foreground)"
                             fillOpacity={0.15}
                             strokeWidth={2.5}
                             dot={{ 
                               r: 4, 
-                              fill: "hsl(var(--background))", 
-                              stroke: "hsl(var(--foreground))", 
+                              fill: "var(--background)", 
+                              stroke: "var(--foreground)", 
                               strokeWidth: 2 
                             }}
                           />
@@ -726,9 +726,9 @@ export function SkillsDashboard() {
                   <div className="h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data?.skillsOverview || []} layout="vertical" margin={{ left: 20 }}>
-                        <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
-                        <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} width={90} />
-                        <Tooltip content={<SimpleTooltip />} cursor={{ fill: "hsl(var(--secondary))", opacity: 0.5 }} />
+                        <XAxis type="number" domain={[0, 100]} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
+                        <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={90} />
+                        <Tooltip content={<SimpleTooltip />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
                         <Bar dataKey="accuracy" fill="currentColor" radius={[0, 4, 4, 0]} className="text-foreground" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -767,8 +767,8 @@ export function SkillsDashboard() {
                             <div className="h-[200px]">
                               <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={weeklyData}>
-                                  <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                                  <XAxis dataKey="week" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                                  <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                   <Tooltip content={<SimpleTooltip />} />
                                   <Line 
                                     type="monotone" 
@@ -776,7 +776,7 @@ export function SkillsDashboard() {
                                     stroke="currentColor" 
                                     strokeWidth={2} 
                                     className="text-foreground" 
-                                    dot={{ r: 4, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }}
+                                    dot={{ r: 4, fill: "var(--background)", stroke: "currentColor", strokeWidth: 2 }}
                                     connectNulls
                                   />
                                 </LineChart>
@@ -955,9 +955,9 @@ export function SkillsDashboard() {
                   <div className="h-[200px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.numberRangeData.filter(d => d.problems > 0)} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                        <XAxis dataKey="range" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                        <Tooltip content={<SimpleTooltip />} cursor={{ fill: "hsl(var(--secondary))", opacity: 0.5 }} />
+                        <XAxis dataKey="range" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                        <Tooltip content={<SimpleTooltip />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
                         <Bar dataKey="accuracy" fill="currentColor" radius={[4, 4, 0, 0]} className="text-foreground" />
                       </BarChart>
                     </ResponsiveContainer>

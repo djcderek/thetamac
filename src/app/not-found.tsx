@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { AsciiMorph } from "@/components/ui/ascii-morph";
 import { CornerBrackets } from "@/components/ui/corner-frame";
-import { Home, ArrowLeft } from "lucide-react";
+import { Home } from "lucide-react";
 
 export default function NotFound() {
   return (
@@ -16,7 +17,7 @@ export default function NotFound() {
           </p>
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold tracking-tight">Page not found</h2>
+          <h2 className="font-serif text-3xl font-normal tracking-tight">Page not found</h2>
           <p className="text-muted-foreground">
             Sorry, we couldn&apos;t find the page you&apos;re looking for. It might have been
             moved or doesn&apos;t exist.
@@ -30,12 +31,7 @@ export default function NotFound() {
               Go Home
             </Link>
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="javascript:history.back()">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Go Back
-            </Link>
-          </Button>
+          <BackButton />
         </div>
       </div>
     </div>

@@ -199,13 +199,13 @@ export function DashboardClient() {
                         </defs>
                         <XAxis
                           dataKey="day"
-                          stroke="hsl(var(--muted-foreground))"
+                          stroke="var(--muted-foreground)"
                           fontSize={12}
                           tickLine={false}
                           axisLine={false}
                         />
                         <YAxis
-                          stroke="hsl(var(--muted-foreground))"
+                          stroke="var(--muted-foreground)"
                           fontSize={12}
                           tickLine={false}
                           axisLine={false}
@@ -219,8 +219,8 @@ export function DashboardClient() {
                           strokeWidth={2}
                           fill="url(#correctGradient)"
                           className="text-brand"
-                          dot={{ r: 3, fill: "hsl(var(--background))", stroke: "currentColor", strokeWidth: 2 }}
-                          activeDot={{ r: 5, fill: "hsl(var(--foreground))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
+                          dot={{ r: 3, fill: "var(--background)", stroke: "currentColor", strokeWidth: 2 }}
+                          activeDot={{ r: 5, fill: "var(--foreground)", stroke: "var(--background)", strokeWidth: 2 }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -311,14 +311,14 @@ export function DashboardClient() {
                     <BarChart data={activityData} barGap={4}>
                       <XAxis
                         dataKey="day"
-                        stroke="hsl(var(--muted-foreground))"
+                        stroke="var(--muted-foreground)"
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
                       />
                       <Tooltip
                         content={<SimpleTooltip />}
-                        cursor={{ fill: "hsl(var(--secondary))", opacity: 0.5 }}
+                        cursor={{ fill: "var(--secondary)", opacity: 0.5 }}
                       />
                       <Bar
                         dataKey="problems"
