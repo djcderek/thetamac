@@ -15,7 +15,7 @@ export function ScoreDistributionCard({
   const hasBuckets = data.buckets.length > 0 && data.maxCount > 0;
 
   return (
-    <div className="rounded-xl border border-border bg-secondary/30 p-4 text-left">
+    <div className="rounded-[3px] border border-border bg-secondary/30 p-4 text-left">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{heading}</p>
@@ -39,7 +39,7 @@ export function ScoreDistributionCard({
       </div>
 
       {hasBuckets ? (
-        <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
+        <div className="mt-3 rounded-[3px] border border-border bg-background/40 p-3">
           <div className="flex gap-[3px] overflow-x-auto px-1 pb-2">
             {data.buckets.map((bucket, idx) => {
               const isUserBucket = idx === data.userBucketIndex;
@@ -124,7 +124,7 @@ export function ScoreDistributionCard({
           </div>
         </div>
       ) : (
-        <div className="mt-3 rounded-lg border border-dashed border-border bg-background/30 p-3 text-sm text-muted-foreground">
+        <div className="mt-3 rounded-[3px] border border-dashed border-border bg-background/30 p-3 text-sm text-muted-foreground">
           Distribution will appear once enough runs have been recorded.
         </div>
       )}

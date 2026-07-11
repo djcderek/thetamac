@@ -17,9 +17,9 @@ export function MainContent({ children }: { children: ReactNode }) {
         // On desktop: left margin for the sidebar
         isMobile 
           ? cn("ml-0", isPinned ? "pt-14" : "pt-0")
-          : isCollapsed 
-            ? "ml-[72px]"
-            : "ml-[252px]"
+          : isCollapsed
+            ? "ml-[60px]"
+            : "ml-[240px]"
       )}
     >
       <div className="min-h-screen overflow-hidden bg-background/70">{children}</div>

@@ -13,8 +13,8 @@ export const metadata: Metadata = {
 
 export default function SignInPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-secondary/20">
-      <Suspense fallback={<div className="w-full max-w-md h-96 animate-pulse bg-secondary rounded-lg" />}>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+      <Suspense fallback={<div className="w-full max-w-md h-96 animate-pulse bg-secondary rounded-[3px]" />}>
         <SignInForm />
       </Suspense>
     </div>

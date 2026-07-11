@@ -22,9 +22,9 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen">
       <div className="border-b border-border">
-        <div className="px-6 py-4 flex items-center justify-between gap-4">
+        <div className="px-5 py-6 md:px-8 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold">Privacy Policy</h1>
+            <h1 className="font-serif text-3xl font-normal tracking-tight">Privacy Policy</h1>
             <p className="text-sm text-muted-foreground">Last updated: Dec 19, 2025</p>
           </div>
           <Button variant="outline" size="sm" asChild>

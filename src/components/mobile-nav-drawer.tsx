@@ -11,22 +11,23 @@ import {
   LayoutDashboard,
   Trophy,
   Info,
+  Zap,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { LogoMark } from "@/components/brand/logo-mark";
 
-// Primary navigation - prioritized for mobile as per plan
+// Mirrors the desktop sidebar ordering exactly
 const primaryNavigation = [
-  { name: "Multiplayer", href: "/multiplayer", icon: Swords },
   { name: "Training", href: "/", icon: Brain },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Multiplayer", href: "/multiplayer", icon: Swords },
+  { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
 ];
 
-// Secondary navigation - accessible but lower priority
 const secondaryNavigation = [
-  { name: "About", href: "/about", icon: Info },
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
+  { name: "Upgrade", href: "/upgrade", icon: Zap, accent: true },
+  { name: "About", href: "/about", icon: Info, accent: false },
+  { name: "Settings", href: "/settings", icon: Settings, accent: false },
 ];
 
 export function MobileNavDrawer() {
@@ -47,12 +48,12 @@ export function MobileNavDrawer() {
       {/* Drawer */}
       <aside
         className={cn(
-          "fixed top-2 right-2 h-[calc(100vh-1rem)] w-[min(320px,calc(100vw-1rem))] overflow-hidden rounded-2xl bg-sidebar border border-sidebar-border shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden",
+          "fixed top-0 right-0 h-full w-[min(320px,calc(100vw-3rem))] overflow-hidden bg-sidebar border-l border-sidebar-border z-50 transform transition-transform duration-300 ease-in-out md:hidden",
           isOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         {/* Drawer header */}
-        <div className="h-14 flex items-center justify-between px-4 border-b border-dashed border-border">
+        <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           <Link href="/" onClick={close} className="flex items-center gap-2">
             <LogoMark size={24} />
             <span className="font-semibold">thetamac</span>
@@ -68,9 +69,7 @@ export function MobileNavDrawer() {
 
         {/* Primary navigation */}
         <nav className="p-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-            Play
-          </p>
+          <p className="editorial-label mb-3">Play</p>
           <div className="space-y-1">
             {primaryNavigation.map((item) => {
               const isActive =
@@ -83,7 +82,7 @@ export function MobileNavDrawer() {
                   href={item.href}
                   onClick={close}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors",
+                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-full text-sm transition-colors",
                     isActive
                       ? "bg-brand/12 text-foreground font-semibold ring-1 ring-inset ring-brand/25"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
@@ -99,9 +98,7 @@ export function MobileNavDrawer() {
 
         {/* Secondary navigation */}
         <nav className="p-4 pt-0">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-            Explore
-          </p>
+          <p className="editorial-label mb-3">Explore</p>
           <div className="space-y-1">
             {secondaryNavigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -111,13 +108,13 @@ export function MobileNavDrawer() {
                   href={item.href}
                   onClick={close}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors",
+                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-full text-sm transition-colors",
                     isActive
                       ? "bg-secondary text-foreground font-medium"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                   )}
                 >
-                  <item.icon className="w-5 h-5 shrink-0" />
+                  <item.icon className={cn("w-5 h-5 shrink-0", item.accent && "text-brand")} />
                   <span>{item.name}</span>
                 </Link>
               );

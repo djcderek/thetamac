@@ -3,7 +3,6 @@
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -44,11 +43,11 @@ function AuthErrorContent() {
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
-          <div className="p-3 rounded-full bg-destructive/10">
-            <AlertTriangle className="h-8 w-8 text-destructive" />
+          <div className="grid h-14 w-14 place-items-center rounded-[3px] border-2 border-destructive font-mono text-2xl font-semibold text-destructive" aria-hidden="true">
+            ≠
           </div>
         </div>
-        <CardTitle className="text-2xl">Authentication Error</CardTitle>
+        <CardTitle className="font-serif text-3xl font-normal tracking-tight">Authentication Error</CardTitle>
         <CardDescription>{getErrorMessage(error)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -74,8 +73,8 @@ function AuthErrorContent() {
 
 export default function AuthErrorPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-secondary/20">
-      <Suspense fallback={<div className="w-full max-w-md h-64 animate-pulse bg-secondary rounded-lg" />}>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+      <Suspense fallback={<div className="w-full max-w-md h-64 animate-pulse bg-secondary rounded-[3px]" />}>
         <AuthErrorContent />
       </Suspense>
     </div>

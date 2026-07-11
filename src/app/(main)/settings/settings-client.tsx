@@ -618,7 +618,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "light"}
                     onClick={() => updateTheme("light")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
+                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
                       theme === "light"
                         ? "border-foreground bg-secondary"
                         : "border-border hover:bg-secondary/50"
@@ -631,7 +631,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "dark"}
                     onClick={() => updateTheme("dark")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
+                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
                       theme === "dark"
                         ? "border-foreground bg-secondary"
                         : "border-border hover:bg-secondary/50"
@@ -644,7 +644,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "system"}
                     onClick={() => updateTheme("system")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
+                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
                       theme === "system"
                         ? "border-foreground bg-secondary"
                         : "border-border hover:bg-secondary/50"

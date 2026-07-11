@@ -296,7 +296,7 @@ export function LeaderboardClient({
                         key: "median",
                         label: "Median",
                         value: distributionMedian,
-                        color: "#f59e0b",
+                        color: "var(--brand)",
                         bucketIndex: resolveBucketIndex(distributionMedian),
                       });
                     }
@@ -306,7 +306,7 @@ export function LeaderboardClient({
                         key: "mean",
                         label: "Mean",
                         value: distributionMean,
-                        color: "#10b981",
+                        color: "var(--foreground)",
                         bucketIndex: resolveBucketIndex(distributionMean),
                       });
                     }
@@ -318,10 +318,10 @@ export function LeaderboardClient({
                       distributionStdDev > 0
                     ) {
                       const advancedMarkers = [
-                        { key: "minus-1sigma", label: "-1σ", value: distributionMean - distributionStdDev, color: "#06b6d4" },
-                        { key: "plus-1sigma", label: "+1σ", value: distributionMean + distributionStdDev, color: "#06b6d4" },
-                        { key: "minus-2sigma", label: "-2σ", value: distributionMean - distributionStdDev * 2, color: "#8b5cf6" },
-                        { key: "plus-2sigma", label: "+2σ", value: distributionMean + distributionStdDev * 2, color: "#8b5cf6" },
+                        { key: "minus-1sigma", label: "-1σ", value: distributionMean - distributionStdDev, color: "var(--muted-foreground)" },
+                        { key: "plus-1sigma", label: "+1σ", value: distributionMean + distributionStdDev, color: "var(--muted-foreground)" },
+                        { key: "minus-2sigma", label: "-2σ", value: distributionMean - distributionStdDev * 2, color: "color-mix(in oklab, var(--muted-foreground) 55%, transparent)" },
+                        { key: "plus-2sigma", label: "+2σ", value: distributionMean + distributionStdDev * 2, color: "color-mix(in oklab, var(--muted-foreground) 55%, transparent)" },
                       ];
                       for (const marker of advancedMarkers) {
                         markers.push({
@@ -333,7 +333,7 @@ export function LeaderboardClient({
 
                     return (
                       <div className="space-y-3">
-                        <div className="rounded-lg border border-border bg-background/40 p-3">
+                        <div className="rounded-[3px] border border-border bg-background/40 p-3">
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
@@ -378,7 +378,7 @@ export function LeaderboardClient({
                                       className={[
                                         "flex min-w-0 flex-col items-center",
                                         "cursor-default select-none",
-                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0",
+                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
                                       ].join(" ")}
                                       tabIndex={0}
                                       aria-label={`${bucket.from}–${bucket.to}: ${bucket.count} runs${
@@ -414,10 +414,9 @@ export function LeaderboardClient({
                                               ? "min-h-0"
                                               : "min-h-[2px]",
                                             isUserBucket
-                                              ? "bg-blue-600 shadow-sm dark:bg-blue-500"
+                                              ? "bg-brand"
                                               : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
-                                            isUserBucket ? "ring-2 ring-blue-500/40" : "",
-                                          ].join(" ")}
+                                                                                      ].join(" ")}
                                           style={{ height: `${heightPct}%` }}
                                         />
                                       </div>
@@ -427,7 +426,7 @@ export function LeaderboardClient({
                                           className={[
                                             "mt-2 text-[10px] font-mono tabular-nums leading-none",
                                             isUserBucket
-                                              ? "font-semibold text-blue-600 dark:text-blue-400"
+                                              ? "font-semibold text-brand"
                                               : "text-muted-foreground",
                                           ].join(" ")}
                                         >
@@ -439,7 +438,7 @@ export function LeaderboardClient({
 
                                       {isUserBucket ? (
                                         <span
-                                          className="mt-1 h-1 w-1 rounded-full bg-blue-600 dark:bg-blue-500"
+                                          className="mt-1 h-1 w-1 bg-brand"
                                           aria-hidden="true"
                                         />
                                       ) : null}
@@ -466,7 +465,7 @@ export function LeaderboardClient({
                                           {markersInBucket.map((marker) => (
                                             <span key={marker.key} className="inline-flex items-center gap-1 text-xs">
                                               <span
-                                                className="h-2 w-2 rounded-full"
+                                                className="h-2 w-2"
                                                 style={{ backgroundColor: marker.color }}
                                                 aria-hidden="true"
                                               />
@@ -484,19 +483,19 @@ export function LeaderboardClient({
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             {typeof distributionMedian === "number" ? (
                               <span className="inline-flex items-center gap-1">
-                                <span className="h-3 w-px bg-amber-500" aria-hidden="true" />
+                                <span className="h-3 w-px bg-brand" aria-hidden="true" />
                                 Median: {formatStatValue(distributionMedian)}
                               </span>
                             ) : null}
                             {typeof distributionMean === "number" ? (
                               <span className="inline-flex items-center gap-1">
-                                <span className="h-3 w-px bg-emerald-500" aria-hidden="true" />
+                                <span className="h-3 w-px bg-foreground" aria-hidden="true" />
                                 Mean: {formatStatValue(distributionMean)}
                               </span>
                             ) : null}
                             {showAdvancedStats && typeof distributionStdDev === "number" ? (
                               <span className="inline-flex items-center gap-1">
-                                <span className="h-3 w-px bg-cyan-500" aria-hidden="true" />
+                                <span className="h-3 w-px bg-muted-foreground" aria-hidden="true" />
                                 σ: {formatStatValue(distributionStdDev)}
                               </span>
                             ) : null}
@@ -509,12 +508,12 @@ export function LeaderboardClient({
                           typeof distributionStdDev === "number" ? (
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                               <span className="inline-flex items-center gap-1">
-                                <span className="h-3 w-px bg-cyan-500" aria-hidden="true" />
+                                <span className="h-3 w-px bg-muted-foreground" aria-hidden="true" />
                                 ±1σ: {formatStatValue(distributionMean - distributionStdDev)} to{" "}
                                 {formatStatValue(distributionMean + distributionStdDev)}
                               </span>
                               <span className="inline-flex items-center gap-1">
-                                <span className="h-3 w-px bg-violet-500" aria-hidden="true" />
+                                <span className="h-3 w-px bg-muted-foreground/55" aria-hidden="true" />
                                 ±2σ: {formatStatValue(distributionMean - distributionStdDev * 2)} to{" "}
                                 {formatStatValue(distributionMean + distributionStdDev * 2)}
                               </span>

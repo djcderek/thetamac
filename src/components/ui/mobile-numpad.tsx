@@ -199,7 +199,7 @@ export function MobileNumpad({
         isVisible ? "translate-y-0" : "translate-y-full"
       )}
     >
-      <div className="border-t border-border bg-background shadow-lg">
+      <div className="border-t border-border bg-background">
         <div
           className={cn(
             "max-w-md mx-auto px-3",

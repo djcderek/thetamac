@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   Info,
+  Zap,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -27,8 +28,9 @@ const navigation = [
 ];
 
 const secondaryNav = [
-  { name: "About", href: "/about", icon: Info },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Upgrade", href: "/upgrade", icon: Zap, accent: true },
+  { name: "About", href: "/about", icon: Info, accent: false },
+  { name: "Settings", href: "/settings", icon: Settings, accent: false },
 ];
 
 export function Sidebar() {
@@ -41,7 +43,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-3 top-3 h-[calc(100vh-1.5rem)] overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar/95 shadow-[0_16px_48px_color-mix(in_oklch,var(--foreground)_8%,transparent)] backdrop-blur-xl flex-col transition-all duration-300 z-50",
+        "fixed left-0 top-0 h-screen overflow-hidden border-r border-sidebar-border bg-sidebar flex-col transition-all duration-300 z-50",
         "hidden md:flex", // Hide on mobile - MobileTopBar + MobileNavDrawer handle mobile nav
         isCollapsed ? "w-[60px]" : "w-[240px]"
       )}
@@ -87,7 +89,7 @@ export function Sidebar() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "group flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+                  "group flex min-h-10 items-center gap-3 rounded-full px-3 py-2 text-sm transition-colors",
                   isActive
                     ? "bg-brand/12 text-foreground font-semibold ring-1 ring-inset ring-brand/25"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
@@ -148,14 +150,14 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+                "flex min-h-10 items-center gap-3 rounded-full px-3 py-2 text-sm transition-colors",
                 isActive
                   ? "bg-secondary text-foreground font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
                 !showExpanded && "justify-center px-2"
               )}
             >
-              <item.icon className="w-4 h-4 shrink-0" />
+              <item.icon className={cn("w-4 h-4 shrink-0", item.accent && "text-brand")} />
               <span
                 className={cn(
                   "whitespace-nowrap transition-all duration-300",

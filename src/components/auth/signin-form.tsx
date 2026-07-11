@@ -85,7 +85,7 @@ export function SignInForm() {
       </CardHeader>
       <CardContent className="space-y-4">
         {(error || formError) && (
-          <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-lg">
+          <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-[3px]">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{formError || getErrorMessage(error!)}</span>
           </div>

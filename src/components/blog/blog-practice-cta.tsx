@@ -22,7 +22,7 @@ export function BlogPracticeCta({
   secondaryLabel?: string;
 }) {
   return (
-    <div className="my-6 rounded-lg border border-border bg-secondary/25 p-5">
+    <div className="my-6 rounded-[3px] border border-border bg-secondary/25 p-5">
       <p className="mb-3 text-sm text-muted-foreground">{body}</p>
       <div className="flex flex-wrap gap-3">
         <TrainingCta

@@ -10,7 +10,7 @@ export default function MarketingLayout({
     <div className="min-h-screen flex flex-col bg-background/65">
       {/* Header */}
       <header className="sticky top-0 z-40 px-3 pt-3">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 rounded-full border border-border bg-card/90 px-3 shadow-lg backdrop-blur-xl sm:px-5">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 rounded-full border border-border bg-card/90 px-3 backdrop-blur-xl sm:px-5">
           <Link href="/" className="flex min-w-0 items-center gap-2 font-semibold">
             <LogoMark size={26} />
             <span className="tracking-[-0.03em]">thetamac</span>

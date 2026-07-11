@@ -1,8 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { SubscribeButton } from "./subscribe-button";
+import { SectionLabel } from "@/components/ui/visual-system";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
 
 interface PremiumPaywallProps {
   featureName: string;
@@ -33,53 +31,53 @@ export function PremiumPaywall({
         className
       )}
     >
-      <Card className="w-full max-w-3xl border-2 border-primary/10 shadow-lg">
-        <CardHeader className="space-y-3">
-          <Badge variant="secondary" className="w-fit">
-            Premium
-          </Badge>
-          <CardTitle className="text-2xl font-semibold">
+      <div className="w-full max-w-3xl border-t-2 border-foreground pt-4">
+        <div className="space-y-3">
+          <SectionLabel className="text-brand">Pro</SectionLabel>
+          <h2 className="font-serif text-3xl font-normal tracking-tight">
             Unlock {featureName}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground max-w-2xl">
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground max-w-2xl">
             {description ||
               "Upgrade to Theta Pro to access the full analytics dashboard and multiplayer enhancements."}
           </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        </div>
+        <div className="mt-6 space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border bg-secondary/40 p-4">
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Monthly
-              </p>
-              <p className="text-3xl font-bold">$0.99</p>
+            <div className="rounded-[3px] border border-border p-4">
+              <SectionLabel className="mb-1">Monthly</SectionLabel>
+              <p className="font-mono text-3xl font-semibold tracking-tight">$0.99</p>
               <p className="text-xs text-muted-foreground mb-4">
                 7-day free trial, then billed monthly. Cancel anytime.
               </p>
               <SubscribeButton plan="monthly" label="Go monthly" variant="outline" />
             </div>
-            <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
-              <p className="text-sm font-medium text-primary mb-1">
-                Yearly (best value)
-              </p>
-              <p className="text-3xl font-bold">$5.99</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                7-day free trial, then billed annually. Save 50%.
-              </p>
-              <SubscribeButton
-                plan="yearly"
-                label="Go yearly"
-              />
+            <div className="ink-panel relative overflow-hidden rounded-[3px] border p-4">
+              <div className="dot-field pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+              <div className="relative">
+                <p className="mb-1 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-background/60">
+                  Yearly · Best value
+                </p>
+                <p className="font-mono text-3xl font-semibold tracking-tight">$5.99</p>
+                <p className="text-xs text-background/70 mb-4">
+                  7-day free trial, then billed annually. Save 50%.
+                </p>
+                <SubscribeButton
+                  plan="yearly"
+                  label="Go yearly"
+                  className="bg-background text-foreground hover:bg-brand hover:text-brand-foreground"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-x-6 sm:grid-cols-2">
             {benefits.map((benefit) => (
               <div
                 key={benefit}
-                className="flex items-start gap-2 rounded-lg border border-dashed border-border/70 bg-muted/40 p-3"
+                className="flex items-start gap-2.5 border-t border-border py-2.5"
               >
-                <Check className="h-4 w-4 text-primary mt-0.5" />
+                <span className="font-mono text-sm font-semibold text-brand" aria-hidden="true">+</span>
                 <p className="text-sm text-muted-foreground">{benefit}</p>
               </div>
             ))}
@@ -89,8 +87,8 @@ export function PremiumPaywall({
             Subscriptions auto-renew and can be managed or cancelled at any
             time from the billing portal.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
