@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
-import { OrbitalMotif } from "@/components/ui/visual-system";
+import { AsciiMorph } from "@/components/ui/ascii-morph";
 
 export function TrainingHeader() {
   return (
     <header className="relative overflow-hidden border-b border-border bg-background">
-      <OrbitalMotif className="pointer-events-none absolute -right-10 top-1/2 hidden h-44 w-72 -translate-y-1/2 opacity-60 lg:block" />
+      <div className="bayer-fade-l pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 opacity-45 lg:block">
+        <AsciiMorph shapes={["theta"]} animate={false} className="w-56" />
+      </div>
       <div className="relative flex min-h-32 items-center justify-between gap-6 px-5 py-6 md:px-8">
         <div className="max-w-2xl">
-        <h1 className="text-2xl font-semibold tracking-[-0.035em] md:text-3xl">Mental Math Training</h1>
+        <h1 className="font-serif text-3xl font-normal tracking-tight md:text-4xl">Mental Math Training</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Practice arithmetic speed and accuracy at your own pace.
         </p>
@@ -24,7 +26,7 @@ export function TrainingHeader() {
             />
           </summary>
 
-          <div className="mt-3 rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-lg">
+          <div className="mt-3 border-l-2 border-border pl-4 py-1 text-sm text-muted-foreground">
             <h2 className="mb-1.5 font-medium text-foreground">
               Build faster, more accurate mental math
             </h2>

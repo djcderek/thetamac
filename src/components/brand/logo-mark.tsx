@@ -20,7 +20,7 @@ export function LogoMark({
         aria-hidden="true"
         className="absolute inset-0 opacity-35"
         style={{
-          backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1.2px)",
+          backgroundImage: "conic-gradient(from 270deg at 1.5px 1.5px, currentColor 90deg, transparent 0)",
           backgroundSize: "4px 4px",
         }}
       />

@@ -1,10 +1,10 @@
-import { Loader2 } from "lucide-react";
+import { AsciiSpinner } from "@/components/ui/ascii-morph";
 
 export default function Loading() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <AsciiSpinner className="h-10 w-10 text-2xl" />
         <p className="text-sm text-muted-foreground">Loading...</p>
       </div>
     </div>

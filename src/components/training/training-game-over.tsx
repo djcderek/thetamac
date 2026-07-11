@@ -4,6 +4,7 @@ import Link from "next/link";
 import { RotateCcw, LogIn, UserPlus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsciiMorph } from "@/components/ui/ascii-morph";
 import type { DifficultySettings, ScoreDistribution } from "@/components/training/training-types";
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
 import { trackEvent } from "@/lib/telemetry-client";
@@ -52,6 +53,7 @@ export function TrainingGameOver({
       </CardHeader>
 
       <CardContent className="space-y-6">
+        <AsciiMorph shapes={["trophy"]} accent className="mx-auto w-28" />
         <div
           className={`grid grid-cols-2 gap-3 ${
             showAccuracyCard
@@ -63,23 +65,23 @@ export function TrainingGameOver({
                 : "sm:grid-cols-2"
           }`}
         >
-          <div className="rounded-lg border border-border bg-secondary/20 p-4">
+          <div className="border-t-2 border-foreground/80 pt-3">
             <div className="text-xs text-muted-foreground">Solved</div>
             <div className="mt-1 text-3xl font-semibold font-mono tabular-nums">{totalSolved}</div>
           </div>
           {showAccuracyCard && (
-            <div className="rounded-lg border border-border bg-secondary/20 p-4">
+            <div className="border-t-2 border-foreground/80 pt-3">
               <div className="text-xs text-muted-foreground">Accuracy</div>
               <div className="mt-1 text-3xl font-semibold font-mono tabular-nums">{accuracy}%</div>
             </div>
           )}
           {showBestStreakCard && (
-            <div className="rounded-lg border border-border bg-secondary/20 p-4">
+            <div className="border-t-2 border-foreground/80 pt-3">
               <div className="text-xs text-muted-foreground">Best streak</div>
               <div className="mt-1 text-3xl font-semibold font-mono tabular-nums">{bestStreak}</div>
             </div>
           )}
-          <div className="rounded-lg border border-border bg-secondary/20 p-4">
+          <div className="border-t-2 border-foreground/80 pt-3">
             <div className="text-xs text-muted-foreground">Avg time</div>
             <div className="mt-1 text-3xl font-semibold font-mono tabular-nums">
               {avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s
@@ -102,7 +104,7 @@ export function TrainingGameOver({
         )}
 
         {showAuthCallout && (
-          <div className="rounded-xl border border-border bg-secondary/20 p-4">
+          <div className="border-t border-border pt-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-sm font-medium">Save your runs</div>

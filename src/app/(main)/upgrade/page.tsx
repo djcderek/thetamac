@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Check, ArrowLeft } from "lucide-react";
 
@@ -7,6 +8,7 @@ import { getUpgradeUrl, type UpgradeFeature } from "@/lib/upgrade";
 
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
+import { AsciiMorph } from "@/components/ui/ascii-morph";
 
 import { UpgradeAutoScroll } from "./upgrade-auto-scroll";
 import { UpgradeTelemetry } from "./upgrade-telemetry";
@@ -65,7 +67,7 @@ export default async function UpgradePage({
   const upgradeUrl = getUpgradeUrl({ feature: activeFeature, source });
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] dark:bg-background">
+    <div className="min-h-screen bg-background">
       {/* Back button */}
       <div className="px-4 md:px-6 pt-6">
         <div className="max-w-5xl mx-auto">
@@ -81,7 +83,12 @@ export default async function UpgradePage({
 
       {/* Header */}
       <div className="px-4 md:px-6 pt-12 pb-8 text-center">
-        <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-foreground mb-4">
+        <AsciiMorph
+          shapes={["theta", "trophy"]}
+          accent
+          className="mx-auto mb-6 w-36"
+        />
+        <h1 className="font-serif text-5xl font-normal tracking-tight text-foreground mb-4 md:text-6xl">
           Pricing
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
@@ -89,41 +96,41 @@ export default async function UpgradePage({
         </p>
       </div>
 
-      {/* Pricing Cards */}
+      {/* Plans */}
       <div className="px-4 md:px-6 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-6 items-start">
-            {/* Free Plan Card */}
-            <div className="bg-card rounded-2xl p-8 shadow-sm border border-border">
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-foreground mb-1">Free</h2>
-                <p className="text-sm text-muted-foreground">Get started with our free plan</p>
+          <div className="grid items-stretch gap-10 md:grid-cols-2 md:gap-0">
+            {/* Free plan — open ruled column */}
+            <div className="flex flex-col border-t-2 border-foreground/80 pt-5 md:mr-10">
+              <div className="flex items-baseline justify-between">
+                <h2 className="editorial-label">Free</h2>
+                <p className="text-xs text-muted-foreground">Get started</p>
               </div>
 
-              <div className="mb-8">
-                <span className="text-5xl font-bold text-foreground">$0</span>
-                <span className="text-muted-foreground ml-1">/ month</span>
+              <div className="mt-5 mb-8">
+                <span className="font-mono text-5xl font-semibold tracking-tight text-foreground">$0</span>
+                <span className="text-muted-foreground ml-2">/ month</span>
               </div>
 
-              <ul className="space-y-4">
+              <ul>
                 {freeFeatures.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <li key={feature} className="flex items-start gap-3 border-t border-border py-3">
+                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              <div className="mt-8">
+              <div className="mt-auto pt-8">
                 {userId ? (
                   <Link href="/dashboard">
-                    <button className="w-full py-3 px-4 rounded-xl border border-border bg-secondary/50 text-foreground font-medium hover:bg-secondary transition-colors">
+                    <button className="w-full rounded-full border border-border px-4 py-3 font-medium text-foreground transition-colors hover:bg-secondary">
                       Current Plan
                     </button>
                   </Link>
                 ) : (
                   <Link href="/auth/signup">
-                    <button className="w-full py-3 px-4 rounded-xl border border-border bg-secondary/50 text-foreground font-medium hover:bg-secondary transition-colors">
+                    <button className="w-full rounded-full border border-border px-4 py-3 font-medium text-foreground transition-colors hover:bg-secondary">
                       Get Started
                     </button>
                   </Link>
@@ -131,49 +138,49 @@ export default async function UpgradePage({
               </div>
             </div>
 
-            {/* Pro Plan Card */}
-            <div className="bg-card rounded-2xl p-8 shadow-sm border-2 border-[#2563eb] relative">
-              {/* Pro Badge */}
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-[#2563eb] mb-1">Pro</h2>
-                <p className="text-sm text-muted-foreground">Get everything out of thetamac.</p>
+            {/* Pro plan — ink plate */}
+            <div className="ink-panel relative flex flex-col rounded-[3px] p-8">
+              <div className="pointer-events-none absolute inset-0 opacity-30">
+                <div
+                  className="dot-field h-full w-full"
+                  style={{ "--dot": "color-mix(in oklab, var(--background) 35%, transparent)" } as CSSProperties}
+                />
+              </div>
+              <div className="relative flex items-baseline justify-between">
+                <h2 className="editorial-label text-brand">Pro</h2>
+                <p className="text-xs text-background/70">Everything in thetamac</p>
               </div>
 
-              <div className="mb-2">
-                <span className="text-5xl font-bold text-[#2563eb]">$0.99</span>
-                <span className="text-muted-foreground ml-1">/ month</span>
+              <div className="relative mt-5 mb-1">
+                <span className="font-mono text-5xl font-semibold tracking-tight text-brand">$0.99</span>
+                <span className="ml-2 text-background/70">/ month</span>
               </div>
-              <p className="text-xs text-muted-foreground mb-6">
-                or $5.99/year (save 50%)
-              </p>
+              <p className="relative mb-6 text-xs text-background/70">or $5.99/year (save 50%)</p>
 
-              <ul className="space-y-4">
+              <ul className="relative">
                 {proFeatures.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-[#2563eb] mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">{feature}</span>
+                  <li key={feature} className="flex items-start gap-3 border-t border-background/20 py-3">
+                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand" />
+                    <span className="text-sm text-background/85">{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              {/* 7-day free trial notice */}
-              <div className="mt-6 p-3 rounded-xl bg-[#2563eb]/5 border border-[#2563eb]/20">
-                <p className="text-sm text-center text-[#2563eb] font-medium">
-                  ✨ 7-day free trial included
-                </p>
-              </div>
+              <p className="relative mt-5 font-mono text-xs text-background/70">
+                + 7-day free trial included +
+              </p>
 
-              <div className="mt-6 space-y-3">
+              <div className="relative mt-5 space-y-3">
                 {!userId ? (
                   <Link href={`/auth/signin?callbackUrl=${encodeURIComponent(upgradeUrl)}`}>
-                    <button className="w-full py-3 px-4 rounded-xl bg-[#2563eb] text-white font-medium hover:bg-[#1d4ed8] transition-colors">
+                    <button className="w-full rounded-full bg-brand px-4 py-3 font-semibold text-brand-foreground transition-colors hover:bg-brand/85">
                       Start Free Trial
                     </button>
                   </Link>
                 ) : isPremium ? (
                   <ManageBillingButton
                     returnUrl={upgradeUrl}
-                    className="w-full py-3 px-4 rounded-xl bg-secondary text-foreground font-medium hover:bg-secondary/80 transition-colors"
+                    className="w-full rounded-full bg-background px-4 py-3 font-medium text-foreground transition-colors hover:bg-background/85"
                     tracking={{
                       eventName: "upgrade_cta_click",
                       properties: { source, feature: activeFeature },
@@ -189,7 +196,7 @@ export default async function UpgradePage({
                         eventName: "upgrade_cta_click",
                         properties: { source, feature: activeFeature },
                       }}
-                      className="w-full py-3 px-4 rounded-xl bg-[#2563eb] text-white font-medium hover:bg-[#1d4ed8] transition-colors"
+                      className="w-full rounded-full bg-brand px-4 py-3 font-semibold text-brand-foreground transition-colors hover:bg-brand/85"
                     />
                     <SubscribeButton
                       plan="yearly"
@@ -200,7 +207,7 @@ export default async function UpgradePage({
                         properties: { source, feature: activeFeature },
                       }}
                       variant="outline"
-                      className="w-full py-3 px-4 rounded-xl border border-[#2563eb]/30 text-[#2563eb] font-medium hover:bg-[#2563eb]/5 transition-colors"
+                      className="w-full rounded-full border border-background/30 px-4 py-3 font-medium text-background transition-colors hover:bg-background/10"
                     />
                   </>
                 )}
@@ -208,29 +215,31 @@ export default async function UpgradePage({
             </div>
           </div>
 
-          {/* FAQ Section */}
-          <div className="mt-16 max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
-            <div className="space-y-6">
-              <div className="bg-card rounded-xl p-6 border border-border">
-                <h3 className="font-semibold text-foreground mb-2">What&apos;s included in the free trial?</h3>
-                <p className="text-sm text-muted-foreground">
+          {/* FAQ */}
+          <div className="mt-20 max-w-2xl mx-auto">
+            <h2 className="mb-8 text-center font-serif text-3xl font-normal tracking-tight">
+              Frequently asked questions
+            </h2>
+            <dl>
+              <div className="border-t border-border py-5">
+                <dt className="font-semibold text-foreground">What&apos;s included in the free trial?</dt>
+                <dd className="mt-2 text-sm leading-6 text-muted-foreground">
                   You get full access to all Pro features for 7 days. No charge until the trial ends, and you can cancel anytime.
-                </p>
+                </dd>
               </div>
-              <div className="bg-card rounded-xl p-6 border border-border">
-                <h3 className="font-semibold text-foreground mb-2">Can I cancel anytime?</h3>
-                <p className="text-sm text-muted-foreground">
+              <div className="border-t border-border py-5">
+                <dt className="font-semibold text-foreground">Can I cancel anytime?</dt>
+                <dd className="mt-2 text-sm leading-6 text-muted-foreground">
                   Yes. Your subscription renews automatically and you can cancel from the billing portal at any time.
-                </p>
+                </dd>
               </div>
-              <div className="bg-card rounded-xl p-6 border border-border">
-                <h3 className="font-semibold text-foreground mb-2">What happens if I downgrade?</h3>
-                <p className="text-sm text-muted-foreground">
+              <div className="border-y border-border py-5">
+                <dt className="font-semibold text-foreground">What happens if I downgrade?</dt>
+                <dd className="mt-2 text-sm leading-6 text-muted-foreground">
                   You&apos;ll keep your account and history, but Pro-only analytics, weak point training, and shop perks will be locked.
-                </p>
+                </dd>
               </div>
-            </div>
+            </dl>
           </div>
         </div>
       </div>

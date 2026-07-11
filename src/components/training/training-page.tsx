@@ -1532,7 +1532,6 @@ export default function TrainingPage() {
               difficulty={difficulty}
               setDifficulty={setDifficulty}
               difficultyConfig={difficultyConfig}
-              getDifficultyColor={getDifficultyColor}
               timedModeLimits={timedModeLimits}
               timedModeLimit={timedModeLimit}
               setTimedModeLimit={setTimedModeLimit}

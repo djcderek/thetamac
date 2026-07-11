@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { LogoMark } from "@/components/brand/logo-mark";
+import { AsciiMorph } from "@/components/ui/ascii-morph";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -75,6 +76,7 @@ export function SignInForm() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="space-y-1 text-center">
+        <AsciiMorph shapes={["theta", "times"]} className="mx-auto mb-1 w-24" />
         <div className="flex items-center justify-center gap-2 mb-2">
           <LogoMark size={32} />
         </div>

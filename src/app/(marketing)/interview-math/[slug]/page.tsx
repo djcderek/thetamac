@@ -105,7 +105,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
         >
           ← Back to Interview Math Hub
         </Link>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-3 mb-3">
+        <h1 className="font-serif text-4xl sm:text-5xl font-normal tracking-tight mt-3 mb-3">
           {guide.title}
         </h1>
         <p className="text-lg text-muted-foreground">{guide.description}</p>
@@ -114,7 +114,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
         ) : null}
       </header>
 
-      <section className="mb-8 rounded-xl border border-border bg-secondary/25 p-5">
+      <section className="mb-8 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-2">Quick Answer</h2>
         <p className="text-sm text-muted-foreground">{guide.quickAnswer}</p>
       </section>
@@ -147,7 +147,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
       </section>
 
       {guide.workedExample ? (
-        <section className="mb-8 rounded-xl border border-border bg-card p-5">
+        <section className="mb-8 border-t-2 border-foreground/75 pt-5">
           <h2 className="text-2xl font-semibold mb-2">Worked Example: {guide.workedExample.title}</h2>
           <p className="text-sm text-muted-foreground mb-4">{guide.workedExample.prompt}</p>
           <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
@@ -171,7 +171,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
         </section>
       ) : null}
 
-      <section className="mb-8 rounded-xl border border-border p-5 bg-card">
+      <section className="mb-8 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-2">Practice Now</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Use these drills in short sessions and track your score/accuracy trend each week.

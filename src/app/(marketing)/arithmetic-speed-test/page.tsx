@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { TrainingCta } from "@/components/marketing/training-cta";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
@@ -87,30 +88,27 @@ export default function ArithmeticSpeedTestPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <header className="mb-10">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Timed Benchmark</p>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">Arithmetic Speed Test</h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          Measure how many arithmetic problems you can solve in two minutes across addition,
-          subtraction, multiplication, and division. Start with accuracy, then push speed.
-        </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <TrainingCta
-            href="/?preset=arithmetic-speed-test&source=seo&page=/arithmetic-speed-test"
-            preset="arithmetic-speed-test"
-            sourcePage={pagePath}
-            label="Start Speed Test"
-          />
-          <Link
-            href="/leaderboard"
-            className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
-          >
-            View Leaderboard
-          </Link>
-        </div>
-      </header>
+      <MarketingHero
+        eyebrow="Timed Benchmark"
+        title="Arithmetic Speed Test"
+        lede="Measure how many arithmetic problems you can solve in two minutes across addition, subtraction, multiplication, and division. Start with accuracy, then push speed."
+        shapes={["bolt", "trophy"]}
+      >
+        <TrainingCta
+          href="/?preset=arithmetic-speed-test&source=seo&page=/arithmetic-speed-test"
+          preset="arithmetic-speed-test"
+          sourcePage={pagePath}
+          label="Start Speed Test"
+        />
+        <Link
+          href="/leaderboard"
+          className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+        >
+          View Leaderboard
+        </Link>
+      </MarketingHero>
 
-      <section className="mb-10 rounded-xl border border-border bg-secondary/25 p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">Quick Answer</h2>
         <p className="text-sm text-muted-foreground">
           Use the same settings each time: 120 seconds, medium difficulty, and all four operations.
@@ -124,7 +122,7 @@ export default function ArithmeticSpeedTestPage() {
           ["2. Review", "Check solved count, accuracy, and average time."],
           ["3. Focus", "Drill the operation that slowed you down, then retest."],
         ].map(([title, body]) => (
-          <div key={title} className="rounded-xl border border-border bg-card p-5">
+          <div key={title} className="border-t border-border pt-4">
             <h2 className="text-lg font-semibold mb-2">{title}</h2>
             <p className="text-sm text-muted-foreground">{body}</p>
           </div>
@@ -134,22 +132,22 @@ export default function ArithmeticSpeedTestPage() {
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">Improve Your Benchmark</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Link href="/practice/addition" className="rounded-xl border border-border p-4 hover:bg-secondary/30 transition-colors">
+          <Link href="/practice/addition" className="border-t border-border px-1 py-4 transition-colors hover:bg-secondary/40">
             Addition drills
           </Link>
-          <Link href="/practice/subtraction" className="rounded-xl border border-border p-4 hover:bg-secondary/30 transition-colors">
+          <Link href="/practice/subtraction" className="border-t border-border px-1 py-4 transition-colors hover:bg-secondary/40">
             Subtraction drills
           </Link>
-          <Link href="/practice/multiplication" className="rounded-xl border border-border p-4 hover:bg-secondary/30 transition-colors">
+          <Link href="/practice/multiplication" className="border-t border-border px-1 py-4 transition-colors hover:bg-secondary/40">
             Multiplication practice
           </Link>
-          <Link href="/practice/division" className="rounded-xl border border-border p-4 hover:bg-secondary/30 transition-colors">
+          <Link href="/practice/division" className="border-t border-border px-1 py-4 transition-colors hover:bg-secondary/40">
             Division practice
           </Link>
         </div>
       </section>
 
-      <section className="mb-10 rounded-xl border border-border bg-secondary/25 p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">Looking for a free Zetamac alternative?</h2>
         <p className="text-sm text-muted-foreground">
           Compare thetamac&apos;s two-minute benchmark, focused drills, and progress tracking with
@@ -163,7 +161,7 @@ export default function ArithmeticSpeedTestPage() {
         </Link>
       </section>
 
-      <section className="mb-10 rounded-xl border border-border bg-card p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">FAQ</h2>
         <div className="space-y-5">
           {faq.map((item) => (

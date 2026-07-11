@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { TrainingCta } from "@/components/marketing/training-cta";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
@@ -75,30 +76,27 @@ export default function CaseInterviewMathPracticePage() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <header className="mb-10">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Interview Prep</p>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">Case Interview Math Practice</h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          Build the fast, reliable arithmetic used in consulting cases: percentages, growth,
-          breakeven, market sizing, profitability, unit economics, and averages.
-        </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <TrainingCta
-            href="/?preset=interview-math&source=seo&page=/case-interview-math-practice"
-            preset="interview-math"
-            sourcePage={pagePath}
-            label="Start Interview Math Drill"
-          />
-          <Link
-            href="/interview-math"
-            className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
-          >
-            Browse Guides
-          </Link>
-        </div>
-      </header>
+      <MarketingHero
+        eyebrow="Interview Prep"
+        title="Case Interview Math Practice"
+        lede="Build the fast, reliable arithmetic used in consulting cases: percentages, growth, breakeven, market sizing, profitability, unit economics, and averages."
+        shapes={["times", "trophy"]}
+      >
+        <TrainingCta
+          href="/?preset=interview-math&source=seo&page=/case-interview-math-practice"
+          preset="interview-math"
+          sourcePage={pagePath}
+          label="Start Interview Math Drill"
+        />
+        <Link
+          href="/interview-math"
+          className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+        >
+          Browse Guides
+        </Link>
+      </MarketingHero>
 
-      <section className="mb-10 rounded-xl border border-border bg-secondary/25 p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">Quick Answer</h2>
         <p className="text-sm text-muted-foreground">
           Practice basic arithmetic under time pressure, then layer business prompts on top. Most
@@ -109,7 +107,7 @@ export default function CaseInterviewMathPracticePage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-10">
         {modules.map((module) => (
-          <article key={module.title} className="rounded-xl border border-border bg-card p-5">
+          <article key={module.title} className="border-t border-border pt-4">
             <h2 className="text-lg font-semibold mb-2">{module.title}</h2>
             <p className="text-sm text-muted-foreground mb-4">{module.description}</p>
             <Link href={module.href} className="text-sm font-medium text-primary hover:underline">
@@ -119,7 +117,7 @@ export default function CaseInterviewMathPracticePage() {
         ))}
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-6">
+      <section className="border-t border-border pt-4">
         <h2 className="text-xl font-semibold mb-3">Use This 10-Minute Drill</h2>
         <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
           <li>Two minutes: medium mixed arithmetic warm-up.</li>

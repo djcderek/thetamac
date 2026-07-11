@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { DuelMode } from "@/components/multiplayer/duel-mode";
 import { RacingMode } from "@/components/multiplayer/racing-mode";
-import { Swords, Flag, ArrowLeft, Trophy, Zap, Users, Clock } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Swords, Flag, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { DitherIllustration } from "@/components/ui/visual-system";
+import { AsciiMorph } from "@/components/ui/ascii-morph";
+import { CornerBrackets } from "@/components/ui/corner-frame";
 
 type Mode = "duel" | "racing" | null;
 
@@ -51,111 +50,105 @@ export function MultiplayerClient() {
   }
 
   return (
-    <div className="min-h-screen bg-background/70 p-4 md:p-8 animate-in fade-in duration-500">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <div className="relative overflow-hidden rounded-3xl border border-border bg-card px-6 py-10 text-center shadow-sm md:py-14">
-          <h1 className="text-3xl font-semibold tracking-[-0.04em] md:text-5xl">Multiplayer Arena</h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Challenge other players in real-time. Choose your preferred game mode to start competing.
-          </p>
-          <DitherIllustration className="mx-auto mt-4 h-20 w-28" />
+    <div className="min-h-screen p-4 md:p-8 animate-in fade-in duration-500">
+      <div className="max-w-5xl mx-auto">
+        <div className="grid items-center gap-8 border-b border-border pb-10 pt-4 md:grid-cols-[minmax(0,1fr)_auto] md:pt-8">
+          <div>
+            <p className="editorial-label text-brand">Head to head</p>
+            <h1 className="mt-2 font-serif text-4xl font-normal tracking-tight md:text-5xl">
+              Multiplayer Arena
+            </h1>
+            <p className="mt-3 max-w-2xl text-muted-foreground">
+              Challenge other players in real-time. Choose your preferred game mode to start competing.
+            </p>
+          </div>
+          <div className="relative hidden w-fit p-4 md:block">
+            <CornerBrackets size={10} />
+            <AsciiMorph shapes={["times", "trophy", "bolt"]} accent className="w-40" />
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Duel Mode Card */}
-          <div 
-            className="group relative cursor-pointer"
+        <div className="grid md:grid-cols-2">
+          {/* Duel Mode */}
+          <button
+            type="button"
             onClick={() => setMode("duel")}
+            className="group flex h-full flex-col border-b border-border px-1 py-8 text-left transition-colors hover:bg-secondary/40 md:border-b-0 md:border-r md:pr-10"
           >
-            <Card className="h-full overflow-hidden border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-brand/60">
-              <CardContent className="p-8 flex flex-col h-full">
-                <div className="dot-field w-16 h-16 rounded-2xl border border-brand/30 bg-brand/15 flex items-center justify-center mb-6">
-                  <Swords className="w-8 h-8 text-brand" />
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <h2 className="text-2xl font-bold transition-colors">Duel Mode</h2>
-                  <p className="text-muted-foreground">
-                    Classic 1v1 competition. Solve math problems faster than your opponent to win rounds.
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <Swords className="h-5 w-5 text-brand" />
+              <h2 className="font-serif text-2xl font-normal tracking-tight">Duel Mode</h2>
+            </div>
+            <p className="mt-3 text-muted-foreground">
+              Classic 1v1 competition. Solve math problems faster than your opponent to win rounds.
+            </p>
 
-                <div className="grid grid-cols-2 gap-4 mb-8 mt-auto pt-6">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    <span>1 vs 1</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Trophy className="w-4 h-4" />
-                    <span>Ranked</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span>Fast Paced</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Zap className="w-4 h-4" />
-                    <span>Skill Based</span>
-                  </div>
-                </div>
+            <dl className="mt-auto grid grid-cols-2 gap-x-6 pt-8 font-mono text-xs text-muted-foreground">
+              <div className="flex justify-between border-t border-border py-2">
+                <dt>Players</dt>
+                <dd className="text-foreground">1 vs 1</dd>
+              </div>
+              <div className="flex justify-between border-t border-border py-2">
+                <dt>Format</dt>
+                <dd className="text-foreground">Ranked</dd>
+              </div>
+              <div className="flex justify-between border-t border-border py-2">
+                <dt>Pace</dt>
+                <dd className="text-foreground">Fast</dd>
+              </div>
+              <div className="flex justify-between border-t border-border py-2">
+                <dt>Matching</dt>
+                <dd className="text-foreground">Skill based</dd>
+              </div>
+            </dl>
 
-                <Button className="w-full group-hover:bg-violet-600 group-hover:text-white hover:bg-violet-700! transition-all">
-                  Play Duel
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+            <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold underline decoration-border underline-offset-4 transition-colors group-hover:decoration-foreground">
+              Play Duel →
+            </span>
+          </button>
 
-          {/* Racing Mode Card */}
-          <div 
-            className="group relative cursor-pointer"
+          {/* Racing Mode */}
+          <button
+            type="button"
             onClick={() => setMode("racing")}
+            className="group flex h-full flex-col px-1 py-8 text-left transition-colors hover:bg-secondary/40 md:pl-10"
           >
-            <Card className="h-full overflow-hidden border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-brand/60">
-              <CardContent className="p-8 flex flex-col h-full">
-                <div className="dot-field w-16 h-16 rounded-2xl border border-brand/30 bg-brand/15 flex items-center justify-center mb-6">
-                  <Flag className="w-8 h-8 text-brand" />
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <h2 className="text-2xl font-bold transition-colors">Racing Mode</h2>
-                  <p className="text-muted-foreground">
-                    Race against up to 5 players. Solve to move, change lanes, and bump opponents!
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <Flag className="h-5 w-5 text-brand" />
+              <h2 className="font-serif text-2xl font-normal tracking-tight">Racing Mode</h2>
+            </div>
+            <p className="mt-3 text-muted-foreground">
+              Race against up to 5 players. Solve to move, change lanes, and bump opponents!
+            </p>
 
-                <div className="grid grid-cols-2 gap-4 mb-8 mt-auto pt-6">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    <span>2-5 Players</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Trophy className="w-4 h-4" />
-                    <span>Podium Finish</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Flag className="w-4 h-4" />
-                    <span>Track Race</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Zap className="w-4 h-4" />
-                    <span>Power-ups</span>
-                  </div>
-                </div>
+            <dl className="mt-auto grid grid-cols-2 gap-x-6 pt-8 font-mono text-xs text-muted-foreground">
+              <div className="flex justify-between border-t border-border py-2">
+                <dt>Players</dt>
+                <dd className="text-foreground">2–5</dd>
+              </div>
+              <div className="flex justify-between border-t border-border py-2">
+                <dt>Format</dt>
+                <dd className="text-foreground">Podium</dd>
+              </div>
+              <div className="flex justify-between border-t border-border py-2">
+                <dt>Course</dt>
+                <dd className="text-foreground">Track race</dd>
+              </div>
+              <div className="flex justify-between border-t border-border py-2">
+                <dt>Extras</dt>
+                <dd className="text-foreground">Power-ups</dd>
+              </div>
+            </dl>
 
-                <Button className="w-full group-hover:bg-emerald-600 group-hover:text-white hover:bg-emerald-700! transition-all">
-                  Start Racing
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+            <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold underline decoration-border underline-offset-4 transition-colors group-hover:decoration-foreground">
+              Start Racing →
+            </span>
+          </button>
         </div>
-        
-        <div className="flex justify-center mt-12">
-          <Badge variant="outline" className="px-4 py-1 text-muted-foreground">
-            More game modes coming soon
-          </Badge>
-        </div>
+
+        <p className="border-t border-border pt-6 text-center font-mono text-xs text-muted-foreground">
+          + more game modes coming soon +
+        </p>
       </div>
     </div>
   );

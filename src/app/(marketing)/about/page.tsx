@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MarketingHero } from "@/components/marketing/marketing-hero";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
 const pagePath = "/about";
@@ -119,34 +120,26 @@ export default function AboutPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="mb-12 max-w-3xl">
-        <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
-          Mental Math Training
-        </p>
-        <h1 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">
-          About thetamac
-        </h1>
-        <p className="text-lg text-muted-foreground">
-          thetamac is a mental math training app for fast arithmetic practice, interview
-          preparation, and competitive timed drills.
-        </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link
-            href="/?source=about"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Start Training
-          </Link>
-          <Link
-            href="/interview-math"
-            className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/50"
-          >
-            Explore Interview Math
-          </Link>
-        </div>
-      </header>
+      <MarketingHero
+        eyebrow="Mental Math Training"
+        title="About thetamac"
+        lede="thetamac is a mental math training app for fast arithmetic practice, interview preparation, and competitive timed drills."
+      >
+        <Link
+          href="/?source=about"
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Start Training
+        </Link>
+        <Link
+          href="/interview-math"
+          className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/50"
+        >
+          Explore Interview Math
+        </Link>
+      </MarketingHero>
 
-      <section className="mb-10 rounded-lg border border-border bg-secondary/25 p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="mb-3 text-xl font-semibold">What thetamac is</h2>
         <p className="text-sm leading-6 text-muted-foreground">
           thetamac combines timed arithmetic drills, learning mode explanations,
@@ -160,14 +153,14 @@ export default function AboutPage() {
         <h2 className="mb-4 text-2xl font-semibold tracking-tight">Who it helps</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {audienceLinks.map((item) => (
-            <div key={item} className="rounded-lg border border-border bg-card p-5">
+            <div key={item} className="border-t border-border pt-4">
               <p className="text-sm leading-6 text-muted-foreground">{item}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="mb-10 rounded-lg border border-border bg-card p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="mb-3 text-xl font-semibold">The quick version</h2>
         <p className="mb-4 text-sm leading-6 text-muted-foreground">
           thetamac is built around short practice loops: run a timed benchmark, find
@@ -182,7 +175,7 @@ export default function AboutPage() {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-lg border border-border p-4 transition-colors hover:bg-secondary/30"
+              className="border-t border-border px-1 py-4 transition-colors hover:bg-secondary/40"
             >
               <h3 className="font-semibold">{link.title}</h3>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">

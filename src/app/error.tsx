@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { AsciiMorph } from "@/components/ui/ascii-morph";
+import { RefreshCw, Home } from "lucide-react";
 import Link from "next/link";
 
 export default function Error({
@@ -22,11 +23,9 @@ export default function Error({
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center space-y-6 p-8 max-w-md">
         <div className="flex justify-center">
-          <div className="rounded-full bg-destructive/10 p-4">
-            <AlertTriangle className="h-12 w-12 text-destructive" />
-          </div>
+          <AsciiMorph shapes={["times"]} animate={false} className="w-32" />
         </div>
-        
+
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">
             Something went wrong

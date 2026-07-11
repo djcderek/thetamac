@@ -63,7 +63,7 @@ export default async function InterviewMathInsightsPage() {
         <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
           Read-only Aggregate Data
         </p>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
+        <h1 className="font-serif text-4xl sm:text-5xl font-normal tracking-tight mb-3">
           Interview Math Aggregate Insights
         </h1>
         <p className="text-lg text-muted-foreground max-w-3xl">
@@ -73,23 +73,23 @@ export default async function InterviewMathInsightsPage() {
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-10">
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground">Total timed runs</p>
           <p className="text-2xl font-semibold mt-1">{distribution.total.toLocaleString()}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground">Median score</p>
           <p className="text-2xl font-semibold mt-1">
             {distribution.median !== null ? distribution.median.toFixed(1) : "—"}
           </p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground">Mean score</p>
           <p className="text-2xl font-semibold mt-1">
             {distribution.mean !== null ? distribution.mean.toFixed(1) : "—"}
           </p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground">Std dev</p>
           <p className="text-2xl font-semibold mt-1">
             {distribution.stdDev !== null ? distribution.stdDev.toFixed(1) : "—"}
@@ -97,7 +97,7 @@ export default async function InterviewMathInsightsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-secondary/20 p-6 mb-10">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">How to use these benchmarks</h2>
         <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
           <li>
@@ -128,7 +128,7 @@ export default async function InterviewMathInsightsPage() {
       </section>
 
       <section className="grid gap-6 sm:grid-cols-2 mb-10">
-        <div className="rounded-xl border border-border p-5 bg-card">
+        <div className="border-t border-border pt-4">
           <h2 className="text-lg font-semibold mb-3">Most common score range</h2>
           <p className="text-sm text-muted-foreground">
             {modeBucket
@@ -136,7 +136,7 @@ export default async function InterviewMathInsightsPage() {
               : "No score data available yet."}
           </p>
         </div>
-        <div className="rounded-xl border border-border p-5 bg-card">
+        <div className="border-t border-border pt-4">
           <h2 className="text-lg font-semibold mb-3">Top score ranges</h2>
           {topBuckets.length > 0 ? (
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -152,7 +152,7 @@ export default async function InterviewMathInsightsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-6">
+      <section className="border-t border-border pt-4">
         <h2 className="text-lg font-semibold mb-3">Recommended next action</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Start a 2-minute timed run and compare your trend weekly against these aggregate

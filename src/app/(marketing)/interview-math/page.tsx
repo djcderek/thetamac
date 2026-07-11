@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { TrainingCta } from "@/components/marketing/training-cta";
 import { INTERVIEW_MATH_GUIDES } from "@/content/interview-math/guides";
 
@@ -93,21 +94,14 @@ export default function InterviewMathHubPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify([hubJsonLd, faqJsonLd]) }}
       />
 
-      <header className="mb-10">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
-          Interview Prep
-        </p>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
-          Mental Math Interview Practice Hub
-        </h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          Quick answer: build interview math skill with short, repeated timed drills and
-          operation-specific practice. This hub gives you structured guides for percentages,
-          estimation, market sizing, unit economics, and speed benchmarks.
-        </p>
-      </header>
+      <MarketingHero
+        eyebrow="Interview Prep"
+        title="Mental Math Interview Practice Hub"
+        lede="Quick answer: build interview math skill with short, repeated timed drills and operation-specific practice. This hub gives you structured guides for percentages, estimation, market sizing, unit economics, and speed benchmarks."
+        shapes={["theta", "times"]}
+      />
 
-      <section className="mb-10 rounded-xl border border-border bg-secondary/25 p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">Start Here (10-Minute Plan)</h2>
         <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
           <li>Warm up for 2 minutes with easy mixed arithmetic.</li>
@@ -158,7 +152,7 @@ export default function InterviewMathHubPage() {
         <h2 className="text-2xl font-semibold mb-4">Core Interview Math Guides</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {INTERVIEW_MATH_GUIDES.map((guide) => (
-            <article key={guide.slug} className="rounded-xl border border-border p-5 bg-card">
+            <article key={guide.slug} className="border-t border-border pt-4">
               <h3 className="text-lg font-semibold leading-tight mb-2">{guide.title}</h3>
               <p className="text-sm text-muted-foreground mb-4">{guide.description}</p>
               <Link
@@ -172,7 +166,7 @@ export default function InterviewMathHubPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border p-6 bg-card">
+      <section className="border-t border-border pt-4">
         <h2 className="text-xl font-semibold mb-3">FAQ</h2>
         <div className="space-y-5">
           {faq.map((item) => (

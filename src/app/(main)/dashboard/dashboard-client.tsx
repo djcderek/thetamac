@@ -363,14 +363,14 @@ export function DashboardClient() {
             <CardContent className="flex-1 flex">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
                 <Link href="/" className="block">
-                  <div className="h-full p-4 rounded-2xl border border-background/20 hover:border-brand hover:bg-background/5 transition-colors cursor-pointer group flex flex-col">
+                  <div className="h-full p-4 rounded-[3px] border border-background/20 hover:border-brand hover:bg-background/5 transition-colors cursor-pointer group flex flex-col">
                     <Brain className="w-5 h-5 mb-3 text-brand" />
                     <p className="font-medium text-sm">Practice</p>
                     <p className="text-xs text-background/60 mt-1">Start a training session</p>
                   </div>
                 </Link>
                 <Link href="/multiplayer" className="block">
-                  <div className="h-full p-4 rounded-2xl border border-background/20 hover:border-brand hover:bg-background/5 transition-colors cursor-pointer group flex flex-col">
+                  <div className="h-full p-4 rounded-[3px] border border-background/20 hover:border-brand hover:bg-background/5 transition-colors cursor-pointer group flex flex-col">
                     <Swords className="w-5 h-5 mb-3 text-brand" />
                     <p className="font-medium text-sm">1v1 Match</p>
                     <p className="text-xs text-background/60 mt-1">Challenge a player</p>

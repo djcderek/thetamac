@@ -52,7 +52,7 @@ export default function BlogIndexPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
       <header className="mb-12">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
+        <h1 className="font-serif text-4xl sm:text-5xl font-normal tracking-tight mb-3">
           Blog
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl">
@@ -80,7 +80,7 @@ export default function BlogIndexPage() {
             <Link
               key={path.href}
               href={path.href}
-              className="rounded-lg border border-border p-4 transition-colors hover:bg-secondary/30"
+              className="border-t border-border px-1 py-4 transition-colors hover:bg-secondary/40"
             >
               <h3 className="font-semibold">{path.title}</h3>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -131,7 +131,7 @@ export default function BlogIndexPage() {
         ))}
       </div>
 
-      <div className="mt-16 rounded-lg border border-border bg-secondary/30 p-6 text-center">
+      <div className="mt-16 border-y border-border py-8 text-center">
         <p className="text-lg font-medium mb-2">Ready to practice?</p>
         <p className="text-muted-foreground mb-4">
           Put these techniques to work with timed drills and instant feedback.

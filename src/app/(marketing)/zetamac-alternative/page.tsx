@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { TrainingCta } from "@/components/marketing/training-cta";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
@@ -125,35 +126,27 @@ export default function ZetamacAlternativePage() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <header className="mb-10">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
-          Timed Arithmetic Practice
-        </p>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
-          Free Zetamac Alternative for Timed Arithmetic Practice
-        </h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
-          thetamac is a free Zetamac alternative for people who want timed arithmetic practice
-          with focused drills, leaderboards, learning mode, racing, multiplayer, and progress
-          analytics.
-        </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <TrainingCta
-            href="/?preset=arithmetic-speed-test&source=seo&page=/zetamac-alternative"
-            preset="arithmetic-speed-test"
-            sourcePage={pagePath}
-            label="Start Timed Arithmetic Test"
-          />
-          <Link
-            href="/arithmetic-speed-test"
-            className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
-          >
-            View Speed Test Guide
-          </Link>
-        </div>
-      </header>
+      <MarketingHero
+        eyebrow="Timed Arithmetic Practice"
+        title="Free Zetamac Alternative for Timed Arithmetic Practice"
+        lede="thetamac is a free Zetamac alternative for people who want timed arithmetic practice with focused drills, leaderboards, learning mode, racing, multiplayer, and progress analytics."
+        shapes={["bolt", "times"]}
+      >
+        <TrainingCta
+          href="/?preset=arithmetic-speed-test&source=seo&page=/zetamac-alternative"
+          preset="arithmetic-speed-test"
+          sourcePage={pagePath}
+          label="Start Timed Arithmetic Test"
+        />
+        <Link
+          href="/arithmetic-speed-test"
+          className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+        >
+          View Speed Test Guide
+        </Link>
+      </MarketingHero>
 
-      <section className="mb-10 rounded-xl border border-border bg-secondary/25 p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">Is thetamac a free Zetamac alternative?</h2>
         <p className="text-sm text-muted-foreground">
           Yes. Start with the two-minute mixed benchmark, then use focused drills and learning
@@ -164,7 +157,7 @@ export default function ZetamacAlternativePage() {
 
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">How the Practice Experience Compares</h2>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="overflow-hidden rounded-[3px] border border-border">
           <div className="grid grid-cols-3 border-b border-border bg-secondary/30 text-sm font-medium">
             <div className="p-3">Need</div>
             <div className="p-3">Zetamac-style practice</div>
@@ -187,14 +180,14 @@ export default function ZetamacAlternativePage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-10">
         {features.map((feature) => (
-          <article key={feature.title} className="rounded-xl border border-border bg-card p-5">
+          <article key={feature.title} className="border-t border-border pt-4">
             <h2 className="text-lg font-semibold mb-2">{feature.title}</h2>
             <p className="text-sm text-muted-foreground">{feature.description}</p>
           </article>
         ))}
       </section>
 
-      <section className="mb-10 rounded-xl border border-border bg-secondary/25 p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">A Better Weekly Practice Loop</h2>
         <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
           <li>Run the default two-minute mixed arithmetic benchmark.</li>
@@ -214,7 +207,7 @@ export default function ZetamacAlternativePage() {
         </ol>
       </section>
 
-      <section className="mb-10 rounded-xl border border-border bg-card p-6">
+      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
         <h2 className="text-xl font-semibold mb-3">FAQ</h2>
         <div className="space-y-5">
           {faq.map((item) => (
