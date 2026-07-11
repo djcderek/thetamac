@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SectionLabel } from "@/components/ui/visual-system";
+import { SectionLabel, optionTileClass } from "@/components/ui/visual-system";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
 import type {
@@ -41,16 +41,7 @@ import type {
   SubmitMode,
 } from "@/components/training/training-types";
 
-// Option tiles print in ink when selected — no tinted borders.
-function tileClass(selected: boolean, extra?: string) {
-  return cn(
-    "rounded-[3px] border px-3 py-3 transition-colors",
-    selected
-      ? "border-foreground bg-foreground text-background"
-      : "border-border hover:border-foreground/50",
-    extra,
-  );
-}
+const tileClass = optionTileClass;
 
 function modeDescription(mode: GameMode) {
   switch (mode) {

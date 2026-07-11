@@ -8,6 +8,17 @@ export function DotField({ className, ...props }: HTMLAttributes<HTMLDivElement>
   return <div aria-hidden="true" className={cn("dot-field", className)} {...props} />;
 }
 
+// Option tiles print in ink when selected — no tinted borders.
+export function optionTileClass(selected: boolean, extra?: string) {
+  return cn(
+    "rounded-[3px] border px-3 py-3 transition-colors",
+    selected
+      ? "border-foreground bg-foreground text-background"
+      : "border-border hover:border-foreground/50",
+    extra,
+  );
+}
+
 export function SectionLabel({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return <p className={cn("editorial-label", className)} {...props} />;
 }
