@@ -68,8 +68,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // Handle update trigger (e.g., after profile update)
       if (trigger === "update" && session) {
-        token.name = session.name;
-        token.picture = session.image;
+        const profileUpdate = session as typeof session & {
+          name?: unknown;
+          image?: unknown;
+          user?: { name?: unknown; image?: unknown };
+        };
+        const updatedName = profileUpdate.name ?? profileUpdate.user?.name;
+        const updatedImage = profileUpdate.image ?? profileUpdate.user?.image;
+
+        if (typeof updatedName === "string") {
+          token.name = updatedName;
+        }
+        if (typeof updatedImage === "string") {
+          token.picture = updatedImage;
+        }
       }
 
       const userId = (user?.id as string) ?? (token.id as string | undefined);

@@ -2,6 +2,48 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { settingsRatelimit, checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const avatarSchema = z
+  .string()
+  .max(2_800_000, "Profile images must be smaller than 2MB.")
+  .refine(
+    (value) => {
+      if (value === "" || /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value)) {
+        return true;
+      }
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" && Boolean(url.hostname);
+      } catch {
+        return false;
+      }
+    },
+    "Use an HTTPS image URL or a PNG, JPEG, WebP, or GIF image."
+  );
+
+const profileDataSchema = z
+  .object({
+    name: z.string().trim().min(1, "Display name is required.").max(80).optional(),
+    image: avatarSchema.optional(),
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, "No profile changes provided.");
+
+const settingsDataSchema = z
+  .object({
+    autoAdvance: z.boolean().optional(),
+    defaultDifficulty: z.enum(["Easy", "Medium", "Hard", "Expert"]).optional(),
+    defaultTimer: z.enum(["5s", "8s", "10s", "12s", "15s", "20s", "30s"]).optional(),
+    theme: z.enum(["light", "dark", "system"]).optional(),
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, "No settings changes provided.");
+
+const updateRequestSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("profile"), data: profileDataSchema }),
+  z.object({ type: z.literal("settings"), data: settingsDataSchema }),
+]);
 
 export async function GET() {
   try {
@@ -49,14 +91,22 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // If settings don't exist, return defaults
-    const settings = user.settings || {
-      soundEnabled: true,
-      notificationsEnabled: true,
-      autoAdvance: true,
-      defaultDifficulty: "Medium",
-      defaultTimer: "10s",
-      theme: "system"
+    const storedSettings = user.settings;
+    const settings = {
+      autoAdvance: storedSettings?.autoAdvance ?? true,
+      defaultDifficulty: ["Easy", "Medium", "Hard", "Expert"].includes(
+        storedSettings?.defaultDifficulty ?? ""
+      )
+        ? storedSettings!.defaultDifficulty
+        : "Medium",
+      defaultTimer: ["5s", "8s", "10s", "12s", "15s", "20s", "30s"].includes(
+        storedSettings?.defaultTimer ?? ""
+      )
+        ? storedSettings!.defaultTimer
+        : "10s",
+      theme: ["light", "dark", "system"].includes(storedSettings?.theme ?? "")
+        ? storedSettings!.theme
+        : "system",
     };
 
     return NextResponse.json({
@@ -93,8 +143,20 @@ export async function PATCH(req: Request) {
     }
 
     const userEmail = session.user.email;
-    const body = await req.json();
-    const { type, data } = body;
+    const body = await req.json().catch(() => null);
+    const parsedBody = updateRequestSchema.safeParse(body);
+
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid settings update.",
+          details: parsedBody.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { type, data } = parsedBody.data;
 
     // Find user first to get correct ID (handling potential ID mismatch)
     const user = await db.user.findUnique({
@@ -109,29 +171,9 @@ export async function PATCH(req: Request) {
     const userId = user.id;
 
     if (type === "profile") {
-      const updateData: {
-        name?: string;
-        image?: string;
-      } = {};
-
-      if (data && typeof data.name === "string") {
-        updateData.name = data.name;
-      }
-
-      if (data && typeof data.image === "string") {
-        updateData.image = data.image;
-      }
-
-      if (Object.keys(updateData).length === 0) {
-        return NextResponse.json(
-          { error: "No valid profile fields provided" },
-          { status: 400 }
-        );
-      }
-
       const updatedUser = await db.user.update({
         where: { id: userId },
-        data: updateData,
+        data,
         select: {
           name: true,
           email: true,
@@ -142,16 +184,13 @@ export async function PATCH(req: Request) {
     } 
     
     if (type === "settings") {
-      // Update or create user settings
       const updatedSettings = await db.userSettings.upsert({
         where: { userId },
         create: {
           userId,
-          ...data
+          ...data,
         },
-        update: {
-          ...data
-        }
+        update: data,
       });
       return NextResponse.json({ success: true, settings: updatedSettings });
     }

@@ -31,6 +31,54 @@ interface SettingToggleProps {
   onToggle: () => void;
 }
 
+type SettingsState = {
+  autoAdvance: boolean;
+  defaultDifficulty: "Easy" | "Medium" | "Hard" | "Expert";
+  defaultTimer: "5s" | "8s" | "10s" | "12s" | "15s" | "20s" | "30s";
+};
+
+const DIFFICULTY_OPTIONS: SettingsState["defaultDifficulty"][] = [
+  "Easy",
+  "Medium",
+  "Hard",
+  "Expert",
+];
+const PRACTICE_TIMER_OPTIONS: SettingsState["defaultTimer"][] = [
+  "5s",
+  "8s",
+  "10s",
+  "12s",
+  "15s",
+  "20s",
+  "30s",
+];
+
+type SaveFeedback = { type: "success" | "error"; message: string } | null;
+
+function FeedbackMessage({ feedback }: { feedback: SaveFeedback }) {
+  if (!feedback) return null;
+  return (
+    <p
+      className={feedback.type === "error" ? "text-sm text-destructive" : "text-sm text-success"}
+      role={feedback.type === "error" ? "alert" : "status"}
+    >
+      {feedback.message}
+    </p>
+  );
+}
+
+async function getResponseError(response: Response, fallback: string) {
+  const data = await response.json().catch(() => null);
+  if (!data || typeof data !== "object") return fallback;
+
+  const error = data as {
+    error?: string;
+    details?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] };
+  };
+  const fieldMessage = Object.values(error.details?.fieldErrors ?? {}).flat()[0];
+  return fieldMessage ?? error.details?.formErrors?.[0] ?? error.error ?? fallback;
+}
+
 function SettingToggle({ label, description, enabled, onToggle }: SettingToggleProps) {
   return (
     <div className="flex items-center justify-between py-4">
@@ -39,6 +87,10 @@ function SettingToggle({ label, description, enabled, onToggle }: SettingToggleP
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <button
+        type="button"
+        role="switch"
+        aria-label={label}
+        aria-checked={enabled}
         onClick={onToggle}
         className={`relative w-10 h-5 rounded-full transition-colors ${
           enabled ? "bg-foreground" : "bg-secondary"
@@ -62,6 +114,10 @@ export function SettingsClient() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [profileFeedback, setProfileFeedback] = useState<SaveFeedback>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [themeFeedback, setThemeFeedback] = useState<SaveFeedback>(null);
+  const [settingsFeedback, setSettingsFeedback] = useState<SaveFeedback>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -70,6 +126,9 @@ export function SettingsClient() {
   const themeHydratedFromServerRef = useRef(false);
   const themeChangedByUserRef = useRef(false);
   const themeSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const themeRequestVersionRef = useRef(0);
+  const settingsSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const settingsRequestVersionRef = useRef(0);
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
   const contactHref = supportEmail
     ? `mailto:${supportEmail}?subject=${encodeURIComponent("thetamac Support")}`
@@ -87,13 +146,12 @@ export function SettingsClient() {
   const MAX_AVATAR_FILE_SIZE = 2 * 1024 * 1024; // 2MB limit for inline storage
 
   // Settings State
-  const [settings, setSettings] = useState({
-    soundEnabled: true,
-    notificationsEnabled: true,
+  const [settings, setSettings] = useState<SettingsState>({
     autoAdvance: true,
     defaultDifficulty: "Medium",
     defaultTimer: "10s"
   });
+  const settingsRef = useRef(settings);
 
   // Fetch initial data
   useEffect(() => {
@@ -102,32 +160,39 @@ export function SettingsClient() {
     async function fetchData() {
       try {
         const res = await fetch("/api/settings");
-        if (res.ok) {
-          const data = await res.json();
-          setProfile({
-            name: data.profile.name || session?.user?.name || "",
-            email: data.profile.email || session?.user?.email || "",
-            image: data.profile.image || session?.user?.image || ""
-          });
-          setSettings({
-            soundEnabled: data.settings.soundEnabled,
-            notificationsEnabled: data.settings.notificationsEnabled,
-            autoAdvance: data.settings.autoAdvance,
-            defaultDifficulty: data.settings.defaultDifficulty,
-            defaultTimer: data.settings.defaultTimer
-          });
-          // Sync theme if it was stored in DB
-          if (
-            !themeHydratedFromServerRef.current &&
-            !themeChangedByUserRef.current &&
-            ["light", "dark", "system"].includes(data.settings.theme)
-          ) {
-            themeHydratedFromServerRef.current = true;
-            setTheme(data.settings.theme);
-          }
+        if (!res.ok) {
+          throw new Error(await getResponseError(res, "Unable to load your saved settings."));
+        }
+
+        const data = await res.json();
+        setProfile({
+          name: data.profile.name || session?.user?.name || "",
+          email: data.profile.email || session?.user?.email || "",
+          image: data.profile.image || session?.user?.image || ""
+        });
+        const loadedSettings: SettingsState = {
+          autoAdvance: data.settings.autoAdvance,
+          defaultDifficulty: data.settings.defaultDifficulty,
+          defaultTimer: data.settings.defaultTimer
+        };
+        settingsRef.current = loadedSettings;
+        setSettings(loadedSettings);
+        // Sync theme if it was stored in DB
+        if (
+          !themeHydratedFromServerRef.current &&
+          !themeChangedByUserRef.current &&
+          ["light", "dark", "system"].includes(data.settings.theme)
+        ) {
+          themeHydratedFromServerRef.current = true;
+          setTheme(data.settings.theme);
         }
       } catch (error) {
         console.error("Failed to fetch settings", error);
+        setSettingsFeedback({
+          type: "error",
+          message:
+            error instanceof Error ? error.message : "Unable to load your saved settings.",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -143,6 +208,7 @@ export function SettingsClient() {
 
   const updateProfileImageValue = async (image: string) => {
     setIsUploadingAvatar(true);
+    setAvatarError(null);
     try {
       const res = await fetch("/api/settings", {
         method: "PATCH",
@@ -154,49 +220,81 @@ export function SettingsClient() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to update profile image");
+        throw new Error(await getResponseError(res, "Failed to update profile image."));
       }
 
       setProfile((prev) => ({ ...prev, image }));
 
-      await updateSession({
-        ...session,
-        user: {
-          ...session?.user,
-          image,
-        },
-      });
+      await updateSession({ name: profile.name, image });
+      setProfileFeedback({ type: "success", message: "Profile photo saved." });
+      return true;
     } catch (error) {
       console.error("Failed to update profile image", error);
+      setAvatarError(
+        error instanceof Error ? error.message : "Failed to update profile image."
+      );
+      return false;
     } finally {
       setIsUploadingAvatar(false);
     }
   };
 
   // Update helper
-  const updateSettings = async (newSettings: Partial<typeof settings>) => {
-    // Optimistic update
-    const updated = { ...settings, ...newSettings };
+  const updateSettings = (newSettings: Partial<SettingsState>) => {
+    const previous = settingsRef.current;
+    const updated = { ...previous, ...newSettings };
+    const requestVersion = ++settingsRequestVersionRef.current;
+    settingsRef.current = updated;
     setSettings(updated);
+    setSettingsFeedback(null);
 
-    try {
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "settings",
-          data: newSettings
-        })
+    settingsSaveQueueRef.current = settingsSaveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const response = await fetch("/api/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "settings",
+            data: newSettings
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(await getResponseError(response, "Unable to save this setting."));
+        }
+
+        if (requestVersion === settingsRequestVersionRef.current) {
+          setSettingsFeedback({ type: "success", message: "Settings saved." });
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to update settings", error);
+        setSettings((current) => {
+          const reverted = { ...current };
+          for (const key of Object.keys(newSettings) as Array<keyof SettingsState>) {
+            if (current[key] === newSettings[key]) {
+              Object.assign(reverted, { [key]: previous[key] });
+            }
+          }
+          settingsRef.current = reverted;
+          return reverted;
+        });
+        if (requestVersion === settingsRequestVersionRef.current) {
+          setSettingsFeedback({
+            type: "error",
+            message: error instanceof Error ? error.message : "Unable to save this setting.",
+          });
+        }
       });
-    } catch (error) {
-      console.error("Failed to update settings", error);
-      // Revert on error would go here
-    }
   };
 
   const updateTheme = (newTheme: "light" | "dark" | "system") => {
+    const previousTheme = theme;
+    const requestVersion = ++themeRequestVersionRef.current;
     themeChangedByUserRef.current = true;
     setTheme(newTheme);
+    setThemeFeedback(null);
     themeSaveQueueRef.current = themeSaveQueueRef.current
       .catch(() => undefined)
       .then(async () => {
@@ -210,16 +308,28 @@ export function SettingsClient() {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to save theme preference (${response.status})`);
+          throw new Error(await getResponseError(response, "Unable to save theme preference."));
+        }
+
+        if (requestVersion === themeRequestVersionRef.current) {
+          setThemeFeedback({ type: "success", message: "Theme saved." });
         }
       })
       .catch((error) => {
         console.error("Failed to update theme preference", error);
+        if (requestVersion === themeRequestVersionRef.current) {
+          setTheme(previousTheme);
+          setThemeFeedback({
+            type: "error",
+            message: error instanceof Error ? error.message : "Unable to save theme preference.",
+          });
+        }
       });
   };
 
   const handleProfileSave = async () => {
     setIsSavingProfile(true);
+    setProfileFeedback(null);
     try {
       const res = await fetch("/api/settings", {
         method: "PATCH",
@@ -230,18 +340,22 @@ export function SettingsClient() {
         }),
       });
 
-      if (res.ok) {
-        await updateSession({
-          ...session,
-          user: {
-            ...session?.user,
-            name: profile.name,
-          },
-        });
-        router.refresh();
+      if (!res.ok) {
+        throw new Error(await getResponseError(res, "Failed to save your profile."));
       }
+
+      const data = await res.json();
+      const savedName = data.user?.name ?? profile.name.trim();
+      setProfile((current) => ({ ...current, name: savedName }));
+      await updateSession({ name: savedName, image: profile.image });
+      setProfileFeedback({ type: "success", message: "Profile saved." });
+      router.refresh();
     } catch (error) {
       console.error("Failed to save profile", error);
+      setProfileFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to save your profile.",
+      });
     } finally {
       setIsSavingProfile(false);
     }
@@ -251,8 +365,10 @@ export function SettingsClient() {
     if (!tempAvatar.trim()) {
       return;
     }
-    await updateProfileImageValue(tempAvatar.trim());
-    setIsAvatarDialogOpen(false);
+    const saved = await updateProfileImageValue(tempAvatar.trim());
+    if (saved) {
+      setIsAvatarDialogOpen(false);
+    }
   };
 
   const handleAvatarFileSelect = async (
@@ -264,7 +380,13 @@ export function SettingsClient() {
     }
 
     if (file.size > MAX_AVATAR_FILE_SIZE) {
-      alert("Please choose an image smaller than 2MB.");
+      setAvatarError("Please choose an image smaller than 2MB.");
+      event.target.value = "";
+      return;
+    }
+
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
+      setAvatarError("Choose a PNG, JPEG, WebP, or GIF image.");
       event.target.value = "";
       return;
     }
@@ -276,6 +398,7 @@ export function SettingsClient() {
     };
     reader.onerror = () => {
       console.error("Failed to read file");
+      setAvatarError("Unable to read that image file.");
     };
     reader.readAsDataURL(file);
 
@@ -390,7 +513,10 @@ export function SettingsClient() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setTempAvatar(profile.image || "")}
+                        onClick={() => {
+                          setAvatarError(null);
+                          setTempAvatar(profile.image || "");
+                        }}
                       >
                         Use image URL
                       </Button>
@@ -417,20 +543,31 @@ export function SettingsClient() {
                           <p className="text-xs text-muted-foreground">
                             Paste a link to any image hosted online.
                           </p>
+                          {avatarError && (
+                            <p className="text-sm text-destructive" role="alert">
+                              {avatarError}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setIsAvatarDialogOpen(false)}>
                           Cancel
                         </Button>
-                        <Button onClick={handleAvatarSave} disabled={!tempAvatar.trim()}>
-                          Save
+                        <Button onClick={handleAvatarSave} disabled={!tempAvatar.trim() || isUploadingAvatar}>
+                          {isUploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                          {isUploadingAvatar ? "Saving..." : "Save"}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
                 </div>
               </div>
+              {avatarError && !isAvatarDialogOpen && (
+                <p className="text-sm text-destructive" role="alert">
+                  {avatarError}
+                </p>
+              )}
 
               <Separator />
 
@@ -440,6 +577,7 @@ export function SettingsClient() {
                   <Input 
                     value={profile.name} 
                     onChange={(e) => setProfile({...profile, name: e.target.value})}
+                    maxLength={80}
                   />
                 </div>
                 <div>
@@ -456,11 +594,12 @@ export function SettingsClient() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleProfileSave} disabled={isSavingProfile}>
+                <Button onClick={handleProfileSave} disabled={isSavingProfile || !profile.name.trim()}>
                   {isSavingProfile ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Save Changes
                 </Button>
               </div>
+              <FeedbackMessage feedback={profileFeedback} />
             </CardContent>
           </Card>
 
@@ -515,6 +654,7 @@ export function SettingsClient() {
                     <span className="text-sm font-medium">System</span>
                   </button>
                 </div>
+                <FeedbackMessage feedback={themeFeedback} />
               </div>
             </CardContent>
           </Card>
@@ -526,23 +666,14 @@ export function SettingsClient() {
             </CardHeader>
             <CardContent className="divide-y divide-border">
               <SettingToggle
-                label="Sound Effects"
-                description="Play sounds for correct/incorrect answers"
-                enabled={settings.soundEnabled}
-                onToggle={() => updateSettings({ soundEnabled: !settings.soundEnabled })}
-              />
-              <SettingToggle
-                label="Notifications"
-                description="Get notified about challenges"
-                enabled={settings.notificationsEnabled}
-                onToggle={() => updateSettings({ notificationsEnabled: !settings.notificationsEnabled })}
-              />
-              <SettingToggle
                 label="Auto-advance"
-                description="Automatically show next problem"
+                description="Automatically show the next problem after each result"
                 enabled={settings.autoAdvance}
                 onToggle={() => updateSettings({ autoAdvance: !settings.autoAdvance })}
               />
+              <div className="pb-4">
+                <FeedbackMessage feedback={settingsFeedback} />
+              </div>
             </CardContent>
           </Card>
 
@@ -555,7 +686,7 @@ export function SettingsClient() {
               <div>
                 <label className="text-sm font-medium mb-2 block">Default Difficulty</label>
                 <div className="flex gap-2">
-                  {["Easy", "Medium", "Hard", "Expert"].map((diff) => (
+                  {DIFFICULTY_OPTIONS.map((diff) => (
                     <Button
                       key={diff}
                       variant={settings.defaultDifficulty === diff ? "default" : "outline"}
@@ -568,9 +699,12 @@ export function SettingsClient() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">Timer Duration</label>
-                <div className="flex gap-2">
-                  {["5s", "8s", "10s", "15s"].map((time) => (
+                <label className="text-sm font-medium mb-1 block">Practice question timer</label>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Time allowed for each problem in Practice mode.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {PRACTICE_TIMER_OPTIONS.map((time) => (
                     <Button
                       key={time}
                       variant={settings.defaultTimer === time ? "default" : "outline"}
@@ -582,6 +716,7 @@ export function SettingsClient() {
                   ))}
                 </div>
               </div>
+              <FeedbackMessage feedback={settingsFeedback} />
             </CardContent>
           </Card>
 

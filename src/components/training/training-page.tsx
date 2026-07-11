@@ -705,6 +705,7 @@ export default function TrainingPage() {
   const [gameMode, setGameMode] = useState<GameMode>("timed");
   const [timedModeLimit, setTimedModeLimit] = useState(120);
   const [practiceTimerLimit, setPracticeTimerLimit] = useState(10);
+  const [autoAdvance, setAutoAdvance] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [submitMode, setSubmitMode] = useState<SubmitMode>("auto");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -792,10 +793,6 @@ export default function TrainingPage() {
   // Load user settings on mount
   useEffect(() => {
     if (!authSession?.user || settingsLoaded) return;
-    if (activePreset) {
-      setSettingsLoaded(true);
-      return;
-    }
 
     async function loadSettings() {
       try {
@@ -803,8 +800,12 @@ export default function TrainingPage() {
         if (res.ok) {
           const data = await res.json();
 
-          // Apply default timer setting (convert "10s" -> 10)
-          if (data.settings?.defaultTimer) {
+          if (typeof data.settings?.autoAdvance === "boolean") {
+            setAutoAdvance(data.settings.autoAdvance);
+          }
+
+          // Presets intentionally override difficulty and timer defaults.
+          if (!activePreset && data.settings?.defaultTimer) {
             const timerValue = parseInt(data.settings.defaultTimer.replace("s", ""));
             if (!isNaN(timerValue) && practiceTimerOptions.includes(timerValue)) {
               setPracticeTimerLimit(timerValue);
@@ -812,7 +813,7 @@ export default function TrainingPage() {
           }
 
           // Apply default difficulty setting (convert "Medium" -> "medium")
-          if (data.settings?.defaultDifficulty) {
+          if (!activePreset && data.settings?.defaultDifficulty) {
             const diffValue = data.settings.defaultDifficulty.toLowerCase() as Difficulty;
             if (["easy", "medium", "hard", "expert"].includes(diffValue)) {
               setDifficulty(diffValue);
@@ -1294,9 +1295,13 @@ export default function TrainingPage() {
           return newTimes;
         });
 
-        setTimeout(() => {
-          startNewProblem();
-        }, 200);
+        if (autoAdvance) {
+          setTimeout(() => {
+            startNewProblem();
+          }, 200);
+        } else {
+          setHasAnswered(true);
+        }
       } else {
         // Wrong answer in Timed mode: reset streak, clear input, try again
         setStreak(0);
@@ -1330,9 +1335,13 @@ export default function TrainingPage() {
         setStreak(0);
       }
 
-      setTimeout(() => {
-        startNewProblem();
-      }, 600);
+      if (autoAdvance) {
+        setTimeout(() => {
+          startNewProblem();
+        }, 600);
+      } else {
+        setHasAnswered(true);
+      }
     }
   };
 
@@ -1343,7 +1352,7 @@ export default function TrainingPage() {
 
   // Practice mode per-question timer
   useEffect(() => {
-    if (!isPlaying || gameMode !== "practice" || timeLeft <= 0) return;
+    if (!isPlaying || gameMode !== "practice" || timeLeft <= 0 || hasAnswered) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -1358,7 +1367,11 @@ export default function TrainingPage() {
             recordAttempt(problem, null, false, timeTaken);
           }
 
-          setTimeout(() => startNewProblem(), 600);
+          if (autoAdvance) {
+            setTimeout(() => startNewProblem(), 600);
+          } else {
+            setHasAnswered(true);
+          }
           return 0;
         }
         return prev - 1;
@@ -1367,7 +1380,7 @@ export default function TrainingPage() {
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying, gameMode, timeLeft, startNewProblem, problem, difficulty]);
+  }, [isPlaying, gameMode, timeLeft, startNewProblem, problem, difficulty, autoAdvance, hasAnswered]);
 
   // Timed mode overall timer
   useEffect(() => {
@@ -1429,10 +1442,12 @@ export default function TrainingPage() {
 
       if (gameMode === "learning") {
         setHasAnswered(true);
-      } else {
+      } else if (autoAdvance) {
         setTimeout(() => {
           startNewProblem();
         }, 200);
+      } else {
+        setHasAnswered(true);
       }
     }
   }, [
@@ -1448,6 +1463,7 @@ export default function TrainingPage() {
     startNewProblem,
     recordAttempt,
     trackFirstAnswer,
+    autoAdvance,
   ]);
 
   const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;

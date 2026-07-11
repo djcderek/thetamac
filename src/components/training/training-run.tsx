@@ -307,6 +307,13 @@ export function TrainingRun({
         </Card>
       )}
 
+      {gameMode !== "learning" && hasAnswered && (
+        <Button onClick={onNextProblem} className="w-full">
+          Next Problem
+          <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      )}
+
       {/* Stats */}
       <div
         className={`grid gap-4 ${
@@ -364,5 +371,4 @@ export function TrainingRun({
     </div>
   );
 }
-
 
