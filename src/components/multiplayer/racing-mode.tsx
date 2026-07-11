@@ -4,31 +4,23 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
+import { AsciiMorph, AsciiSpinner } from "@/components/ui/ascii-morph";
+import { MedalMark } from "@/components/ui/medal-mark";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { MetricTile, SectionLabel } from "@/components/ui/visual-system";
 import {
   Play,
-  Wifi,
-  WifiOff,
   ArrowLeft,
-  Medal,
-  Gauge,
-  Trophy,
-  Award,
   Zap,
   Clock,
   Target,
-  Crown,
   ChevronLeft,
   ChevronRight,
   ArrowUp,
   Loader2,
-  Flag,
-  BarChart3,
-  Brain,
-  Users,
   Flame,
   X,
   Copy,
@@ -243,8 +235,8 @@ function ProblemPanel({
     <div className={`space-y-1 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-88" : ""}`}>
       {/* Status bar */}
       {(isStunned || isOnCooldown) && (
-        <div className={`flex items-center justify-center gap-2 p-3 rounded-lg ${
-          isStunned ? "bg-destructive/20 text-destructive" : "bg-amber-500/20 text-amber-600"
+        <div className={`flex items-center justify-center gap-2 p-3 rounded-[3px] border ${
+          isStunned ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-warning/50 bg-warning/10 text-foreground"
         }`}>
           {isStunned ? (
             <>
@@ -513,7 +505,7 @@ function ProblemPanel({
       {/* Boost problem */}
       <div ref={boostCardWrapperRef}>
         <Card
-          className={`border-amber-500/50 bg-linear-to-r from-amber-500/10 to-orange-500/10 transition-colors ${
+          className={`border-brand/60 bg-brand/5 transition-colors ${
             isMobileDevice ? "cursor-pointer select-none" : ""
           } ${
             isMobileDevice && mobileKeypadAction === "boost"
@@ -542,11 +534,11 @@ function ProblemPanel({
           <CardContent className="px-2 py-0.5 sm:p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-0.5 sm:p-1.5 rounded-md bg-amber-500/20">
-                  <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+                <div className="grid h-5 w-5 sm:h-7 sm:w-7 shrink-0 place-items-center rounded-[3px] border border-brand font-mono text-xs sm:text-sm font-semibold text-brand" aria-hidden="true">
+                  +
                 </div>
                 <div>
-                  <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                  <div className="font-mono text-[10px] sm:text-xs font-semibold uppercase tracking-[0.14em] text-brand">
                     BOOST +3m (Harder)
                   </div>
                   <div className="text-base sm:text-2xl font-mono font-bold leading-none">
@@ -654,39 +646,42 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
   return (
     <div className="space-y-6">
       {/* Winner banner */}
-      <div className={`text-center p-6 rounded-xl ${
-        isWinner 
-          ? "bg-linear-to-br from-amber-500/20 to-yellow-500/20 border border-amber-500/30" 
-          : "bg-secondary/50"
-      }`}>
-        <div className={`w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center ${
-          isWinner ? "bg-amber-500/30" : "bg-secondary"
-        }`}>
-          {isWinner ? (
-            <Trophy className="w-10 h-10 text-amber-500" />
-          ) : myResult?.position === 2 ? (
-            <span className="text-3xl">🥈</span>
-          ) : myResult?.position === 3 ? (
-            <span className="text-3xl">🥉</span>
+      {isWinner ? (
+        <div className="ink-panel relative overflow-hidden rounded-[3px] border p-6 text-center">
+          <div className="dot-field pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+          <div className="relative">
+            <AsciiMorph shapes={["trophy"]} accent className="mx-auto mb-4 w-28" />
+            <h2 className="mb-1 font-serif text-3xl font-normal tracking-tight">Victory</h2>
+            {showRating ? (
+              <div className="mt-2 font-mono text-xl font-semibold tabular-nums text-brand">
+                {myRatingChange >= 0 ? "+" : ""}{myRatingChange} rating
+              </div>
+            ) : (
+              <div className="mt-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-background/60">
+                Unrated race
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-[3px] border border-border border-t-2 border-t-foreground p-6 text-center">
+          <AsciiMorph shapes={["trophy"]} animate={false} className="mx-auto mb-4 w-24 opacity-60" />
+          <h2 className="mb-1 font-serif text-3xl font-normal tracking-tight">
+            {`${getOrdinal(myResult?.position || 0)} Place`}
+          </h2>
+          {showRating ? (
+            <div className={`mt-2 font-mono text-xl font-semibold tabular-nums ${
+              myRatingChange >= 0 ? "text-brand" : "text-muted-foreground"
+            }`}>
+              {myRatingChange >= 0 ? "+" : ""}{myRatingChange} rating
+            </div>
           ) : (
-            <span className="text-3xl font-bold text-muted-foreground">#{myResult?.position}</span>
+            <div className="mt-2">
+              <StatusBadge kind="neutral" label="Unrated race" />
+            </div>
           )}
         </div>
-        <h2 className="text-2xl font-bold mb-1">
-          {isWinner ? "Victory!" : `${getOrdinal(myResult?.position || 0)} Place`}
-        </h2>
-        {showRating ? (
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-            myRatingChange >= 0 ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
-          }`}>
-            {myRatingChange >= 0 ? "+" : ""}{myRatingChange} Rating
-          </div>
-        ) : (
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-secondary/50 text-muted-foreground">
-            Unrated race
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Leaderboard */}
       <Card>
@@ -700,13 +695,11 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
               return (
                 <div
                   key={result.playerId}
-                  className={`flex items-center gap-4 p-3 rounded-lg ${
-                    isMe ? "bg-primary/10 border border-primary/30" : "bg-secondary/30"
+                  className={`flex items-center gap-4 p-3 rounded-[3px] ${
+                    isMe ? "border-2 border-foreground bg-secondary/40" : "bg-secondary/30"
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center font-bold">
-                    {result.position === 1 ? "🥇" : result.position === 2 ? "🥈" : result.position === 3 ? "🥉" : `#${result.position}`}
-                  </div>
+                  <MedalMark rank={result.position} />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">
@@ -974,11 +967,9 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
               {/* Show finished state or problem panel */}
               <div className={hasFinished ? "mt-6" : "relative z-10 -mt-10 sm:mt-6"}>
                 {hasFinished ? (
-                  <Card className="border-success/50 bg-success/5">
+                  <Card className="border-success">
                     <CardContent className="p-8 text-center">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
-                        <Trophy className="w-8 h-8 text-success" />
-                      </div>
+                      <MedalMark rank={race.myFinishPosition ?? 0} size="lg" className="mx-auto mb-4" />
                       <h2 className="text-2xl font-bold mb-2">
                         You Finished #{race.myFinishPosition}!
                       </h2>
@@ -988,9 +979,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                       <div className="mt-4 flex justify-center gap-4">
                         {race.finishOrder.map((finish) => (
                           <div key={finish.playerId} className="text-center">
-                            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto mb-1 font-bold">
-                              {finish.position === 1 ? "🥇" : finish.position === 2 ? "🥈" : finish.position === 3 ? "🥉" : `#${finish.position}`}
-                            </div>
+                            <MedalMark rank={finish.position} className="mx-auto mb-1" />
                             <p className="text-xs text-muted-foreground">
                               {race.players.find(p => p.id === finish.playerId)?.username || "Player"}
                             </p>
@@ -1087,9 +1076,9 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                 {linkCopied ? <Check className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
                 {linkCopied ? "Copied!" : "Copy Link"}
               </Button>
-              <Badge variant="outline" className="text-xs">
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {privateRoom.room?.players.length ?? 0} / 8 Players
-              </Badge>
+              </span>
             </div>
           </div>
         </div>
@@ -1161,24 +1150,19 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                 Looking for opponents...
               </p>
             </div>
-            <Badge variant="outline" className="text-xs">
-              {isConnected ? (
-                <>
-                  <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                  Disconnected
-                </>
-              )}
-            </Badge>
+            <StatusBadge
+              kind={isConnected ? "connected" : "disconnected"}
+              label={isConnected ? "Connected" : "Disconnected"}
+            />
           </div>
         </div>
         <div className="p-4 md:p-6">
           <div className="max-w-md mx-auto text-center py-20">
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-border border-t-primary animate-spin" />
+            <AsciiMorph shapes={["bolt"]} animate={false} className="mx-auto mb-4 w-32 opacity-60" />
+            <div className="mb-4 flex items-center justify-center gap-2">
+              <AsciiSpinner className="h-4 w-4 text-sm" />
+              <SectionLabel>Searching for racers</SectionLabel>
+            </div>
             <h2 className="text-lg font-semibold mb-2">Finding a race...</h2>
             <p className="text-sm text-muted-foreground mb-8">
               Matching you with other players
@@ -1209,12 +1193,9 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               {isGuest && (
                 <>
-                  <Badge variant="secondary" className="text-xs">
-                    {playerName}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    Guest • Unrated
-                  </Badge>
+                  <span className="max-w-[160px] truncate font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {playerName} · Guest · Unrated
+                  </span>
                   <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>
                     <Button variant="outline" size="sm" className="w-full sm:w-auto">
                       Sign in
@@ -1222,19 +1203,10 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                   </Link>
                 </>
               )}
-              <Badge variant="outline" className="text-xs">
-                {isConnected ? (
-                  <>
-                    <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                    Connected
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                    Connecting...
-                  </>
-                )}
-              </Badge>
+              <StatusBadge
+                kind={isConnected ? "connected" : "connecting"}
+                label={isConnected ? "Connected" : "Connecting"}
+              />
             </div>
           </div>
         </div>
@@ -1244,7 +1216,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
         <div className="max-w-3xl mx-auto space-y-6">
           {/* Error message */}
           {error && (
-            <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
+            <div className="p-4 bg-destructive/10 border border-destructive/50 rounded-[3px] text-destructive text-sm">
               {error}
             </div>
           )}
@@ -1253,8 +1225,8 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="w-14 h-14 rounded-xl bg-linear-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center shrink-0">
-                  <Flag className="w-7 h-7 text-emerald-500" />
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[3px] border-2 border-foreground font-mono text-2xl" aria-hidden="true">
+                  +
                 </div>
                 <div className="flex-1 text-center sm:text-left">
                   <h2 className="font-semibold text-lg">Quick Race</h2>
@@ -1279,8 +1251,8 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                <div className="w-14 h-14 rounded-xl bg-secondary/60 flex items-center justify-center shrink-0">
-                  <Users className="w-7 h-7 text-foreground" />
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-2xl text-muted-foreground" aria-hidden="true">
+                  ÷
                 </div>
                 <div className="flex-1 w-full">
                   <h2 className="font-semibold text-lg">Private Room</h2>
@@ -1334,8 +1306,8 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                    <span className="text-sm font-semibold">1</span>
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                    <span>1</span>
                   </div>
                 <div>
                   <p className="font-medium text-sm">Solve to Move</p>
@@ -1345,8 +1317,8 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                 </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                    <span className="text-sm font-semibold">2</span>
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                    <span>2</span>
                   </div>
                   <div>
                     <p className="font-medium text-sm">Change Lanes</p>
@@ -1356,8 +1328,8 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                    <span className="text-sm font-semibold">3</span>
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                    <span>3</span>
                   </div>
                   <div>
                     <p className="font-medium text-sm">Bump Opponents</p>
@@ -1367,8 +1339,8 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                    <span className="text-sm font-semibold">4</span>
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                    <span>4</span>
                   </div>
                 <div>
                   <p className="font-medium text-sm">Boost!</p>
@@ -1383,90 +1355,30 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
 
           {/* Race Info */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Flag className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                <p className="text-2xl font-mono font-bold">150m</p>
-                <p className="text-xs text-muted-foreground">Track Length</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Users className="w-5 h-5 mx-auto mb-2 text-blue-500" />
-                <p className="text-2xl font-mono font-bold">2-5</p>
-                <p className="text-xs text-muted-foreground">Players</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Zap className="w-5 h-5 mx-auto mb-2 text-amber-500" />
-                <p className="text-2xl font-mono font-bold">2s</p>
-                <p className="text-xs text-muted-foreground">Stun Duration</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Target className="w-5 h-5 mx-auto mb-2 text-rose-500" />
-                <p className="text-2xl font-mono font-bold">2m</p>
-                <p className="text-xs text-muted-foreground">Bump Pushback</p>
-              </CardContent>
-            </Card>
+            <MetricTile label="Track length" value="150m" />
+            <MetricTile label="Players" value="2-5" />
+            <MetricTile label="Stun duration" value="2s" />
+            <MetricTile label="Bump pushback" value="2m" />
           </div>
 
           {isSignedIn && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                  <div className="text-center">
-                    <Medal className="w-5 h-5 mx-auto mb-2 text-amber-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : racingStats?.rating ?? "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Rating</p>
-                  </div>
-                  <div className="text-center">
-                    <Gauge className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : racingStats?.races ?? "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Races</p>
-                  </div>
-                  <div className="text-center">
-                    <Award className="w-5 h-5 mx-auto mb-2 text-yellow-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : racingStats?.wins ?? "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Wins</p>
-                  </div>
-                  <div className="text-center">
-                    <Crown className="w-5 h-5 mx-auto mb-2 text-blue-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : racingStats?.podiums ?? "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Podiums</p>
-                  </div>
-                  <div className="text-center">
-                    <BarChart3 className="w-5 h-5 mx-auto mb-2 text-rose-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading
-                        ? "—"
-                        : racingStats?.avgFinish !== null &&
-                          racingStats?.avgFinish !== undefined
-                        ? racingStats.avgFinish
-                        : "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Avg Finish</p>
-                  </div>
-                  <div className="text-center">
-                    <Brain className="w-5 h-5 mx-auto mb-2 text-violet-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : racingStats?.problemsSolved ?? "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Problems Solved</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <MetricTile label="Rating" value={statsLoading ? "—" : racingStats?.rating ?? "—"} />
+              <MetricTile label="Races" value={statsLoading ? "—" : racingStats?.races ?? "—"} />
+              <MetricTile label="Wins" value={statsLoading ? "—" : racingStats?.wins ?? "—"} />
+              <MetricTile label="Podiums" value={statsLoading ? "—" : racingStats?.podiums ?? "—"} />
+              <MetricTile
+                label="Avg finish"
+                value={
+                  statsLoading
+                    ? "—"
+                    : racingStats?.avgFinish !== null && racingStats?.avgFinish !== undefined
+                    ? racingStats.avgFinish
+                    : "—"
+                }
+              />
+              <MetricTile label="Problems solved" value={statsLoading ? "—" : racingStats?.problemsSolved ?? "—"} />
+            </div>
           )}
         </div>
       </div>

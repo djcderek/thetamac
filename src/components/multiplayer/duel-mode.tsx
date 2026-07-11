@@ -3,23 +3,18 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { AsciiMorph, AsciiSpinner } from "@/components/ui/ascii-morph";
+import { MedalMark } from "@/components/ui/medal-mark";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { MetricTile, SectionLabel } from "@/components/ui/visual-system";
 import {
-  Swords,
   Play,
-  Users,
-  Wifi,
-  WifiOff,
-  Trophy,
-  Zap,
-  Clock,
   ArrowLeft,
   Check,
-  X,
   Delete,
 } from "lucide-react";
 import { useSocket } from "@/hooks/use-socket";
@@ -542,7 +537,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
   if (!playerId) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+        <AsciiSpinner className="h-8 w-8 text-2xl" />
       </div>
     );
   }
@@ -559,27 +554,19 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                 Room code: <span className="font-mono">{initialPrivateRoomCode.toUpperCase()}</span>
               </p>
             </div>
-            <Badge variant="outline" className="text-xs shrink-0">
-              {isConnected ? (
-                <>
-                  <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                  Connecting...
-                </>
-              )}
-            </Badge>
+            <StatusBadge
+              className="shrink-0"
+              kind={isConnected ? "connected" : "connecting"}
+              label={isConnected ? "Connected" : "Connecting"}
+            />
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center max-w-md">
             {privateDuel.error ? (
               <>
-                <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <X className="w-8 h-8 text-destructive" />
+                <div className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-[3px] border-2 border-destructive font-mono text-3xl font-semibold text-destructive" aria-hidden="true">
+                  ≠
                 </div>
                 <h2 className="text-lg font-semibold mb-2">Unable to Join Room</h2>
                 <p className="text-sm text-muted-foreground mb-6">{privateDuel.error}</p>
@@ -592,7 +579,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               </>
             ) : (
               <>
-                <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-border border-t-foreground animate-spin" />
+                <AsciiSpinner className="mx-auto mb-6 h-16 w-16 text-4xl" />
                 <h2 className="text-lg font-semibold mb-2">
                   {isConnected ? "Joining room..." : "Connecting..."}
                 </h2>
@@ -660,12 +647,10 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <CardContent className="p-4 sm:p-6 md:p-8">
                 {/* Result Header */}
                 <div className="text-center mb-4 sm:mb-6">
-                  <div className={`inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-3 ${
-                    isWinner ? "bg-success/20" : "bg-muted"
-                  }`}>
-                    <Trophy className={`w-7 h-7 sm:w-8 sm:h-8 ${isWinner ? "text-success" : "text-muted-foreground"}`} />
+                  <AsciiMorph shapes={["trophy"]} accent={isWinner} animate={isWinner} className="mx-auto mb-3 w-24" />
+                  <div className="font-serif text-2xl sm:text-3xl font-normal tracking-tight mb-1">
+                    {isWinner ? "You Won!" : "Game Over"}
                   </div>
-                  <div className="text-xl sm:text-2xl font-bold mb-1">{isWinner ? "You Won!" : "Game Over"}</div>
                   <div className="text-sm text-muted-foreground">Your score: <span className="font-mono font-semibold">{myScore}</span></div>
                 </div>
 
@@ -674,25 +659,18 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   {privateDuel.gameOver.leaderboard.map((p, idx) => (
                     <div
                       key={p.playerId}
-                      className={`flex items-center justify-between rounded-lg border px-2.5 sm:px-3 py-2 ${
-                        p.playerId === playerId ? "bg-primary/10 border-primary/30" : "bg-card"
+                      className={`flex items-center justify-between rounded-[3px] border px-2.5 sm:px-3 py-2 ${
+                        p.playerId === playerId ? "border-2 border-foreground bg-secondary/40" : "border-border bg-card"
                       }`}
                     >
                       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        <span className={`w-5 sm:w-6 text-xs sm:text-sm font-mono shrink-0 ${
-                          idx === 0 ? "text-amber-500 font-bold" : "text-muted-foreground"
-                        }`}>
-                          {idx + 1}.
-                        </span>
+                        <MedalMark rank={idx + 1} size="sm" />
                         <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
                           <AvatarFallback className="text-xs sm:text-sm">{getInitials(p.username)}</AvatarFallback>
                         </Avatar>
                         <span className="font-medium text-sm sm:text-base truncate max-w-[100px] sm:max-w-none">
                           {p.playerId === playerId ? "You" : p.username}
                         </span>
-                        {idx === 0 && (
-                          <Trophy className="w-4 h-4 text-amber-500 shrink-0 hidden xs:block" />
-                        )}
                       </div>
                       <span className="font-mono font-bold text-sm sm:text-base">{p.score}</span>
                     </div>
@@ -720,7 +698,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                 {!privateDuel.youAreHost && (
                   <div className="mt-4 sm:mt-6 pt-4 border-t border-border text-center">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <AsciiSpinner className="h-4 w-4 text-sm" />
                       <p className="text-xs sm:text-sm">
                         Waiting for host to start new game...
                       </p>
@@ -746,35 +724,22 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <div className="min-w-0 flex-1">
                 <h1 className="text-base sm:text-lg font-semibold">Private Room</h1>
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-foreground">{room.roomCode}</span>
+                  <span className="font-mono bg-muted px-1.5 py-0.5 rounded-[3px] text-foreground">{room.roomCode}</span>
                   <span className="hidden xs:inline">•</span>
                   <span>{players.length}/{room.maxPlayers} players</span>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                {/* Connection status - icon only on mobile */}
-                {isConnected ? (
-                  <div className="w-7 h-7 sm:hidden rounded-full bg-success/10 flex items-center justify-center">
-                    <Wifi className="w-3.5 h-3.5 text-success" />
-                  </div>
-                ) : (
-                  <div className="w-7 h-7 sm:hidden rounded-full bg-amber-500/10 flex items-center justify-center">
-                    <WifiOff className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                  </div>
-                )}
-                <Badge variant="outline" className="text-xs hidden sm:flex">
-                  {isConnected ? (
-                    <>
-                      <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                      Connected
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="w-3 h-3 mr-1.5 text-amber-500" />
-                      Reconnecting
-                    </>
-                  )}
-                </Badge>
+                <StatusBadge
+                  kind={isConnected ? "connected" : "connecting"}
+                  label={isConnected ? "Connected" : "Reconnecting"}
+                  className="hidden sm:inline-flex"
+                />
+                <StatusBadge
+                  kind={isConnected ? "connected" : "connecting"}
+                  label=""
+                  className="sm:hidden"
+                />
                 <Button
                   variant="outline"
                   size="sm"
@@ -794,13 +759,13 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
             <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
               {/* Connection status banner - only show on mobile when disconnected */}
               {!isConnected && (
-                <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs sm:text-sm flex items-center gap-2 sm:hidden">
-                  <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
+                <div className="p-2.5 rounded-[3px] border border-warning/50 bg-warning/10 text-xs sm:text-sm flex items-center gap-2 sm:hidden">
+                  <AsciiSpinner className="h-3.5 w-3.5 shrink-0 text-xs" />
                   Reconnecting... Don&apos;t close this tab.
                 </div>
               )}
               {privateDuel.error && privateDuel.error !== "Reconnecting..." && (
-                <div className="p-2.5 sm:p-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs sm:text-sm">
+                <div className="p-2.5 sm:p-3 rounded-[3px] border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm">
                   {privateDuel.error}
                 </div>
               )}
@@ -812,9 +777,9 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     <p className="text-xs sm:text-sm font-medium mb-2">Share this link to invite friends</p>
                     {/* Mobile: Show room code prominently with copy button */}
                     <div className="flex sm:hidden items-center gap-2">
-                      <div className="flex-1 bg-muted rounded-lg px-4 py-3 text-center border">
-                        <p className="text-xs text-muted-foreground mb-0.5">Room Code</p>
-                        <p className="text-2xl font-mono font-bold tracking-wider">{room.roomCode}</p>
+                      <div className="flex-1 rounded-[3px] border-t-2 border-foreground bg-transparent px-4 py-3 text-center">
+                        <SectionLabel>Room code</SectionLabel>
+                        <p className="mt-1 text-2xl font-mono font-bold tracking-wider">{room.roomCode}</p>
                       </div>
                       <Button
                         onClick={copyLink}
@@ -849,7 +814,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     </div>
                     {/* Desktop: Show full URL */}
                     <div className="hidden sm:flex items-center gap-2">
-                      <div className="flex-1 bg-muted rounded-md px-3 py-2 font-mono text-sm truncate border">
+                      <div className="flex-1 bg-muted rounded-[3px] px-3 py-2 font-mono text-sm truncate border border-border">
                         {privateDuel.joinUrl || `${typeof window !== "undefined" ? window.location.origin : ""}/multiplayer/private/duel/${room.roomCode}`}
                       </div>
                       <Button
@@ -890,12 +855,10 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   </div>
 
                   {/* Players List */}
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">
-                      Players ({players.length})
-                    </p>
+                  <div>
+                    <SectionLabel className="mb-2">Players ({players.length})</SectionLabel>
                     {players.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between rounded-lg border px-2.5 sm:px-3 py-2">
+                      <div key={p.id} className="flex items-center justify-between border-t border-border px-1 py-2">
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                           <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
                             <AvatarFallback className="text-xs sm:text-sm">{getInitials(p.username)}</AvatarFallback>
@@ -906,9 +869,9 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                                 {p.id === playerId ? "You" : p.username}
                               </span>
                               {p.id === room.hostId && (
-                                <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0">
+                                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                                   Host
-                                </Badge>
+                                </span>
                               )}
                             </div>
                             <p className="text-[10px] sm:text-xs text-muted-foreground">
@@ -921,8 +884,8 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     
                     {/* Waiting for players indicator */}
                     {players.length < 2 && (
-                      <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-4 text-muted-foreground">
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <div className="flex items-center justify-center gap-2 rounded-[3px] border border-dashed border-border px-3 py-4 text-muted-foreground">
+                        <AsciiSpinner className="h-4 w-4 text-sm" />
                         <span className="text-xs sm:text-sm">Waiting for more players...</span>
                       </div>
                     )}
@@ -931,9 +894,9 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   {/* Game Controls */}
                   {privateDuel.countdown > 0 ? (
                     <div className="mt-4 sm:mt-6 text-center">
-                      <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full">
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        <span className="font-semibold">Starting in {privateDuel.countdown}...</span>
+                      <div className="inline-flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-[0.14em]">
+                        <AsciiSpinner className="h-4 w-4 text-sm" />
+                        <span>Starting in {privateDuel.countdown}...</span>
                       </div>
                     </div>
                   ) : (
@@ -1023,7 +986,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   Round <span className="font-mono font-semibold text-foreground">{privateDuel.currentRound}/{privateDuel.totalRounds}</span>
                 </span>
                 <span className="text-muted-foreground">•</span>
-                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{room.roomCode}</span>
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded-[3px]">{room.roomCode}</span>
               </div>
               {/* Desktop: Two lines */}
               <div className="hidden sm:block">
@@ -1034,12 +997,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {!isConnected && (
-                <Badge variant="outline" className="text-[10px] sm:text-xs border-amber-500/50 text-amber-600 dark:text-amber-400 px-1.5 sm:px-2">
-                  <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin mr-1" />
-                  <span className="hidden xs:inline">Reconnecting</span>
-                </Badge>
-              )}
+              {!isConnected && <StatusBadge kind="connecting" label="Reconnecting" />}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1059,42 +1017,41 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
           <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4">
             {/* Connection status banner - only show on mobile when disconnected */}
             {!isConnected && (
-              <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2 sm:hidden">
-                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
+              <div className="p-2.5 rounded-[3px] border border-warning/50 bg-warning/10 text-xs flex items-center gap-2 sm:hidden">
+                <AsciiSpinner className="h-3.5 w-3.5 shrink-0 text-xs" />
                 Reconnecting... Don&apos;t close this tab.
               </div>
             )}
             {privateDuel.error && privateDuel.error !== "Reconnecting..." && (
-              <div className="p-2.5 sm:p-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs sm:text-sm">
+              <div className="p-2.5 sm:p-3 rounded-[3px] border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm">
                 {privateDuel.error}
               </div>
             )}
 
             {/* Round Results Screen - replaces problem/leaderboard when round ends */}
             {sortedRoundResults ? (
-              <Card className="border-primary/30">
+              <Card className="border-t-2 border-t-foreground">
                 <CardContent className="p-3 sm:p-4 md:p-6">
                   <div className="text-center mb-3 sm:mb-4">
-                    <div className="text-xs sm:text-sm text-muted-foreground">Correct answer</div>
-                    <div className="text-2xl sm:text-3xl font-mono font-bold">{privateDuel.lastCorrectAnswer ?? "—"}</div>
+                    <SectionLabel>Correct answer</SectionLabel>
+                    <div className="mt-1 text-2xl sm:text-3xl font-mono font-bold">{privateDuel.lastCorrectAnswer ?? "—"}</div>
                   </div>
-                  <div className="space-y-1.5 sm:space-y-2 mb-4 sm:mb-5">
+                  <div className="mb-4 sm:mb-5">
                     {sortedRoundResults.map((r) => (
-                      <div key={r.playerId} className="flex items-center justify-between rounded-md border px-2 sm:px-3 py-1.5 sm:py-2 gap-2">
+                      <div key={r.playerId} className="flex items-center justify-between border-t border-border px-1 py-1.5 sm:py-2 gap-2 first:border-t-0">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                             <span className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-none">
                               {r.playerId === playerId ? "You" : r.username}
                             </span>
-                            {r.isCorrect ? (
-                              <Badge className="bg-success/20 text-success text-[10px] sm:text-xs px-1.5 py-0">✓</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0">✗</Badge>
-                            )}
+                            <span
+                              className={`font-mono text-xs font-semibold ${r.isCorrect ? "text-success" : "text-muted-foreground"}`}
+                              aria-label={r.isCorrect ? "Correct" : "Incorrect"}
+                            >
+                              {r.isCorrect ? "=" : "≠"}
+                            </span>
                             {r.rank !== null && (
-                              <Badge variant="outline" className="font-mono text-[10px] sm:text-xs px-1 py-0">
-                                #{r.rank}
-                              </Badge>
+                              <span className="font-mono text-[10px] text-muted-foreground">#{r.rank}</span>
                             )}
                           </div>
                           <div className="text-[10px] sm:text-xs text-muted-foreground">
@@ -1108,33 +1065,27 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
 
                   {/* Current Standings */}
                   <div className="border-t border-border pt-3 sm:pt-4">
-                    <div className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 sm:mb-3">Current Standings</div>
+                    <SectionLabel className="mb-2 sm:mb-3">Current Standings</SectionLabel>
                     <div className="space-y-1 sm:space-y-1.5">
                       {[...sortedRoundResults]
                         .sort((a, b) => b.totalScore - a.totalScore)
                         .map((r, idx) => {
-                          const isLeader = idx === 0;
                           const isYou = r.playerId === playerId;
                           return (
                             <div
                               key={r.playerId}
-                              className={`flex items-center justify-between rounded-md px-2 sm:px-3 py-1.5 sm:py-2 ${
-                                isYou ? "bg-primary/10 border border-primary/30" : "bg-muted/50"
+                              className={`flex items-center justify-between rounded-[3px] px-2 sm:px-3 py-1.5 sm:py-2 ${
+                                isYou ? "border-2 border-foreground bg-secondary/40" : "bg-muted/50"
                               }`}
                             >
                               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                                <span className={`w-5 sm:w-6 text-xs sm:text-sm font-mono ${isLeader ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
-                                  {idx + 1}.
-                                </span>
+                                <MedalMark rank={idx + 1} size="sm" />
                                 <Avatar className="h-6 w-6 sm:h-7 sm:w-7 shrink-0">
                                   <AvatarFallback className="text-[10px] sm:text-xs">{getInitials(r.username)}</AvatarFallback>
                                 </Avatar>
                                 <span className="font-medium truncate text-xs sm:text-sm max-w-[80px] sm:max-w-none">
                                   {isYou ? "You" : r.username}
                                 </span>
-                                {isLeader && (
-                                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
-                                )}
                               </div>
                               <span className="font-mono font-bold text-sm sm:text-base">{r.totalScore}</span>
                             </div>
@@ -1178,7 +1129,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                               role="textbox"
                               aria-label="Answer"
                               aria-readonly="true"
-                              className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-md border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
+                              className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-[3px] border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
                                 privateAnswerSubmitted ? "border-success text-success" : "border-input"
                               }`}
                             >
@@ -1228,22 +1179,17 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   <CardHeader className="py-2 sm:py-4 px-3 sm:px-6">
                     <CardTitle className="text-xs sm:text-sm font-medium">Leaderboard</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-1 sm:space-y-2 px-3 sm:px-6 pb-3 sm:pb-6">
+                  <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                     {leaderboard.map((p, idx) => (
-                      <div key={p.id} className="flex items-center justify-between rounded-md border px-2 sm:px-3 py-1.5 sm:py-2">
+                      <div key={p.id} className="flex items-center justify-between border-t border-border px-1 py-1.5 sm:py-2 first:border-t-0">
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                          <span className={`w-5 sm:w-6 text-xs sm:text-sm font-mono ${idx === 0 ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
-                            {idx + 1}.
-                          </span>
+                          <MedalMark rank={idx + 1} size="sm" />
                           <Avatar className="h-6 w-6 sm:h-8 sm:w-8 shrink-0">
                             <AvatarFallback className="text-[10px] sm:text-sm">{getInitials(p.username)}</AvatarFallback>
                           </Avatar>
                           <span className="font-medium text-xs sm:text-base truncate max-w-[80px] sm:max-w-none">
                             {p.id === playerId ? "You" : p.username}
                           </span>
-                          {idx === 0 && (
-                            <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0 hidden xs:block" />
-                          )}
                         </div>
                         <span className="font-mono font-bold text-sm sm:text-base">{p.score}</span>
                       </div>
@@ -1358,23 +1304,9 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
         <div className="p-4 md:p-6">
           <Card className="max-w-lg mx-auto">
             <CardContent className="p-8 text-center">
-              <div className={`w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center ${
-                isDraw 
-                  ? "bg-secondary" 
-                  : isWinner 
-                  ? "bg-success/20" 
-                  : "bg-destructive/20"
-              }`}>
-                {isDraw ? (
-                  <Zap className="w-10 h-10 text-muted-foreground" />
-                ) : isWinner ? (
-                  <Trophy className="w-10 h-10 text-success" />
-                ) : (
-                  <X className="w-10 h-10 text-destructive" />
-                )}
-              </div>
+              <AsciiMorph shapes={["trophy"]} accent={isWinner} animate={isWinner} className="mx-auto mb-6 w-28" />
 
-              <h2 className="text-2xl font-bold mb-2">
+              <h2 className="font-serif text-3xl font-normal tracking-tight mb-2">
                 {isDraw ? "It's a Draw!" : isWinner ? "You Won!" : "You Lost"}
               </h2>
 
@@ -1386,7 +1318,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   <p className="font-medium">{playerName}</p>
                   <p className="text-3xl font-mono font-bold mt-2">{myScore}</p>
                 </div>
-                <span className="text-xl font-bold text-muted-foreground">VS</span>
+                <span className="font-mono text-3xl text-brand" aria-label="versus">×</span>
                 <div className="text-center">
                   <Avatar className="h-14 w-14 mx-auto mb-2">
                     <AvatarFallback>
@@ -1399,17 +1331,18 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               </div>
 
               {isSignedIn && gameplay.gameResult.ratingChange !== 0 ? (
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8 ${
-                  gameplay.gameResult.ratingChange >= 0
-                    ? "bg-success/10 text-success"
-                    : "bg-destructive/10 text-destructive"
-                }`}>
-                  {gameplay.gameResult.ratingChange >= 0 ? "+" : ""}
-                  {gameplay.gameResult.ratingChange} Rating
+                <div className="mb-8">
+                  <SectionLabel>Rating</SectionLabel>
+                  <div className={`mt-1 font-mono text-2xl font-semibold tabular-nums ${
+                    gameplay.gameResult.ratingChange >= 0 ? "text-brand" : "text-muted-foreground"
+                  }`}>
+                    {gameplay.gameResult.ratingChange >= 0 ? "+" : ""}
+                    {gameplay.gameResult.ratingChange}
+                  </div>
                 </div>
               ) : (
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8 bg-secondary/50 text-muted-foreground">
-                  Unrated match
+                <div className="mb-8">
+                  <StatusBadge kind="neutral" label="Unrated match" />
                 </div>
               )}
 
@@ -1497,15 +1430,13 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                           R {gameplay.currentRound}/10
                         </span>
                         <span
-                          className={`rounded-full px-2 py-1 text-[11px] font-mono font-semibold tabular-nums ${
-                            timeLeft <= 3
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-muted text-foreground"
+                          className={`font-mono text-[11px] font-semibold tabular-nums ${
+                            timeLeft <= 3 ? "text-destructive" : "text-foreground"
                           }`}
                         >
                           {timeLeft.toFixed(1)}s
@@ -1515,7 +1446,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       <div className="flex items-center gap-2 min-w-0 justify-end">
                         {gameplay.opponentAnswered && (
                           <span
-                            className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-success/15 text-success shrink-0"
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-[3px] border-2 border-success text-success shrink-0"
                             aria-label="Opponent answered"
                             title="Opponent answered"
                           >
@@ -1628,7 +1559,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                                     role="textbox"
                                     aria-label="Answer"
                                     aria-readonly="true"
-                                    className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-md border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
+                                    className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-[3px] border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
                                       answerSubmitted ? "border-success text-success" : "border-input"
                                     }`}
                                   >
@@ -1682,7 +1613,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   
                   {/* Round Result Overlay - Covers the problem but keeps input in DOM */}
                   {gameplay.status === "round_end" && gameplay.roundResult && (
-                    <div className="absolute inset-0 z-10 bg-background/95 backdrop-blur-sm rounded-xl">
+                    <div className="absolute inset-0 z-10 bg-background/95 rounded-[3px]">
                       <Card className={`h-full bg-transparent ${
                         gameplay.roundResult.winnerId === playerId
                           ? "border-success"
@@ -1695,14 +1626,20 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                             {gameplay.roundResult.correctAnswer}
                           </div>
                           <p className="text-muted-foreground text-sm mb-3 sm:mb-4">Correct Answer</p>
-                          
-                          {gameplay.roundResult.winnerId === playerId ? (
-                            <Badge className="bg-success mx-auto">You got it!</Badge>
-                          ) : gameplay.roundResult.winnerId === null ? (
-                            <Badge variant="secondary" className="mx-auto">No one answered correctly</Badge>
-                          ) : (
-                            <Badge variant="destructive" className="mx-auto">Opponent was faster</Badge>
-                          )}
+
+                          <p className={`mx-auto font-mono text-[11px] font-semibold uppercase tracking-[0.14em] ${
+                            gameplay.roundResult.winnerId === playerId
+                              ? "text-success"
+                              : gameplay.roundResult.winnerId === null
+                              ? "text-muted-foreground"
+                              : "text-destructive"
+                          }`}>
+                            {gameplay.roundResult.winnerId === playerId
+                              ? "= You got it"
+                              : gameplay.roundResult.winnerId === null
+                              ? "No one answered correctly"
+                              : "Opponent was faster"}
+                          </p>
 
                           <div className="flex justify-center gap-6 sm:gap-8 mt-4 sm:mt-6">
                             <div className="text-center">
@@ -1829,24 +1766,20 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     Looking for an opponent...
                   </p>
                 </div>
-                <Badge variant="outline" className="text-xs shrink-0">
-                  {isConnected ? (
-                    <>
-                      <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                      Connected
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                      Disconnected
-                    </>
-                  )}
-                </Badge>
+                <StatusBadge
+                  className="shrink-0"
+                  kind={isConnected ? "connected" : "disconnected"}
+                  label={isConnected ? "Connected" : "Disconnected"}
+                />
               </div>
             </div>
             <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
               <div className="max-w-md w-full text-center">
-                <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-border border-t-foreground animate-spin" />
+                <AsciiMorph shapes={["times"]} animate={false} className="mx-auto mb-4 w-32 opacity-60" />
+                <div className="mb-4 flex items-center justify-center gap-2">
+                  <AsciiSpinner className="h-4 w-4 text-sm" />
+                  <SectionLabel>Searching for opponent</SectionLabel>
+                </div>
                 <h2 className="text-lg font-semibold mb-2">{searchHeading}</h2>
                 <p className="text-sm text-muted-foreground mb-2">
                   {searchDetail}
@@ -1870,7 +1803,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
             </div>
             <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
               <div className="max-w-lg w-full text-center">
-                <Badge className="mb-6 text-sm">Match Found</Badge>
+                <h2 className="mb-6 font-serif text-3xl font-normal tracking-tight">Match found</h2>
                 <div className="flex items-center justify-center gap-8 mb-8">
                   <div className="text-center min-w-0">
                     <Avatar className="h-16 w-16 mx-auto mb-2">
@@ -1883,7 +1816,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       <p className="text-xs text-muted-foreground">Guest • Unrated</p>
                     )}
                   </div>
-                  <span className="text-2xl font-bold text-muted-foreground">VS</span>
+                  <span className="font-mono text-4xl text-brand" aria-label="versus">×</span>
                   <div className="text-center min-w-0">
                     <Avatar className="h-16 w-16 mx-auto mb-2">
                       <AvatarFallback>{matchmaking.opponent ? getInitials(matchmaking.opponent.username) : "OP"}</AvatarFallback>
@@ -1918,12 +1851,9 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 sm:gap-3 min-w-0">
                 {isGuest && (
                   <>
-                    <Badge variant="secondary" className="text-xs max-w-[140px] truncate">
-                      {playerName}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      Guest • Unrated
-                    </Badge>
+                    <span className="max-w-[140px] truncate font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {playerName} · Guest · Unrated
+                    </span>
                     <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>
                       <Button variant="outline" size="sm" className="shrink-0">
                         Sign in
@@ -1931,19 +1861,10 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     </Link>
                   </>
                 )}
-                <Badge variant="outline" className="text-xs">
-                  {isConnected ? (
-                    <>
-                      <Wifi className="w-3 h-3 mr-1.5 text-success" />
-                      Connected
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="w-3 h-3 mr-1.5 text-destructive" />
-                      Connecting...
-                    </>
-                  )}
-                </Badge>
+                <StatusBadge
+                  kind={isConnected ? "connected" : "connecting"}
+                  label={isConnected ? "Connected" : "Connecting"}
+                />
               </div>
             </div>
           </div>
@@ -1954,8 +1875,8 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <Card>
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row items-center gap-6">
-                    <div className="w-14 h-14 rounded-xl bg-linear-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center shrink-0">
-                      <Swords className="w-7 h-7 text-violet-500" />
+                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[3px] border-2 border-foreground font-mono text-2xl" aria-hidden="true">
+                      ×
                     </div>
                     <div className="flex-1 text-center sm:text-left">
                       <h2 className="font-semibold text-lg">Quick Match</h2>
@@ -1975,8 +1896,8 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <Card>
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                    <div className="w-14 h-14 rounded-xl bg-secondary/60 flex items-center justify-center shrink-0">
-                      <Users className="w-7 h-7 text-foreground" />
+                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-2xl text-muted-foreground" aria-hidden="true">
+                      ÷
                     </div>
                     <div className="flex-1 w-full">
                       <h2 className="font-semibold text-lg">Private Room</h2>
@@ -2027,8 +1948,8 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                        <span className="text-sm font-semibold">1</span>
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                        1
                       </div>
                       <div>
                         <p className="font-medium text-sm">Find a Match</p>
@@ -2038,8 +1959,8 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                        <span className="text-sm font-semibold">2</span>
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                        2
                       </div>
                       <div>
                         <p className="font-medium text-sm">Solve Problems</p>
@@ -2049,8 +1970,8 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                        <span className="text-sm font-semibold">3</span>
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                        3
                       </div>
                       <div>
                         <p className="font-medium text-sm">Win & Rank Up</p>
@@ -2065,42 +1986,10 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
 
               {/* Stats Preview */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Trophy className="w-5 h-5 mx-auto mb-2 text-amber-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : stats.wins}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Wins</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Swords className="w-5 h-5 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : stats.matches}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Matches</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Zap className="w-5 h-5 mx-auto mb-2 text-violet-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : stats.rating}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Rating</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Clock className="w-5 h-5 mx-auto mb-2 text-emerald-500" />
-                    <p className="text-2xl font-mono font-bold">
-                      {statsLoading ? "—" : stats.avgTime !== null ? `${stats.avgTime}s` : "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Avg Time</p>
-                  </CardContent>
-                </Card>
+                <MetricTile label="Wins" value={statsLoading ? "—" : stats.wins} />
+                <MetricTile label="Matches" value={statsLoading ? "—" : stats.matches} />
+                <MetricTile label="Rating" value={statsLoading ? "—" : stats.rating} />
+                <MetricTile label="Avg time" value={statsLoading ? "—" : stats.avgTime !== null ? `${stats.avgTime}s` : "—"} />
               </div>
             </div>
           </div>
