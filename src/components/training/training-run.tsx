@@ -5,21 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { MetricTile, SectionLabel } from "@/components/ui/visual-system";
 import { cn } from "@/lib/utils";
 import type { GameMode, MathTip, Problem, SubmitMode } from "@/components/training/training-types";
 import {
   ArrowRight,
   Eye,
   EyeOff,
-  GraduationCap,
-  Lightbulb,
   RotateCcw,
   Square,
-  Timer,
-  Zap,
   ChevronDown,
   ChevronUp,
-  Sparkles,
 } from "lucide-react";
 
 export function TrainingRun({
@@ -93,39 +89,27 @@ export function TrainingRun({
 }) {
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Status strip (mode + difficulty + timer) */}
+      {/* Status ledger (mode + difficulty + timer) */}
       <div ref={timerAndProblemRef} className="scroll-mt-4">
-        <div className="rounded-xl border border-border bg-secondary/20 p-3 sm:p-4">
+        <div className="border-t-2 border-foreground pt-3">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {gameMode === "learning" ? (
-                <GraduationCap className="w-4 h-4 text-amber-500" />
-              ) : gameMode === "timed" ? (
-                <Zap className="w-4 h-4 text-primary" />
-              ) : (
-                <Timer className="w-4 h-4 text-primary" />
-              )}
-              <span className="text-sm font-medium">
+            <div>
+              <SectionLabel className="text-foreground">
                 {gameMode === "learning" ? "Learning" : gameMode === "timed" ? "Timed" : "Practice"}
-              </span>
-
-              {!showAdvanced ? (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${difficultyBadgeClassName}`}
-                >
-                  {difficultyLabel}
-                </span>
-              ) : (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-background/40 text-muted-foreground">
-                  Custom ranges
-                </span>
-              )}
-
-              {submitMode === "auto" ? (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-border bg-background/40 text-muted-foreground">
-                  Auto-submit
-                </span>
-              ) : null}
+              </SectionLabel>
+              <p className="editorial-label mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 normal-case tracking-[0.14em]">
+                {!showAdvanced ? (
+                  <span className={cn("uppercase", difficultyBadgeClassName)}>{difficultyLabel}</span>
+                ) : (
+                  <span className="uppercase">Custom ranges</span>
+                )}
+                {submitMode === "auto" && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="uppercase">Auto-submit</span>
+                  </>
+                )}
+              </p>
             </div>
 
             {gameMode === "learning" ? (
@@ -138,10 +122,10 @@ export function TrainingRun({
               </button>
             ) : (
               <div className="text-right">
-                <div className="text-xs text-muted-foreground">Time remaining</div>
+                <SectionLabel>Time</SectionLabel>
                 <div
                   className={cn(
-                    "font-mono text-lg font-semibold tabular-nums",
+                    "mt-1 font-mono text-2xl font-semibold tracking-tight tabular-nums",
                     gameMode === "timed" && overallTimeLeft <= 10 ? "text-destructive" : ""
                   )}
                 >
@@ -153,50 +137,41 @@ export function TrainingRun({
 
           {gameMode === "practice" ? (
             <div className="mt-3">
-              <Progress value={(timeLeft / practiceTimerLimit) * 100} className="h-1.5" />
+              <Progress value={(timeLeft / practiceTimerLimit) * 100} className="h-1" />
             </div>
           ) : gameMode === "timed" ? (
             <div className="mt-3">
-              <Progress value={(overallTimeLeft / timedModeLimit) * 100} className="h-2" />
+              <Progress value={(overallTimeLeft / timedModeLimit) * 100} className="h-1" />
             </div>
-          ) : (
-            <div className="mt-3 text-xs text-muted-foreground">No timer in learning mode</div>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Tip Card - Before problem in Learning mode */}
+      {/* Technique - Before problem in Learning mode */}
       {gameMode === "learning" && showTip && currentTip && !hasAnswered && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardContent className="p-4">
-            <button
-              onClick={() => setTipExpanded(!tipExpanded)}
-              className="w-full flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <Lightbulb className="w-4 h-4 text-amber-500" />
-                <span className="font-medium text-amber-900 dark:text-amber-100">
-                  {currentTip.title}
-                </span>
-              </div>
-              {tipExpanded ? (
-                <ChevronUp className="w-4 h-4 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              )}
-            </button>
-
-            {tipExpanded && (
-              <div className="mt-3 space-y-3">
-                <div className="flex items-start gap-2 text-sm">
-                  <Sparkles className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                  <p className="text-amber-800 dark:text-amber-200 font-medium">{currentTip.technique}</p>
-                </div>
-                <p className="text-sm text-muted-foreground pl-6">{currentTip.description}</p>
-              </div>
+        <div className="border-t-2 border-foreground pt-3">
+          <button
+            onClick={() => setTipExpanded(!tipExpanded)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <div>
+              <SectionLabel className="text-brand">Technique</SectionLabel>
+              <span className="mt-1 block font-medium">{currentTip.title}</span>
+            </div>
+            {tipExpanded ? (
+              <ChevronUp className="w-4 h-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
             )}
-          </CardContent>
-        </Card>
+          </button>
+
+          {tipExpanded && (
+            <div className="mt-3 space-y-2">
+              <p className="text-sm font-medium">{currentTip.technique}</p>
+              <p className="text-sm leading-6 text-muted-foreground">{currentTip.description}</p>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Problem Display */}
@@ -221,7 +196,7 @@ export function TrainingRun({
                     role="textbox"
                     aria-label="Answer"
                     aria-readonly="true"
-                    className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
+                    className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-[3px] border border-input bg-background px-3 flex items-center justify-center ${
                       answerInputDisabled ? "opacity-50" : ""
                     }`}
                   >
@@ -253,42 +228,38 @@ export function TrainingRun({
 
       {/* Solution Breakdown - After answering in Learning mode */}
       {gameMode === "learning" && hasAnswered && currentTip && (
-        <Card className={`${isCorrect ? "border-success/50 bg-success/5" : "border-destructive/50 bg-destructive/5"}`}>
+        <Card className={isCorrect ? "border-success" : "border-destructive"}>
           <CardContent className="p-5">
             <div className="space-y-4">
               {/* Result header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {isCorrect ? (
-                    <>
-                      <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center">
-                        <span className="text-success text-sm">✓</span>
-                      </div>
-                      <span className="font-medium text-success">Correct!</span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-6 h-6 rounded-full bg-destructive/20 flex items-center justify-center">
-                        <span className="text-destructive text-sm">✗</span>
-                      </div>
-                      <span className="font-medium text-destructive">
-                        Incorrect — Answer: <span className="font-mono">{problem?.answer}</span>
-                      </span>
-                    </>
-                  )}
-                </div>
+              <div className="flex items-center gap-2.5">
+                {isCorrect ? (
+                  <>
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-[3px] border-2 border-success font-mono text-sm font-semibold text-success">
+                      =
+                    </span>
+                    <span className="font-medium text-success">Correct!</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-[3px] border-2 border-destructive font-mono text-sm font-semibold text-destructive">
+                      ≠
+                    </span>
+                    <span className="font-medium text-destructive">
+                      Incorrect — Answer: <span className="font-mono">{problem?.answer}</span>
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* Step-by-step breakdown */}
               <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-amber-500" />
-                  Step-by-Step: {currentTip.title}
-                </h4>
-                <div className="space-y-2 pl-6">
+                <SectionLabel className="text-brand">Step-by-step</SectionLabel>
+                <h4 className="text-sm font-medium">{currentTip.title}</h4>
+                <div className="space-y-2">
                   {currentTip.steps.map((step, index) => (
                     <div key={index} className="flex items-start gap-2 text-sm">
-                      <span className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center text-xs font-medium shrink-0">
+                      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-xs font-medium">
                         {index + 1}
                       </span>
                       <span className="font-mono text-muted-foreground">{step}</span>
@@ -326,32 +297,14 @@ export function TrainingRun({
                 : "grid-cols-2 sm:grid-cols-4"
         }`}
       >
-        <div className="text-center p-3 rounded-lg bg-secondary/50">
-          <p className="text-2xl font-mono font-semibold">{totalSolved}</p>
-          <p className="text-xs text-muted-foreground">Solved</p>
-        </div>
+        <MetricTile label="Solved" value={totalSolved} />
 
-        {gameMode !== "timed" && (
-          <div className="text-center p-3 rounded-lg bg-secondary/50">
-            <p className="text-2xl font-mono font-semibold">{streak}</p>
-            <p className="text-xs text-muted-foreground">Streak</p>
-          </div>
-        )}
+        {gameMode !== "timed" && <MetricTile label="Streak" value={streak} />}
 
-        {submitMode === "manual" && (
-          <div className="text-center p-3 rounded-lg bg-secondary/50">
-            <p className="text-2xl font-mono font-semibold">{accuracy}%</p>
-            <p className="text-xs text-muted-foreground">Accuracy</p>
-          </div>
-        )}
+        {submitMode === "manual" && <MetricTile label="Accuracy" value={`${accuracy}%`} />}
 
         {gameMode !== "learning" && (
-          <div className="text-center p-3 rounded-lg bg-secondary/50">
-            <p className="text-2xl font-mono font-semibold">
-              {avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s
-            </p>
-            <p className="text-xs text-muted-foreground">Avg Time</p>
-          </div>
+          <MetricTile label="Avg time" value={`${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s`} />
         )}
       </div>
 

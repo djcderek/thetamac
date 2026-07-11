@@ -60,7 +60,7 @@ export function ScoreDistributionCard({
                       className={[
                         "flex w-[18px] flex-none flex-col items-center",
                         "cursor-default select-none",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
                       ].join(" ")}
                       tabIndex={0}
                       aria-label={`${bucket.from}–${bucket.to}: ${bucket.count} runs${
@@ -73,9 +73,8 @@ export function ScoreDistributionCard({
                             "w-full rounded-sm transition-[height,background-color] duration-300",
                             bucket.count === 0 && !isUserBucket ? "min-h-0" : "min-h-[2px]",
                             isUserBucket
-                              ? "bg-blue-600 shadow-sm dark:bg-blue-500"
+                              ? "bg-brand"
                               : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
-                            isUserBucket ? "ring-2 ring-blue-500/40" : "",
                           ].join(" ")}
                           style={{ height: `${heightPct}%` }}
                         />
@@ -86,7 +85,7 @@ export function ScoreDistributionCard({
                           className={[
                             "mt-2 text-[10px] font-mono tabular-nums leading-none",
                             isUserBucket
-                              ? "font-semibold text-blue-600 dark:text-blue-400"
+                              ? "font-semibold text-brand"
                               : "text-muted-foreground",
                           ].join(" ")}
                         >
@@ -98,7 +97,7 @@ export function ScoreDistributionCard({
 
                       {isUserBucket ? (
                         <span
-                          className="mt-1 h-1 w-1 rounded-full bg-blue-600 dark:bg-blue-500"
+                          className="mt-1 h-1 w-1 bg-brand"
                           aria-hidden="true"
                         />
                       ) : null}

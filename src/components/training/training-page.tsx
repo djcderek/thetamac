@@ -1478,17 +1478,17 @@ export default function TrainingPage() {
   const currentConfig = difficultyConfig[difficulty];
   const containerWidthClass = isPlaying ? "max-w-3xl" : isGameOver ? "max-w-3xl" : "max-w-5xl";
 
-  // Get difficulty badge color
+  // Difficulty reads as inked text in a semantic tone — no tinted pills.
   const getDifficultyColor = (d: Difficulty) => {
     switch (d) {
       case "easy":
-        return "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
+        return "text-success";
       case "medium":
-        return "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30";
+        return "text-warning";
       case "hard":
-        return "text-orange-600 dark:text-orange-400 bg-orange-500/10 border-orange-500/30";
+        return "text-brand";
       case "expert":
-        return "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/30";
+        return "text-destructive";
     }
   };
 

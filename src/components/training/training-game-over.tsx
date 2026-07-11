@@ -45,7 +45,7 @@ export function TrainingGameOver({
             <CardDescription>Session summary</CardDescription>
           </div>
           <div
-            className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${difficultyBadgeClassName}`}
+            className={`shrink-0 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] ${difficultyBadgeClassName}`}
           >
             {difficultyLabel}
           </div>

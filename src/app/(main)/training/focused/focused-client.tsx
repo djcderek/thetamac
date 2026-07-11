@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { AsciiMorph } from "@/components/ui/ascii-morph";
+import { MetricTile, SectionLabel, optionTileClass } from "@/components/ui/visual-system";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import {
@@ -17,7 +19,6 @@ import {
   Play,
   LogIn,
   Loader2,
-  Trophy,
   Settings,
   ChevronDown,
   ChevronUp,
@@ -40,6 +41,24 @@ const operationSymbols: Record<string, string> = {
   "×": "×",
   "÷": "÷",
 };
+
+function FocusedHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="border-b border-border">
+      <div className="px-5 py-6 md:px-8">
+        <Link
+          href="/training/weak-points"
+          className="mb-2 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back to Weak Points
+        </Link>
+        <h1 className="font-serif text-3xl font-normal tracking-tight">{title}</h1>
+        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+      </div>
+    </div>
+  );
+}
 
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
@@ -298,15 +317,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   if (problems.length === 0) {
     return (
       <div className="min-h-screen">
-        <div className="border-b border-border">
-          <div className="px-6 py-4">
-            <Link href="/training/weak-points" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to Weak Points
-            </Link>
-            <h1 className="text-lg font-semibold">Focused Training</h1>
-          </div>
-        </div>
+        <FocusedHeader title="Focused Training" />
         <div className="p-4 md:p-6">
           <Card className="max-w-md mx-auto">
             <CardContent className="py-12 text-center">
@@ -329,33 +340,13 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   if (isComplete) {
     return (
       <div className="min-h-screen">
-        <div className="border-b border-border">
-          <div className="px-6 py-4">
-            <Link href="/training/weak-points" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to Weak Points
-            </Link>
-            <h1 className="text-lg font-semibold">
-              {isRetryRound ? "Retry Round Complete!" : "Training Complete!"}
-            </h1>
-          </div>
-        </div>
+        <FocusedHeader title={isRetryRound ? "Retry Round Complete" : "Training Complete"} />
         <div className="p-4 md:p-6">
           <Card className="max-w-lg mx-auto">
             <CardContent className="p-8 text-center">
-              <div className={`w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center ${
-                accuracy >= 80 ? "bg-success/20" : accuracy >= 60 ? "bg-warning/20" : "bg-secondary"
-              }`}>
-                {accuracy >= 80 ? (
-                  <Trophy className="w-10 h-10 text-success" />
-                ) : accuracy >= 60 ? (
-                  <Target className="w-10 h-10 text-warning" />
-                ) : (
-                  <Target className="w-10 h-10 text-muted-foreground" />
-                )}
-              </div>
+              <AsciiMorph shapes={["trophy"]} accent={accuracy >= 80} className="mx-auto mb-6 w-28" />
 
-              <h2 className="text-2xl font-bold mb-2">
+              <h2 className="font-serif text-3xl font-normal tracking-tight mb-2">
                 {accuracy >= 80 ? "Great Work!" : accuracy >= 60 ? "Good Progress!" : "Keep Practicing!"}
               </h2>
               <p className="text-muted-foreground mb-6">
@@ -364,27 +355,15 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                   : "You've completed your focused training session."}
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                <div className="p-4 rounded-lg bg-secondary/50">
-                  <p className="text-3xl font-mono font-bold">{correctCount}/{problems.length}</p>
-                  <p className="text-xs text-muted-foreground">Correct</p>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary/50">
-                  <p className="text-3xl font-mono font-bold">{accuracy}%</p>
-                  <p className="text-xs text-muted-foreground">Accuracy</p>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary/50">
-                  <p className="text-3xl font-mono font-bold">{bestStreak}</p>
-                  <p className="text-xs text-muted-foreground">Best Streak</p>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary/50">
-                  <p className="text-3xl font-mono font-bold">{avgTime > 0 ? avgTime.toFixed(1) : "0"}s</p>
-                  <p className="text-xs text-muted-foreground">Avg Time</p>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 text-left">
+                <MetricTile label="Correct" value={`${correctCount}/${problems.length}`} />
+                <MetricTile label="Accuracy" value={`${accuracy}%`} />
+                <MetricTile label="Best streak" value={bestStreak} />
+                <MetricTile label="Avg time" value={`${avgTime > 0 ? avgTime.toFixed(1) : "0"}s`} />
               </div>
 
               {!authSession?.user && (
-                <div className="rounded-xl border border-border bg-secondary/20 p-4 text-left mb-8">
+                <div className="rounded-[3px] border border-border p-4 text-left mb-8">
                   <p className="text-sm font-semibold">Save your progress</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Sign in (or create an account) to keep track of your scores and improvement over time.
@@ -434,18 +413,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   if (!isPlaying) {
     return (
       <div className="min-h-screen">
-        <div className="border-b border-border">
-          <div className="px-6 py-4">
-            <Link href="/training/weak-points" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to Weak Points
-            </Link>
-            <h1 className="text-lg font-semibold">Focused Training</h1>
-            <p className="text-sm text-muted-foreground">
-              Practice your weak areas
-            </p>
-          </div>
-        </div>
+        <FocusedHeader title="Focused Training" description="Practice your weak areas" />
         <div className="p-4 md:p-6">
           <div className="max-w-lg mx-auto space-y-6">
             <Card>
@@ -460,7 +428,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                 {/* Settings summary - clickable to expand */}
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="w-full p-3 rounded-lg bg-secondary/30 border border-border hover:bg-secondary/50 transition-colors text-left mb-6"
+                  className="w-full p-3 rounded-[3px] border border-border hover:border-foreground/50 transition-colors text-left mb-6"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -480,36 +448,32 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
                 {/* Collapsible Settings Section */}
                 {showSettings && (
-                  <div className="mb-6 p-4 rounded-lg border border-border bg-secondary/20 text-left">
-                    <label className="text-sm font-medium mb-3 block">Submission Mode</label>
+                  <div className="mb-6 border-t-2 border-foreground pt-4 text-left">
+                    <SectionLabel className="mb-3">Submission mode</SectionLabel>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setSubmitMode("manual")}
-                        className={`p-3 rounded-lg border text-center transition-colors ${
-                          submitMode === "manual"
-                            ? "border-foreground bg-secondary"
-                            : "border-border hover:bg-secondary/50"
-                        }`}
+                        className={optionTileClass(submitMode === "manual", "text-center")}
                       >
                         <div className="flex items-center justify-center gap-2 mb-1">
                           <CornerDownLeft className="w-4 h-4" />
                           <span className="font-medium text-sm">Press Enter</span>
                         </div>
-                        <span className="text-xs text-muted-foreground block">Submit with Enter key</span>
+                        <span className={`text-xs block ${submitMode === "manual" ? "text-background/70" : "text-muted-foreground"}`}>
+                          Submit with Enter key
+                        </span>
                       </button>
                       <button
                         onClick={() => setSubmitMode("auto")}
-                        className={`p-3 rounded-lg border text-center transition-colors ${
-                          submitMode === "auto"
-                            ? "border-foreground bg-secondary"
-                            : "border-border hover:bg-secondary/50"
-                        }`}
+                        className={optionTileClass(submitMode === "auto", "text-center")}
                       >
                         <div className="flex items-center justify-center gap-2 mb-1">
                           <Wand2 className="w-4 h-4" />
                           <span className="font-medium text-sm">Auto-submit</span>
                         </div>
-                        <span className="text-xs text-muted-foreground block">Submit when correct</span>
+                        <span className={`text-xs block ${submitMode === "auto" ? "text-background/70" : "text-muted-foreground"}`}>
+                          Submit when correct
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -531,15 +495,12 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   return (
     <div className="min-h-screen">
       <div className="border-b border-border">
-        <div className="px-6 py-4">
+        <div className="px-5 py-4 md:px-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Target className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium">
-                {isRetryRound ? "Retry Round" : "Focused Training"}
-              </span>
-            </div>
-            <div className="text-sm text-muted-foreground">
+            <SectionLabel className="text-foreground">
+              {isRetryRound ? "Retry Round" : "Focused Training"}
+            </SectionLabel>
+            <div className="font-mono text-sm tabular-nums text-muted-foreground">
               {currentIndex + 1} / {problems.length}
             </div>
           </div>
@@ -570,7 +531,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                         role="textbox"
                         aria-label="Answer"
                         aria-readonly="true"
-                        className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-md border border-input bg-background px-3 flex items-center justify-center ${
+                        className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-[3px] border border-input bg-background px-3 flex items-center justify-center ${
                           answerInputDisabled ? "opacity-50" : ""
                         }`}
                       >
@@ -600,23 +561,11 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
           )}
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4">
-            <div className="text-center p-3 rounded-lg bg-secondary/50">
-              <p className="text-2xl font-mono font-semibold">{correctCount}</p>
-              <p className="text-xs text-muted-foreground">Correct</p>
-            </div>
-            <div className="text-center p-3 rounded-lg bg-secondary/50">
-              <p className="text-2xl font-mono font-semibold">{streak}</p>
-              <p className="text-xs text-muted-foreground">Streak</p>
-            </div>
-            <div className="text-center p-3 rounded-lg bg-secondary/50">
-              <p className="text-2xl font-mono font-semibold">{accuracy}%</p>
-              <p className="text-xs text-muted-foreground">Accuracy</p>
-            </div>
-            <div className="text-center p-3 rounded-lg bg-secondary/50">
-              <p className="text-2xl font-mono font-semibold">{avgTime > 0 ? avgTime.toFixed(1) : "0"}s</p>
-              <p className="text-xs text-muted-foreground">Avg Time</p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MetricTile label="Correct" value={correctCount} />
+            <MetricTile label="Streak" value={streak} />
+            <MetricTile label="Accuracy" value={`${accuracy}%`} />
+            <MetricTile label="Avg time" value={`${avgTime > 0 ? avgTime.toFixed(1) : "0"}s`} />
           </div>
 
           {/* Skip button */}
