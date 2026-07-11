@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { ChartTooltip } from "@/components/ui/chart";
+import { MetricTile, PageHeader } from "@/components/ui/visual-system";
 import {
   ArrowLeft,
   TrendingUp,
   TrendingDown,
   Calendar,
   Clock,
-  Target,
   Loader2,
   Brain,
 } from "lucide-react";
@@ -93,34 +95,13 @@ interface YearlyPerformance {
   summary: YearlySummary;
 }
 
-const SimpleTooltip = ({ 
-  active, 
-  payload, 
-  label,
-}: { 
-  active?: boolean; 
-  payload?: Array<{ value: number; dataKey: string; color: string }>; 
-  label?: string;
-}) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-popover border border-border rounded-md shadow-md px-3 py-2">
-        <p className="text-xs text-muted-foreground mb-1">{label}</p>
-        {payload.map((entry, index) => (
-          <p key={index} className="text-sm font-mono">
-            <span className="text-muted-foreground">{entry.dataKey}: </span>
-            <span className="font-semibold">
-              {entry.dataKey === "accuracy" ? `${entry.value}%` : 
-               entry.dataKey === "speed" ? `${entry.value}s` : 
-               entry.value}
-            </span>
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
+const SimpleTooltip = (props: { active?: boolean; payload?: Array<{ value: number; dataKey?: string }>; label?: string }) => (
+  <ChartTooltip
+    {...props}
+    showSeriesName
+    formatValue={(v, key) => (key === "accuracy" ? `${v}%` : key === "speed" ? `${v}s` : String(v))}
+  />
+);
 
 const EmptyState = ({ message, submessage }: { message: string; submessage: string }) => (
   <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -191,91 +172,34 @@ export function PerformanceDashboard() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-border">
-        <div className="px-4 md:px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back to Dashboard
-          </Link>
-          <h1 className="text-lg font-semibold">Performance Analytics</h1>
-          <p className="text-sm text-muted-foreground">
-            Detailed breakdown of your timed mode performance
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Stats"
+        title="Performance Analytics"
+        description="Detailed breakdown of your timed mode performance"
+        action={
+          <Button variant="ghost" asChild>
+            <Link href="/dashboard">
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Dashboard
+            </Link>
+          </Button>
+        }
+      />
 
       <div className="p-4 md:p-6 space-y-6">
         {/* Summary Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-secondary">
-                  <Target className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Avg Accuracy</p>
-                  <p className="text-xl font-semibold font-mono">
-                    {weeklyData?.summary.avgAccuracy ?? 0}%
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-secondary">
-                  <Clock className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Avg Speed</p>
-                  <p className="text-xl font-semibold font-mono">
-                    {weeklyData?.summary.avgSpeed ? `${weeklyData.summary.avgSpeed}s` : "--"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-secondary">
-                  {(weeklyData?.summary.improvement ?? 0) >= 0 ? (
-                    <TrendingUp className="w-4 h-4 text-success" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4 text-destructive" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Improvement</p>
-                  <p className="text-xl font-semibold font-mono">
-                    {weeklyData?.summary.improvement !== undefined 
-                      ? `${weeklyData.summary.improvement >= 0 ? "+" : ""}${weeklyData.summary.improvement}%`
-                      : "--"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-secondary">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Best Day</p>
-                  <p className="text-xl font-semibold">
-                    {weeklyData?.summary.peak?.day ?? "--"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <MetricTile label="Avg accuracy" value={`${weeklyData?.summary.avgAccuracy ?? 0}%`} />
+          <MetricTile label="Avg speed" value={weeklyData?.summary.avgSpeed ? `${weeklyData.summary.avgSpeed}s` : "--"} />
+          <MetricTile
+            label="Improvement"
+            value={
+              weeklyData?.summary.improvement !== undefined
+                ? `${weeklyData.summary.improvement >= 0 ? "+" : ""}${weeklyData.summary.improvement}%`
+                : "--"
+            }
+          />
+          <MetricTile label="Best day" value={weeklyData?.summary.peak?.day ?? "--"} />
         </div>
 
         {/* Main Charts */}
@@ -445,11 +369,11 @@ export function PerformanceDashboard() {
             <CardTitle className="text-sm font-medium">Insights</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div>
               {weeklyData && weeklyData.summary.totalProblems > 0 ? (
                 <>
                   {weeklyData.summary.improvement > 0 && (
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                    <div className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                       <TrendingUp className="w-4 h-4 mt-0.5 text-success" />
                       <div>
                         <p className="text-sm font-medium">Performance is improving</p>
@@ -460,7 +384,7 @@ export function PerformanceDashboard() {
                     </div>
                   )}
                   {weeklyData.summary.improvement < 0 && (
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                    <div className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                       <TrendingDown className="w-4 h-4 mt-0.5 text-destructive" />
                       <div>
                         <p className="text-sm font-medium">Keep practicing!</p>
@@ -471,7 +395,7 @@ export function PerformanceDashboard() {
                     </div>
                   )}
                   {weeklyData.summary.avgSpeed > 0 && weeklyData.summary.avgSpeed < 3 && (
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                    <div className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                       <Clock className="w-4 h-4 mt-0.5 text-success" />
                       <div>
                         <p className="text-sm font-medium">Great response time!</p>
@@ -482,7 +406,7 @@ export function PerformanceDashboard() {
                     </div>
                   )}
                   {weeklyData.summary.avgSpeed >= 3 && (
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                    <div className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                       <Clock className="w-4 h-4 mt-0.5" />
                       <div>
                         <p className="text-sm font-medium">Room for speed improvement</p>
@@ -493,7 +417,7 @@ export function PerformanceDashboard() {
                     </div>
                   )}
                   {weeklyData.summary.peak && (
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                    <div className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                       <Calendar className="w-4 h-4 mt-0.5" />
                       <div>
                         <p className="text-sm font-medium">Peak performance on {weeklyData.summary.peak.day}</p>
@@ -505,7 +429,7 @@ export function PerformanceDashboard() {
                   )}
                 </>
               ) : (
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <div className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                   <Brain className="w-4 h-4 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium">Start training to see insights</p>

@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BrandedEmptyState, MetricTile, PageHeader, SectionLabel } from "@/components/ui/visual-system";
 import {
   ArrowLeft,
   Target,
@@ -16,10 +16,8 @@ import {
   AlertTriangle,
   Play,
   Loader2,
-  Brain,
   RefreshCw,
   Flame,
-  CheckCircle2,
 } from "lucide-react";
 
 interface ProblemStats {
@@ -81,7 +79,7 @@ function ProblemCard({ problem, showWrongAnswers = false }: { problem: ProblemSt
   };
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors">
+    <div className="flex items-center justify-between border-t border-border py-3 transition-colors first:border-t-0 first:pt-0 hover:bg-secondary/30">
       <div className="flex items-center gap-4">
         <div className="text-lg font-mono font-semibold min-w-[100px]">
           {problem.operandA} {operationSymbols[problem.operation] || problem.operation} {problem.operandB}
@@ -116,9 +114,9 @@ function ProblemCard({ problem, showWrongAnswers = false }: { problem: ProblemSt
 
 function OperationCard({ weakness }: { weakness: OperationWeakness }) {
   const getAccuracyColor = (accuracy: number) => {
-    if (accuracy >= 80) return "bg-success/20 text-success border-success/30";
-    if (accuracy >= 60) return "bg-warning/20 text-warning border-warning/30";
-    return "bg-destructive/20 text-destructive border-destructive/30";
+    if (accuracy >= 80) return "text-success";
+    if (accuracy >= 60) return "text-warning";
+    return "text-destructive";
   };
 
   return (
@@ -126,7 +124,7 @@ function OperationCard({ weakness }: { weakness: OperationWeakness }) {
       <CardContent className="pt-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-xl font-mono">
+            <div className="grid h-10 w-10 place-items-center rounded-[3px] border border-border font-mono text-xl">
               {weakness.operationSymbol}
             </div>
             <div>
@@ -134,9 +132,9 @@ function OperationCard({ weakness }: { weakness: OperationWeakness }) {
               <p className="text-xs text-muted-foreground">{weakness.totalAttempts} problems solved</p>
             </div>
           </div>
-          <Badge className={getAccuracyColor(weakness.accuracy)}>
+          <span className={`font-mono text-sm font-semibold ${getAccuracyColor(weakness.accuracy)}`}>
             {weakness.accuracy}%
-          </Badge>
+          </span>
         </div>
 
         <div className="space-y-3">
@@ -175,41 +173,35 @@ function OperationCard({ weakness }: { weakness: OperationWeakness }) {
 
 function EmptyState() {
   return (
-    <Card className="col-span-full">
-      <CardContent className="py-16 text-center">
-        <Brain className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-        <h3 className="text-xl font-semibold mb-2">No Data to Analyze Yet</h3>
-        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-          Start practicing to build up your problem history. We need at least a few training sessions to identify your weak points.
-        </p>
+    <BrandedEmptyState
+      title="No Data to Analyze Yet"
+      description="Start practicing to build up your problem history. We need at least a few training sessions to identify your weak points."
+      action={
         <Link href="/">
           <Button size="lg">
             <Play className="w-4 h-4 mr-2" />
             Start Training
           </Button>
         </Link>
-      </CardContent>
-    </Card>
+      }
+    />
   );
 }
 
 function GoodJobState() {
   return (
-    <Card className="col-span-full border-success/30 bg-success/5">
-      <CardContent className="py-12 text-center">
-        <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-success" />
-        <h3 className="text-xl font-semibold mb-2">Great Work!</h3>
-        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-          You&apos;re performing well across all operations! Keep practicing to maintain your skills and tackle harder problems.
-        </p>
+    <BrandedEmptyState
+      title="Great Work!"
+      description="You're performing well across all operations! Keep practicing to maintain your skills and tackle harder problems."
+      action={
         <Link href="/">
           <Button size="lg">
             <Flame className="w-4 h-4 mr-2" />
             Keep Practicing
           </Button>
         </Link>
-      </CardContent>
-    </Card>
+      }
+    />
   );
 }
 
@@ -253,15 +245,18 @@ export function WeakPointsDashboard() {
   if (error) {
     return (
       <div className="min-h-screen">
-        <div className="border-b border-border">
-          <div className="px-4 md:px-6 py-4">
-            <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to Training
-            </Link>
-            <h1 className="text-lg font-semibold">Weak Point Training</h1>
-          </div>
-        </div>
+        <PageHeader
+          eyebrow="Training"
+          title="Weak Point Training"
+          action={
+            <Button variant="ghost" asChild>
+              <Link href="/">
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Training
+              </Link>
+            </Button>
+          }
+        />
         <div className="p-4 md:p-6">
           <Card className="max-w-md mx-auto">
             <CardContent className="py-12 text-center">
@@ -292,26 +287,25 @@ export function WeakPointsDashboard() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-border">
-        <div className="px-4 md:px-6 py-4">
-          <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back to Training
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold">Weak Point Training</h1>
-              <p className="text-sm text-muted-foreground">
-                Personalized practice based on your problem areas
-              </p>
-            </div>
+      <PageHeader
+        eyebrow="Training"
+        title="Weak Point Training"
+        description="Personalized practice based on your problem areas"
+        action={
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={fetchData}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/">
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Training
+              </Link>
+            </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="p-4 md:p-6 space-y-6">
         {!hasData ? (
@@ -322,95 +316,41 @@ export function WeakPointsDashboard() {
           <>
             {/* Training Pack CTA */}
             {hasTrainingPack && (
-              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                        <Target className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <h2 className="font-semibold text-lg">Your Custom Training Pack</h2>
-                        <p className="text-sm text-muted-foreground">
-                          {data.trainingPack.problems.length} problems targeting your weak areas
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2 mt-2">
-                          {data.trainingPack.focusAreas.map((area) => (
-                            <Badge key={area} variant="secondary" className="text-xs">
-                              {area}
-                            </Badge>
-                          ))}
-                          <span className="text-xs text-muted-foreground">
-                            ~{data.trainingPack.estimatedTime} min
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <Link href={`/training/focused?pack=${trainingPackParam}`}>
-                      <Button size="lg" className="w-full md:w-auto">
-                        <Play className="w-4 h-4 mr-2" />
-                        Start Focused Training
-                      </Button>
-                    </Link>
+              <div className="ink-panel relative overflow-hidden rounded-[3px] border p-6">
+                <div className="dot-field pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-background/60">
+                      Training pack
+                    </p>
+                    <h2 className="mt-1 font-serif text-2xl font-normal tracking-tight">Your Custom Training Pack</h2>
+                    <p className="mt-1 text-sm text-background/70">
+                      {data.trainingPack.problems.length} problems targeting your weak areas
+                    </p>
+                    <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-background/60">
+                      {data.trainingPack.focusAreas.join(" · ")}
+                      {" · "}~{data.trainingPack.estimatedTime} min
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
+                  <Link href={`/training/focused?pack=${trainingPackParam}`}>
+                    <Button
+                      size="lg"
+                      className="w-full bg-background text-foreground hover:bg-brand hover:text-brand-foreground md:w-auto"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Focused Training
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             )}
 
             {/* Summary Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-secondary">
-                      <Target className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Overall Accuracy</p>
-                      <p className="text-xl font-semibold font-mono">{data.overallAccuracy}%</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-secondary">
-                      <Brain className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Problems Analyzed</p>
-                      <p className="text-xl font-semibold font-mono">{data.totalAttempts}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-secondary">
-                      <AlertTriangle className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Weak Spots Found</p>
-                      <p className="text-xl font-semibold font-mono">{data.topWeakProblems.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-secondary">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Slow Problems</p>
-                      <p className="text-xl font-semibold font-mono">{data.slowestProblems.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <MetricTile label="Overall accuracy" value={`${data.overallAccuracy}%`} />
+              <MetricTile label="Problems analyzed" value={data.totalAttempts} />
+              <MetricTile label="Weak spots found" value={data.topWeakProblems.length} />
+              <MetricTile label="Slow problems" value={data.slowestProblems.length} />
             </div>
 
             {/* Improvement Areas */}
@@ -423,17 +363,11 @@ export function WeakPointsDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div>
                     {data.improvementAreas.map((area, i) => (
                       <div
                         key={i}
-                        className={`flex items-start gap-3 p-3 rounded-lg border ${
-                          area.priority === "high"
-                            ? "border-destructive/30 bg-destructive/5"
-                            : area.priority === "medium"
-                            ? "border-warning/30 bg-warning/5"
-                            : "border-border bg-secondary/30"
-                        }`}
+                        className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0"
                       >
                         {area.type === "accuracy" && (
                           <TrendingDown className={`w-4 h-4 mt-0.5 ${area.priority === "high" ? "text-destructive" : "text-warning"}`} />
@@ -447,18 +381,17 @@ export function WeakPointsDashboard() {
                         <div className="flex-1">
                           <p className="text-sm">{area.message}</p>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
+                        <span
+                          className={`font-mono text-[11px] font-semibold uppercase tracking-[0.14em] ${
                             area.priority === "high"
-                              ? "border-destructive/50 text-destructive"
+                              ? "text-destructive"
                               : area.priority === "medium"
-                              ? "border-warning/50 text-warning"
-                              : ""
+                              ? "text-warning"
+                              : "text-muted-foreground"
                           }`}
                         >
                           {area.priority}
-                        </Badge>
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -468,9 +401,9 @@ export function WeakPointsDashboard() {
 
             {/* Operations Breakdown */}
             <div>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                By Operation
-              </h2>
+              <div className="mb-4 border-t-2 border-foreground pt-3">
+                <SectionLabel>By Operation</SectionLabel>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {data.operationWeaknesses.map((weakness) => (
                   <OperationCard key={weakness.operation} weakness={weakness} />
@@ -495,7 +428,7 @@ export function WeakPointsDashboard() {
                     {data.topWeakProblems.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">No weak problems identified yet!</p>
                     ) : (
-                      <div className="space-y-2">
+                      <div>
                         {data.topWeakProblems.map((problem) => (
                           <ProblemCard key={problem.key} problem={problem} showWrongAnswers />
                         ))}
@@ -507,7 +440,7 @@ export function WeakPointsDashboard() {
                     {data.slowestProblems.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">No slow problems identified yet!</p>
                     ) : (
-                      <div className="space-y-2">
+                      <div>
                         {data.slowestProblems.map((problem) => (
                           <ProblemCard key={problem.key} problem={problem} />
                         ))}
@@ -519,7 +452,7 @@ export function WeakPointsDashboard() {
                     {data.recentMistakes.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">No recent mistakes in the last 7 days!</p>
                     ) : (
-                      <div className="space-y-2">
+                      <div>
                         {data.recentMistakes.map((problem) => (
                           <ProblemCard key={problem.key} problem={problem} showWrongAnswers />
                         ))}

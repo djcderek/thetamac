@@ -21,6 +21,7 @@ import {
   Tooltip,
 } from "recharts";
 import Link from "next/link";
+import { ChartTooltip } from "@/components/ui/chart";
 import { BrandedEmptyState, MetricTile, PageHeader, SectionLabel } from "@/components/ui/visual-system";
 
 interface UserStats {
@@ -45,31 +46,15 @@ interface ActivityData {
   summary: { total: number; dailyAverage: number };
 }
 
-// Simple tooltip that matches the page aesthetic
 const SimpleTooltip = ({
-  active,
-  payload,
-  label,
   suffix = "",
+  ...props
 }: {
   active?: boolean;
   payload?: Array<{ value: number }>;
   label?: string;
   suffix?: string;
-}) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-popover border border-border rounded-md shadow-md px-3 py-2">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-semibold font-mono">
-          {payload[0].value}
-          {suffix}
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
+}) => <ChartTooltip {...props} formatValue={(v) => `${v}${suffix}`} />;
 
 export function DashboardClient() {
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -173,7 +158,7 @@ export function DashboardClient() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Performance Chart */}
           <Link href="/stats/performance" className="lg:col-span-8 block">
-            <Card className="h-full transition-all hover:border-brand/35 hover:shadow-md cursor-pointer">
+            <Card className="h-full transition-all hover:border-brand/60 cursor-pointer">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div>
@@ -250,7 +235,7 @@ export function DashboardClient() {
 
           {/* Skills */}
           <Link href="/stats/skills" className="lg:col-span-4 block">
-            <Card className="h-full transition-all hover:border-brand/35 hover:shadow-md cursor-pointer">
+            <Card className="h-full transition-all hover:border-brand/60 cursor-pointer">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div>
@@ -393,7 +378,7 @@ export function DashboardClient() {
                 <Link href="/training/weak-points" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-[3px] border border-brand/40 flex items-center justify-center">
                         <Target className="w-4 h-4 text-primary" />
                       </div>
                       <div>
@@ -413,7 +398,7 @@ export function DashboardClient() {
                 <Link href="/" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-[3px] border border-border flex items-center justify-center">
                         <Flame className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div>
@@ -430,7 +415,7 @@ export function DashboardClient() {
                 <Link href="/" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-[3px] border border-border flex items-center justify-center">
                         <Brain className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div>
@@ -448,7 +433,7 @@ export function DashboardClient() {
                 <Link href="/" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-[3px] border border-border flex items-center justify-center">
                         <Clock className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div>

@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { ChartTooltip, ChartTooltipFrame } from "@/components/ui/chart";
+import { BrandedEmptyState, PageHeader, SectionLabel } from "@/components/ui/visual-system";
+import { heatClass, speedHeatClass } from "@/lib/heat";
 import {
   Tooltip as UITooltip,
   TooltipContent,
@@ -122,30 +125,6 @@ interface SkillsData {
   matrixMaxNumber: number;
 }
 
-const SimpleTooltip = ({ 
-  active, 
-  payload, 
-  label,
-}: { 
-  active?: boolean; 
-  payload?: Array<{ value: number; dataKey: string }>; 
-  label?: string;
-}) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-popover border border-border rounded-md shadow-md px-3 py-2">
-        <p className="text-xs text-muted-foreground mb-1">{label}</p>
-        {payload.map((entry, index) => (
-          <p key={index} className="text-sm font-mono">
-            <span className="font-semibold">{entry.value}%</span>
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
-
 function SkillCard({ skill }: { skill: SkillOverview }) {
   return (
     <Card>
@@ -185,35 +164,19 @@ function SkillCard({ skill }: { skill: SkillOverview }) {
 
 function EmptyState() {
   return (
-    <Card className="col-span-full">
-      <CardContent className="py-12 text-center">
-        <Target className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-        <h3 className="text-lg font-semibold mb-2">No Data Yet</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Start training to see your skills breakdown and performance analytics.
-        </p>
+    <BrandedEmptyState
+      title="No Data Yet"
+      description="Start training to see your skills breakdown and performance analytics."
+      action={
         <Link href="/">
           <Button>
             <Zap className="w-4 h-4 mr-2" />
             Start Training
           </Button>
         </Link>
-      </CardContent>
-    </Card>
+      }
+    />
   );
-}
-
-// Simpler, more reliable color function using Tailwind classes
-function getAccuracyBgClass(accuracy: number | null, hasAttempts: boolean): string {
-  if (!hasAttempts || accuracy === null) return "bg-secondary/40 dark:bg-secondary/20";
-  
-  if (accuracy >= 95) return "bg-emerald-500/80 dark:bg-emerald-500/70";
-  if (accuracy >= 85) return "bg-emerald-400/70 dark:bg-emerald-400/60";
-  if (accuracy >= 75) return "bg-lime-400/70 dark:bg-lime-400/50";
-  if (accuracy >= 65) return "bg-yellow-400/70 dark:bg-yellow-400/50";
-  if (accuracy >= 50) return "bg-orange-400/70 dark:bg-orange-400/50";
-  if (accuracy >= 25) return "bg-orange-500/70 dark:bg-orange-500/50";
-  return "bg-red-500/70 dark:bg-red-500/50";
 }
 
 function NumberCombinationMatrix({ 
@@ -276,11 +239,11 @@ function NumberCombinationMatrix({
     <div className="space-y-4">
       {/* Coverage info banner */}
       {problemsOutOfRange > 0 && (
-        <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border">
+        <div className="flex items-center justify-between border-t border-border pt-2">
           <div className="flex items-center gap-2">
             <div className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{problemsInRange}</span> of{" "}
-              <span className="font-semibold text-foreground">{totalProblems}</span> problems shown
+              <span className="font-mono font-semibold text-foreground">{problemsInRange}</span> of{" "}
+              <span className="font-mono font-semibold text-foreground">{totalProblems}</span> problems shown
               <span className="text-muted-foreground/70"> ({coveragePercent}% in 0-{maxNumber} range)</span>
             </div>
           </div>
@@ -289,18 +252,18 @@ function NumberCombinationMatrix({
           </div>
         </div>
       )}
-      
+
       {/* View mode toggle */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Second operand →</span>
         </div>
-        <div className="flex items-center gap-1 p-1 bg-secondary rounded-lg">
+        <div className="flex items-center gap-1 rounded-full border border-border bg-muted/80 p-[3px]">
           <button
             onClick={() => setViewMode("accuracy")}
-            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
               viewMode === "accuracy"
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-card text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -308,9 +271,9 @@ function NumberCombinationMatrix({
           </button>
           <button
             onClick={() => setViewMode("speed")}
-            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
               viewMode === "speed"
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-card text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -350,27 +313,19 @@ function NumberCombinationMatrix({
                 {numbers.map((colNum, colIndex) => {
                   const cell = matrix[rowIndex]?.[colIndex] || { attempts: 0, correct: 0, accuracy: null, avgTime: null };
                   const hasAttempts = cell.attempts > 0;
-                  
-                  const bgClass = viewMode === "accuracy"
-                    ? getAccuracyBgClass(cell.accuracy, hasAttempts)
-                    : hasAttempts
-                      ? cell.avgTime! <= 1 
-                        ? "bg-emerald-500/70 dark:bg-emerald-500/60"
-                        : cell.avgTime! <= 2
-                          ? "bg-lime-400/60 dark:bg-lime-400/50"
-                          : cell.avgTime! <= 3
-                            ? "bg-yellow-400/60 dark:bg-yellow-400/50"
-                            : cell.avgTime! <= 5
-                              ? "bg-orange-400/60 dark:bg-orange-400/50"
-                              : "bg-red-500/60 dark:bg-red-500/50"
-                      : "bg-secondary/40 dark:bg-secondary/20";
+
+                  const bgClass = !hasAttempts
+                    ? heatClass(null)
+                    : viewMode === "accuracy"
+                      ? heatClass(cell.accuracy)
+                      : speedHeatClass(cell.avgTime);
 
                   return (
                     <UITooltip key={`cell-${rowNum}-${colNum}`}>
                       <TooltipTrigger asChild>
-                        <div 
-                          className={`${cellStyle.size} flex items-center justify-center ${cellStyle.font} font-mono rounded-sm m-[0.5px] cursor-default transition-all hover:scale-125 hover:z-20 shrink-0 ${bgClass} ${
-                            hasAttempts ? "text-foreground font-medium" : "text-muted-foreground/50"
+                        <div
+                          className={`${cellStyle.size} flex items-center justify-center ${cellStyle.font} font-mono rounded-[2px] m-[0.5px] cursor-default transition-all hover:scale-125 hover:z-20 shrink-0 ${bgClass} ${
+                            hasAttempts ? "font-medium" : "text-muted-foreground/50"
                           }`}
                         >
                           {showValues && hasAttempts ? (
@@ -383,13 +338,13 @@ function NumberCombinationMatrix({
                           {rowNum} {operationSymbol} {colNum}
                         </div>
                         {hasAttempts ? (
-                          <div className="space-y-0.5 text-muted-foreground">
-                            <div>Accuracy: <span className="text-foreground font-medium">{cell.accuracy}%</span></div>
-                            <div>Avg Time: <span className="text-foreground font-medium">{cell.avgTime?.toFixed(2)}s</span></div>
-                            <div>Attempts: <span className="text-foreground font-medium">{cell.attempts}</span> ({cell.correct} correct)</div>
+                          <div className="space-y-0.5 text-background/70">
+                            <div>Accuracy: <span className="font-medium text-background">{cell.accuracy}%</span></div>
+                            <div>Avg Time: <span className="font-medium text-background">{cell.avgTime?.toFixed(2)}s</span></div>
+                            <div>Attempts: <span className="font-medium text-background">{cell.attempts}</span> ({cell.correct} correct)</div>
                           </div>
                         ) : (
-                          <div className="text-muted-foreground">No attempts yet</div>
+                          <div className="text-background/70">No attempts yet</div>
                         )}
                       </TooltipContent>
                     </UITooltip>
@@ -410,30 +365,30 @@ function NumberCombinationMatrix({
         <div className="flex items-center gap-1.5 text-xs">
           {viewMode === "accuracy" ? (
             <>
-              <div className="w-3 h-3 rounded-sm bg-red-500/70" />
-              <span className="text-muted-foreground">0%</span>
-              <div className="w-3 h-3 rounded-sm bg-orange-400/70" />
-              <div className="w-3 h-3 rounded-sm bg-yellow-400/70" />
-              <span className="text-muted-foreground">50%</span>
-              <div className="w-3 h-3 rounded-sm bg-lime-400/70" />
-              <div className="w-3 h-3 rounded-sm bg-emerald-500/70" />
-              <span className="text-muted-foreground">100%</span>
+              <span className="editorial-label normal-case tracking-normal">needs work</span>
+              <div className="w-3 h-3 rounded-[2px] bg-brand/55" />
+              <div className="w-3 h-3 rounded-[2px] bg-brand/30" />
+              <span aria-hidden="true" className="mx-1 text-muted-foreground">·</span>
+              <div className="w-3 h-3 rounded-[2px] bg-foreground/12" />
+              <div className="w-3 h-3 rounded-[2px] bg-foreground/25" />
+              <div className="w-3 h-3 rounded-[2px] bg-foreground/45" />
+              <div className="w-3 h-3 rounded-[2px] bg-foreground/65" />
+              <div className="w-3 h-3 rounded-[2px] bg-foreground/85" />
+              <span className="editorial-label normal-case tracking-normal">mastered</span>
             </>
           ) : (
             <>
-              <div className="w-3 h-3 rounded-sm bg-emerald-500/70" />
-              <span className="text-muted-foreground">≤1s</span>
-              <div className="w-3 h-3 rounded-sm bg-lime-400/60" />
-              <span className="text-muted-foreground">≤2s</span>
-              <div className="w-3 h-3 rounded-sm bg-yellow-400/60" />
-              <span className="text-muted-foreground">≤3s</span>
-              <div className="w-3 h-3 rounded-sm bg-orange-400/60" />
-              <span className="text-muted-foreground">≤5s</span>
-              <div className="w-3 h-3 rounded-sm bg-red-500/60" />
-              <span className="text-muted-foreground">&gt;5s</span>
+              <span className="editorial-label normal-case tracking-normal">slow</span>
+              <div className="w-3 h-3 rounded-[2px] bg-brand/55" />
+              <div className="w-3 h-3 rounded-[2px] bg-brand/30" />
+              <span aria-hidden="true" className="mx-1 text-muted-foreground">·</span>
+              <div className="w-3 h-3 rounded-[2px] bg-foreground/40" />
+              <div className="w-3 h-3 rounded-[2px] bg-foreground/65" />
+              <div className="w-3 h-3 rounded-[2px] bg-foreground/85" />
+              <span className="editorial-label normal-case tracking-normal">fast</span>
             </>
           )}
-          <div className="ml-2 w-3 h-3 rounded-sm bg-secondary/40" />
+          <div className="ml-2 w-3 h-3 rounded-[2px] border border-border/60" />
           <span className="text-muted-foreground">No data</span>
         </div>
       </div>
@@ -505,18 +460,18 @@ export function SkillsDashboard() {
   if (error) {
     return (
       <div className="min-h-screen">
-        <div className="border-b border-border">
-          <div className="px-4 md:px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
-          >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-lg font-semibold">Skills Breakdown</h1>
-          </div>
-        </div>
+        <PageHeader
+          eyebrow="Stats"
+          title="Skills Breakdown"
+          action={
+            <Button variant="ghost" asChild>
+              <Link href="/dashboard">
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Dashboard
+              </Link>
+            </Button>
+          }
+        />
         <div className="p-4 md:p-6">
           <Card className="max-w-md mx-auto">
             <CardContent className="py-12 text-center">
@@ -550,21 +505,19 @@ export function SkillsDashboard() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-border">
-        <div className="px-4 md:px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back to Dashboard
-          </Link>
-          <h1 className="text-lg font-semibold">Skills Breakdown</h1>
-          <p className="text-sm text-muted-foreground">
-            Detailed analysis of your skills by operation type
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Stats"
+        title="Skills Breakdown"
+        description="Detailed analysis of your skills by operation type"
+        action={
+          <Button variant="ghost" asChild>
+            <Link href="/dashboard">
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Dashboard
+            </Link>
+          </Button>
+        }
+      />
 
       <div className="p-4 md:p-6 space-y-6">
         {!hasData ? (
@@ -585,12 +538,12 @@ export function SkillsDashboard() {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium">Skills Overview</CardTitle>
-                    <div className="flex items-center gap-1 p-1 bg-secondary rounded-lg">
+                    <div className="flex items-center gap-1 rounded-full border border-border bg-muted/80 p-[3px]">
                       <button
                         onClick={() => setShowPerformanceScore(false)}
-                        className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                          !showPerformanceScore 
-                            ? "bg-background text-foreground shadow-sm" 
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                          !showPerformanceScore
+                            ? "bg-card text-foreground"
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
@@ -598,9 +551,9 @@ export function SkillsDashboard() {
                       </button>
                       <button
                         onClick={() => setShowPerformanceScore(true)}
-                        className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                          showPerformanceScore 
-                            ? "bg-background text-foreground shadow-sm" 
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                          showPerformanceScore
+                            ? "bg-card text-foreground"
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
@@ -623,14 +576,13 @@ export function SkillsDashboard() {
                             dataKey="skill" 
                             tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} 
                           />
-                          <Tooltip 
+                          <Tooltip
                             content={({ active, payload }) => {
                               if (active && payload && payload.length) {
                                 return (
-                                  <div className="bg-popover border border-border rounded-md shadow-md px-3 py-2">
-                                    <p className="text-xs text-muted-foreground mb-1">{payload[0].payload.skill}</p>
-                                    <p className="text-sm font-mono font-semibold">{payload[0].value}%</p>
-                                  </div>
+                                  <ChartTooltipFrame label={payload[0].payload.skill}>
+                                    <p className="font-mono text-sm font-semibold">{payload[0].value}%</p>
+                                  </ChartTooltipFrame>
                                 );
                               }
                               return null;
@@ -673,19 +625,18 @@ export function SkillsDashboard() {
                             dataKey="skill" 
                             tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} 
                           />
-                          <Tooltip 
+                          <Tooltip
                             content={({ active, payload }) => {
                               if (active && payload && payload.length) {
                                 const d = payload[0].payload;
                                 return (
-                                  <div className="bg-popover border border-border rounded-md shadow-md px-3 py-2">
-                                    <p className="text-xs font-medium mb-1">{d.skill}</p>
-                                    <p className="text-sm font-mono font-semibold">{d.score}/100</p>
-                                    <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                  <ChartTooltipFrame label={d.skill}>
+                                    <p className="font-mono text-sm font-semibold">{d.score}/100</p>
+                                    <div className="mt-1 space-y-0.5 text-xs text-background/70">
                                       <p>Accuracy: {d.accuracy}%</p>
                                       <p>Speed: {d.speed}%</p>
                                     </div>
-                                  </div>
+                                  </ChartTooltipFrame>
                                 );
                               }
                               return null;
@@ -728,7 +679,7 @@ export function SkillsDashboard() {
                       <BarChart data={data?.skillsOverview || []} layout="vertical" margin={{ left: 20 }}>
                         <XAxis type="number" domain={[0, 100]} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
                         <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={90} />
-                        <Tooltip content={<SimpleTooltip />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
+                        <Tooltip content={<ChartTooltip formatValue={(v) => `${v}%`} />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
                         <Bar dataKey="accuracy" fill="currentColor" radius={[0, 4, 4, 0]} className="text-foreground" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -769,7 +720,7 @@ export function SkillsDashboard() {
                                 <LineChart data={weeklyData}>
                                   <XAxis dataKey="week" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                                   <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                                  <Tooltip content={<SimpleTooltip />} />
+                                  <Tooltip content={<ChartTooltip formatValue={(v) => `${v}%`} />} />
                                   <Line 
                                     type="monotone" 
                                     dataKey="accuracy" 
@@ -821,7 +772,7 @@ export function SkillsDashboard() {
                 <div className="mt-4 pt-3 border-t border-border">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-medium">Matrix Size</label>
-                    <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded">0 – {matrixSize}</span>
+                    <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded-[3px]">0 – {matrixSize}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground w-4">5</span>
@@ -907,8 +858,8 @@ export function SkillsDashboard() {
             </Card>
 
             {/* Detailed Breakdown Section */}
-            <div className="space-y-2">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Detailed Breakdown</h2>
+            <div className="border-t-2 border-foreground pt-3">
+              <SectionLabel>Detailed Breakdown</SectionLabel>
             </div>
 
             {/* Digit Length Performance */}
@@ -920,7 +871,7 @@ export function SkillsDashboard() {
                 <CardContent>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {data.digitLengthData.filter(d => d.count > 0).map((item) => (
-                      <div key={item.type} className="p-4 rounded-lg border border-border">
+                      <div key={item.type} className="border-t border-border pt-3">
                         <p className="text-sm font-medium mb-3">{item.type}</p>
                         <div className="space-y-2">
                           <div className="flex justify-between text-xs">
@@ -957,7 +908,7 @@ export function SkillsDashboard() {
                       <BarChart data={data.numberRangeData.filter(d => d.problems > 0)} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                         <XAxis dataKey="range" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                         <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                        <Tooltip content={<SimpleTooltip />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
+                        <Tooltip content={<ChartTooltip formatValue={(v) => `${v}%`} />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
                         <Bar dataKey="accuracy" fill="currentColor" radius={[4, 4, 0, 0]} className="text-foreground" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1020,9 +971,9 @@ export function SkillsDashboard() {
                   <CardTitle className="text-sm font-medium">Recommendations</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div>
                     {data.recommendations.map((rec, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                      <div key={i} className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                         {rec.type === "focus" && <Target className="w-4 h-4 mt-0.5 text-destructive" />}
                         {rec.type === "speed" && <Clock className="w-4 h-4 mt-0.5" />}
                         {rec.type === "praise" && <TrendingUp className="w-4 h-4 mt-0.5 text-success" />}
