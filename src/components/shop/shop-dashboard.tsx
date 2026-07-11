@@ -5,31 +5,40 @@ import dynamic from "next/dynamic";
 import { Card, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, ShoppingBag, Check, Coins } from "lucide-react";
+import { AsciiSpinner } from "@/components/ui/ascii-morph";
+import { PageHeader, SectionLabel, optionTileClass } from "@/components/ui/visual-system";
+import { Loader2, ShoppingBag, Check } from "lucide-react";
 import { ThreeErrorBoundary } from "@/components/ui/three-error-boundary";
+import { cn } from "@/lib/utils";
 
 // Dynamically import 3D components with SSR disabled to prevent hydration issues
-const ItemPreview3D = dynamic(() => import("./item-preview-3d"), { 
+const ItemPreview3D = dynamic(() => import("./item-preview-3d"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-muted/30 animate-pulse">
-      <div className="w-8 h-8 border-2 border-muted-foreground/30 rounded" />
+    <div className="flex h-full w-full items-center justify-center bg-secondary/40">
+      <AsciiSpinner />
     </div>
   )
 });
 
 const GarageDisplay = dynamic(
   () => import("./garage-display").then((mod) => mod.GarageDisplay),
-  { 
+  {
     ssr: false,
     loading: () => (
-      <div className="w-full h-full min-h-[400px] bg-neutral-900 rounded-xl flex items-center justify-center">
-        <div className="text-neutral-500 text-sm">Loading garage...</div>
+      <div className="flex h-full min-h-[400px] w-full items-center justify-center bg-secondary/40">
+        <AsciiSpinner />
       </div>
     )
   }
 );
+
+const categoryLabels: Record<string, string> = {
+  vehicle: "Vehicle",
+  skin: "Decal",
+  trail: "Boost",
+  wheel: "Wheels",
+};
 
 interface ShopItem {
   id: string;
@@ -191,18 +200,20 @@ export function ShopDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-            <h2 className="text-3xl font-bold tracking-tight">Item Shop</h2>
-            <p className="text-muted-foreground">Customize your racing vehicle</p>
-        </div>
-        <div className="flex items-center gap-2 bg-secondary px-4 py-2 rounded-lg">
-            <Coins className="w-5 h-5 text-yellow-500" />
-            <span className="font-bold text-lg">{data.userCoins}</span>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        eyebrow="Garage"
+        title="Shop"
+        description="Customize your racing vehicle"
+        action={
+          <div className="text-right">
+            <SectionLabel>Coins</SectionLabel>
+            <div className="mt-1 font-mono text-2xl font-semibold tracking-tight tabular-nums">{data.userCoins}</div>
+          </div>
+        }
+      />
 
+      <div className="space-y-6 p-4 md:p-6">
       <Tabs defaultValue="shop" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="shop">Shop</TabsTrigger>
@@ -216,7 +227,10 @@ export function ShopDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {shopItems.map((item) => (
                 <Card key={item.id} className="overflow-hidden">
-                  <div className={`h-32 bg-muted flex items-center justify-center relative overflow-hidden ${item.type === 'skin' ? 'bg-gradient-to-br from-sky-100 to-indigo-100 dark:from-sky-900/20 dark:to-indigo-900/20' : item.type === 'vehicle' ? 'bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/20 dark:to-teal-900/20' : item.type === 'wheel' ? 'bg-gradient-to-br from-slate-100 to-zinc-100 dark:from-slate-900/20 dark:to-zinc-900/20' : 'bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/20 dark:to-red-900/20'}`}>
+                  <div className="bayer-field relative flex h-32 items-center justify-center overflow-hidden border-b border-border bg-secondary/40">
+                    <span className="editorial-label absolute left-2 top-2 z-10">
+                      {categoryLabels[item.type] ?? item.type}
+                    </span>
                     <div className="absolute inset-0">
                       <ThreeErrorBoundary>
                         <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
@@ -226,7 +240,11 @@ export function ShopDashboard() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                         <CardTitle>{item.name}</CardTitle>
-                        {item.isProOnly && <Badge variant="secondary" className="bg-gradient-to-r from-amber-200 to-yellow-400 text-yellow-900 border-0">PRO</Badge>}
+                        {item.isProOnly && (
+                          <span className="rounded-[3px] bg-foreground px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-background">
+                            PRO
+                          </span>
+                        )}
                     </div>
                     <CardDescription>{item.description}</CardDescription>
                   </CardHeader>
@@ -251,14 +269,14 @@ export function ShopDashboard() {
         
         <TabsContent value="inventory" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
-                {/* Left: Display Room */}
-                <div className="lg:col-span-2 h-full rounded-xl overflow-hidden border bg-neutral-950 shadow-2xl">
+                {/* Left: Display Room — the dark room inside the canvas is scene art */}
+                <div className="lg:col-span-2 h-full rounded-[3px] overflow-hidden border border-border">
                     <ThreeErrorBoundary
                         fallback={
-                            <div className="w-full h-full flex items-center justify-center bg-neutral-900">
-                                <div className="text-center p-8">
-                                    <div className="text-neutral-400 text-lg font-medium mb-2">Garage Preview Unavailable</div>
-                                    <div className="text-neutral-500 text-sm">Your browser may not support 3D graphics</div>
+                            <div className="flex h-full w-full items-center justify-center bg-secondary/40">
+                                <div className="p-8 text-center">
+                                    <div className="mb-2 text-lg font-medium">Garage Preview Unavailable</div>
+                                    <div className="text-sm text-muted-foreground">Your browser may not support 3D graphics</div>
                                 </div>
                             </div>
                         }
@@ -273,9 +291,9 @@ export function ShopDashboard() {
                 </div>
 
                 {/* Right: Customization Panel */}
-                <div className="lg:col-span-1 h-full flex flex-col bg-card rounded-xl border shadow-sm overflow-hidden">
-                    <div className="p-4 border-b bg-muted/40">
-                        <h3 className="font-semibold mb-4">Customize</h3>
+                <div className="lg:col-span-1 h-full flex flex-col bg-card rounded-[3px] border border-border overflow-hidden">
+                    <div className="p-4 border-b border-border">
+                        <SectionLabel className="mb-4 text-foreground">Customize</SectionLabel>
                         <Tabs value={garageCategory} onValueChange={setGarageCategory} className="w-full">
                             <TabsList className="grid w-full grid-cols-4">
                                 <TabsTrigger value="vehicle">Vehicle</TabsTrigger>
@@ -288,10 +306,14 @@ export function ShopDashboard() {
                     
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                         {/* Default/None Option for Skins/Trails if applicable */}
-                        {(garageCategory === 'skin' || garageCategory === 'trail' || garageCategory === 'wheel') && (
-                             <Button
-                                variant="outline"
-                                className={`w-full justify-start h-auto py-3 px-4 ${(!data.equippedSkinId && garageCategory === 'skin') || (!data.equippedTrailId && garageCategory === 'trail') || (!data.equippedWheelId && garageCategory === 'wheel') ? 'border-primary bg-primary/5' : ''}`}
+                        {(garageCategory === 'skin' || garageCategory === 'trail' || garageCategory === 'wheel') && (() => {
+                            const noneSelected =
+                                (!data.equippedSkinId && garageCategory === 'skin') ||
+                                (!data.equippedTrailId && garageCategory === 'trail') ||
+                                (!data.equippedWheelId && garageCategory === 'wheel');
+                            return (
+                             <button
+                                className={optionTileClass(noneSelected, "w-full")}
                                 onClick={() => {
                                     if (garageCategory === 'skin' && data.equippedSkinId) handleEquip(data.equippedSkinId, 'skin', 'unequip');
                                     if (garageCategory === 'trail' && data.equippedTrailId) handleEquip(data.equippedTrailId, 'trail', 'unequip');
@@ -299,42 +321,44 @@ export function ShopDashboard() {
                                 }}
                              >
                                 <div className="flex items-center gap-3 w-full">
-                                    <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-[3px] bg-secondary">
                                         <span className="text-xs text-muted-foreground">None</span>
                                     </div>
                                     <div className="text-left flex-1">
-                                        <div className="font-medium">Default / None</div>
-                                        <div className="text-xs text-muted-foreground">Remove customization</div>
+                                        <div className="text-sm font-medium">Default / None</div>
+                                        <div className={cn("text-xs", noneSelected ? "text-background/70" : "text-muted-foreground")}>
+                                            Remove customization
+                                        </div>
                                     </div>
-                                    {((garageCategory === 'skin' && !data.equippedSkinId) || (garageCategory === 'trail' && !data.equippedTrailId) || (garageCategory === 'wheel' && !data.equippedWheelId)) && (
-                                        <Check className="w-4 h-4 text-primary" />
-                                    )}
+                                    {noneSelected && <Check className="w-4 h-4" />}
                                 </div>
-                             </Button>
-                        )}
+                             </button>
+                            );
+                        })()}
 
                         {/* Base Vehicle Option (always owned) */}
                         {garageCategory === 'vehicle' && (
-                            <Button
-                                variant="outline"
-                                className={`w-full justify-start h-auto py-3 px-4 ${!data.equippedVehicleId ? 'border-primary bg-primary/5' : ''}`}
+                            <button
+                                className={optionTileClass(!data.equippedVehicleId, "w-full")}
                                 onClick={() => {
                                     if (data.equippedVehicleId) handleEquip(data.equippedVehicleId, 'vehicle', 'unequip');
                                 }}
                             >
                                 <div className="flex items-center gap-3 w-full">
-                                    <div className="w-12 h-12 rounded bg-muted flex items-center justify-center overflow-hidden">
+                                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[3px] bg-secondary">
                                          <ThreeErrorBoundary>
                                            <ItemPreview3D type="base" />
                                          </ThreeErrorBoundary>
                                     </div>
                                     <div className="text-left flex-1">
-                                        <div className="font-medium">Base Vehicle</div>
-                                        <div className="text-xs text-muted-foreground">Standard Issue</div>
+                                        <div className="text-sm font-medium">Base Vehicle</div>
+                                        <div className={cn("text-xs", !data.equippedVehicleId ? "text-background/70" : "text-muted-foreground")}>
+                                            Standard Issue
+                                        </div>
                                     </div>
-                                    {!data.equippedVehicleId && <Check className="w-4 h-4 text-primary" />}
+                                    {!data.equippedVehicleId && <Check className="w-4 h-4" />}
                                 </div>
-                            </Button>
+                            </button>
                         )}
 
                         {getGarageItems(garageCategory).map((item) => {
@@ -346,29 +370,30 @@ export function ShopDashboard() {
 
                             return (
                                 <div key={item.id} className="space-y-1">
-                                <Button
-                                    variant="outline"
-                                    className={`w-full justify-start h-auto py-3 px-4 ${isEquipped ? 'border-primary bg-primary/5' : ''}`}
+                                <button
+                                    className={optionTileClass(isEquipped, "w-full disabled:pointer-events-none disabled:opacity-50")}
                                     onClick={() => !isEquipped && handleEquip(item.id, item.type, 'equip')}
                                     disabled={actionLoading === item.id}
                                 >
                                     <div className="flex items-center gap-3 w-full">
-                                    <div className={`w-12 h-12 rounded flex items-center justify-center overflow-hidden relative shrink-0 ${item.type === 'skin' ? 'bg-indigo-100 dark:bg-indigo-900/20' : item.type === 'vehicle' ? 'bg-emerald-100 dark:bg-emerald-900/20' : item.type === 'wheel' ? 'bg-slate-100 dark:bg-slate-900/20' : 'bg-orange-100 dark:bg-orange-900/20'}`}>
+                                    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[3px] bg-secondary">
                                         <ThreeErrorBoundary>
                                           <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
                                         </ThreeErrorBoundary>
                                     </div>
                                         <div className="text-left flex-1 min-w-0">
-                                            <div className="font-medium truncate">{item.name}</div>
-                                            <div className="text-xs text-muted-foreground truncate">{item.description}</div>
+                                            <div className="text-sm font-medium truncate">{item.name}</div>
+                                            <div className={cn("text-xs truncate", isEquipped ? "text-background/70" : "text-muted-foreground")}>
+                                                {item.description}
+                                            </div>
                                         </div>
                                         {isEquipped ? (
-                                            <Check className="w-4 h-4 text-primary shrink-0" />
+                                            <Check className="w-4 h-4 shrink-0" />
                                         ) : actionLoading === item.id ? (
                                             <Loader2 className="w-4 h-4 animate-spin shrink-0" />
                                         ) : null}
                                     </div>
-                                </Button>
+                                </button>
                                 {actionError?.itemId === item.id && (
                                     <p className="px-1 font-mono text-xs text-destructive">{actionError.message}</p>
                                 )}
@@ -388,6 +413,7 @@ export function ShopDashboard() {
             </div>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   );
 }

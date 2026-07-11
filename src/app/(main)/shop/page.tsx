@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function ShopPage() {
   return (
-    <div className="h-full p-8">
+    <div className="min-h-screen">
       <ShopDashboard />
     </div>
   );

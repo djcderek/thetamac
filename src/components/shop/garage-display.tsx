@@ -808,14 +808,14 @@ export function GarageDisplay({ equippedSkin, equippedTrail, equippedVehicle, eq
 
   if (!mounted) {
     return (
-      <div className="w-full h-full min-h-[400px] bg-neutral-900 rounded-xl overflow-hidden relative border border-neutral-800 flex items-center justify-center">
-        <div className="text-neutral-500 text-sm">Loading garage...</div>
+      <div className="relative flex h-full min-h-[400px] w-full items-center justify-center overflow-hidden bg-secondary/40">
+        <div className="text-sm text-muted-foreground">Loading garage...</div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-neutral-900 rounded-xl overflow-hidden relative border border-neutral-800">
+    <div className="relative h-full min-h-[400px] w-full overflow-hidden bg-neutral-900">
       <Canvas shadows dpr={[1, 2]} camera={{ position: [5, 3, 6], fov: 45 }}>
         <Suspense fallback={null}>
             <PerspectiveCamera makeDefault position={[5, 3, 6]} fov={45} />
@@ -899,9 +899,10 @@ export function GarageDisplay({ equippedSkin, equippedTrail, equippedVehicle, eq
       </Canvas>
       
       <div className="absolute bottom-4 left-4 pointer-events-none">
-        <div className="bg-black/80 backdrop-blur-md text-white px-4 py-2 rounded-full border border-white/10 shadow-xl flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-medium tracking-wide uppercase text-neutral-300">Showroom Live</span>
+        {/* Overlay sits on the dark 3D scene, so it keeps fixed scene colors */}
+        <div className="flex items-center gap-2 rounded-[3px] bg-black/80 px-3 py-1.5 text-white">
+            <div className="h-1.5 w-1.5 bg-green-500 [animation:ascii-blink_1.2s_steps(1)_infinite]" />
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-white/80">Showroom Live</span>
         </div>
       </div>
     </div>
