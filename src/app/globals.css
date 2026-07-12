@@ -45,7 +45,7 @@
   --color-dot: var(--dot);
   --color-ascii-ink: var(--ascii-ink);
   --color-ascii-ink-soft: var(--ascii-ink-soft);
-  --font-serif: var(--font-display-serif);
+  --font-serif: "STIX Two Text Variable", "STIX Two Text", serif;
 }
 
 :root {
