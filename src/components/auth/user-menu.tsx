@@ -23,6 +23,10 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { getUpgradeUrl } from "@/lib/upgrade";
+import {
+  PROFILE_UPDATED_EVENT,
+  type ProfileUpdatedDetail,
+} from "@/lib/profile-events";
 
 interface UserMenuProps {
   collapsed?: boolean;
@@ -30,8 +34,10 @@ interface UserMenuProps {
 
 export function UserMenu({ collapsed = false }: UserMenuProps) {
   const { data: session, status } = useSession();
+  const sessionImage = session?.user?.image || undefined;
+  const hasSessionUser = Boolean(session?.user);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(
-    session?.user?.image || undefined
+    sessionImage
   );
   const [billingLoading, setBillingLoading] = useState(false);
 
@@ -39,31 +45,37 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
     let isMounted = true;
 
     const loadAvatar = async () => {
-      if (!session?.user) return;
+      if (!hasSessionUser) return;
 
-      if (session.user.image) {
-        setAvatarUrl(session.user.image);
-        return;
-      }
+      setAvatarUrl(sessionImage);
 
       try {
         const res = await fetch("/api/settings", { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-        if (isMounted && data?.profile?.image) {
-          setAvatarUrl(data.profile.image);
+        if (isMounted) {
+          setAvatarUrl(data?.profile?.image || sessionImage);
         }
       } catch (error) {
         console.error("Failed to load avatar", error);
       }
     };
 
+    const handleProfileUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<ProfileUpdatedDetail>).detail;
+      if (detail?.image !== undefined) {
+        setAvatarUrl(detail.image || undefined);
+      }
+    };
+
     loadAvatar();
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
 
     return () => {
       isMounted = false;
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     };
-  }, [session?.user]);
+  }, [hasSessionUser, sessionImage]);
 
   const handleManageBilling = async () => {
     try {
@@ -210,5 +222,3 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
     </DropdownMenu>
   );
 }
-
-

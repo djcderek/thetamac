@@ -39,6 +39,10 @@ const themeScript = `
       document.documentElement.classList.remove("light", "dark");
       document.documentElement.classList.add(resolved);
       document.documentElement.dataset.themePreference = preference;
+      var tone = localStorage.getItem("thetamac-theme-tone");
+      if (tone !== "neutral") tone = "warm";
+      document.documentElement.classList.toggle("neutral-tone", tone === "neutral");
+      document.documentElement.dataset.colorTone = tone;
     } catch (_) {}
   })();
 `;

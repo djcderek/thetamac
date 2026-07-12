@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
 import { PageHeader } from "@/components/ui/visual-system";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profile-events";
 
 interface SettingToggleProps {
   label: string;
@@ -52,6 +53,61 @@ const PRACTICE_TIMER_OPTIONS: SettingsState["defaultTimer"][] = [
   "20s",
   "30s",
 ];
+
+const AVATAR_OUTPUT_SIZE = 512;
+
+async function createSquareAvatar(file: File) {
+  let source: CanvasImageSource;
+  let width: number;
+  let height: number;
+  let cleanup: () => void = () => undefined;
+
+  if (typeof createImageBitmap === "function") {
+    const bitmap = await createImageBitmap(file);
+    source = bitmap;
+    width = bitmap.width;
+    height = bitmap.height;
+    cleanup = () => bitmap.close();
+  } else {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.src = objectUrl;
+    await image.decode();
+    source = image;
+    width = image.naturalWidth;
+    height = image.naturalHeight;
+    cleanup = () => URL.revokeObjectURL(objectUrl);
+  }
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = AVATAR_OUTPUT_SIZE;
+    canvas.height = AVATAR_OUTPUT_SIZE;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Canvas is unavailable.");
+    }
+
+    const cropSize = Math.min(width, height);
+    const sourceX = (width - cropSize) / 2;
+    const sourceY = (height - cropSize) / 2;
+    context.drawImage(
+      source,
+      sourceX,
+      sourceY,
+      cropSize,
+      cropSize,
+      0,
+      0,
+      AVATAR_OUTPUT_SIZE,
+      AVATAR_OUTPUT_SIZE
+    );
+
+    return canvas.toDataURL("image/webp", 0.9);
+  } finally {
+    cleanup();
+  }
+}
 
 type SaveFeedback = { type: "success" | "error"; message: string } | null;
 
@@ -107,12 +163,11 @@ function SettingToggle({ label, description, enabled, onToggle }: SettingToggleP
 }
 
 export function SettingsClient() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, tone, setTone } = useTheme();
   const { data: session, status: sessionStatus, update: updateSession } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [profileFeedback, setProfileFeedback] = useState<SaveFeedback>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -125,8 +180,12 @@ export function SettingsClient() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const themeHydratedFromServerRef = useRef(false);
   const themeChangedByUserRef = useRef(false);
+  const toneHydratedFromServerRef = useRef(false);
+  const toneChangedByUserRef = useRef(false);
   const themeSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const themeRequestVersionRef = useRef(0);
+  const toneSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const toneRequestVersionRef = useRef(0);
   const settingsSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const settingsRequestVersionRef = useRef(0);
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
@@ -141,9 +200,7 @@ export function SettingsClient() {
     image: ""
   });
   
-  // Temp avatar URL for editing
-  const [tempAvatar, setTempAvatar] = useState("");
-  const MAX_AVATAR_FILE_SIZE = 2 * 1024 * 1024; // 2MB limit for inline storage
+  const MAX_AVATAR_FILE_SIZE = 8 * 1024 * 1024;
 
   // Settings State
   const [settings, setSettings] = useState<SettingsState>({
@@ -186,6 +243,14 @@ export function SettingsClient() {
           themeHydratedFromServerRef.current = true;
           setTheme(data.settings.theme);
         }
+        if (
+          !toneHydratedFromServerRef.current &&
+          !toneChangedByUserRef.current &&
+          ["warm", "neutral"].includes(data.settings.colorTone)
+        ) {
+          toneHydratedFromServerRef.current = true;
+          setTone(data.settings.colorTone);
+        }
       } catch (error) {
         console.error("Failed to fetch settings", error);
         setSettingsFeedback({
@@ -204,6 +269,7 @@ export function SettingsClient() {
     session?.user?.name,
     sessionStatus,
     setTheme,
+    setTone,
   ]);
 
   const updateProfileImageValue = async (image: string) => {
@@ -223,9 +289,16 @@ export function SettingsClient() {
         throw new Error(await getResponseError(res, "Failed to update profile image."));
       }
 
-      setProfile((prev) => ({ ...prev, image }));
-
-      await updateSession({ name: profile.name, image });
+      const data = await res.json();
+      const savedImage = data.user?.image ?? image;
+      setProfile((prev) => ({ ...prev, image: savedImage }));
+      await updateSession({ name: profile.name });
+      window.dispatchEvent(
+        new CustomEvent(PROFILE_UPDATED_EVENT, {
+          detail: { image: savedImage },
+        })
+      );
+      router.refresh();
       setProfileFeedback({ type: "success", message: "Profile photo saved." });
       return true;
     } catch (error) {
@@ -327,6 +400,46 @@ export function SettingsClient() {
       });
   };
 
+  const updateTone = (newTone: "warm" | "neutral") => {
+    const previousTone = tone;
+    const requestVersion = ++toneRequestVersionRef.current;
+    toneChangedByUserRef.current = true;
+    setTone(newTone);
+    setThemeFeedback(null);
+
+    toneSaveQueueRef.current = toneSaveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const response = await fetch("/api/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "settings",
+            data: { colorTone: newTone },
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(
+            await getResponseError(response, "Unable to save color preference.")
+          );
+        }
+        if (requestVersion === toneRequestVersionRef.current) {
+          setThemeFeedback({ type: "success", message: "Appearance saved." });
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to update color preference", error);
+        if (requestVersion === toneRequestVersionRef.current) {
+          setTone(previousTone);
+          setThemeFeedback({
+            type: "error",
+            message:
+              error instanceof Error ? error.message : "Unable to save color preference.",
+          });
+        }
+      });
+  };
+
   const handleProfileSave = async () => {
     setIsSavingProfile(true);
     setProfileFeedback(null);
@@ -347,7 +460,7 @@ export function SettingsClient() {
       const data = await res.json();
       const savedName = data.user?.name ?? profile.name.trim();
       setProfile((current) => ({ ...current, name: savedName }));
-      await updateSession({ name: savedName, image: profile.image });
+      await updateSession({ name: savedName });
       setProfileFeedback({ type: "success", message: "Profile saved." });
       router.refresh();
     } catch (error) {
@@ -361,16 +474,6 @@ export function SettingsClient() {
     }
   };
 
-  const handleAvatarSave = async () => {
-    if (!tempAvatar.trim()) {
-      return;
-    }
-    const saved = await updateProfileImageValue(tempAvatar.trim());
-    if (saved) {
-      setIsAvatarDialogOpen(false);
-    }
-  };
-
   const handleAvatarFileSelect = async (
     event: ChangeEvent<HTMLInputElement>
   ) => {
@@ -380,7 +483,7 @@ export function SettingsClient() {
     }
 
     if (file.size > MAX_AVATAR_FILE_SIZE) {
-      setAvatarError("Please choose an image smaller than 2MB.");
+      setAvatarError("Please choose an image smaller than 8MB.");
       event.target.value = "";
       return;
     }
@@ -391,18 +494,18 @@ export function SettingsClient() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const result = reader.result as string;
+    setIsUploadingAvatar(true);
+    setAvatarError(null);
+    try {
+      const result = await createSquareAvatar(file);
       await updateProfileImageValue(result);
-    };
-    reader.onerror = () => {
-      console.error("Failed to read file");
-      setAvatarError("Unable to read that image file.");
-    };
-    reader.readAsDataURL(file);
-
-    event.target.value = "";
+    } catch (error) {
+      console.error("Failed to prepare avatar", error);
+      setAvatarError("Unable to process that image. Please choose another photo.");
+    } finally {
+      setIsUploadingAvatar(false);
+      event.target.value = "";
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -424,6 +527,7 @@ export function SettingsClient() {
       }
 
       localStorage.removeItem("thetamac-theme");
+      localStorage.removeItem("thetamac-theme-tone");
       await signOut({ callbackUrl: "/" });
     } catch (error) {
       setDeleteAccountError(
@@ -471,7 +575,7 @@ export function SettingsClient() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif"
                 className="hidden"
                 onChange={handleAvatarFileSelect}
               />
@@ -479,7 +583,10 @@ export function SettingsClient() {
               <div className="flex flex-wrap items-center gap-4">
                 <div className="relative">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={profile.image} referrerPolicy="no-referrer" />
+                    <AvatarImage
+                      src={profile.image || undefined}
+                      referrerPolicy="no-referrer"
+                    />
                     <AvatarFallback>
                       {profile.name?.substring(0, 2).toUpperCase() || "User"}
                     </AvatarFallback>
@@ -491,79 +598,23 @@ export function SettingsClient() {
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingAvatar}
-                  >
-                    {isUploadingAvatar ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      "Upload photo"
-                    )}
-                  </Button>
-
-                  <Dialog open={isAvatarDialogOpen} onOpenChange={setIsAvatarDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setAvatarError(null);
-                          setTempAvatar(profile.image || "");
-                        }}
-                      >
-                        Use image URL
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Use Image URL</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="flex justify-center">
-                          <Avatar className="h-20 w-20">
-                            <AvatarImage src={tempAvatar} referrerPolicy="no-referrer" />
-                            <AvatarFallback>Preview</AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="avatar-url">Image URL</Label>
-                          <Input
-                            id="avatar-url"
-                            placeholder="https://example.com/avatar.jpg"
-                            value={tempAvatar}
-                            onChange={(e) => setTempAvatar(e.target.value)}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Paste a link to any image hosted online.
-                          </p>
-                          {avatarError && (
-                            <p className="text-sm text-destructive" role="alert">
-                              {avatarError}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAvatarDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleAvatarSave} disabled={!tempAvatar.trim() || isUploadingAvatar}>
-                          {isUploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                          {isUploadingAvatar ? "Saving..." : "Save"}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                >
+                  {isUploadingAvatar ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    "Upload photo"
+                  )}
+                </Button>
               </div>
-              {avatarError && !isAvatarDialogOpen && (
+              {avatarError && (
                 <p className="text-sm text-destructive" role="alert">
                   {avatarError}
                 </p>
@@ -653,6 +704,43 @@ export function SettingsClient() {
                     <Monitor className="w-5 h-5" />
                     <span className="text-sm font-medium">System</span>
                   </button>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-sm font-medium">Color tone</p>
+                    <p className="text-xs text-muted-foreground">
+                      Choose the original warm palette or quieter neutral surfaces.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      aria-pressed={tone === "warm"}
+                      onClick={() => updateTone("warm")}
+                      className={`flex items-center gap-3 rounded-[3px] border p-3 text-left transition-colors ${
+                        tone === "warm"
+                          ? "border-foreground bg-secondary"
+                          : "border-border hover:bg-secondary/50"
+                      }`}
+                    >
+                      <span className="h-5 w-5 rounded-full border border-border bg-[oklch(0.92_0.045_65)]" />
+                      <span className="text-sm font-medium">Warm</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={tone === "neutral"}
+                      onClick={() => updateTone("neutral")}
+                      className={`flex items-center gap-3 rounded-[3px] border p-3 text-left transition-colors ${
+                        tone === "neutral"
+                          ? "border-foreground bg-secondary"
+                          : "border-border hover:bg-secondary/50"
+                      }`}
+                    >
+                      <span className="h-5 w-5 rounded-full border border-border bg-[oklch(0.92_0.004_260)]" />
+                      <span className="text-sm font-medium">Neutral</span>
+                    </button>
+                  </div>
                 </div>
                 <FeedbackMessage feedback={themeFeedback} />
               </div>

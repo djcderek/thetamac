@@ -314,7 +314,11 @@ export function DashboardClient() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <BrandedEmptyState title="No activity yet" description="Complete a few problems to begin your weekly rhythm." />
+                  <BrandedEmptyState
+                    compact
+                    title="No activity yet"
+                    description="Complete a few problems to begin your weekly rhythm."
+                  />
                 )}
               </div>
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">

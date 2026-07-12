@@ -80,8 +80,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.name = updatedName;
         }
         if (typeof updatedImage === "string") {
-          token.picture = updatedImage;
+          token.picture = updatedImage.startsWith("data:image/") ? null : updatedImage;
         }
+      }
+
+      // Inline avatar data is persisted in the profile, not in the JWT cookie.
+      // User-facing avatar components load the current database value separately.
+      if (typeof token.picture === "string" && token.picture.startsWith("data:image/")) {
+        token.picture = null;
       }
 
       const userId = (user?.id as string) ?? (token.id as string | undefined);
@@ -121,7 +127,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         session.user.email = token.email as string;
         session.user.name = token.name as string;
-        session.user.image = token.picture as string;
+        session.user.image = (token.picture as string | null | undefined) ?? null;
         session.user.isPremium = Boolean(token.isPremium);
         session.user.subscriptionStatus =
           (token.subscriptionStatus as string | null) ?? null;

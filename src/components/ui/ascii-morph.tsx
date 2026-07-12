@@ -34,6 +34,8 @@ type AsciiMorphProps = {
   accent?: boolean;
   /** false = static first shape; the ambient tier. */
   animate?: boolean;
+  /** Mirror the shape vertically while keeping every glyph upright. */
+  flipY?: boolean;
   morphMs?: number;
   holdMs?: number;
   /** Capped at 15; decorative motion doesn't need more. */
@@ -51,10 +53,12 @@ function StaticFrame({
   shape,
   ink,
   accent,
+  flipY,
 }: {
   shape: AsciiShapeName;
   ink: NonNullable<AsciiMorphProps["ink"]>;
   accent: boolean;
+  flipY: boolean;
 }) {
   const { density } = ASCII_SHAPES[shape];
   const baseRows: string[] = [];
@@ -63,7 +67,8 @@ function StaticFrame({
     let base = "";
     let acc = "";
     for (let c = 0; c < ASCII_COLS; c++) {
-      const d = density[r * ASCII_COLS + c];
+      const sourceRow = flipY ? ASCII_ROWS - 1 - r : r;
+      const d = density[sourceRow * ASCII_COLS + c];
       const glyph = pickGlyph(d, c, r, 0);
       const isAccent = accent && d >= ACCENT_THRESHOLD;
       base += isAccent ? " " : glyph;
@@ -114,6 +119,7 @@ export function AsciiMorph({
   ink = "muted",
   accent = false,
   animate = true,
+  flipY = false,
   morphMs = 900,
   holdMs = 3200,
   fps = 12,
@@ -193,7 +199,8 @@ export function AsciiMorph({
 
       for (let r = 0; r < ASCII_ROWS; r++) {
         for (let c = 0; c < ASCII_COLS; c++) {
-          const i = r * ASCII_COLS + c;
+          const sourceRow = flipY ? ASCII_ROWS - 1 - r : r;
+          const i = sourceRow * ASCII_COLS + c;
           let d = from.density[i];
           if (progress > 0) {
             // Hashed per-cell stagger dissolves the shape cell-by-cell.
@@ -276,7 +283,7 @@ export function AsciiMorph({
       document.removeEventListener("visibilitychange", onVisibility);
       reducedMotion.removeEventListener("change", onMotionChange);
     };
-  }, [animate, shapeKey, ink, accent, morphMs, holdMs, fps]);
+  }, [animate, shapeKey, ink, accent, flipY, morphMs, holdMs, fps]);
 
   return (
     <div
@@ -285,7 +292,12 @@ export function AsciiMorph({
       className={cn("pointer-events-none relative select-none", className)}
       style={{ aspectRatio: `${VIEW_W} / ${VIEW_H}` }}
     >
-      <StaticFrame shape={shapes[0] ?? "theta"} ink={ink} accent={accent} />
+      <StaticFrame
+        shape={shapes[0] ?? "theta"}
+        ink={ink}
+        accent={accent}
+        flipY={flipY}
+      />
       {animate && (
         <canvas
           ref={canvasRef}

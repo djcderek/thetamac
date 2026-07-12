@@ -207,7 +207,7 @@ export default async function UpgradePage({
                         properties: { source, feature: activeFeature },
                       }}
                       variant="outline"
-                      className="w-full rounded-full border border-background/30 px-4 py-3 font-medium text-background transition-colors hover:bg-background/10"
+                      className="w-full rounded-full border border-background/30 bg-background px-4 py-3 font-medium text-foreground transition-colors hover:bg-brand hover:text-brand-foreground"
                     />
                   </>
                 )}

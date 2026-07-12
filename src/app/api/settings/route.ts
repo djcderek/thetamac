@@ -8,18 +8,8 @@ const avatarSchema = z
   .string()
   .max(2_800_000, "Profile images must be smaller than 2MB.")
   .refine(
-    (value) => {
-      if (value === "" || /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value)) {
-        return true;
-      }
-      try {
-        const url = new URL(value);
-        return url.protocol === "https:" && Boolean(url.hostname);
-      } catch {
-        return false;
-      }
-    },
-    "Use an HTTPS image URL or a PNG, JPEG, WebP, or GIF image."
+    (value) => value === "" || /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value),
+    "Upload a PNG, JPEG, WebP, or GIF image."
   );
 
 const profileDataSchema = z
@@ -36,6 +26,7 @@ const settingsDataSchema = z
     defaultDifficulty: z.enum(["Easy", "Medium", "Hard", "Expert"]).optional(),
     defaultTimer: z.enum(["5s", "8s", "10s", "12s", "15s", "20s", "30s"]).optional(),
     theme: z.enum(["light", "dark", "system"]).optional(),
+    colorTone: z.enum(["warm", "neutral"]).optional(),
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, "No settings changes provided.");
@@ -107,6 +98,9 @@ export async function GET() {
       theme: ["light", "dark", "system"].includes(storedSettings?.theme ?? "")
         ? storedSettings!.theme
         : "system",
+      colorTone: ["warm", "neutral"].includes(storedSettings?.colorTone ?? "")
+        ? storedSettings!.colorTone
+        : "warm",
     };
 
     return NextResponse.json({

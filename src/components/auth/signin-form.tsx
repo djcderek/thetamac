@@ -78,7 +78,7 @@ export function SignInForm() {
       <CardHeader className="space-y-1 text-center">
         <AsciiMorph shapes={["theta", "times"]} className="mx-auto mb-1 w-24" />
         <div className="flex items-center justify-center gap-2 mb-2">
-          <LogoMark size={32} />
+          <LogoMark size={32} textured={false} />
         </div>
         <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
         <CardDescription>Sign in to your thetamac account</CardDescription>

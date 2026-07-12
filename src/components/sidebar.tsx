@@ -57,7 +57,7 @@ export function Sidebar() {
       >
         {showExpanded && (
           <Link href="/" className="flex items-center gap-2">
-            <LogoMark size={26} />
+            <LogoMark size={26} textured={false} />
             <span className="font-semibold tracking-[-0.03em]">thetamac</span>
           </Link>
         )}
@@ -71,7 +71,7 @@ export function Sidebar() {
           {isCollapsed ? (
             <PanelLeft className="w-4 h-4" />
           ) : (
-            <PanelLeftClose className="w-4 h-4" />
+            <PanelLeftClose className="h-4 w-4" />
           )}
         </button>
       </div>

@@ -86,6 +86,7 @@ model UserSettings {
   defaultTimer      String   @default("10s")
   
   theme             String   @default("system") // "light", "dark", "system"
+  colorTone         String   @default("warm") // "warm", "neutral"
 
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

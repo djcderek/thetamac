@@ -44,7 +44,7 @@ export function PageHeader({
   return (
     <header className={cn("relative overflow-hidden border-b border-border bg-background", className)}>
       <div className="bayer-fade-l pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 opacity-45 lg:block">
-        <AsciiMorph shapes={["theta"]} animate={false} className="w-56" />
+        <AsciiMorph shapes={["theta"]} animate={false} flipY className="w-56" />
       </div>
       <div className="relative flex min-h-32 items-center justify-between gap-6 px-5 py-7 md:px-8">
         <div className="max-w-2xl">
@@ -69,15 +69,37 @@ export function MetricTile({ label, value, detail, className }: { label: string;
   );
 }
 
-export function BrandedEmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+export function BrandedEmptyState({
+  title,
+  description,
+  action,
+  compact = false,
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+  compact?: boolean;
+}) {
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center border-y border-border py-10 text-center">
-      <div className="relative mb-3 px-5 py-2.5">
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center border-y border-border text-center",
+        compact ? "h-full min-h-0 py-3" : "min-h-40 py-10",
+      )}
+    >
+      <div className={cn("relative", compact ? "mb-1 px-4 py-1.5" : "mb-3 px-5 py-2.5")}>
         <CornerBrackets size={10} />
-        <DitherIllustration className="w-20" />
+        <DitherIllustration className={compact ? "w-12" : "w-20"} />
       </div>
       <h3 className="font-semibold tracking-tight">{title}</h3>
-      <p className="mt-1 max-w-sm text-sm leading-6 text-muted-foreground">{description}</p>
+      <p
+        className={cn(
+          "max-w-sm text-muted-foreground",
+          compact ? "mt-0.5 text-xs leading-5" : "mt-1 text-sm leading-6",
+        )}
+      >
+        {description}
+      </p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

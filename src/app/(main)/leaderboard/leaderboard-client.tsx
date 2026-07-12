@@ -19,7 +19,7 @@ import type {
   Mode,
   Period,
 } from "@/lib/leaderboard";
-import { PageHeader } from "@/components/ui/visual-system";
+import { PageHeader, SectionLabel } from "@/components/ui/visual-system";
 
 interface LeaderboardClientProps {
   initialLeaderboard: LeaderboardResult;
@@ -190,53 +190,81 @@ export function LeaderboardClient({
 
       <div className="p-4 md:p-6">
         <div className="max-w-3xl mx-auto space-y-6">
-          {/* Mode Tabs */}
-          <Tabs
-            defaultValue={initialMode}
-            value={mode}
-            className="w-full"
-            onValueChange={handleModeChange}
-          >
-            <TabsList>
-              <TabsTrigger value="training">Timed Training</TabsTrigger>
-              <TabsTrigger value="duel">Duel Mode</TabsTrigger>
-              <TabsTrigger value="racing">Racing Mode</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <section aria-label="Leaderboard controls" className="space-y-4 border-b border-border pb-5">
+            <div>
+              <div className="space-y-2">
+                <SectionLabel>Competition</SectionLabel>
+                <Tabs
+                  defaultValue={initialMode}
+                  value={mode}
+                  className="w-full sm:w-auto"
+                  onValueChange={handleModeChange}
+                >
+                  <TabsList className="grid w-full grid-cols-3 rounded-[3px] sm:w-auto">
+                    <TabsTrigger className="rounded-[2px] px-4" value="training">
+                      Timed Training
+                    </TabsTrigger>
+                    <TabsTrigger className="rounded-[2px] px-4" value="duel">
+                      Duel
+                    </TabsTrigger>
+                    <TabsTrigger className="rounded-[2px] px-4" value="racing">
+                      Racing
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                {mode === "training" && (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Default setup: Medium · All operations · Standard timer
+                  </p>
+                )}
+              </div>
+            </div>
 
-          {mode === "training" && (
-            <p className="text-xs text-muted-foreground px-1">
-              Ranked on timed mode sessions using default settings: medium difficulty, all operations, standard timer.
-            </p>
-          )}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-8">
+              <div className="space-y-2">
+                <SectionLabel>Timeframe</SectionLabel>
+                <Tabs
+                  defaultValue={initialPeriod}
+                  value={period}
+                  className="w-full sm:w-auto"
+                  onValueChange={handlePeriodChange}
+                >
+                  <TabsList className="min-h-9 rounded-[3px] p-0.5">
+                    <TabsTrigger className="h-7 rounded-[2px] px-3" value="all">
+                      All time
+                    </TabsTrigger>
+                    <TabsTrigger className="h-7 rounded-[2px] px-3" value="weekly">
+                      Weekly
+                    </TabsTrigger>
+                    <TabsTrigger className="h-7 rounded-[2px] px-3" value="daily">
+                      Daily
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
 
-          {/* Period Tabs */}
-          <Tabs
-            defaultValue={initialPeriod}
-            value={period}
-            className="w-full"
-            onValueChange={handlePeriodChange}
-          >
-            <TabsList>
-              <TabsTrigger value="all">All Time</TabsTrigger>
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="daily">Daily</TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {mode === "training" && (
-            <Tabs
-              defaultValue="distribution"
-              value={view}
-              className="w-full"
-              onValueChange={handleViewChange}
-            >
-              <TabsList>
-                <TabsTrigger value="distribution">Score Distribution</TabsTrigger>
-                <TabsTrigger value="board">Leaderboard</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
+              {mode === "training" && (
+                <div className="space-y-2">
+                  <SectionLabel>View</SectionLabel>
+                  <Tabs
+                    defaultValue="distribution"
+                    value={view}
+                    className="w-full sm:w-auto"
+                    onValueChange={handleViewChange}
+                  >
+                    <TabsList className="min-h-9 rounded-[3px] p-0.5">
+                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="distribution">
+                        Distribution
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="board">
+                        Rankings
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              )}
+            </div>
+          </section>
 
           {isLoading && view === "board" ? (
             <div className="flex justify-center py-12">
@@ -333,7 +361,7 @@ export function LeaderboardClient({
 
                     return (
                       <div className="space-y-3">
-                        <div className="rounded-[3px] border border-border bg-background/40 p-3">
+                        <div>
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             <button
                               type="button"

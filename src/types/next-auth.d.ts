@@ -8,7 +8,7 @@ declare module "next-auth" {
       id: string;
       email: string;
       name: string;
-      image: string;
+      image: string | null;
       isPremium: boolean;
       subscriptionStatus: string | null;
       subscriptionPlan: SubscriptionPlan | null;
@@ -40,4 +40,3 @@ declare module "next-auth/jwt" {
     stripeSubscriptionId?: string | null;
   }
 }
-

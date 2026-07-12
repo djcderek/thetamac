@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 type Theme = "dark" | "light" | "system";
+type ColorTone = "warm" | "neutral";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -13,17 +14,25 @@ type ThemeProviderProps = {
 type ThemeProviderState = {
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  tone: ColorTone;
+  setTone: (tone: ColorTone) => void;
 };
 
 const initialState: ThemeProviderState = {
   theme: "system",
   setTheme: () => null,
+  tone: "warm",
+  setTone: () => null,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 function isTheme(value: string | null): value is Theme {
   return value === "light" || value === "dark" || value === "system";
+}
+
+function isColorTone(value: string | null): value is ColorTone {
+  return value === "warm" || value === "neutral";
 }
 
 function resolveTheme(theme: Theme) {
@@ -36,6 +45,12 @@ function applyTheme(theme: Theme) {
   root.classList.remove("light", "dark");
   root.classList.add(resolveTheme(theme));
   root.dataset.themePreference = theme;
+}
+
+function applyTone(tone: ColorTone) {
+  const root = window.document.documentElement;
+  root.classList.toggle("neutral-tone", tone === "neutral");
+  root.dataset.colorTone = tone;
 }
 
 export function ThemeProvider({
@@ -51,6 +66,14 @@ export function ThemeProvider({
     const stored = localStorage.getItem(storageKey);
     return isTheme(stored) ? stored : defaultTheme;
   });
+  const toneStorageKey = `${storageKey}-tone`;
+  const [tone, setToneState] = useState<ColorTone>(() => {
+    if (typeof window === "undefined") {
+      return "warm";
+    }
+    const stored = localStorage.getItem(toneStorageKey);
+    return isColorTone(stored) ? stored : "warm";
+  });
 
   useEffect(() => {
     applyTheme(theme);
@@ -63,13 +86,26 @@ export function ThemeProvider({
     return () => media.removeEventListener("change", handleChange);
   }, [theme]);
 
+  useEffect(() => {
+    applyTone(tone);
+  }, [tone]);
+
   const setTheme = useCallback((nextTheme: Theme) => {
     localStorage.setItem(storageKey, nextTheme);
     applyTheme(nextTheme);
     setThemeState(nextTheme);
   }, [storageKey]);
 
-  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+  const setTone = useCallback((nextTone: ColorTone) => {
+    localStorage.setItem(toneStorageKey, nextTone);
+    applyTone(nextTone);
+    setToneState(nextTone);
+  }, [toneStorageKey]);
+
+  const value = useMemo(
+    () => ({ theme, setTheme, tone, setTone }),
+    [theme, setTheme, tone, setTone]
+  );
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>
@@ -86,7 +122,6 @@ export const useTheme = () => {
 
   return context;
 };
-
 
 
 
