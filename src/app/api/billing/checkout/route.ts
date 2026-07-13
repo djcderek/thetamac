@@ -6,6 +6,7 @@ import { userHasPremiumAccess } from "@/lib/subscription";
 import { env } from "@/lib/env";
 import { checkoutRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import Stripe from "stripe";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 function normalizeReturnPath(
   baseUrl: string,
@@ -206,6 +207,17 @@ export async function POST(request: Request) {
         plan,
       },
     });
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: session.user.id,
+      event: "checkout_initiated",
+      properties: {
+        plan,
+        eligible_for_trial: eligibleForTrial,
+      },
+    });
+    await posthog.flush();
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (error) {

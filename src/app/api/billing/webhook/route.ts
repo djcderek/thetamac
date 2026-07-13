@@ -5,6 +5,7 @@ import { isPremiumStatus, updateUserSubscription } from "@/lib/subscription";
 import { db } from "@/lib/db";
 import Stripe from "stripe";
 import { env } from "@/lib/env";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,6 +75,18 @@ async function syncSubscription(subscription: Stripe.Subscription) {
         userId
       );
     }
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: userId,
+      event: "subscription_activated",
+      properties: {
+        plan: subscription.metadata?.plan ?? null,
+        status: subscription.status,
+        is_trial: Boolean(subscription.trial_start || subscription.trial_end),
+      },
+    });
+    await posthog.flush();
   }
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import posthog from "posthog-js";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -492,6 +493,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
       isGameActive,
       isLobby,
     });
+    posthog.capture("multiplayer_duel_joined", { is_guest: isGuest });
     joinMatchmaking();
   };
 

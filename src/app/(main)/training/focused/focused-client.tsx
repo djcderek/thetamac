@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, Suspense, startTransition } from "react";
+import posthog from "posthog-js";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -127,6 +128,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
+  const captureStatsRef = useRef({ correctCount: 0, times: [] as number[], bestStreak: 0, isRetryRound: false });
   const currentProblem = problems[currentIndex];
 
   const isMobileDevice = useIsMobileDevice();
@@ -157,6 +159,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
 
   const startTraining = () => {
+    captureStatsRef.current = { correctCount: 0, times: [], bestStreak: 0, isRetryRound: false };
     setIsPlaying(true);
     setIsComplete(false);
     setCurrentIndex(0);
@@ -171,6 +174,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   };
 
   const startRetryRound = () => {
+    captureStatsRef.current = { correctCount: 0, times: [], bestStreak: 0, isRetryRound: true };
     setProblems(shuffleArray(mistakes));
     setMistakes([]);
     setCurrentIndex(0);
@@ -192,6 +196,15 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
       // Session complete
       setIsPlaying(false);
       setIsComplete(true);
+      const s = captureStatsRef.current;
+      posthog.capture("focused_training_completed", {
+        problem_count: problems.length,
+        correct_count: s.correctCount,
+        accuracy_pct: problems.length > 0 ? Math.round((s.correctCount / problems.length) * 100) : 0,
+        avg_time_s: s.times.length > 0 ? Math.round((s.times.reduce((a, b) => a + b, 0) / s.times.length) * 100) / 100 : 0,
+        best_streak: s.bestStreak,
+        is_retry_round: s.isRetryRound,
+      });
     }
   }, [currentIndex, problems.length]);
 
@@ -247,10 +260,13 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     recordAttempt(currentProblem, answerNum, correct, timeTaken);
 
     if (correct) {
+      captureStatsRef.current.correctCount++;
+      captureStatsRef.current.times = [...captureStatsRef.current.times, timeTaken];
       setCorrectCount((prev) => prev + 1);
       setStreak((prev) => {
         const newStreak = prev + 1;
         if (newStreak > bestStreak) {
+          captureStatsRef.current.bestStreak = newStreak;
           setBestStreak(newStreak);
         }
         return newStreak;
@@ -291,12 +307,15 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     if (!isNaN(answerNum) && answerNum === currentProblem.answer) {
       const timeTaken = (Date.now() - startTime) / 1000;
 
+      captureStatsRef.current.correctCount++;
+      captureStatsRef.current.times = [...captureStatsRef.current.times, timeTaken];
       startTransition(() => {
         setIsCorrect(true);
         setCorrectCount((prev) => prev + 1);
         setStreak((prev) => {
           const newStreak = prev + 1;
           if (newStreak > bestStreak) {
+            captureStatsRef.current.bestStreak = newStreak;
             setBestStreak(newStreak);
           }
           return newStreak;
