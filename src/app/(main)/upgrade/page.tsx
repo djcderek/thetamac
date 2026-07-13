@@ -61,6 +61,7 @@ export default async function UpgradePage({
   const resolvedSearchParams = (await searchParams) ?? {};
   const activeFeature = normalizeFeature(resolvedSearchParams.feature);
   const source = normalizeString(resolvedSearchParams.source);
+  const upgraded = resolvedSearchParams.upgraded === "1";
 
   const { userId, isPremium } = await getCurrentUserPremiumStatus();
 
@@ -245,7 +246,7 @@ export default async function UpgradePage({
       </div>
 
       <UpgradeTelemetry feature={activeFeature} source={source} />
-      <UpgradeAutoScroll feature={activeFeature} />
+      <UpgradeAutoScroll feature={activeFeature} upgraded={upgraded} />
     </div>
   );
 }

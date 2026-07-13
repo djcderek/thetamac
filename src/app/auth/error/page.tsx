@@ -5,15 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { useGoogleSignIn } from "@/hooks/use-google-sign-in";
 
 function AuthErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const callbackUrl = searchParams.get("callbackUrl");
+  const { isGoogleLoading, googleSignInError, startGoogleSignIn } =
+    useGoogleSignIn();
 
   const getErrorMessage = (error: string | null) => {
     switch (error) {
       case "Configuration":
-        return "There is a problem with the server configuration.";
+        return "Your sign-in attempt could not be completed. Start a fresh sign-in to try again.";
       case "AccessDenied":
         return "Access was denied. You may not have permission to sign in.";
       case "Verification":
@@ -51,10 +56,21 @@ function AuthErrorContent() {
         <CardDescription>{getErrorMessage(error)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {googleSignInError && (
+          <div className="flex items-center gap-2 rounded-[3px] bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{googleSignInError}</span>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
-          <Link href="/auth/signin">
-            <Button className="w-full">Try Again</Button>
-          </Link>
+          <Button
+            className="w-full"
+            onClick={() => startGoogleSignIn(callbackUrl)}
+            disabled={isGoogleLoading}
+          >
+            {isGoogleLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Start a Fresh Sign-In
+          </Button>
           <Link href="/">
             <Button variant="outline" className="w-full">
               Go Home
@@ -80,7 +96,6 @@ export default function AuthErrorPage() {
     </div>
   );
 }
-
 
 
 

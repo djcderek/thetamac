@@ -38,5 +38,6 @@ declare module "next-auth/jwt" {
     subscriptionCurrentPeriodEnd?: string | null;
     stripeCustomerId?: string | null;
     stripeSubscriptionId?: string | null;
+    billingMetadataCheckedAt?: number;
   }
 }

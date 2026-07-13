@@ -1,10 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 
 type UpgradeFeature = "analytics" | "coins";
 
-export function UpgradeAutoScroll({ feature }: { feature?: UpgradeFeature }) {
+export function UpgradeAutoScroll({
+  feature,
+  upgraded = false,
+}: {
+  feature?: UpgradeFeature;
+  upgraded?: boolean;
+}) {
+  const { update } = useSession();
+  const refreshedBillingRef = useRef(false);
+
   useEffect(() => {
     if (!feature) return;
 
@@ -17,6 +27,15 @@ export function UpgradeAutoScroll({ feature }: { feature?: UpgradeFeature }) {
 
     return () => window.clearTimeout(t);
   }, [feature]);
+
+  useEffect(() => {
+    if (!upgraded || refreshedBillingRef.current) return;
+
+    refreshedBillingRef.current = true;
+    void update({ refreshBilling: true }).catch(() => {
+      refreshedBillingRef.current = false;
+    });
+  }, [update, upgraded]);
 
   return null;
 }

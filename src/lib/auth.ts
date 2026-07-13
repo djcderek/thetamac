@@ -6,64 +6,21 @@ import type { Adapter } from "next-auth/adapters";
 import { isPremiumStatus } from "./subscription";
 import { SubscriptionPlan } from "@prisma/client";
 import { env } from "./env";
-
-const TRANSIENT_DATABASE_ERROR_CODES = new Set(["P1001", "P1002", "P1017"]);
-const AUTH_DATABASE_RETRY_DELAY_MS = 150;
-
-function isTransientDatabaseError(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-
-  const candidate = error as { code?: unknown; message?: unknown };
-  if (
-    typeof candidate.code === "string" &&
-    TRANSIENT_DATABASE_ERROR_CODES.has(candidate.code)
-  ) {
-    return true;
-  }
-
-  const message =
-    typeof candidate.message === "string" ? candidate.message.toLowerCase() : "";
-  return (
-    message.includes("connection") &&
-    (message.includes("closed") ||
-      message.includes("timed out") ||
-      message.includes("can't reach database"))
-  );
-}
-
-function getDatabaseErrorSummary(error: unknown) {
-  if (!error || typeof error !== "object") {
-    return { code: "UNKNOWN", transient: false };
-  }
-
-  const candidate = error as { code?: unknown };
-  return {
-    code: typeof candidate.code === "string" ? candidate.code : "UNKNOWN",
-    transient: isTransientDatabaseError(error),
-  };
-}
+import { shouldRefreshBillingMetadata } from "./auth-billing";
+import { getDatabaseErrorSummary } from "./database-resilience";
 
 async function loadBillingUser(userId: string) {
-  const query = () =>
-    db.user.findUnique({
-      where: { id: userId },
-      select: {
-        isPremium: true,
-        subscriptionStatus: true,
-        subscriptionPlan: true,
-        subscriptionCurrentPeriodEnd: true,
-        stripeCustomerId: true,
-        stripeSubscriptionId: true,
-      },
-    });
-
-  try {
-    return await query();
-  } catch (error) {
-    if (!isTransientDatabaseError(error)) throw error;
-    await new Promise((resolve) => setTimeout(resolve, AUTH_DATABASE_RETRY_DELAY_MS));
-    return query();
-  }
+  return db.user.findUnique({
+    where: { id: userId },
+    select: {
+      isPremium: true,
+      subscriptionStatus: true,
+      subscriptionPlan: true,
+      subscriptionCurrentPeriodEnd: true,
+      stripeCustomerId: true,
+      stripeSubscriptionId: true,
+    },
+  });
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -151,7 +108,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       const userId = (user?.id as string) ?? (token.id as string | undefined);
 
-      if (userId) {
+      const billingCheckStartedAt = Date.now();
+      const shouldRefreshBilling =
+        Boolean(userId) &&
+        shouldRefreshBillingMetadata({
+          isInitialSignIn: Boolean(user),
+          trigger,
+          checkedAt: token.billingMetadataCheckedAt,
+          now: billingCheckStartedAt,
+        });
+
+      if (userId && shouldRefreshBilling) {
         try {
           const billingUser = await loadBillingUser(userId);
 
@@ -167,6 +134,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               billingUser.subscriptionCurrentPeriodEnd?.toISOString() ?? null;
             token.stripeCustomerId = billingUser.stripeCustomerId;
             token.stripeSubscriptionId = billingUser.stripeSubscriptionId;
+          } else {
+            token.isPremium = false;
+            token.subscriptionStatus = null;
+            token.subscriptionPlan = null;
+            token.subscriptionCurrentPeriodEnd = null;
+            token.stripeCustomerId = null;
+            token.stripeSubscriptionId = null;
           }
         } catch (error) {
           // Billing metadata is auxiliary to identity. Preserve any values already
@@ -175,6 +149,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             "Unable to refresh billing metadata during authentication",
             getDatabaseErrorSummary(error)
           );
+        } finally {
+          token.billingMetadataCheckedAt = billingCheckStartedAt;
         }
       }
 
