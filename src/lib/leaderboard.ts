@@ -1,41 +1,29 @@
 import { db } from "@/lib/db";
+import {
+  aggregateDuelResults,
+  aggregateRaceResults,
+  aggregateTrainingRuns,
+  calculateRankTrends,
+  getQueryStart,
+  getTrendComparisonLabel,
+  isInComparisonPeriod,
+  isInCurrentPeriod,
+  sortRankedItems,
+  type PerformanceMetric,
+  type RankedItem,
+  type RankTrend,
+} from "@/lib/leaderboard-ranking";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 export type Period = "all" | "weekly" | "daily";
 export type Mode = "duel" | "racing" | "training";
 
-const DEFAULT_RATING = 1000;
 const MAX_LEGACY_GUEST_SCORE_PER_RUN = 500;
 const LEGACY_GUEST_OUTLIER_BY_PERIOD: Record<Period, number> = {
   all: 5000,
   weekly: 1500,
   daily: 500,
 };
-
-type GuestScoreRow = {
-  guestId: string;
-  displayName: string;
-  identityVerified: boolean;
-  totalProblems: number;
-  correctAnswers: number;
-  averageTime: number;
-  bestStreak: number;
-};
-
-function isImplausibleLegacyGuestRun(score: Pick<GuestScoreRow, "identityVerified" | "totalProblems" | "correctAnswers">): boolean {
-  if (score.identityVerified) return false;
-  if (score.totalProblems < 0 || score.correctAnswers < 0) return true;
-  if (score.totalProblems > MAX_LEGACY_GUEST_SCORE_PER_RUN) return true;
-  if (score.correctAnswers > MAX_LEGACY_GUEST_SCORE_PER_RUN) return true;
-  if (score.correctAnswers > score.totalProblems) return true;
-  return false;
-}
-
-interface BaseEntry {
-  userId: string;
-  score: number;
-  accuracy: number | null;
-}
 
 export interface LeaderboardEntry {
   rank: number;
@@ -45,502 +33,347 @@ export interface LeaderboardEntry {
   image?: string | null;
   level: number;
   score: number;
-  accuracy: number | null;
-  change: "up" | "down" | "same";
+  performance: PerformanceMetric;
+  trend: RankTrend;
   isYou?: boolean;
 }
 
 export interface LeaderboardResult {
   leaderboard: LeaderboardEntry[];
   userRank: LeaderboardEntry | null;
+  trendComparisonLabel: string;
 }
 
-export interface DistributionBucket {
-  from: number;
-  to: number;
-  count: number;
-}
+type UserProfile = {
+  id: string;
+  name: string | null;
+  username: string | null;
+  image: string | null;
+  stats: { totalProblems: number | null } | null;
+};
 
-export interface DistributionResult {
-  buckets: DistributionBucket[];
-  total: number;
-  median: number | null;
-  mean: number | null;
-  stdDev: number | null;
-}
+type GuestMeta = {
+  name: string;
+  verified: boolean;
+};
 
-function getPeriodStart(period: Period): Date | null {
-  if (period === "weekly") {
-    return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  }
-  if (period === "daily") {
-    return new Date(Date.now() - 24 * 60 * 60 * 1000);
-  }
-  return null;
-}
+type GuestScore = {
+  guestId: string;
+  displayName: string;
+  identityVerified: boolean;
+  totalProblems: number;
+  correctAnswers: number;
+  bestStreak: number;
+  createdAt: Date;
+};
 
 function getLevel(totalProblems?: number | null) {
-  const total = totalProblems ?? 0;
-  return Math.floor(total / 50) + 1;
+  return Math.floor((totalProblems ?? 0) / 50) + 1;
 }
 
-function toLeaderboardEntry(
-  entry: BaseEntry,
-  rankIndex: number,
-  userMap: Map<
-    string,
-    {
-      id: string;
-      name: string | null;
-      username: string | null;
-      image: string | null;
-      stats: { totalProblems: number | null } | null;
+function isImplausibleLegacyGuestRun(score: GuestScore): boolean {
+  if (score.identityVerified) return false;
+  if (score.totalProblems < 0 || score.correctAnswers < 0) return true;
+  if (score.totalProblems > MAX_LEGACY_GUEST_SCORE_PER_RUN) return true;
+  if (score.correctAnswers > MAX_LEGACY_GUEST_SCORE_PER_RUN) return true;
+  return score.correctAnswers > score.totalProblems;
+}
+
+function filterGuestRuns(
+  scores: GuestScore[],
+  period: Period
+): GuestScore[] {
+  const plausible = scores.filter((score) => !isImplausibleLegacyGuestRun(score));
+  const unverifiedTotals = new Map<string, number>();
+  for (const score of plausible) {
+    if (!score.identityVerified) {
+      unverifiedTotals.set(
+        score.guestId,
+        (unverifiedTotals.get(score.guestId) ?? 0) + score.correctAnswers
+      );
     }
-  >,
+  }
+  const threshold = LEGACY_GUEST_OUTLIER_BY_PERIOD[period];
+  return plausible.filter(
+    (score) =>
+      score.identityVerified || (unverifiedTotals.get(score.guestId) ?? 0) <= threshold
+  );
+}
+
+function buildGuestMeta(scores: GuestScore[]): Map<string, GuestMeta> {
+  const result = new Map<string, GuestMeta>();
+  for (const score of [...scores].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
+    const current = result.get(score.guestId);
+    if (!current || score.identityVerified || !current.verified) {
+      result.set(score.guestId, {
+        name: score.displayName || current?.name || "Guest",
+        verified: Boolean(current?.verified || score.identityVerified),
+      });
+    }
+  }
+  return result;
+}
+
+function createEntry(
+  item: RankedItem,
+  rankIndex: number,
+  users: Map<string, UserProfile>,
+  guests: Map<string, GuestMeta>,
+  trends: Map<string, RankTrend>,
   currentUserId?: string | null
 ): LeaderboardEntry {
-  const user = userMap.get(entry.userId);
-  const displayName = user?.username || user?.name || "Anonymous";
+  const guest = guests.get(item.userId);
+  const user = users.get(item.userId);
+  const displayName = guest?.name || user?.username || user?.name || "Anonymous";
   const avatar = user?.username
     ? user.username.substring(0, 2).toUpperCase()
     : displayName.substring(0, 2).toUpperCase();
 
   return {
     rank: rankIndex + 1,
-    id: entry.userId,
+    id: item.userId,
     name: displayName,
     avatar,
-    image: user?.image,
-    level: getLevel(user?.stats?.totalProblems),
-    score: Math.round(entry.score),
-    accuracy: entry.accuracy !== null ? Math.round(entry.accuracy * 10) / 10 : null,
-    change: "same",
-    isYou: currentUserId === entry.userId,
+    image: guest ? null : user?.image,
+    level: guest ? 1 : getLevel(user?.stats?.totalProblems),
+    score: Math.round(item.score),
+    performance: item.performance,
+    trend: trends.get(item.userId) ?? { kind: "unavailable" },
+    isYou: currentUserId === item.userId,
   };
 }
 
-async function buildDuelLeaderboard(period: Period, currentUserId?: string | null): Promise<LeaderboardResult> {
-  const startTime = getPeriodStart(period);
+async function finalizeLeaderboard(
+  currentItems: RankedItem[],
+  comparisonItems: RankedItem[],
+  period: Period,
+  currentUserId?: string | null,
+  guests = new Map<string, GuestMeta>()
+): Promise<LeaderboardResult> {
+  const rankedCurrent = sortRankedItems(currentItems);
+  const rankedComparison = sortRankedItems(comparisonItems);
+  const trends = calculateRankTrends(rankedCurrent, rankedComparison);
+  const comparisonLabel = getTrendComparisonLabel(period);
 
+  if (rankedCurrent.length === 0) {
+    return {
+      leaderboard: [],
+      userRank: null,
+      trendComparisonLabel: comparisonLabel,
+    };
+  }
+
+  const userIndex = currentUserId
+    ? rankedCurrent.findIndex((entry) => entry.userId === currentUserId)
+    : -1;
+  const topEntries = rankedCurrent.slice(0, 50);
+  const userIds = new Set(
+    topEntries.filter((entry) => !guests.has(entry.userId)).map((entry) => entry.userId)
+  );
+  if (userIndex !== -1 && currentUserId && !guests.has(currentUserId)) {
+    userIds.add(currentUserId);
+  }
+
+  const profiles = userIds.size
+    ? await db.user.findMany({
+        where: { id: { in: Array.from(userIds) } },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+          stats: { select: { totalProblems: true } },
+        },
+      })
+    : [];
+  const userMap = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  return {
+    leaderboard: topEntries.map((entry, index) =>
+      createEntry(entry, index, userMap, guests, trends, currentUserId)
+    ),
+    userRank:
+      userIndex === -1
+        ? null
+        : createEntry(
+            rankedCurrent[userIndex],
+            userIndex,
+            userMap,
+            guests,
+            trends,
+            currentUserId
+          ),
+    trendComparisonLabel: comparisonLabel,
+  };
+}
+
+async function buildDuelLeaderboard(
+  period: Period,
+  currentUserId?: string | null
+): Promise<LeaderboardResult> {
+  const now = new Date();
+  const queryStart = getQueryStart(period, now);
   const matches = await db.multiplayerMatch.findMany({
     where: {
       status: "completed",
-      ...(startTime ? { completedAt: { gte: startTime } } : {}),
+      completedAt: { not: null, ...(queryStart ? { gte: queryStart } : {}) },
     },
     select: {
       player1Id: true,
       player2Id: true,
       player1RatingChange: true,
       player2RatingChange: true,
-      rounds: {
-        select: {
-          player1Answer: true,
-          player2Answer: true,
-          correctAnswer: true,
-        },
-      },
+      winnerId: true,
+      isDraw: true,
+      completedAt: true,
     },
   });
-
-  const stats = new Map<
-    string,
-    {
-      ratingChange: number;
-      total: number;
-      correct: number;
-    }
-  >();
-
-  const ensureEntry = (userId: string) => {
-    if (!stats.has(userId)) {
-      stats.set(userId, { ratingChange: 0, total: 0, correct: 0 });
-    }
-  };
-
-  for (const match of matches) {
-    ensureEntry(match.player1Id);
-    ensureEntry(match.player2Id);
-
-    const p1 = stats.get(match.player1Id)!;
-    const p2 = stats.get(match.player2Id)!;
-
-    p1.ratingChange += match.player1RatingChange ?? 0;
-    p2.ratingChange += match.player2RatingChange ?? 0;
-
-    for (const round of match.rounds) {
-      p1.total += 1;
-      if (round.player1Answer === round.correctAnswer) p1.correct += 1;
-
-      p2.total += 1;
-      if (round.player2Answer === round.correctAnswer) p2.correct += 1;
-    }
-  }
-
-  const entries: BaseEntry[] = Array.from(stats.entries())
-    .map(([userId, data]) => {
-      const accuracy =
-        data.total > 0 ? (data.correct / data.total) * 100 : null;
-      const score =
-        period === "all" ? DEFAULT_RATING + data.ratingChange : data.ratingChange;
-
-      return { userId, score, accuracy };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  if (entries.length === 0) {
-    return { leaderboard: [], userRank: null };
-  }
-
-  const userIndex =
-    currentUserId !== undefined && currentUserId !== null
-      ? entries.findIndex((entry) => entry.userId === currentUserId)
-      : -1;
-
-  const topEntries = entries.slice(0, 50);
-  const userIds = new Set(topEntries.map((e) => e.userId));
-  if (userIndex !== -1 && currentUserId) {
-    userIds.add(currentUserId);
-  }
-
-  const users = await db.user.findMany({
-    where: {
-      id: { in: Array.from(userIds) },
-    },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      image: true,
-      stats: {
-        select: {
-          totalProblems: true,
-        },
-      },
-    },
-  });
-
-  const userMap = new Map(users.map((u) => [u.id, u]));
-
-  const leaderboard = topEntries.map((entry, index) =>
-    toLeaderboardEntry(entry, index, userMap, currentUserId)
+  const current = matches.filter(
+    (match) => match.completedAt && isInCurrentPeriod(match.completedAt, period, now)
   );
-
-  const userRank =
-    userIndex !== -1 && currentUserId
-      ? toLeaderboardEntry(entries[userIndex], userIndex, userMap, currentUserId)
-      : null;
-
-  return { leaderboard, userRank };
+  const comparison = matches.filter(
+    (match) => match.completedAt && isInComparisonPeriod(match.completedAt, period, now)
+  );
+  const mapMatch = (match: (typeof matches)[number]) => ({
+    player1Id: match.player1Id,
+    player2Id: match.player2Id,
+    player1RatingChange: match.player1RatingChange ?? 0,
+    player2RatingChange: match.player2RatingChange ?? 0,
+    winnerId: match.winnerId,
+    isDraw: match.isDraw,
+  });
+  return finalizeLeaderboard(
+    aggregateDuelResults(current.map(mapMatch), period === "all"),
+    aggregateDuelResults(comparison.map(mapMatch), period === "all"),
+    period,
+    currentUserId
+  );
 }
 
-async function buildRaceLeaderboard(period: Period, currentUserId?: string | null): Promise<LeaderboardResult> {
-  const startTime = getPeriodStart(period);
-
+async function buildRaceLeaderboard(
+  period: Period,
+  currentUserId?: string | null
+): Promise<LeaderboardResult> {
+  const now = new Date();
+  const queryStart = getQueryStart(period, now);
   const racePlayers = await db.racePlayer.findMany({
     where: {
       race: {
         status: "finished",
-        ...(startTime ? { finishedAt: { gte: startTime } } : {}),
+        ...(queryStart ? { finishedAt: { gte: queryStart } } : {}),
       },
     },
     select: {
       userId: true,
       ratingChange: true,
-      problemsSolved: true,
+      finishPosition: true,
+      race: { select: { finishedAt: true } },
     },
   });
-
-  const stats = new Map<
-    string,
-    {
-      ratingChange: number;
-      problemsSolved: number;
-    }
-  >();
-
-  for (const player of racePlayers) {
-    if (!stats.has(player.userId)) {
-      stats.set(player.userId, { ratingChange: 0, problemsSolved: 0 });
-    }
-    const entry = stats.get(player.userId)!;
-    entry.ratingChange += player.ratingChange ?? 0;
-    entry.problemsSolved += player.problemsSolved ?? 0;
-  }
-
-  const entries: BaseEntry[] = Array.from(stats.entries())
-    .map(([userId, data]) => {
-      const score =
-        period === "all" ? DEFAULT_RATING + data.ratingChange : data.ratingChange;
-      return { userId, score, accuracy: null };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  if (entries.length === 0) {
-    return { leaderboard: [], userRank: null };
-  }
-
-  const userIndex =
-    currentUserId !== undefined && currentUserId !== null
-      ? entries.findIndex((entry) => entry.userId === currentUserId)
-      : -1;
-
-  const topEntries = entries.slice(0, 50);
-  const userIds = new Set(topEntries.map((e) => e.userId));
-  if (userIndex !== -1 && currentUserId) {
-    userIds.add(currentUserId);
-  }
-
-  const users = await db.user.findMany({
-    where: {
-      id: { in: Array.from(userIds) },
-    },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      image: true,
-      stats: {
-        select: {
-          totalProblems: true,
-        },
-      },
-    },
-  });
-
-  const userMap = new Map(users.map((u) => [u.id, u]));
-
-  const leaderboard = topEntries.map((entry, index) =>
-    toLeaderboardEntry(entry, index, userMap, currentUserId)
+  const current = racePlayers.filter(
+    (player) =>
+      player.race.finishedAt && isInCurrentPeriod(player.race.finishedAt, period, now)
   );
-
-  const userRank =
-    userIndex !== -1 && currentUserId
-      ? toLeaderboardEntry(entries[userIndex], userIndex, userMap, currentUserId)
-      : null;
-
-  return { leaderboard, userRank };
+  const comparison = racePlayers.filter(
+    (player) =>
+      player.race.finishedAt && isInComparisonPeriod(player.race.finishedAt, period, now)
+  );
+  const mapResult = (player: (typeof racePlayers)[number]) => ({
+    userId: player.userId,
+    ratingChange: player.ratingChange ?? 0,
+    finishPosition: player.finishPosition,
+  });
+  return finalizeLeaderboard(
+    aggregateRaceResults(current.map(mapResult), period === "all"),
+    aggregateRaceResults(comparison.map(mapResult), period === "all"),
+    period,
+    currentUserId
+  );
 }
 
 async function buildTrainingLeaderboard(
   period: Period,
   currentUserId?: string | null
 ): Promise<LeaderboardResult> {
-  const startTime = getPeriodStart(period);
-
-  const sessions = await db.trainingSession.findMany({
-    where: {
-      gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
-      difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
-      operations: {
-        hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations],
+  const now = new Date();
+  const queryStart = getQueryStart(period, now);
+  const [sessions, guestScores] = await Promise.all([
+    db.trainingSession.findMany({
+      where: {
+        gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
+        difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
+        operations: { hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations] },
+        completedAt: { not: null, ...(queryStart ? { gte: queryStart } : {}) },
       },
-      completedAt: {
-        not: null,
-        ...(startTime ? { gte: startTime } : {}),
+      select: {
+        userId: true,
+        correctAnswers: true,
+        bestStreak: true,
+        completedAt: true,
       },
-    },
-    select: {
-      userId: true,
-      totalProblems: true,
-      correctAnswers: true,
-      averageTime: true,
-      bestStreak: true,
-    },
-  });
+    }),
+    db.guestTrainingScore.findMany({
+      where: queryStart ? { createdAt: { gte: queryStart } } : undefined,
+      select: {
+        guestId: true,
+        displayName: true,
+        identityVerified: true,
+        totalProblems: true,
+        correctAnswers: true,
+        bestStreak: true,
+        createdAt: true,
+      },
+    }),
+  ]);
 
-  const guestScores = await db.guestTrainingScore.findMany({
-    where: {
-      ...(startTime ? { createdAt: { gte: startTime } } : {}),
-    },
-    select: {
-      guestId: true,
-      displayName: true,
-      identityVerified: true,
-      totalProblems: true,
-      correctAnswers: true,
-      averageTime: true,
-      bestStreak: true,
-    },
-  });
-
-  const stats = new Map<
-    string,
-    {
-      correct: number;
-      attempts: number;
-      totalTime: number;
-      bestStreak: number;
-      isGuest?: boolean;
-      name?: string;
-      verified?: boolean;
-      submissions?: number;
-    }
-  >();
-
-  for (const session of sessions) {
-    const attempts = Math.max(session.totalProblems ?? 0, session.correctAnswers ?? 0);
-    const correct = session.correctAnswers ?? 0;
-    const averageTime = session.averageTime ?? 0;
-
-    if (!stats.has(session.userId)) {
-      stats.set(session.userId, { correct: 0, attempts: 0, totalTime: 0, bestStreak: 0 });
-    }
-
-    const entry = stats.get(session.userId)!;
-    entry.correct += correct;
-    entry.attempts += attempts;
-    entry.bestStreak = Math.max(entry.bestStreak, session.bestStreak ?? 0);
-    if (attempts > 0 && averageTime > 0) {
-      entry.totalTime += averageTime * attempts;
-    }
-  }
-
-  const legacyOutlierThreshold = LEGACY_GUEST_OUTLIER_BY_PERIOD[period];
-  for (const score of guestScores) {
-    if (isImplausibleLegacyGuestRun(score)) {
-      continue;
-    }
-
-    if (!stats.has(score.guestId)) {
-      stats.set(score.guestId, {
-        correct: 0,
-        attempts: 0,
-        totalTime: 0,
-        bestStreak: 0,
-        isGuest: true,
-        name: score.displayName,
-        verified: score.identityVerified,
-        submissions: 0,
-      });
-    }
-    const entry = stats.get(score.guestId)!;
-    entry.verified = Boolean(entry.verified || score.identityVerified);
-    entry.submissions = (entry.submissions ?? 0) + 1;
-    if (score.identityVerified && score.displayName) {
-      entry.name = score.displayName;
-    } else if (!entry.name && score.displayName) {
-      entry.name = score.displayName;
-    }
-    entry.correct += score.correctAnswers ?? 0;
-    entry.attempts += score.totalProblems ?? 0;
-    entry.bestStreak = Math.max(entry.bestStreak, score.bestStreak ?? 0);
-    if (score.totalProblems > 0 && score.averageTime > 0) {
-      entry.totalTime += score.averageTime * score.totalProblems;
-    }
-  }
-
-  for (const [entryId, data] of stats.entries()) {
-    if (!data.isGuest) continue;
-    if (data.verified) continue;
-    if (data.correct > legacyOutlierThreshold) {
-      stats.delete(entryId);
-    }
-  }
-
-  const entries: BaseEntry[] = Array.from(stats.entries())
-    .map(([userId, data]) => {
-      const accuracy =
-        data.attempts > 0 ? (data.correct / data.attempts) * 100 : null;
-      return {
-        userId,
-        score: data.correct,
-        accuracy,
-      };
-    })
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      const accA = a.accuracy ?? -1;
-      const accB = b.accuracy ?? -1;
-      return accB - accA;
-    });
-
-  if (entries.length === 0) {
-    return { leaderboard: [], userRank: null };
-  }
-
-  const userIndex =
-    currentUserId !== undefined && currentUserId !== null
-      ? entries.findIndex((entry) => entry.userId === currentUserId)
-      : -1;
-
-  const topEntries = entries.slice(0, 50);
-  const userIds = new Set(
-    topEntries
-      .filter((e) => !(stats.get(e.userId)?.isGuest))
-      .map((e) => e.userId)
+  const sessionRuns = sessions.map((session) => ({
+    userId: session.userId,
+    correctAnswers: session.correctAnswers ?? 0,
+    bestStreak: session.bestStreak ?? 0,
+    occurredAt: session.completedAt!,
+  }));
+  const currentGuestScores = filterGuestRuns(
+    guestScores.filter((score) => isInCurrentPeriod(score.createdAt, period, now)),
+    period
   );
-  if (userIndex !== -1 && currentUserId && !(stats.get(currentUserId)?.isGuest)) {
-    userIds.add(currentUserId);
-  }
-
-  const users = await db.user.findMany({
-    where: {
-      id: { in: Array.from(userIds) },
-    },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      image: true,
-      stats: {
-        select: {
-          totalProblems: true,
-        },
-      },
-    },
+  const comparisonGuestScores = filterGuestRuns(
+    guestScores.filter((score) => isInComparisonPeriod(score.createdAt, period, now)),
+    period
+  );
+  const mapGuestRun = (score: GuestScore) => ({
+    userId: score.guestId,
+    correctAnswers: score.correctAnswers,
+    bestStreak: score.bestStreak,
   });
 
-  const userMap = new Map(users.map((u) => [u.id, u]));
+  const currentRuns = [
+    ...sessionRuns
+      .filter((run) => isInCurrentPeriod(run.occurredAt, period, now))
+      .map((run) => ({
+        userId: run.userId,
+        correctAnswers: run.correctAnswers,
+        bestStreak: run.bestStreak,
+      })),
+    ...currentGuestScores.map(mapGuestRun),
+  ];
+  const comparisonRuns = [
+    ...sessionRuns
+      .filter((run) => isInComparisonPeriod(run.occurredAt, period, now))
+      .map((run) => ({
+        userId: run.userId,
+        correctAnswers: run.correctAnswers,
+        bestStreak: run.bestStreak,
+      })),
+    ...comparisonGuestScores.map(mapGuestRun),
+  ];
 
-  const leaderboard = topEntries.map((entry, index) => {
-    const meta = stats.get(entry.userId);
-    if (meta?.isGuest) {
-      const displayName = meta.name || "Guest";
-      const avatar = displayName.substring(0, 2).toUpperCase();
-      return {
-        rank: index + 1,
-        id: entry.userId,
-        name: displayName,
-        avatar,
-        image: null,
-        level: 1,
-        score: Math.round(entry.score),
-        accuracy: entry.accuracy !== null ? Math.round(entry.accuracy * 10) / 10 : null,
-        change: "same" as const,
-        isYou: currentUserId === entry.userId,
-      };
-    }
-    return toLeaderboardEntry(entry, index, userMap, currentUserId);
-  });
-
-  const userRank =
-    userIndex !== -1 && currentUserId
-      ? (() => {
-          const meta = stats.get(entries[userIndex].userId);
-          if (meta?.isGuest) {
-            const displayName = meta.name || "Guest";
-            const avatar = displayName.substring(0, 2).toUpperCase();
-            return {
-              rank: userIndex + 1,
-              id: entries[userIndex].userId,
-              name: displayName,
-              avatar,
-              image: null,
-              level: 1,
-              score: Math.round(entries[userIndex].score),
-              accuracy:
-                entries[userIndex].accuracy !== null
-                  ? Math.round(entries[userIndex].accuracy * 10) / 10
-                  : null,
-              change: "same" as const,
-              isYou: true,
-            };
-          }
-          return toLeaderboardEntry(entries[userIndex], userIndex, userMap, currentUserId);
-        })()
-      : null;
-
-  return { leaderboard, userRank };
+  return finalizeLeaderboard(
+    aggregateTrainingRuns(currentRuns),
+    aggregateTrainingRuns(comparisonRuns),
+    period,
+    currentUserId,
+    buildGuestMeta(currentGuestScores)
+  );
 }
 
 export async function getLeaderboard(
@@ -548,141 +381,7 @@ export async function getLeaderboard(
   period: Period,
   currentUserId?: string | null
 ): Promise<LeaderboardResult> {
-  if (mode === "racing") {
-    return buildRaceLeaderboard(period, currentUserId);
-  }
-  if (mode === "training") {
-    return buildTrainingLeaderboard(period, currentUserId);
-  }
+  if (mode === "racing") return buildRaceLeaderboard(period, currentUserId);
+  if (mode === "training") return buildTrainingLeaderboard(period, currentUserId);
   return buildDuelLeaderboard(period, currentUserId);
-}
-
-const MAX_BUCKET_COUNT = 48;
-
-function getBucketSize(scores: number[]): number {
-  if (scores.length === 0) return 1;
-  const minScore = Math.min(...scores);
-  const maxScore = Math.max(...scores);
-  const range = maxScore - minScore + 1;
-  return Math.max(1, Math.ceil(range / MAX_BUCKET_COUNT));
-}
-
-function bucketize(scores: number[], bucketSize: number): DistributionBucket[] {
-  if (scores.length === 0) return [];
-  const countsByFrom = new Map<number, { from: number; to: number; count: number }>();
-  let minFrom = Number.POSITIVE_INFINITY;
-  let maxFrom = 0;
-  for (const score of scores) {
-    const clamped = Math.max(0, Math.floor(score));
-    const from = Math.floor(clamped / bucketSize) * bucketSize;
-    const to = from + bucketSize - 1;
-    minFrom = Math.min(minFrom, from);
-    maxFrom = Math.max(maxFrom, from);
-    const existing = countsByFrom.get(from) ?? { from, to, count: 0 };
-    existing.count += 1;
-    countsByFrom.set(from, existing);
-  }
-
-  const buckets: DistributionBucket[] = [];
-  for (let from = minFrom; from <= maxFrom; from += bucketSize) {
-    const to = from + bucketSize - 1;
-    buckets.push(countsByFrom.get(from) ?? { from, to, count: 0 });
-  }
-
-  return buckets;
-}
-
-function getMedian(scores: number[]): number | null {
-  if (scores.length === 0) return null;
-  const sorted = [...scores].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 1) {
-    return sorted[mid];
-  }
-  return (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-function getMean(scores: number[]): number | null {
-  if (scores.length === 0) return null;
-  const sum = scores.reduce((acc, score) => acc + score, 0);
-  return sum / scores.length;
-}
-
-function getStdDev(scores: number[], mean: number | null): number | null {
-  if (scores.length === 0 || mean === null) return null;
-  const variance =
-    scores.reduce((acc, score) => {
-      const delta = score - mean;
-      return acc + delta * delta;
-    }, 0) / scores.length;
-  return Math.sqrt(variance);
-}
-
-export async function getTrainingDistribution(): Promise<DistributionResult> {
-  const sessions = await db.trainingSession.findMany({
-    where: {
-      gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
-      difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
-      operations: { hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations] },
-      completedAt: { not: null },
-    },
-    select: {
-      correctAnswers: true,
-      totalProblems: true,
-    },
-  });
-
-  const guestSessions = await db.guestTrainingScore.findMany({
-    select: {
-      guestId: true,
-      identityVerified: true,
-      totalProblems: true,
-      correctAnswers: true,
-    },
-  });
-
-  const scores: number[] = [];
-  const legacyGuestTotals = new Map<string, number>();
-
-  for (const guest of guestSessions) {
-    if (isImplausibleLegacyGuestRun(guest)) {
-      continue;
-    }
-    if (!guest.identityVerified) {
-      legacyGuestTotals.set(
-        guest.guestId,
-        (legacyGuestTotals.get(guest.guestId) ?? 0) + (guest.correctAnswers ?? 0)
-      );
-    }
-  }
-
-  for (const session of sessions) {
-    const score = session.correctAnswers ?? session.totalProblems ?? 0;
-    scores.push(score);
-  }
-
-  for (const guest of guestSessions) {
-    if (isImplausibleLegacyGuestRun(guest)) {
-      continue;
-    }
-    if (!guest.identityVerified) {
-      const aggregateCorrect = legacyGuestTotals.get(guest.guestId) ?? 0;
-      if (aggregateCorrect > LEGACY_GUEST_OUTLIER_BY_PERIOD.all) {
-        continue;
-      }
-    }
-    const score = guest.correctAnswers ?? 0;
-    scores.push(score);
-  }
-
-  if (scores.length === 0) {
-    return { buckets: [], total: 0, median: null, mean: null, stdDev: null };
-  }
-
-  const bucketSize = getBucketSize(scores);
-  const buckets = bucketize(scores, bucketSize);
-  const median = getMedian(scores);
-  const mean = getMean(scores);
-  const stdDev = getStdDev(scores, mean);
-  return { buckets, total: scores.length, median, mean, stdDev };
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getTrainingDistribution } from "@/lib/leaderboard";
+import { getTrainingDistribution } from "@/lib/training-distribution";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
 const pageUrl = `${siteUrl}/interview-math/insights`;

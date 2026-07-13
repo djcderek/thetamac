@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
-import { getLeaderboard, getTrainingDistribution } from "@/lib/leaderboard";
+import { getLeaderboard } from "@/lib/leaderboard";
+import { getTrainingDistribution } from "@/lib/training-distribution";
 import { LeaderboardClient } from "./leaderboard-client";
 
 export const metadata: Metadata = {

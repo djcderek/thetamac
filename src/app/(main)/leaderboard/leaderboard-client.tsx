@@ -12,10 +12,10 @@ import {
   Minus,
   Loader2,
 } from "lucide-react";
+import type { DistributionBucket } from "@/lib/training-distribution";
 import type {
   LeaderboardEntry,
   LeaderboardResult,
-  DistributionBucket,
   Mode,
   Period,
 } from "@/lib/leaderboard";
@@ -29,6 +29,59 @@ interface LeaderboardClientProps {
   initialDistributionStdDev: number | null;
   initialMode: Mode;
   initialPeriod: Period;
+}
+
+function formatPerformance(metric: LeaderboardEntry["performance"]): string {
+  if (metric.kind === "bestRun") return `${metric.value.toLocaleString()} solved`;
+  if (metric.kind === "duelRecord") {
+    return `${metric.wins}–${metric.losses}–${metric.draws}`;
+  }
+  return `${metric.wins} / ${metric.races}`;
+}
+
+function getPerformanceDescription(metric: LeaderboardEntry["performance"]): string {
+  if (metric.kind === "bestRun") return `Best run: ${metric.value} problems solved`;
+  if (metric.kind === "duelRecord") {
+    return `${metric.wins} wins, ${metric.losses} losses, ${metric.draws} draws`;
+  }
+  return `${metric.wins} wins across ${metric.races} races`;
+}
+
+function TrendIndicator({
+  trend,
+  comparisonLabel,
+}: {
+  trend: LeaderboardEntry["trend"];
+  comparisonLabel: string;
+}) {
+  const commonClass = "inline-flex items-center justify-end gap-1 font-mono text-xs tabular-nums";
+  if (trend.kind === "up") {
+    return (
+      <span className={`${commonClass} text-success`} aria-label={`Moved up ${trend.places} places. ${comparisonLabel}.`}>
+        <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+        {trend.places}
+      </span>
+    );
+  }
+  if (trend.kind === "down") {
+    return (
+      <span className={`${commonClass} text-muted-foreground`} aria-label={`Moved down ${trend.places} places. ${comparisonLabel}.`}>
+        <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+        {trend.places}
+      </span>
+    );
+  }
+  if (trend.kind === "new") {
+    return <span className="text-xs font-medium text-brand" aria-label={`New to these standings. ${comparisonLabel}.`}>New</span>;
+  }
+  return (
+    <span
+      className={`${commonClass} text-muted-foreground`}
+      aria-label={trend.kind === "same" ? `Rank unchanged. ${comparisonLabel}.` : `Rank comparison unavailable. ${comparisonLabel}.`}
+    >
+      <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+    </span>
+  );
 }
 
 export function LeaderboardClient({
@@ -45,6 +98,9 @@ export function LeaderboardClient({
   );
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(
     initialLeaderboard.userRank
+  );
+  const [trendComparisonLabel, setTrendComparisonLabel] = useState(
+    initialLeaderboard.trendComparisonLabel
   );
   const [isLoading, setIsLoading] = useState(false);
   const [period, setPeriod] = useState<Period>(initialPeriod);
@@ -79,6 +135,7 @@ export function LeaderboardClient({
           const data = await res.json();
           setLeaderboardData(data.leaderboard);
           setUserRank(data.userRank);
+          setTrendComparisonLabel(data.trendComparisonLabel);
         }
       } catch (error) {
         console.error("Failed to fetch leaderboard", error);
@@ -167,9 +224,10 @@ export function LeaderboardClient({
     return mode === "duel" ? "Duel Rank" : "Racing Rank";
   };
 
-  const formatAccuracy = (value: number | null) => {
-    if (value === null || Number.isNaN(value)) return "—";
-    return `${value}%`;
+  const getPerformanceLabel = () => {
+    if (mode === "training") return "Best Run";
+    if (mode === "duel") return "W–L–D";
+    return "Wins / Races";
   };
 
   const formatPercentile = (value: number) => {
@@ -584,6 +642,12 @@ export function LeaderboardClient({
                           <p className="text-sm text-muted-foreground">
                             {formatScoreValue(entry.score)} {getScoreUnit()}
                           </p>
+                          <p
+                            className="mt-1 text-xs text-muted-foreground"
+                            aria-label={getPerformanceDescription(entry.performance)}
+                          >
+                            {getPerformanceLabel()}: {formatPerformance(entry.performance)}
+                          </p>
                         </CardContent>
                       </Card>
                     );
@@ -601,14 +665,21 @@ export function LeaderboardClient({
                         : "No activity in this period yet."}
                     </div>
                   ) : (
-                    <table className="w-full min-w-[500px]">
+                    <table className="w-full table-fixed sm:table-auto">
                       <thead>
                         <tr className="border-b border-border">
-                          <th className="text-left p-4 text-sm font-medium text-muted-foreground w-16">Rank</th>
-                          <th className="text-left p-4 text-sm font-medium text-muted-foreground">Player</th>
-                          <th className="text-right p-4 text-sm font-medium text-muted-foreground">{getScoreLabel()}</th>
-                          <th className="text-right p-4 text-sm font-medium text-muted-foreground">Accuracy</th>
-                          <th className="text-right p-4 text-sm font-medium text-muted-foreground w-16">Trend</th>
+                          <th className="w-12 p-3 text-left text-xs font-medium text-muted-foreground sm:w-16 sm:p-4 sm:text-sm">Rank</th>
+                          <th className="p-3 text-left text-xs font-medium text-muted-foreground sm:p-4 sm:text-sm">Player</th>
+                          <th className="w-24 p-3 text-right text-xs font-medium text-muted-foreground sm:w-auto sm:p-4 sm:text-sm">{getScoreLabel()}</th>
+                          <th className="hidden p-4 text-right text-sm font-medium text-muted-foreground sm:table-cell">{getPerformanceLabel()}</th>
+                          <th className="hidden w-20 p-4 text-right text-sm font-medium text-muted-foreground sm:table-cell">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help underline decoration-dotted underline-offset-4">Change</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">{trendComparisonLabel}</TooltipContent>
+                            </Tooltip>
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -619,17 +690,17 @@ export function LeaderboardClient({
                               entry.isYou ? "bg-secondary/50" : ""
                             }`}
                           >
-                            <td className="p-4">
+                            <td className="p-3 sm:p-4">
                               <span className="font-mono text-muted-foreground">{entry.rank}</span>
                             </td>
-                            <td className="p-4">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
+                            <td className="min-w-0 p-3 sm:p-4">
+                              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                <Avatar className="h-8 w-8 shrink-0">
                                   <AvatarImage src={entry.image || undefined} />
                                   <AvatarFallback className="text-xs">{entry.avatar}</AvatarFallback>
                                 </Avatar>
-                                <div>
-                                  <p className="font-medium text-sm">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium">
                                     {entry.name}
                                     {entry.isYou && <span className="text-muted-foreground ml-1">(You)</span>}
                                   </p>
@@ -637,23 +708,35 @@ export function LeaderboardClient({
                                 </div>
                               </div>
                             </td>
-                            <td className="p-4 text-right">
-                              <span className="font-mono text-sm">
+                            <td className="p-3 text-right sm:p-4">
+                              <span className="font-mono text-sm tabular-nums">
                                 {formatScoreValue(entry.score)}
                               </span>
                               {mode === "training" && (
-                                <span className="text-[11px] text-muted-foreground ml-1">
+                                <span className="ml-1 hidden text-[11px] text-muted-foreground md:inline">
                                   {getScoreUnit()}
                                 </span>
                               )}
+                              <div className="mt-1 flex items-center justify-end gap-2 sm:hidden">
+                                <span
+                                  className="text-[11px] text-muted-foreground"
+                                  aria-label={getPerformanceDescription(entry.performance)}
+                                >
+                                  {formatPerformance(entry.performance)}
+                                </span>
+                                <TrendIndicator trend={entry.trend} comparisonLabel={trendComparisonLabel} />
+                              </div>
                             </td>
-                            <td className="p-4 text-right">
-                              <span className="font-mono text-sm">{formatAccuracy(entry.accuracy)}</span>
+                            <td className="hidden p-4 text-right sm:table-cell">
+                              <span
+                                className="font-mono text-sm tabular-nums"
+                                aria-label={getPerformanceDescription(entry.performance)}
+                              >
+                                {formatPerformance(entry.performance)}
+                              </span>
                             </td>
-                            <td className="p-4 text-right">
-                              {entry.change === "up" && <ArrowUp className="w-4 h-4 text-success inline" />}
-                              {entry.change === "down" && <ArrowDown className="w-4 h-4 text-destructive inline" />}
-                              {entry.change === "same" && <Minus className="w-4 h-4 text-muted-foreground inline" />}
+                            <td className="hidden p-4 text-right sm:table-cell">
+                              <TrendIndicator trend={entry.trend} comparisonLabel={trendComparisonLabel} />
                             </td>
                           </tr>
                         ))}
@@ -664,17 +747,17 @@ export function LeaderboardClient({
                               <td colSpan={5} className="p-2 text-center text-muted-foreground text-xs">...</td>
                             </tr>
                             <tr className="bg-secondary/50 border-t border-border">
-                              <td className="p-4">
+                              <td className="p-3 sm:p-4">
                                 <span className="font-mono text-muted-foreground">{userRank.rank}</span>
                               </td>
-                              <td className="p-4">
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="h-8 w-8">
+                              <td className="min-w-0 p-3 sm:p-4">
+                                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                  <Avatar className="h-8 w-8 shrink-0">
                                     <AvatarImage src={userRank.image || undefined} />
                                     <AvatarFallback className="text-xs">{userRank.avatar}</AvatarFallback>
                                   </Avatar>
-                                  <div>
-                                    <p className="font-medium text-sm">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium">
                                       {userRank.name}
                                       <span className="text-muted-foreground ml-1">(You)</span>
                                     </p>
@@ -682,21 +765,35 @@ export function LeaderboardClient({
                                   </div>
                                 </div>
                               </td>
-                              <td className="p-4 text-right">
-                                <span className="font-mono text-sm">
+                              <td className="p-3 text-right sm:p-4">
+                                <span className="font-mono text-sm tabular-nums">
                                   {formatScoreValue(userRank.score)}
                                 </span>
                                 {mode === "training" && (
-                                  <span className="text-[11px] text-muted-foreground ml-1">
+                                  <span className="ml-1 hidden text-[11px] text-muted-foreground md:inline">
                                     {getScoreUnit()}
                                   </span>
                                 )}
+                                <div className="mt-1 flex items-center justify-end gap-2 sm:hidden">
+                                  <span
+                                    className="text-[11px] text-muted-foreground"
+                                    aria-label={getPerformanceDescription(userRank.performance)}
+                                  >
+                                    {formatPerformance(userRank.performance)}
+                                  </span>
+                                  <TrendIndicator trend={userRank.trend} comparisonLabel={trendComparisonLabel} />
+                                </div>
                               </td>
-                              <td className="p-4 text-right">
-                              <span className="font-mono text-sm">{formatAccuracy(userRank.accuracy)}</span>
+                              <td className="hidden p-4 text-right sm:table-cell">
+                                <span
+                                  className="font-mono text-sm tabular-nums"
+                                  aria-label={getPerformanceDescription(userRank.performance)}
+                                >
+                                  {formatPerformance(userRank.performance)}
+                                </span>
                               </td>
-                              <td className="p-4 text-right">
-                                <Minus className="w-4 h-4 text-muted-foreground inline" />
+                              <td className="hidden p-4 text-right sm:table-cell">
+                                <TrendIndicator trend={userRank.trend} comparisonLabel={trendComparisonLabel} />
                               </td>
                             </tr>
                           </>

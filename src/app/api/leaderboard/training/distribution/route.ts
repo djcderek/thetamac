@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTrainingDistribution } from "@/lib/leaderboard";
+import { getTrainingDistribution } from "@/lib/training-distribution";
 
 export async function GET() {
   try {
