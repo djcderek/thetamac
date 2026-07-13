@@ -7,6 +7,65 @@ import { isPremiumStatus } from "./subscription";
 import { SubscriptionPlan } from "@prisma/client";
 import { env } from "./env";
 
+const TRANSIENT_DATABASE_ERROR_CODES = new Set(["P1001", "P1002", "P1017"]);
+const AUTH_DATABASE_RETRY_DELAY_MS = 150;
+
+function isTransientDatabaseError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (
+    typeof candidate.code === "string" &&
+    TRANSIENT_DATABASE_ERROR_CODES.has(candidate.code)
+  ) {
+    return true;
+  }
+
+  const message =
+    typeof candidate.message === "string" ? candidate.message.toLowerCase() : "";
+  return (
+    message.includes("connection") &&
+    (message.includes("closed") ||
+      message.includes("timed out") ||
+      message.includes("can't reach database"))
+  );
+}
+
+function getDatabaseErrorSummary(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return { code: "UNKNOWN", transient: false };
+  }
+
+  const candidate = error as { code?: unknown };
+  return {
+    code: typeof candidate.code === "string" ? candidate.code : "UNKNOWN",
+    transient: isTransientDatabaseError(error),
+  };
+}
+
+async function loadBillingUser(userId: string) {
+  const query = () =>
+    db.user.findUnique({
+      where: { id: userId },
+      select: {
+        isPremium: true,
+        subscriptionStatus: true,
+        subscriptionPlan: true,
+        subscriptionCurrentPeriodEnd: true,
+        stripeCustomerId: true,
+        stripeSubscriptionId: true,
+      },
+    });
+
+  try {
+    return await query();
+  } catch (error) {
+    if (!isTransientDatabaseError(error)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, AUTH_DATABASE_RETRY_DELAY_MS));
+    return query();
+  }
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(db) as Adapter,
   secret: env.AUTH_SECRET,
@@ -93,30 +152,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const userId = (user?.id as string) ?? (token.id as string | undefined);
 
       if (userId) {
-        const billingUser = await db.user.findUnique({
-          where: { id: userId },
-          select: {
-            isPremium: true,
-            subscriptionStatus: true,
-            subscriptionPlan: true,
-            subscriptionCurrentPeriodEnd: true,
-            stripeCustomerId: true,
-            stripeSubscriptionId: true,
-          },
-        });
+        try {
+          const billingUser = await loadBillingUser(userId);
 
-        if (billingUser) {
-          const premiumStatus =
-            billingUser.isPremium ||
-            isPremiumStatus(billingUser.subscriptionStatus);
+          if (billingUser) {
+            const premiumStatus =
+              billingUser.isPremium ||
+              isPremiumStatus(billingUser.subscriptionStatus);
 
-          token.isPremium = premiumStatus;
-          token.subscriptionStatus = billingUser.subscriptionStatus;
-          token.subscriptionPlan = billingUser.subscriptionPlan;
-          token.subscriptionCurrentPeriodEnd =
-            billingUser.subscriptionCurrentPeriodEnd?.toISOString() ?? null;
-          token.stripeCustomerId = billingUser.stripeCustomerId;
-          token.stripeSubscriptionId = billingUser.stripeSubscriptionId;
+            token.isPremium = premiumStatus;
+            token.subscriptionStatus = billingUser.subscriptionStatus;
+            token.subscriptionPlan = billingUser.subscriptionPlan;
+            token.subscriptionCurrentPeriodEnd =
+              billingUser.subscriptionCurrentPeriodEnd?.toISOString() ?? null;
+            token.stripeCustomerId = billingUser.stripeCustomerId;
+            token.stripeSubscriptionId = billingUser.stripeSubscriptionId;
+          }
+        } catch (error) {
+          // Billing metadata is auxiliary to identity. Preserve any values already
+          // in the token instead of failing an otherwise valid sign-in/session.
+          console.error(
+            "Unable to refresh billing metadata during authentication",
+            getDatabaseErrorSummary(error)
+          );
         }
       }
 
