@@ -9,6 +9,9 @@ import { LogoMark } from "@/components/brand/logo-mark";
 import { AsciiMorph } from "@/components/ui/ascii-morph";
 import { GoogleIcon } from "@/components/auth/google-icon";
 import { useGoogleSignIn } from "@/hooks/use-google-sign-in";
+import { useEffect } from "react";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 export function SignInForm() {
   const searchParams = useSearchParams();
@@ -16,6 +19,17 @@ export function SignInForm() {
   const error = searchParams.get("error");
   const { isGoogleLoading, googleSignInError, startGoogleSignIn } =
     useGoogleSignIn();
+
+  useEffect(() => {
+    if (!error) return;
+    captureAnalyticsEvent(ANALYTICS_EVENTS.authFailed, {
+      auth_provider: "google",
+      auth_intent: "sign_in",
+      surface: "sign_in",
+      failure_stage: "callback",
+      error_code: error,
+    });
+  }, [error]);
 
   const getErrorMessage = (error: string) => {
     switch (error) {
@@ -39,7 +53,7 @@ export function SignInForm() {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="ph-no-capture w-full max-w-md mx-auto">
       <CardHeader className="space-y-1 text-center">
         <AsciiMorph shapes={["theta", "times"]} className="mx-auto mb-1 w-24" />
         <div className="flex items-center justify-center gap-2 mb-2">
@@ -61,7 +75,9 @@ export function SignInForm() {
           type="button"
           variant="outline"
           className="w-full"
-          onClick={() => startGoogleSignIn(callbackUrl)}
+          onClick={() =>
+            startGoogleSignIn(callbackUrl, { intent: "sign_in", surface: "sign_in" })
+          }
           disabled={isGoogleLoading}
         >
           {isGoogleLoading ? (

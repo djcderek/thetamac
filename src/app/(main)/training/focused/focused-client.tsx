@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, Suspense, startTransition } from "react";
-import posthog from "posthog-js";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -13,6 +12,13 @@ import { AsciiMorph } from "@/components/ui/ascii-morph";
 import { MetricTile, SectionLabel, optionTileClass } from "@/components/ui/visual-system";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import {
+  captureAnalyticsEvent,
+  clearAnalyticsSessionProperties,
+  createAnalyticsId,
+  registerAnalyticsSessionProperties,
+} from "@/lib/analytics-client";
 import {
   ArrowLeft,
   Target,
@@ -128,13 +134,48 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
-  const captureStatsRef = useRef({ correctCount: 0, times: [] as number[], bestStreak: 0, isRetryRound: false });
+  const captureStatsRef = useRef({
+    answeredCount: 0,
+    correctCount: 0,
+    times: [] as number[],
+    bestStreak: 0,
+    isRetryRound: false,
+  });
+  const trainingRunIdRef = useRef<string | null>(null);
+  const trainingStartedAtRef = useRef(0);
+  const firstAnswerTrackedRef = useRef(false);
+  const activeRunRef = useRef(false);
+  const trainingAuthStateRef = useRef<"authenticated" | "guest">("guest");
   const currentProblem = problems[currentIndex];
 
   const isMobileDevice = useIsMobileDevice();
   const useCustomKeypad = isMobileDevice;
   const showCustomKeypad = useCustomKeypad && isPlaying && !!currentProblem;
   const answerInputDisabled = !isPlaying || !currentProblem;
+
+  useEffect(() => {
+    return () => {
+      if (!activeRunRef.current) return;
+      activeRunRef.current = false;
+      const stats = captureStatsRef.current;
+      captureAnalyticsEvent(ANALYTICS_EVENTS.trainingAbandoned, {
+        training_run_id: trainingRunIdRef.current ?? undefined,
+        training_type: "focused",
+        game_mode: "focused",
+        surface: "focused_training",
+        auth_state: trainingAuthStateRef.current,
+        end_reason: "navigation",
+        duration_seconds: Math.round((Date.now() - trainingStartedAtRef.current) / 1000),
+        total_solved: stats.answeredCount,
+        total_correct: stats.correctCount,
+        avg_time_seconds:
+          stats.times.length > 0
+            ? stats.times.reduce((sum, value) => sum + value, 0) / stats.times.length
+            : 0,
+      });
+      clearAnalyticsSessionProperties("training_run_id", "training_type", "game_mode");
+    };
+  }, []);
 
   // On mobile, keep the progress + question card in view when the custom keypad is open / problem changes.
   useEffect(() => {
@@ -159,7 +200,27 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
 
   const startTraining = () => {
-    captureStatsRef.current = { correctCount: 0, times: [], bestStreak: 0, isRetryRound: false };
+    const trainingRunId = createAnalyticsId();
+    trainingRunIdRef.current = trainingRunId;
+    trainingStartedAtRef.current = Date.now();
+    firstAnswerTrackedRef.current = false;
+    activeRunRef.current = true;
+    trainingAuthStateRef.current = authSession?.user ? "authenticated" : "guest";
+    registerAnalyticsSessionProperties({
+      training_run_id: trainingRunId,
+      training_type: "focused",
+      game_mode: "focused",
+    });
+    captureAnalyticsEvent(ANALYTICS_EVENTS.trainingStarted, {
+      training_run_id: trainingRunId,
+      training_type: "focused",
+      game_mode: "focused",
+      problem_count: problems.length,
+      submit_mode: submitMode,
+      auth_state: authSession?.user ? "authenticated" : "guest",
+      surface: "focused_training",
+    });
+    captureStatsRef.current = { answeredCount: 0, correctCount: 0, times: [], bestStreak: 0, isRetryRound: false };
     setIsPlaying(true);
     setIsComplete(false);
     setCurrentIndex(0);
@@ -174,7 +235,26 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   };
 
   const startRetryRound = () => {
-    captureStatsRef.current = { correctCount: 0, times: [], bestStreak: 0, isRetryRound: true };
+    const previousRunId = trainingRunIdRef.current;
+    const trainingRunId = createAnalyticsId();
+    trainingRunIdRef.current = trainingRunId;
+    trainingStartedAtRef.current = Date.now();
+    firstAnswerTrackedRef.current = false;
+    activeRunRef.current = true;
+    trainingAuthStateRef.current = authSession?.user ? "authenticated" : "guest";
+    captureAnalyticsEvent(ANALYTICS_EVENTS.trainingRestarted, {
+      previous_training_run_id: previousRunId ?? undefined,
+      training_run_id: trainingRunId,
+      training_type: "focused",
+      game_mode: "focused",
+      surface: "focused_training",
+    });
+    registerAnalyticsSessionProperties({
+      training_run_id: trainingRunId,
+      training_type: "focused",
+      game_mode: "focused",
+    });
+    captureStatsRef.current = { answeredCount: 0, correctCount: 0, times: [], bestStreak: 0, isRetryRound: true };
     setProblems(shuffleArray(mistakes));
     setMistakes([]);
     setCurrentIndex(0);
@@ -197,14 +277,24 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
       setIsPlaying(false);
       setIsComplete(true);
       const s = captureStatsRef.current;
-      posthog.capture("focused_training_completed", {
+      captureAnalyticsEvent(ANALYTICS_EVENTS.trainingCompleted, {
+        training_run_id: trainingRunIdRef.current ?? undefined,
+        training_type: "focused",
+        game_mode: "focused",
+        surface: "focused_training",
+        end_reason: "pack_finished",
+        duration_seconds: Math.round((Date.now() - trainingStartedAtRef.current) / 1000),
         problem_count: problems.length,
+        total_solved: s.answeredCount,
+        total_correct: s.correctCount,
         correct_count: s.correctCount,
-        accuracy_pct: problems.length > 0 ? Math.round((s.correctCount / problems.length) * 100) : 0,
-        avg_time_s: s.times.length > 0 ? Math.round((s.times.reduce((a, b) => a + b, 0) / s.times.length) * 100) / 100 : 0,
+        accuracy: problems.length > 0 ? Math.round((s.correctCount / problems.length) * 100) : 0,
+        avg_time_seconds: s.times.length > 0 ? Math.round((s.times.reduce((a, b) => a + b, 0) / s.times.length) * 100) / 100 : 0,
         best_streak: s.bestStreak,
         is_retry_round: s.isRetryRound,
       });
+      activeRunRef.current = false;
+      clearAnalyticsSessionProperties("training_run_id", "training_type", "game_mode");
     }
   }, [currentIndex, problems.length]);
 
@@ -241,6 +331,16 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     const answerNum = parseInt(userAnswer);
     if (isNaN(answerNum)) return;
 
+    if (!firstAnswerTrackedRef.current) {
+      firstAnswerTrackedRef.current = true;
+      captureAnalyticsEvent(ANALYTICS_EVENTS.trainingFirstAnswered, {
+        training_run_id: trainingRunIdRef.current ?? undefined,
+        training_type: "focused",
+        game_mode: "focused",
+        surface: "focused_training",
+      });
+    }
+
     const correct = answerNum === currentProblem.answer;
     const timeTaken = (Date.now() - startTime) / 1000;
 
@@ -255,6 +355,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     }
 
     setIsCorrect(correct);
+    captureStatsRef.current.answeredCount++;
 
     // Record attempt
     recordAttempt(currentProblem, answerNum, correct, timeTaken);
@@ -305,8 +406,18 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
     const answerNum = parseInt(userAnswer);
     if (!isNaN(answerNum) && answerNum === currentProblem.answer) {
+      if (!firstAnswerTrackedRef.current) {
+        firstAnswerTrackedRef.current = true;
+        captureAnalyticsEvent(ANALYTICS_EVENTS.trainingFirstAnswered, {
+          training_run_id: trainingRunIdRef.current ?? undefined,
+          training_type: "focused",
+          game_mode: "focused",
+          surface: "focused_training",
+        });
+      }
       const timeTaken = (Date.now() - startTime) / 1000;
 
+      captureStatsRef.current.answeredCount++;
       captureStatsRef.current.correctCount++;
       captureStatsRef.current.times = [...captureStatsRef.current.times, timeTaken];
       startTransition(() => {

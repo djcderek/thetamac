@@ -8,6 +8,7 @@ import { getUpgradeUrl, type UpgradeFeature } from "@/lib/upgrade";
 
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
+import { UpgradeAuthLink } from "@/components/billing/upgrade-auth-link";
 import { AsciiMorph } from "@/components/ui/ascii-morph";
 
 import { UpgradeAutoScroll } from "./upgrade-auto-scroll";
@@ -62,6 +63,7 @@ export default async function UpgradePage({
   const activeFeature = normalizeFeature(resolvedSearchParams.feature);
   const source = normalizeString(resolvedSearchParams.source);
   const upgraded = resolvedSearchParams.upgraded === "1";
+  const cancelled = resolvedSearchParams.cancelled === "1";
 
   const { userId, isPremium } = await getCurrentUserPremiumStatus();
 
@@ -173,11 +175,15 @@ export default async function UpgradePage({
 
               <div className="relative mt-5 space-y-3">
                 {!userId ? (
-                  <Link href={`/auth/signin?callbackUrl=${encodeURIComponent(upgradeUrl)}`}>
+                  <UpgradeAuthLink
+                    href={`/auth/signin?callbackUrl=${encodeURIComponent(upgradeUrl)}`}
+                    feature={activeFeature}
+                    source={source}
+                  >
                     <button className="w-full rounded-full bg-brand px-4 py-3 font-semibold text-brand-foreground transition-colors hover:bg-brand/85">
                       Start Free Trial
                     </button>
-                  </Link>
+                  </UpgradeAuthLink>
                 ) : isPremium ? (
                   <ManageBillingButton
                     returnUrl={upgradeUrl}
@@ -245,7 +251,13 @@ export default async function UpgradePage({
         </div>
       </div>
 
-      <UpgradeTelemetry feature={activeFeature} source={source} />
+      <UpgradeTelemetry
+        feature={activeFeature}
+        source={source}
+        upgraded={upgraded}
+        cancelled={cancelled}
+        authState={userId ? "authenticated" : "guest"}
+      />
       <UpgradeAutoScroll feature={activeFeature} upgraded={upgraded} />
     </div>
   );

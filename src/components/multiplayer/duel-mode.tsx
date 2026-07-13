@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import posthog from "posthog-js";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
   const [roundStartTime, setRoundStartTime] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState(10);
   const inputRef = useRef<HTMLInputElement>(null);
+  const completedGameRef = useRef(false);
   const problemCardRef = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<MultiplayerStats>({
     wins: 0,
@@ -382,6 +384,30 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
     return () => clearTimeout(timeout);
   }, [gameplay.status, session?.user]);
 
+  useEffect(() => {
+    if (gameplay.status !== "game_over" || !gameplay.gameResult || !playerId) {
+      if (gameplay.status === "idle") completedGameRef.current = false;
+      return;
+    }
+    if (completedGameRef.current) return;
+    completedGameRef.current = true;
+
+    const result = gameplay.gameResult;
+    captureAnalyticsEvent(ANALYTICS_EVENTS.multiplayerCompleted, {
+      multiplayer_mode: "duel",
+      auth_state: isGuest ? "guest" : "authenticated",
+      surface: "multiplayer_game",
+      outcome:
+        result.winnerId === null
+          ? "draw"
+          : result.winnerId === playerId
+            ? "win"
+            : "loss",
+      player_score: result.finalScores[playerId] ?? 0,
+      rating_changed: result.ratingChange !== 0,
+    });
+  }, [gameplay.gameResult, gameplay.status, isGuest, playerId]);
+
   // Reset answer when new round starts
   useEffect(() => {
     if (gameplay.status === "playing" && gameplay.problem) {
@@ -493,7 +519,11 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
       isGameActive,
       isLobby,
     });
-    posthog.capture("multiplayer_duel_joined", { is_guest: isGuest });
+    captureAnalyticsEvent(ANALYTICS_EVENTS.multiplayerJoined, {
+      multiplayer_mode: "duel",
+      auth_state: isGuest ? "guest" : "authenticated",
+      surface: "multiplayer_lobby",
+    });
     joinMatchmaking();
   };
 

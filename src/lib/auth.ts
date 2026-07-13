@@ -8,6 +8,8 @@ import { SubscriptionPlan } from "@prisma/client";
 import { env } from "./env";
 import { shouldRefreshBillingMetadata } from "./auth-billing";
 import { getDatabaseErrorSummary } from "./database-resilience";
+import { ANALYTICS_EVENTS } from "./analytics";
+import { captureServerAnalyticsEvent } from "./posthog-server";
 
 async function loadBillingUser(userId: string) {
   return db.user.findUnique({
@@ -184,12 +186,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   events: {
+    async signIn({ user, account }) {
+      if (!user.id) return;
+      await captureServerAnalyticsEvent({
+        distinctId: user.id,
+        event: ANALYTICS_EVENTS.authSucceeded,
+        properties: {
+          auth_provider: account?.provider ?? "unknown",
+          auth_state: "authenticated",
+          surface: "auth_callback",
+        },
+      });
+    },
     async createUser({ user }) {
       // Initialize user stats when a new user is created
       if (user.id) {
         await db.userStats.create({
           data: {
             userId: user.id,
+          },
+        });
+        await captureServerAnalyticsEvent({
+          distinctId: user.id,
+          event: ANALYTICS_EVENTS.accountCreated,
+          properties: {
+            auth_provider: "google",
+            auth_state: "authenticated",
+            plan: "free",
+            surface: "auth_callback",
           },
         });
       }

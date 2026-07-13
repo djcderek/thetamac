@@ -6,7 +6,8 @@ import { userHasPremiumAccess } from "@/lib/subscription";
 import { env } from "@/lib/env";
 import { checkoutRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import Stripe from "stripe";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerAnalyticsEvent } from "@/lib/posthog-server";
+import { ANALYTICS_EVENTS, getAnalyticsInsertId } from "@/lib/analytics";
 
 function normalizeReturnPath(
   baseUrl: string,
@@ -76,6 +77,9 @@ export async function POST(request: Request) {
   const baseUrl = env.NEXT_PUBLIC_APP_URL;
   // Backwards-compatible default: older paywalls expect to return to stats.
   const resolvedReturnPath = returnPath ?? "/stats/performance";
+  const returnContextUrl = new URL(resolvedReturnPath, baseUrl);
+  const analyticsSource = returnContextUrl.searchParams.get("source") ?? "upgrade";
+  const analyticsFeature = returnContextUrl.searchParams.get("feature") ?? undefined;
 
   try {
     const user = await db.user.findUnique({
@@ -208,24 +212,36 @@ export async function POST(request: Request) {
       },
     });
 
-    const posthog = getPostHogClient();
-    posthog.capture({
+    await captureServerAnalyticsEvent({
       distinctId: session.user.id,
-      event: "checkout_initiated",
+      event: ANALYTICS_EVENTS.checkoutInitiated,
       properties: {
         plan,
         eligible_for_trial: eligibleForTrial,
+        entry_source: analyticsSource,
+        feature: analyticsFeature,
+        price_amount_minor: plan === "yearly" ? 599 : 99,
+        currency: "usd",
       },
+      insertId: getAnalyticsInsertId(checkoutSession.id),
     });
-    await posthog.flush();
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (error) {
     console.error("Error creating checkout session:", error);
+    await captureServerAnalyticsEvent({
+      distinctId: session.user.id,
+      event: ANALYTICS_EVENTS.checkoutFailed,
+      properties: {
+        plan,
+        entry_source: analyticsSource,
+        feature: analyticsFeature,
+        failure_stage: "session_creation",
+      },
+    });
     return NextResponse.json(
       { error: "Unable to start checkout session." },
       { status: 500 }
     );
   }
 }
-

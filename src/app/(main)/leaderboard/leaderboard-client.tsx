@@ -22,6 +22,8 @@ import type {
   TrainingTopScoresResult,
 } from "@/lib/leaderboard";
 import { PageHeader, SectionLabel } from "@/components/ui/visual-system";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 interface LeaderboardClientProps {
   initialLeaderboard: LeaderboardResult;
@@ -214,11 +216,25 @@ export function LeaderboardClient({
   const handleModeChange = (newMode: string) => {
     setHasInteracted(true);
     setMode(newMode as Mode);
+    captureAnalyticsEvent(ANALYTICS_EVENTS.leaderboardFilterChanged, {
+      surface: "leaderboard",
+      filter_name: "mode",
+      filter_value: newMode,
+      period,
+      view,
+    });
   };
 
   const handlePeriodChange = (newPeriod: string) => {
     setHasInteracted(true);
     setPeriod(newPeriod as Period);
+    captureAnalyticsEvent(ANALYTICS_EVENTS.leaderboardFilterChanged, {
+      surface: "leaderboard",
+      filter_name: "period",
+      filter_value: newPeriod,
+      mode,
+      view,
+    });
   };
 
   const handleViewChange = (newView: string) => {
@@ -226,6 +242,13 @@ export function LeaderboardClient({
     const nextView = newView as TrainingView;
     if (nextView === "topScores") setPeriod("all");
     setView(nextView);
+    captureAnalyticsEvent(ANALYTICS_EVENTS.leaderboardFilterChanged, {
+      surface: "leaderboard",
+      filter_name: "view",
+      filter_value: nextView,
+      mode,
+      period: nextView === "topScores" ? "all" : period,
+    });
   };
 
   const activeUserRank = view === "topScores" ? topScoreUserRank : userRank;

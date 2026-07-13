@@ -2,6 +2,8 @@
 
 import { useSession, signOut } from "next-auth/react";
 import posthog from "posthog-js";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -214,7 +216,10 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
-            posthog.capture("user_signed_out");
+            captureAnalyticsEvent(ANALYTICS_EVENTS.userSignedOut, {
+              surface: "user_menu",
+              auth_state: "authenticated",
+            });
             posthog.reset();
             signOut({ callbackUrl: "/" });
           }}

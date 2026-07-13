@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureServerAnalyticsEvent } from "@/lib/posthog-server";
 
 const equipSchema = z.object({
   itemId: z.string(),
@@ -79,10 +81,20 @@ export async function POST(req: Request) {
       });
     }
 
+    await captureServerAnalyticsEvent({
+      distinctId: session.user.id,
+      event: ANALYTICS_EVENTS.shopItemEquipped,
+      properties: {
+        item_id: userItem.item.id,
+        item_type: userItem.item.type,
+        action,
+        surface: "shop",
+      },
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Shop Equip Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
-

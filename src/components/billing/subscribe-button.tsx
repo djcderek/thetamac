@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 type BillingPlan = "monthly" | "yearly";
 
@@ -34,21 +36,12 @@ export function SubscribeButton({
     try {
       setLoading(true);
 
-      if (tracking?.eventName) {
-        // Best-effort: don't block checkout on telemetry.
-        void fetch("/api/telemetry/event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventName: tracking.eventName,
-            properties: {
-              ...tracking.properties,
-              plan,
-              returnUrl,
-            },
-          }),
-        }).catch(() => {});
-      }
+      captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, {
+        ...tracking?.properties,
+        plan,
+        surface: "upgrade",
+        action: "start_checkout",
+      });
 
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
@@ -67,6 +60,12 @@ export function SubscribeButton({
       window.location.href = data.url;
     } catch (error) {
       console.error("Checkout error:", error);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.checkoutFailed, {
+        ...tracking?.properties,
+        plan,
+        surface: "upgrade",
+        failure_stage: "client_request",
+      });
       alert(
         error instanceof Error
           ? error.message
@@ -95,6 +94,4 @@ export function SubscribeButton({
     </Button>
   );
 }
-
-
 

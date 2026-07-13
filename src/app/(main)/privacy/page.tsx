@@ -130,8 +130,11 @@ export default function PrivacyPolicyPage() {
                     process basic device and usage information (for example, page views).
                   </li>
                   <li>
-                    We also log limited in-app telemetry events (for example, upgrade page views and
-                    button clicks) primarily for product improvement and troubleshooting.
+                    We use PostHog for product analytics, privacy-masked session replay, error
+                    diagnostics, surveys, feature flags, and experiments. This can include page
+                    visits, feature usage, training milestones, device/browser information, and
+                    interaction patterns. Training answers, profile fields, and billing details are
+                    excluded from replay and analytics event properties.
                   </li>
                   <li>
                     Like most online services, our infrastructure may generate server logs that can
@@ -193,6 +196,11 @@ export default function PrivacyPolicyPage() {
                   provide analytics.
                 </li>
                 <li>
+                  <span className="font-medium">PostHog</span> (product analytics): to understand
+                  feature usage, diagnose interaction problems, collect optional survey responses,
+                  and evaluate product improvements.
+                </li>
+                <li>
                   <span className="font-medium">Upstash</span> (rate limiting, if enabled): to help
                   prevent abuse by tracking request counts for an identifier (such as a user ID or
                   email).
@@ -236,10 +244,17 @@ export default function PrivacyPolicyPage() {
                   your browser (local storage) and, if you’re signed in, may also be saved to your
                   account settings.
                 </li>
+                <li>
+                  <span className="font-medium">Product analytics preference</span>: your browser
+                  stores whether you have opted out of PostHog analytics and session replay. Analytics
+                  are enabled by default, inputs are masked, and URL query strings are removed from
+                  recordings.
+                </li>
               </ul>
               <p className="text-sm text-muted-foreground">
-                You can control cookies through your browser settings. If you block certain cookies,
-                parts of the app (like sign-in) may not work.
+                You can disable product analytics from Settings at any time. You can also control
+                cookies through your browser settings. If you block certain cookies, parts of the app
+                (like sign-in) may not work.
               </p>
             </CardContent>
           </Card>

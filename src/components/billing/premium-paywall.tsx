@@ -1,6 +1,7 @@
 import { SubscribeButton } from "./subscribe-button";
 import { SectionLabel } from "@/components/ui/visual-system";
 import { cn } from "@/lib/utils";
+import { PremiumGateTelemetry } from "@/components/billing/premium-gate-telemetry";
 
 interface PremiumPaywallProps {
   featureName: string;
@@ -32,6 +33,7 @@ export function PremiumPaywall({
       )}
     >
       <div className="w-full max-w-3xl border-t-2 border-foreground pt-4">
+        <PremiumGateTelemetry featureName={featureName} />
         <div className="space-y-3">
           <SectionLabel className="text-brand">Pro</SectionLabel>
           <h2 className="font-serif text-3xl font-normal tracking-tight">
@@ -92,6 +94,5 @@ export function PremiumPaywall({
     </div>
   );
 }
-
 
 

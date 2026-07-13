@@ -7,6 +7,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useGoogleSignIn } from "@/hooks/use-google-sign-in";
+import { useEffect } from "react";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 function AuthErrorContent() {
   const searchParams = useSearchParams();
@@ -14,6 +17,16 @@ function AuthErrorContent() {
   const callbackUrl = searchParams.get("callbackUrl");
   const { isGoogleLoading, googleSignInError, startGoogleSignIn } =
     useGoogleSignIn();
+
+  useEffect(() => {
+    captureAnalyticsEvent(ANALYTICS_EVENTS.authFailed, {
+      auth_provider: "google",
+      auth_intent: "retry",
+      surface: "auth_error",
+      failure_stage: "callback",
+      error_code: error ?? "unknown",
+    });
+  }, [error]);
 
   const getErrorMessage = (error: string | null) => {
     switch (error) {
@@ -45,7 +58,7 @@ function AuthErrorContent() {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="ph-no-capture w-full max-w-md mx-auto">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
           <div className="grid h-14 w-14 place-items-center rounded-[3px] border-2 border-destructive font-mono text-2xl font-semibold text-destructive" aria-hidden="true">
@@ -65,7 +78,9 @@ function AuthErrorContent() {
         <div className="flex flex-col gap-2">
           <Button
             className="w-full"
-            onClick={() => startGoogleSignIn(callbackUrl)}
+            onClick={() =>
+              startGoogleSignIn(callbackUrl, { intent: "retry", surface: "auth_error" })
+            }
             disabled={isGoogleLoading}
           >
             {isGoogleLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -96,6 +111,5 @@ export default function AuthErrorPage() {
     </div>
   );
 }
-
 
 

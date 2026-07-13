@@ -23,6 +23,8 @@ import {
 import Link from "next/link";
 import { ChartTooltip } from "@/components/ui/chart";
 import { BrandedEmptyState, MetricTile, PageHeader, SectionLabel } from "@/components/ui/visual-system";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 interface UserStats {
   totalProblems: number;
@@ -94,6 +96,14 @@ export function DashboardClient() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    captureAnalyticsEvent(ANALYTICS_EVENTS.secondarySurfaceViewed, {
+      surface: "dashboard",
+      has_training_history: Boolean(stats && stats.totalProblems > 0),
+    });
+  }, [loading, stats]);
 
   if (loading) {
     return (

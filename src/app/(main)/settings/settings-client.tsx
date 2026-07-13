@@ -24,6 +24,12 @@ import Link from "next/link";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
 import { PageHeader } from "@/components/ui/visual-system";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile-events";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import {
+  captureAnalyticsEvent,
+  hasOptedOutOfAnalytics,
+  setAnalyticsOptOut,
+} from "@/lib/analytics-client";
 
 interface SettingToggleProps {
   label: string;
@@ -177,6 +183,7 @@ export function SettingsClient() {
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const themeHydratedFromServerRef = useRef(false);
   const themeChangedByUserRef = useRef(false);
@@ -209,6 +216,10 @@ export function SettingsClient() {
     defaultTimer: "10s"
   });
   const settingsRef = useRef(settings);
+
+  useEffect(() => {
+    setAnalyticsEnabled(!hasOptedOutOfAnalytics());
+  }, []);
 
   // Fetch initial data
   useEffect(() => {
@@ -300,6 +311,10 @@ export function SettingsClient() {
       );
       router.refresh();
       setProfileFeedback({ type: "success", message: "Profile photo saved." });
+      captureAnalyticsEvent(ANALYTICS_EVENTS.settingsSaved, {
+        surface: "settings",
+        setting_group: "profile_photo",
+      });
       return true;
     } catch (error) {
       console.error("Failed to update profile image", error);
@@ -339,6 +354,11 @@ export function SettingsClient() {
 
         if (requestVersion === settingsRequestVersionRef.current) {
           setSettingsFeedback({ type: "success", message: "Settings saved." });
+          captureAnalyticsEvent(ANALYTICS_EVENTS.settingsSaved, {
+            surface: "settings",
+            setting_group: "training_preferences",
+            changed_fields: Object.keys(newSettings),
+          });
         }
       })
       .catch((error) => {
@@ -386,6 +406,11 @@ export function SettingsClient() {
 
         if (requestVersion === themeRequestVersionRef.current) {
           setThemeFeedback({ type: "success", message: "Theme saved." });
+          captureAnalyticsEvent(ANALYTICS_EVENTS.settingsSaved, {
+            surface: "settings",
+            setting_group: "appearance",
+            changed_fields: ["theme"],
+          });
         }
       })
       .catch((error) => {
@@ -425,6 +450,11 @@ export function SettingsClient() {
         }
         if (requestVersion === toneRequestVersionRef.current) {
           setThemeFeedback({ type: "success", message: "Appearance saved." });
+          captureAnalyticsEvent(ANALYTICS_EVENTS.settingsSaved, {
+            surface: "settings",
+            setting_group: "appearance",
+            changed_fields: ["color_tone"],
+          });
         }
       })
       .catch((error) => {
@@ -462,6 +492,10 @@ export function SettingsClient() {
       setProfile((current) => ({ ...current, name: savedName }));
       await updateSession({ name: savedName });
       setProfileFeedback({ type: "success", message: "Profile saved." });
+      captureAnalyticsEvent(ANALYTICS_EVENTS.settingsSaved, {
+        surface: "settings",
+        setting_group: "profile",
+      });
       router.refresh();
     } catch (error) {
       console.error("Failed to save profile", error);
@@ -557,7 +591,7 @@ export function SettingsClient() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="ph-no-capture min-h-screen">
       <PageHeader
         eyebrow="Make it yours"
         title="Settings"
@@ -814,6 +848,16 @@ export function SettingsClient() {
               <CardTitle className="text-sm font-medium">Legal & Feedback</CardTitle>
             </CardHeader>
             <CardContent className="divide-y divide-border">
+              <SettingToggle
+                label="Product analytics"
+                description="Help improve thetamac with masked usage analytics and session replay"
+                enabled={analyticsEnabled}
+                onToggle={() => {
+                  const nextEnabled = !analyticsEnabled;
+                  setAnalyticsEnabled(nextEnabled);
+                  setAnalyticsOptOut(!nextEnabled);
+                }}
+              />
               <div className="flex items-center justify-between py-4 gap-4">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">

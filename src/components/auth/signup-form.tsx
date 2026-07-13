@@ -16,7 +16,7 @@ export function SignUpForm() {
     useGoogleSignIn();
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="ph-no-capture w-full max-w-md mx-auto">
       <CardHeader className="space-y-1 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
           <LogoMark size={32} />
@@ -37,7 +37,9 @@ export function SignUpForm() {
           type="button"
           variant="outline"
           className="w-full"
-          onClick={() => startGoogleSignIn(callbackUrl)}
+          onClick={() =>
+            startGoogleSignIn(callbackUrl, { intent: "sign_up", surface: "sign_up" })
+          }
           disabled={isGoogleLoading}
         >
           {isGoogleLoading ? (

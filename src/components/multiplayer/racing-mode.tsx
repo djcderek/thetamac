@@ -33,6 +33,8 @@ import type { ActionType, PlayerProblems } from "@/lib/racing/types";
 import RaceTrack3D from "@/components/racing/race-track-3d";
 import RaceLobby3D from "@/components/racing/race-lobby-3d";
 import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 type RacingStats = {
   rating: number;
@@ -767,6 +769,8 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
   const isMobileDevice = useIsMobileDevice();
   const trackTopRef = useRef<HTMLDivElement | null>(null);
   const hasAutoScrolledRef = useRef(false);
+  const queueTrackedRef = useRef(false);
+  const resultTrackedRef = useRef(false);
   const { setPinned } = useMobileTopBarPinning();
   const {
     isConnected,
@@ -856,6 +860,39 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
 
     return () => clearTimeout(timeout);
   }, [isSignedIn, result, fetchRacingStats]);
+
+  useEffect(() => {
+    if (!queue.inQueue) {
+      queueTrackedRef.current = false;
+      return;
+    }
+    if (queueTrackedRef.current) return;
+    queueTrackedRef.current = true;
+    captureAnalyticsEvent(ANALYTICS_EVENTS.multiplayerJoined, {
+      multiplayer_mode: "racing",
+      auth_state: isGuest ? "guest" : "authenticated",
+      surface: "multiplayer_lobby",
+    });
+  }, [isGuest, queue.inQueue]);
+
+  useEffect(() => {
+    if (!result) {
+      resultTrackedRef.current = false;
+      return;
+    }
+    if (resultTrackedRef.current) return;
+    resultTrackedRef.current = true;
+
+    const ownResult = result.results.find((entry) => entry.playerId === (myPlayerId || playerId));
+    captureAnalyticsEvent(ANALYTICS_EVENTS.multiplayerCompleted, {
+      multiplayer_mode: "racing",
+      auth_state: isGuest ? "guest" : "authenticated",
+      surface: "multiplayer_game",
+      finish_position: ownResult?.position,
+      problems_solved: ownResult?.stats.problemsSolved,
+      rating_changed: result.myRatingChange !== 0,
+    });
+  }, [isGuest, myPlayerId, playerId, result]);
 
   const myPlayer = (myPlayerId || playerId) ? getMyPlayer((myPlayerId || playerId)!) : null;
   const hasFinished = race.myFinishPosition !== null;

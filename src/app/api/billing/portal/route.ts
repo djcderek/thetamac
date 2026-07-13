@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { getStripeClient } from "@/lib/stripe";
 import { env } from "@/lib/env";
 import { billingPortalRatelimit, checkRateLimit } from "@/lib/rate-limit";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureServerAnalyticsEvent } from "@/lib/posthog-server";
 
 function normalizeReturnPath(
   baseUrl: string,
@@ -80,6 +82,14 @@ export async function POST(request: Request) {
       return_url: new URL(resolvedReturnPath, baseUrl).toString(),
     });
 
+    await captureServerAnalyticsEvent({
+      distinctId: session.user.id,
+      event: ANALYTICS_EVENTS.billingPortalOpened,
+      properties: {
+        surface: returnPath?.includes("/upgrade") ? "upgrade" : "account_menu",
+      },
+    });
+
     return NextResponse.json({ url: portal.url });
   } catch (error) {
     console.error("Error creating billing portal session:", error);
@@ -89,6 +99,5 @@ export async function POST(request: Request) {
     );
   }
 }
-
 
 

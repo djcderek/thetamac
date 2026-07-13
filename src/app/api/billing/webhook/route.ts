@@ -5,7 +5,8 @@ import { isPremiumStatus, updateUserSubscription } from "@/lib/subscription";
 import { db } from "@/lib/db";
 import Stripe from "stripe";
 import { env } from "@/lib/env";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerAnalyticsEvent } from "@/lib/posthog-server";
+import { ANALYTICS_EVENTS, getAnalyticsInsertId } from "@/lib/analytics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,8 +32,17 @@ async function syncSubscription(subscription: Stripe.Subscription) {
       "Stripe webhook: unable to match subscription to user",
       subscription.id
     );
-    return;
+    return null;
   }
+
+  const previousUser = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      isPremium: true,
+      subscriptionStatus: true,
+      subscriptionPlan: true,
+    },
+  });
 
   await updateUserSubscription({
     userId,
@@ -76,17 +86,102 @@ async function syncSubscription(subscription: Stripe.Subscription) {
       );
     }
 
-    const posthog = getPostHogClient();
-    posthog.capture({
-      distinctId: userId,
-      event: "subscription_activated",
-      properties: {
-        plan: subscription.metadata?.plan ?? null,
-        status: subscription.status,
-        is_trial: Boolean(subscription.trial_start || subscription.trial_end),
-      },
+  }
+
+  return {
+    userId,
+    previousStatus: previousUser?.subscriptionStatus ?? null,
+    previousPremium:
+      Boolean(previousUser?.isPremium) ||
+      isPremiumStatus(previousUser?.subscriptionStatus ?? null),
+    plan:
+      subscription.metadata?.plan ||
+      subscription.items.data[0]?.price?.metadata?.plan ||
+      previousUser?.subscriptionPlan ||
+      null,
+  };
+}
+
+async function captureSubscriptionTransition(
+  event: Stripe.Event,
+  subscription: Stripe.Subscription,
+  synced: Awaited<ReturnType<typeof syncSubscription>>
+) {
+  if (!synced) return;
+
+  const properties = {
+    plan: synced.plan,
+    previous_status: synced.previousStatus,
+    status: subscription.status,
+    is_trial: subscription.status === "trialing",
+    currency: subscription.currency,
+    price_amount_minor: subscription.items.data[0]?.price?.unit_amount ?? undefined,
+  };
+
+  if (synced.previousStatus !== subscription.status) {
+    await captureServerAnalyticsEvent({
+      distinctId: synced.userId,
+      event: ANALYTICS_EVENTS.subscriptionStatusChanged,
+      properties,
+      insertId: getAnalyticsInsertId(event.id, "status"),
     });
-    await posthog.flush();
+  }
+
+  if (subscription.status === "trialing" && synced.previousStatus !== "trialing") {
+    await captureServerAnalyticsEvent({
+      distinctId: synced.userId,
+      event: ANALYTICS_EVENTS.trialStarted,
+      properties,
+      insertId: getAnalyticsInsertId(event.id, "trial"),
+    });
+  }
+
+  if (isPremiumStatus(subscription.status) && !synced.previousPremium) {
+    await captureServerAnalyticsEvent({
+      distinctId: synced.userId,
+      event: ANALYTICS_EVENTS.subscriptionActivated,
+      properties,
+      insertId: getAnalyticsInsertId(event.id, "activated"),
+    });
+  }
+
+  if (subscription.status === "canceled" && synced.previousStatus !== "canceled") {
+    await captureServerAnalyticsEvent({
+      distinctId: synced.userId,
+      event: ANALYTICS_EVENTS.subscriptionCancelled,
+      properties,
+      insertId: getAnalyticsInsertId(event.id, "cancelled"),
+    });
+  }
+
+  const previousAttributes = event.data.previous_attributes as
+    | { cancel_at_period_end?: boolean }
+    | undefined;
+  if (
+    subscription.cancel_at_period_end &&
+    previousAttributes?.cancel_at_period_end === false
+  ) {
+    await captureServerAnalyticsEvent({
+      distinctId: synced.userId,
+      event: ANALYTICS_EVENTS.subscriptionCancelled,
+      properties: {
+        ...properties,
+        cancellation_effective_at_period_end: true,
+      },
+      insertId: getAnalyticsInsertId(event.id, "cancel_scheduled"),
+    });
+  }
+
+  if (
+    subscription.status === "incomplete_expired" &&
+    synced.previousStatus !== "incomplete_expired"
+  ) {
+    await captureServerAnalyticsEvent({
+      distinctId: synced.userId,
+      event: ANALYTICS_EVENTS.subscriptionExpired,
+      properties,
+      insertId: getAnalyticsInsertId(event.id, "expired"),
+    });
   }
 }
 
@@ -128,7 +223,21 @@ export async function POST(request: Request) {
           const subscription = await stripe.subscriptions.retrieve(
             subscriptionId
           );
-          await syncSubscription(subscription);
+          const synced = await syncSubscription(subscription);
+          if (synced) {
+            await captureServerAnalyticsEvent({
+              distinctId: synced.userId,
+              event: ANALYTICS_EVENTS.checkoutCompleted,
+              properties: {
+                plan: synced.plan,
+                status: subscription.status,
+                currency: session.currency ?? subscription.currency,
+                price_amount_minor: session.amount_total ?? undefined,
+              },
+              insertId: getAnalyticsInsertId(event.id),
+            });
+            await captureSubscriptionTransition(event, subscription, synced);
+          }
         }
         break;
       }
@@ -136,7 +245,27 @@ export async function POST(request: Request) {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        await syncSubscription(subscription);
+        const synced = await syncSubscription(subscription);
+        await captureSubscriptionTransition(event, subscription, synced);
+        break;
+      }
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string | null;
+        const userId = customerId ? await findUserIdByCustomer(customerId) : null;
+        if (userId && invoice.paid && invoice.amount_paid > 0) {
+          await captureServerAnalyticsEvent({
+            distinctId: userId,
+            event: ANALYTICS_EVENTS.subscriptionPaymentSucceeded,
+            properties: {
+              price_amount_minor: invoice.amount_paid,
+              currency: invoice.currency,
+              billing_reason: invoice.billing_reason ?? "unknown",
+              paid: invoice.paid,
+            },
+            insertId: getAnalyticsInsertId(event.id),
+          });
+        }
         break;
       }
       default:
@@ -152,4 +281,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ received: true });
 }
-

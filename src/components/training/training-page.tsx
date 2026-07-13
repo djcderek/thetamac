@@ -8,7 +8,13 @@ import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 import { getTrainingPreset } from "@/lib/training-presets";
-import { trackEvent } from "@/lib/telemetry-client";
+import { ANALYTICS_EVENTS, type AnalyticsProperties } from "@/lib/analytics";
+import {
+  captureAnalyticsEvent,
+  clearAnalyticsSessionProperties,
+  createAnalyticsId,
+  registerAnalyticsSessionProperties,
+} from "@/lib/analytics-client";
 import type {
   Difficulty,
   DifficultySettings,
@@ -694,7 +700,7 @@ function generateProblem(
 }
 
 export default function TrainingPage() {
-  const { data: authSession } = useSession();
+  const { data: authSession, status: authStatus } = useSession();
   const searchParams = useSearchParams();
   const activePreset = getTrainingPreset(searchParams.get("preset"));
   const seoSource = searchParams.get("source") || undefined;
@@ -730,6 +736,11 @@ export default function TrainingPage() {
   const presetAppliedRef = useRef(false);
   const firstAnswerTrackedRef = useRef(false);
   const completionTrackedRef = useRef(false);
+  const setupViewedTrackedRef = useRef(false);
+  const activeRunRef = useRef(false);
+  const trainingRunIdRef = useRef<string | null>(null);
+  const trainingTelemetryRef = useRef<AnalyticsProperties>({});
+  const runResultsRef = useRef({ totalSolved: 0, totalCorrect: 0, avgTime: 0 });
   const [scorePercentile, setScorePercentile] = useState<ScoreDistribution | null>(null);
 
   // Learning mode state
@@ -936,31 +947,90 @@ export default function TrainingPage() {
     }
   };
 
-  const getTrainingTelemetryProperties = useCallback(() => ({
-    landingPath: seoLandingPath,
-    source: seoSource,
+  const getTrainingTelemetryProperties = useCallback((): AnalyticsProperties => ({
+    surface: activePreset?.id ? "seo_training_preset" : "training",
+    entry_source: seoSource ?? "direct",
+    landing_path: seoLandingPath,
     preset: activePreset?.id,
-    pageType: activePreset?.id ? "seo-training-preset" : "training",
-    gameMode,
+    auth_state: authSession?.user ? "authenticated" : "guest",
+    plan: authSession?.user?.isPremium ? "premium" : "free",
+    training_run_id: trainingRunIdRef.current ?? undefined,
+    training_type: "standard",
+    game_mode: gameMode,
     difficulty,
-    operations: selectedOperations.join(" "),
-    timedModeLimit,
-    showAdvanced,
+    operations: selectedOperations,
+    timed_mode_limit: timedModeLimit,
+    practice_timer_limit: practiceTimerLimit,
+    auto_advance: autoAdvance,
+    submit_mode: submitMode,
+    show_advanced: showAdvanced,
   }), [
     activePreset?.id,
+    authSession?.user,
     seoLandingPath,
     seoSource,
     gameMode,
     difficulty,
     selectedOperations,
     timedModeLimit,
+    practiceTimerLimit,
+    autoAdvance,
+    submitMode,
     showAdvanced,
   ]);
+
+  useEffect(() => {
+    trainingTelemetryRef.current = getTrainingTelemetryProperties();
+  }, [getTrainingTelemetryProperties]);
+
+  useEffect(() => {
+    runResultsRef.current = { totalSolved, totalCorrect, avgTime };
+  }, [totalSolved, totalCorrect, avgTime]);
+
+  useEffect(() => {
+    if (authStatus === "loading") return;
+    if (setupViewedTrackedRef.current) return;
+    setupViewedTrackedRef.current = true;
+    captureAnalyticsEvent(ANALYTICS_EVENTS.trainingSetupViewed, {
+      surface: activePreset?.id ? "seo_training_preset" : "training",
+      entry_source: seoSource ?? "direct",
+      landing_path: seoLandingPath,
+      preset: activePreset?.id,
+      auth_state: authSession?.user ? "authenticated" : "guest",
+      training_type: "standard",
+    });
+  }, [activePreset?.id, authSession?.user, authStatus, seoLandingPath, seoSource]);
+
+  useEffect(() => {
+    const captureNavigationAbandonment = () => {
+      if (!activeRunRef.current || completionTrackedRef.current) return;
+      completionTrackedRef.current = true;
+      const results = runResultsRef.current;
+      captureAnalyticsEvent(ANALYTICS_EVENTS.trainingAbandoned, {
+        ...trainingTelemetryRef.current,
+        end_reason: "navigation",
+        total_solved: results.totalSolved,
+        total_correct: results.totalCorrect,
+        avg_time_seconds: results.avgTime,
+      });
+      activeRunRef.current = false;
+      clearAnalyticsSessionProperties("training_run_id", "training_type", "game_mode");
+    };
+
+    window.addEventListener("pagehide", captureNavigationAbandonment);
+    return () => {
+      window.removeEventListener("pagehide", captureNavigationAbandonment);
+      captureNavigationAbandonment();
+    };
+  }, []);
 
   const trackFirstAnswer = useCallback(() => {
     if (firstAnswerTrackedRef.current) return;
     firstAnswerTrackedRef.current = true;
-    trackEvent("training_first_answer", getTrainingTelemetryProperties());
+    captureAnalyticsEvent(
+      ANALYTICS_EVENTS.trainingFirstAnswered,
+      getTrainingTelemetryProperties()
+    );
   }, [getTrainingTelemetryProperties]);
 
   const startTraining = async () => {
@@ -970,6 +1040,19 @@ export default function TrainingPage() {
         return;
       }
     }
+    const isRestart = isGameOver;
+    const previousRunId = trainingRunIdRef.current;
+    const trainingRunId = createAnalyticsId();
+    trainingRunIdRef.current = trainingRunId;
+
+    if (isRestart) {
+      captureAnalyticsEvent(ANALYTICS_EVENTS.trainingRestarted, {
+        ...getTrainingTelemetryProperties(),
+        previous_training_run_id: previousRunId ?? undefined,
+        training_run_id: trainingRunId,
+      });
+    }
+
     // Reset operation queue for fresh even distribution
     operationQueueRef.current = shuffleArray([...selectedOperations]);
 
@@ -986,8 +1069,19 @@ export default function TrainingPage() {
     sessionStartTimeRef.current = Date.now();
     firstAnswerTrackedRef.current = false;
     completionTrackedRef.current = false;
+    activeRunRef.current = true;
 
-    trackEvent("training_start", getTrainingTelemetryProperties());
+    const startProperties = {
+      ...getTrainingTelemetryProperties(),
+      training_run_id: trainingRunId,
+    };
+    trainingTelemetryRef.current = startProperties;
+    registerAnalyticsSessionProperties({
+      training_run_id: trainingRunId,
+      training_type: "standard",
+      game_mode: gameMode,
+    });
+    captureAnalyticsEvent(ANALYTICS_EVENTS.trainingStarted, startProperties);
 
     if (gameMode === "timed") {
       setOverallTimeLeft(timedModeLimit);
@@ -1091,17 +1185,32 @@ export default function TrainingPage() {
   };
 
   // End the training session and save to database or guest leaderboard
-  const endSession = async (solved: number, correct: number, bestStreak: number, avgTimeVal: number) => {
+  const endSession = async (
+    solved: number,
+    correct: number,
+    bestStreak: number,
+    avgTimeVal: number,
+    outcome: "completed" | "abandoned" = "completed",
+    endReason: "timer_finished" | "manual_stop" | "error" = "timer_finished"
+  ) => {
     if (!completionTrackedRef.current) {
       completionTrackedRef.current = true;
-      trackEvent("training_complete", {
+      activeRunRef.current = false;
+      captureAnalyticsEvent(
+        outcome === "completed"
+          ? ANALYTICS_EVENTS.trainingCompleted
+          : ANALYTICS_EVENTS.trainingAbandoned,
+        {
         ...getTrainingTelemetryProperties(),
-        totalSolved: solved,
-        totalCorrect: correct,
+        end_reason: endReason,
+        duration_seconds: Math.round((Date.now() - sessionStartTimeRef.current) / 1000),
+        total_solved: solved,
+        total_correct: correct,
         accuracy: solved > 0 ? Math.round((correct / solved) * 100) : 0,
-        bestStreak,
-        avgTimeSeconds: avgTimeVal,
+        best_streak: bestStreak,
+        avg_time_seconds: avgTimeVal,
       });
+      clearAnalyticsSessionProperties("training_run_id", "training_type", "game_mode");
     }
 
     if (authSession?.user) {
@@ -1212,7 +1321,24 @@ export default function TrainingPage() {
   const stopTraining = async () => {
     // Save session before stopping if we have data
     if (totalSolved > 0) {
-      await endSession(totalSolved, totalCorrect, bestStreakRef.current, avgTime);
+      await endSession(
+        totalSolved,
+        totalCorrect,
+        bestStreakRef.current,
+        avgTime,
+        "abandoned",
+        "manual_stop"
+      );
+    } else if (activeRunRef.current && !completionTrackedRef.current) {
+      completionTrackedRef.current = true;
+      activeRunRef.current = false;
+      captureAnalyticsEvent(ANALYTICS_EVENTS.trainingAbandoned, {
+        ...getTrainingTelemetryProperties(),
+        end_reason: "manual_stop",
+        total_solved: 0,
+        total_correct: 0,
+      });
+      clearAnalyticsSessionProperties("training_run_id", "training_type", "game_mode");
     }
 
     setIsPlaying(false);
@@ -1404,6 +1530,17 @@ export default function TrainingPage() {
   useEffect(() => {
     if (isGameOver && totalSolved > 0) {
       endSession(totalSolved, totalCorrect, bestStreakRef.current, avgTime);
+    } else if (isGameOver && activeRunRef.current && !completionTrackedRef.current) {
+      completionTrackedRef.current = true;
+      activeRunRef.current = false;
+      captureAnalyticsEvent(ANALYTICS_EVENTS.trainingAbandoned, {
+        ...getTrainingTelemetryProperties(),
+        end_reason: "zero_answer_timeout",
+        duration_seconds: Math.round((Date.now() - sessionStartTimeRef.current) / 1000),
+        total_solved: 0,
+        total_correct: 0,
+      });
+      clearAnalyticsSessionProperties("training_run_id", "training_type", "game_mode");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGameOver]);
@@ -1512,6 +1649,7 @@ export default function TrainingPage() {
               onChangeSettings={stopTraining}
               scorePercentile={scorePercentile}
               showAuthCallout={!authSession?.user}
+              trainingRunId={trainingRunIdRef.current}
             />
           ) : !isPlaying ? (
             <TrainingSetup

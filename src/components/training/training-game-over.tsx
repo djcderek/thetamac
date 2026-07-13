@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { RotateCcw, LogIn, UserPlus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AsciiMorph } from "@/components/ui/ascii-morph";
 import type { DifficultySettings, ScoreDistribution } from "@/components/training/training-types";
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
-import { trackEvent } from "@/lib/telemetry-client";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 export function TrainingGameOver({
   difficultyLabel,
@@ -22,6 +24,7 @@ export function TrainingGameOver({
   onChangeSettings,
   scorePercentile,
   showAuthCallout,
+  trainingRunId,
 }: {
   difficultyLabel: DifficultySettings["label"];
   difficultyBadgeClassName: string;
@@ -35,7 +38,19 @@ export function TrainingGameOver({
   onChangeSettings: () => void;
   scorePercentile: ScoreDistribution | null;
   showAuthCallout: boolean;
+  trainingRunId: string | null;
 }) {
+  useEffect(() => {
+    if (!showAuthCallout) return;
+    captureAnalyticsEvent(ANALYTICS_EVENTS.signupPromptViewed, {
+      surface: "training_game_over",
+      auth_state: "guest",
+      training_run_id: trainingRunId ?? undefined,
+      total_solved: totalSolved,
+      accuracy,
+    });
+  }, [accuracy, showAuthCallout, totalSolved, trainingRunId]);
+
   return (
     <Card>
       <CardHeader className="border-b border-border">
@@ -116,11 +131,11 @@ export function TrainingGameOver({
                 <Link
                   href="/auth/signin?callbackUrl=%2Fdashboard"
                   onClick={() =>
-                    trackEvent("signup_cta_click", {
-                      landingPath: "/",
-                      source: "training-game-over",
-                      pageType: "training",
-                      ctaLabel: "Sign in",
+                    captureAnalyticsEvent(ANALYTICS_EVENTS.signupCtaClicked, {
+                      surface: "training_game_over",
+                      entry_source: "training_game_over",
+                      auth_intent: "sign_in",
+                      training_run_id: trainingRunId ?? undefined,
                     })
                   }
                 >
@@ -132,11 +147,11 @@ export function TrainingGameOver({
                 <Link
                   href="/auth/signup?callbackUrl=%2Fdashboard"
                   onClick={() =>
-                    trackEvent("signup_cta_click", {
-                      landingPath: "/",
-                      source: "training-game-over",
-                      pageType: "training",
-                      ctaLabel: "Create account",
+                    captureAnalyticsEvent(ANALYTICS_EVENTS.signupCtaClicked, {
+                      surface: "training_game_over",
+                      entry_source: "training_game_over",
+                      auth_intent: "sign_up",
+                      training_run_id: trainingRunId ?? undefined,
                     })
                   }
                 >
@@ -153,4 +168,3 @@ export function TrainingGameOver({
     </Card>
   );
 }
-

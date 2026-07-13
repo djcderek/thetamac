@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 type ButtonProps = ComponentProps<typeof Button>;
 
@@ -74,6 +76,15 @@ export function FeatureRequestDialog({
 
       setMessage("");
       setIsOpen(false);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.featureRequestSubmitted, {
+        surface: "feature_request_dialog",
+        message_length_bucket:
+          trimmedMessage.length < 50
+            ? "short"
+            : trimmedMessage.length < 200
+              ? "medium"
+              : "long",
+      });
     } catch (submitError) {
       console.error("Failed to submit feature request", submitError);
       setError("Failed to submit feature request.");
@@ -104,7 +115,7 @@ export function FeatureRequestDialog({
           {iconOnly ? <span className="sr-only">{triggerLabel}</span> : triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="ph-no-capture">
         <DialogHeader>
           <DialogTitle>Suggest a feature</DialogTitle>
         </DialogHeader>

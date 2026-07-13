@@ -9,7 +9,6 @@ export function ManageBillingButton({
   returnUrl,
   className,
   variant = "outline",
-  tracking,
 }: {
   returnUrl?: string;
   className?: string;
@@ -24,21 +23,6 @@ export function ManageBillingButton({
   const handleManageBilling = async () => {
     try {
       setLoading(true);
-
-      if (tracking?.eventName) {
-        void fetch("/api/telemetry/event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventName: tracking.eventName,
-            properties: {
-              ...tracking.properties,
-              action: "manage_billing",
-              returnUrl,
-            },
-          }),
-        }).catch(() => {});
-      }
 
       const response = await fetch("/api/billing/portal", {
         method: "POST",
