@@ -19,6 +19,41 @@ interface CapturedPostHogEvent {
   properties?: Record<string, unknown>;
 }
 
+const PRODUCT_SURVEY_CSS_VARIABLES = {
+  "--ph-survey-background-color": "#f7f3ec",
+  "--ph-survey-border-color": "#d8d0c5",
+  "--ph-survey-border-radius": "16px",
+  "--ph-survey-box-padding": "18px 20px",
+  "--ph-survey-box-shadow": "0 16px 44px rgba(32, 27, 20, 0.14)",
+  "--ph-survey-font-family": "inherit",
+  "--ph-survey-input-background": "#fffdf9",
+  "--ph-survey-input-text-color": "#181613",
+  "--ph-survey-max-width": "360px",
+  "--ph-survey-outline-color": "rgba(238, 101, 52, 0.42)",
+  "--ph-survey-rating-active-bg-color": "#ee6534",
+  "--ph-survey-rating-active-text-color": "#ffffff",
+  "--ph-survey-rating-bg-color": "#fffdf9",
+  "--ph-survey-rating-text-color": "#181613",
+  "--ph-survey-submit-button-color": "#ee6534",
+  "--ph-survey-submit-button-text-color": "#ffffff",
+  "--ph-survey-text-primary-color": "#181613",
+  "--ph-survey-text-subtle-color": "#6f675e",
+} as const;
+
+function applyProductSurveyAppearance(surveyId: string): boolean {
+  const container = document.getElementsByClassName(
+    `PostHogSurvey-${surveyId}`
+  )[0];
+  if (!(container instanceof HTMLElement)) return false;
+
+  for (const [property, value] of Object.entries(
+    PRODUCT_SURVEY_CSS_VARIABLES
+  )) {
+    container.style.setProperty(property, value);
+  }
+  return true;
+}
+
 function readStoredTimestamp(storage: Storage, key: string): number | null {
   try {
     return parseSurveyTimestamp(storage.getItem(key));
@@ -70,6 +105,10 @@ export function ProductSurveyController({
           PRODUCT_SURVEY_LAST_SHOWN_KEY,
           Date.now()
         );
+        const surveyId = capturedEvent.properties?.$survey_id;
+        if (typeof surveyId === "string") {
+          applyProductSurveyAppearance(surveyId);
+        }
         removeStoredTimestamp(window.sessionStorage, PRODUCT_SURVEY_PENDING_KEY);
       }
     );
@@ -104,6 +143,7 @@ export function ProductSurveyController({
 
     let disposed = false;
     let pendingTimeout: ReturnType<typeof setTimeout> | null = null;
+    let appearanceObserver: MutationObserver | null = null;
 
     try {
       posthog.getActiveMatchingSurveys((surveys, context) => {
@@ -133,13 +173,30 @@ export function ProductSurveyController({
               return;
             }
 
+            appearanceObserver = new MutationObserver(() => {
+              if (applyProductSurveyAppearance(survey.id)) {
+                appearanceObserver?.disconnect();
+                appearanceObserver = null;
+              }
+            });
+            appearanceObserver.observe(document.documentElement, {
+              childList: true,
+              subtree: true,
+            });
+
             posthog.displaySurvey(survey.id, {
               displayType: "popover",
               ignoreConditions: false,
               ignoreDelay: false,
             });
+            if (applyProductSurveyAppearance(survey.id)) {
+              appearanceObserver.disconnect();
+              appearanceObserver = null;
+            }
 
             pendingTimeout = setTimeout(() => {
+              appearanceObserver?.disconnect();
+              appearanceObserver = null;
               removeStoredTimestamp(
                 window.sessionStorage,
                 PRODUCT_SURVEY_PENDING_KEY
@@ -166,6 +223,7 @@ export function ProductSurveyController({
     return () => {
       disposed = true;
       if (pendingTimeout) clearTimeout(pendingTimeout);
+      appearanceObserver?.disconnect();
     };
   }, [enabled, surface]);
 
