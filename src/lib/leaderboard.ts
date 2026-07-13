@@ -4,6 +4,7 @@ import {
   aggregateRaceResults,
   aggregateTrainingRuns,
   calculateRankTrends,
+  getPersonalBestTrainingScores,
   getQueryStart,
   getTrendComparisonLabel,
   isInComparisonPeriod,
@@ -42,6 +43,22 @@ export interface LeaderboardResult {
   leaderboard: LeaderboardEntry[];
   userRank: LeaderboardEntry | null;
   trendComparisonLabel: string;
+}
+
+export interface TrainingTopScoreEntry {
+  rank: number;
+  id: string;
+  name: string;
+  avatar: string;
+  image?: string | null;
+  level: number;
+  score: number;
+  isYou?: boolean;
+}
+
+export interface TrainingTopScoresResult {
+  leaderboard: TrainingTopScoreEntry[];
+  userRank: TrainingTopScoreEntry | null;
 }
 
 type UserProfile = {
@@ -140,6 +157,31 @@ function createEntry(
     performance: item.performance,
     trend: trends.get(item.userId) ?? { kind: "unavailable" },
     isYou: currentUserId === item.userId,
+  };
+}
+
+function createTopScoreEntry(
+  score: { userId: string; score: number },
+  rankIndex: number,
+  users: Map<string, UserProfile>,
+  guests: Map<string, GuestMeta>,
+  currentUserId?: string | null
+): TrainingTopScoreEntry {
+  const guest = guests.get(score.userId);
+  const user = users.get(score.userId);
+  const displayName = guest?.name || user?.username || user?.name || "Anonymous";
+  const avatar = user?.username
+    ? user.username.substring(0, 2).toUpperCase()
+    : displayName.substring(0, 2).toUpperCase();
+  return {
+    rank: rankIndex + 1,
+    id: score.userId,
+    name: displayName,
+    avatar,
+    image: guest ? null : user?.image,
+    level: guest ? 1 : getLevel(user?.stats?.totalProblems),
+    score: Math.round(score.score),
+    isYou: currentUserId === score.userId,
   };
 }
 
@@ -374,6 +416,94 @@ async function buildTrainingLeaderboard(
     currentUserId,
     buildGuestMeta(currentGuestScores)
   );
+}
+
+export async function getTrainingTopScores(
+  currentUserId?: string | null
+): Promise<TrainingTopScoresResult> {
+  const [sessions, guestScores] = await Promise.all([
+    db.trainingSession.findMany({
+      where: {
+        gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
+        difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
+        operations: { hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations] },
+        completedAt: { not: null },
+      },
+      select: {
+        userId: true,
+        correctAnswers: true,
+        bestStreak: true,
+        completedAt: true,
+      },
+    }),
+    db.guestTrainingScore.findMany({
+      select: {
+        guestId: true,
+        displayName: true,
+        identityVerified: true,
+        totalProblems: true,
+        correctAnswers: true,
+        bestStreak: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  const validGuestScores = filterGuestRuns(guestScores, "all");
+  const rankedScores = getPersonalBestTrainingScores([
+    ...sessions.map((session) => ({
+      userId: session.userId,
+      correctAnswers: session.correctAnswers ?? 0,
+      bestStreak: session.bestStreak ?? 0,
+      achievedAt: session.completedAt!,
+    })),
+    ...validGuestScores.map((score) => ({
+      userId: score.guestId,
+      correctAnswers: score.correctAnswers,
+      bestStreak: score.bestStreak,
+      achievedAt: score.createdAt,
+    })),
+  ]);
+  const guests = buildGuestMeta(validGuestScores);
+  const userIndex = currentUserId
+    ? rankedScores.findIndex((score) => score.userId === currentUserId)
+    : -1;
+  const topScores = rankedScores.slice(0, 50);
+  const userIds = new Set(
+    topScores.filter((score) => !guests.has(score.userId)).map((score) => score.userId)
+  );
+  if (userIndex !== -1 && currentUserId && !guests.has(currentUserId)) {
+    userIds.add(currentUserId);
+  }
+  const profiles = userIds.size
+    ? await db.user.findMany({
+        where: { id: { in: Array.from(userIds) } },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+          stats: { select: { totalProblems: true } },
+        },
+      })
+    : [];
+  const userMap = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  return {
+    leaderboard: topScores.map((score, index) =>
+      createTopScoreEntry(score, index, userMap, guests, currentUserId)
+    ),
+    userRank:
+      userIndex === -1
+        ? null
+        : createTopScoreEntry(
+            rankedScores[userIndex],
+            userIndex,
+            userMap,
+            guests,
+            currentUserId
+          ),
+  };
 }
 
 export async function getLeaderboard(

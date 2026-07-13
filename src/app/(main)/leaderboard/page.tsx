@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
-import { getLeaderboard } from "@/lib/leaderboard";
+import { getLeaderboard, getTrainingTopScores } from "@/lib/leaderboard";
 import { getTrainingDistribution } from "@/lib/training-distribution";
 import { LeaderboardClient } from "./leaderboard-client";
 
@@ -20,9 +20,10 @@ export default async function LeaderboardPage() {
   const currentUserId = session?.user?.id;
 
   // Fetch initial data server-side for SSR
-  const [initialLeaderboard, distributionResult] = await Promise.all([
+  const [initialLeaderboard, distributionResult, initialTopScores] = await Promise.all([
     getLeaderboard("training", "all", currentUserId),
     getTrainingDistribution(),
+    getTrainingTopScores(currentUserId),
   ]);
 
   return (
@@ -32,6 +33,7 @@ export default async function LeaderboardPage() {
       initialDistributionMedian={distributionResult.median}
       initialDistributionMean={distributionResult.mean}
       initialDistributionStdDev={distributionResult.stdDev}
+      initialTopScores={initialTopScores}
       initialMode="training"
       initialPeriod="all"
     />

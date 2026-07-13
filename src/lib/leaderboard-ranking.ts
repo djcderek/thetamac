@@ -23,6 +23,17 @@ export interface TrainingRun {
   bestStreak: number;
 }
 
+export interface TimedTrainingScore extends TrainingRun {
+  achievedAt: Date;
+}
+
+export interface PersonalBestScore {
+  userId: string;
+  score: number;
+  bestStreak: number;
+  achievedAt: Date;
+}
+
 export interface DuelResult {
   player1Id: string;
   player2Id: string;
@@ -109,6 +120,37 @@ export function aggregateTrainingRuns(runs: TrainingRun[]): RankedItem[] {
     performance: { kind: "bestRun" as const, value: value.bestRun },
     tieBreakers: [value.bestRun, value.bestStreak],
   }));
+}
+
+export function getPersonalBestTrainingScores(
+  runs: TimedTrainingScore[]
+): PersonalBestScore[] {
+  const personalBests = new Map<string, PersonalBestScore>();
+  for (const run of runs) {
+    const candidate: PersonalBestScore = {
+      userId: run.userId,
+      score: Math.max(0, run.correctAnswers),
+      bestStreak: Math.max(0, run.bestStreak),
+      achievedAt: run.achievedAt,
+    };
+    const current = personalBests.get(run.userId);
+    const shouldReplace =
+      !current ||
+      candidate.score > current.score ||
+      (candidate.score === current.score && candidate.bestStreak > current.bestStreak) ||
+      (candidate.score === current.score &&
+        candidate.bestStreak === current.bestStreak &&
+        candidate.achievedAt < current.achievedAt);
+    if (shouldReplace) personalBests.set(run.userId, candidate);
+  }
+
+  return Array.from(personalBests.values()).sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+    const achievedDifference = a.achievedAt.getTime() - b.achievedAt.getTime();
+    if (achievedDifference !== 0) return achievedDifference;
+    return a.userId.localeCompare(b.userId);
+  });
 }
 
 export function aggregateDuelResults(

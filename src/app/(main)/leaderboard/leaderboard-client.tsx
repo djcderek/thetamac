@@ -18,6 +18,8 @@ import type {
   LeaderboardResult,
   Mode,
   Period,
+  TrainingTopScoreEntry,
+  TrainingTopScoresResult,
 } from "@/lib/leaderboard";
 import { PageHeader, SectionLabel } from "@/components/ui/visual-system";
 
@@ -27,9 +29,12 @@ interface LeaderboardClientProps {
   initialDistributionMedian: number | null;
   initialDistributionMean: number | null;
   initialDistributionStdDev: number | null;
+  initialTopScores: TrainingTopScoresResult;
   initialMode: Mode;
   initialPeriod: Period;
 }
+
+type TrainingView = "distribution" | "board" | "topScores";
 
 function formatPerformance(metric: LeaderboardEntry["performance"]): string {
   if (metric.kind === "bestRun") return `${metric.value.toLocaleString()} solved`;
@@ -90,6 +95,7 @@ export function LeaderboardClient({
   initialDistributionMedian,
   initialDistributionMean,
   initialDistributionStdDev,
+  initialTopScores,
   initialMode,
   initialPeriod,
 }: LeaderboardClientProps) {
@@ -105,7 +111,7 @@ export function LeaderboardClient({
   const [isLoading, setIsLoading] = useState(false);
   const [period, setPeriod] = useState<Period>(initialPeriod);
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [view, setView] = useState<"board" | "distribution">("distribution");
+  const [view, setView] = useState<TrainingView>("distribution");
   const [distribution, setDistribution] = useState<DistributionBucket[]>(
     initialDistribution
   );
@@ -120,12 +126,19 @@ export function LeaderboardClient({
   );
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
   const [isDistributionLoading, setIsDistributionLoading] = useState(false);
+  const [topScores, setTopScores] = useState<TrainingTopScoreEntry[]>(
+    initialTopScores.leaderboard
+  );
+  const [topScoreUserRank, setTopScoreUserRank] = useState<TrainingTopScoreEntry | null>(
+    initialTopScores.userRank
+  );
+  const [isTopScoresLoading, setIsTopScoresLoading] = useState(false);
 
   // Track if we've changed from initial values (to know when to fetch)
   const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
-    if (!hasInteracted) return;
+    if (!hasInteracted || view === "topScores") return;
 
     async function fetchLeaderboard() {
       setIsLoading(true);
@@ -145,7 +158,7 @@ export function LeaderboardClient({
     }
 
     fetchLeaderboard();
-  }, [period, mode, hasInteracted]);
+  }, [period, mode, view, hasInteracted]);
 
   useEffect(() => {
     if (mode !== "training") {
@@ -176,6 +189,28 @@ export function LeaderboardClient({
     fetchDistribution();
   }, [mode, view, hasInteracted]);
 
+  useEffect(() => {
+    if (mode !== "training" || view !== "topScores" || !hasInteracted) return;
+
+    async function fetchTopScores() {
+      setIsTopScoresLoading(true);
+      try {
+        const res = await fetch("/api/leaderboard/training/top-scores");
+        if (res.ok) {
+          const data: TrainingTopScoresResult = await res.json();
+          setTopScores(data.leaderboard);
+          setTopScoreUserRank(data.userRank);
+        }
+      } catch (error) {
+        console.error("Failed to fetch timed training top scores", error);
+      } finally {
+        setIsTopScoresLoading(false);
+      }
+    }
+
+    fetchTopScores();
+  }, [mode, view, hasInteracted]);
+
   const handleModeChange = (newMode: string) => {
     setHasInteracted(true);
     setMode(newMode as Mode);
@@ -188,8 +223,12 @@ export function LeaderboardClient({
 
   const handleViewChange = (newView: string) => {
     setHasInteracted(true);
-    setView(newView as "board" | "distribution");
+    const nextView = newView as TrainingView;
+    if (nextView === "topScores") setPeriod("all");
+    setView(nextView);
   };
+
+  const activeUserRank = view === "topScores" ? topScoreUserRank : userRank;
 
   const topThree = leaderboardData.slice(0, 3);
   const visualTopThree = [
@@ -220,6 +259,7 @@ export function LeaderboardClient({
   };
 
   const getRankLabel = () => {
+    if (mode === "training" && view === "topScores") return "Top Score Rank";
     if (mode === "training") return "Timed Training Rank";
     return mode === "duel" ? "Duel Rank" : "Racing Rank";
   };
@@ -243,7 +283,7 @@ export function LeaderboardClient({
       <PageHeader
         title="Leaderboard"
         description="Global rankings across duels, racing, and timed training using default settings."
-        action={userRank ? <Badge variant="outline" className="bg-card">Your {getRankLabel()}: #{userRank.rank}</Badge> : undefined}
+        action={activeUserRank ? <Badge variant="outline" className="bg-card">Your {getRankLabel()}: #{activeUserRank.rank}</Badge> : undefined}
       />
 
       <div className="p-4 md:p-6">
@@ -281,24 +321,30 @@ export function LeaderboardClient({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-8">
               <div className="space-y-2">
                 <SectionLabel>Timeframe</SectionLabel>
-                <Tabs
-                  defaultValue={initialPeriod}
-                  value={period}
-                  className="w-full sm:w-auto"
-                  onValueChange={handlePeriodChange}
-                >
-                  <TabsList className="min-h-9 rounded-[3px] p-0.5">
-                    <TabsTrigger className="h-7 rounded-[2px] px-3" value="all">
-                      All time
-                    </TabsTrigger>
-                    <TabsTrigger className="h-7 rounded-[2px] px-3" value="weekly">
-                      Weekly
-                    </TabsTrigger>
-                    <TabsTrigger className="h-7 rounded-[2px] px-3" value="daily">
-                      Daily
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                {mode === "training" && view === "topScores" ? (
+                  <Badge variant="outline" className="h-8 rounded-[3px] bg-card px-3 font-normal">
+                    All time
+                  </Badge>
+                ) : (
+                  <Tabs
+                    defaultValue={initialPeriod}
+                    value={period}
+                    className="w-full sm:w-auto"
+                    onValueChange={handlePeriodChange}
+                  >
+                    <TabsList className="min-h-9 rounded-[3px] p-0.5">
+                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="all">
+                        All time
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="weekly">
+                        Weekly
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="daily">
+                        Daily
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
               </div>
 
               {mode === "training" && (
@@ -310,12 +356,15 @@ export function LeaderboardClient({
                     className="w-full sm:w-auto"
                     onValueChange={handleViewChange}
                   >
-                    <TabsList className="min-h-9 rounded-[3px] p-0.5">
+                    <TabsList className="grid min-h-9 w-full grid-cols-3 rounded-[3px] p-0.5 sm:w-auto">
                       <TabsTrigger className="h-7 rounded-[2px] px-3" value="distribution">
                         Distribution
                       </TabsTrigger>
                       <TabsTrigger className="h-7 rounded-[2px] px-3" value="board">
                         Rankings
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="topScores">
+                        Top Scores
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
@@ -344,9 +393,9 @@ export function LeaderboardClient({
                     const maxCount = Math.max(...distribution.map((b) => b.count));
                     const totalRuns = distribution.reduce((sum, bucket) => sum + bucket.count, 0);
                     const userBucketIndex =
-                      typeof userRank?.score === "number"
+                      typeof topScoreUserRank?.score === "number"
                         ? distribution.findIndex(
-                            (b) => userRank.score >= b.from && userRank.score <= b.to
+                            (b) => topScoreUserRank.score >= b.from && topScoreUserRank.score <= b.to
                           )
                         : -1;
                     let runningCount = 0;
@@ -615,6 +664,101 @@ export function LeaderboardClient({
                 )}
               </CardContent>
             </Card>
+          ) : view === "topScores" && mode === "training" ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Each player appears once with their best all-time score using the default timed setup.
+              </p>
+              <Card>
+                <CardContent className="p-0">
+                  {isTopScoresLoading ? (
+                    <div className="flex justify-center py-12">
+                      <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : topScores.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      No qualifying timed training scores yet.
+                    </div>
+                  ) : (
+                    <table className="w-full table-fixed sm:table-auto">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="w-14 p-3 text-left text-xs font-medium text-muted-foreground sm:w-20 sm:p-4 sm:text-sm">Rank</th>
+                          <th className="p-3 text-left text-xs font-medium text-muted-foreground sm:p-4 sm:text-sm">Player</th>
+                          <th className="w-24 p-3 text-right text-xs font-medium text-muted-foreground sm:w-32 sm:p-4 sm:text-sm">Best Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topScores.map((entry) => (
+                          <tr
+                            key={entry.id}
+                            className={`border-b border-border last:border-0 ${entry.isYou ? "bg-secondary/50" : ""}`}
+                          >
+                            <td className="p-3 sm:p-4">
+                              <span className="font-mono text-sm tabular-nums text-muted-foreground">{entry.rank}</span>
+                            </td>
+                            <td className="min-w-0 p-3 sm:p-4">
+                              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                <Avatar className="h-8 w-8 shrink-0">
+                                  <AvatarImage src={entry.image || undefined} />
+                                  <AvatarFallback className="text-xs">{entry.avatar}</AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium">
+                                    {entry.name}
+                                    {entry.isYou && <span className="ml-1 text-muted-foreground">(You)</span>}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Level {entry.level}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3 text-right sm:p-4">
+                              <span className="font-mono text-sm font-medium tabular-nums">
+                                {entry.score.toLocaleString()}
+                              </span>
+                              <span className="ml-1 hidden text-[11px] text-muted-foreground sm:inline">solved</span>
+                            </td>
+                          </tr>
+                        ))}
+                        {topScoreUserRank && topScoreUserRank.rank > topScores.length && (
+                          <>
+                            <tr>
+                              <td colSpan={3} className="p-2 text-center text-xs text-muted-foreground">...</td>
+                            </tr>
+                            <tr className="border-t border-border bg-secondary/50">
+                              <td className="p-3 sm:p-4">
+                                <span className="font-mono text-sm tabular-nums text-muted-foreground">{topScoreUserRank.rank}</span>
+                              </td>
+                              <td className="min-w-0 p-3 sm:p-4">
+                                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                  <Avatar className="h-8 w-8 shrink-0">
+                                    <AvatarImage src={topScoreUserRank.image || undefined} />
+                                    <AvatarFallback className="text-xs">{topScoreUserRank.avatar}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium">
+                                      {topScoreUserRank.name}
+                                      <span className="ml-1 text-muted-foreground">(You)</span>
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">Level {topScoreUserRank.level}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right sm:p-4">
+                                <span className="font-mono text-sm font-medium tabular-nums">
+                                  {topScoreUserRank.score.toLocaleString()}
+                                </span>
+                                <span className="ml-1 hidden text-[11px] text-muted-foreground sm:inline">solved</span>
+                              </td>
+                            </tr>
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           ) : (
             <>
               {/* Top 3 */}

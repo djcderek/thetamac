@@ -5,6 +5,7 @@ import {
   aggregateRaceResults,
   aggregateTrainingRuns,
   calculateRankTrends,
+  getPersonalBestTrainingScores,
   getQueryStart,
   isInComparisonPeriod,
   isInCurrentPeriod,
@@ -24,6 +25,18 @@ test("training rankings use total solved with best run and streak tie-breakers",
   assert.deepEqual(entries.map((entry) => entry.userId), ["b", "a"]);
   assert.deepEqual(entries[0].performance, { kind: "bestRun", value: 50 });
   assert.deepEqual(entries[1].performance, { kind: "bestRun", value: 30 });
+});
+
+test("top scores keep one personal best per player", () => {
+  const scores = getPersonalBestTrainingScores([
+    { userId: "a", correctAnswers: 30, bestStreak: 20, achievedAt: new Date("2026-07-10T00:00:00Z") },
+    { userId: "a", correctAnswers: 35, bestStreak: 22, achievedAt: new Date("2026-07-11T00:00:00Z") },
+    { userId: "b", correctAnswers: 35, bestStreak: 18, achievedAt: new Date("2026-07-09T00:00:00Z") },
+  ]);
+
+  assert.deepEqual(scores.map((entry) => entry.userId), ["a", "b"]);
+  assert.equal(scores[0].score, 35);
+  assert.equal(scores.filter((entry) => entry.userId === "a").length, 1);
 });
 
 test("duel rankings expose W-L-D records without answer accuracy", () => {
