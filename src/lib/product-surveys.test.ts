@@ -5,9 +5,13 @@ import {
   PRODUCT_SURVEY_COOLDOWN_MS,
   PRODUCT_SURVEY_NAMES,
   PRODUCT_SURVEY_PENDING_TTL_MS,
+  EMPTY_PRODUCT_SURVEY_ACTIVITY,
+  getEligibleProductSurveyNames,
   isProductSurveyCooldownActive,
   isProductSurveyPending,
   parseSurveyTimestamp,
+  readProductSurveyActivity,
+  recordProductSurveyActivityEvent,
   selectProductSurvey,
   shouldAttemptProductSurvey,
   shouldCaptureCheckoutCancellation,
@@ -98,4 +102,94 @@ test("checkout cancellation is captured once", () => {
   assert.equal(shouldCaptureCheckoutCancellation(false, false), false);
   assert.equal(shouldCaptureCheckoutCancellation(true, false), true);
   assert.equal(shouldCaptureCheckoutCancellation(true, true), false);
+});
+
+test("training survey eligibility follows the configured activity thresholds", () => {
+  const now = 1_800_000_000_000;
+  const day = 24 * 60 * 60 * 1000;
+  const eligible = getEligibleProductSurveyNames(
+    "training",
+    {
+      ...EMPTY_PRODUCT_SURVEY_ACTIVITY,
+      trainingCompleted: [now - day, now - 2 * day],
+      freeTrainingCompleted: [
+        now - day,
+        now - 2 * day,
+        now - 3 * day,
+        now - 4 * day,
+        now - 5 * day,
+      ],
+      trainingAbandoned: [now - day, now - 2 * day],
+    },
+    now
+  );
+
+  assert.deepEqual(
+    [...eligible],
+    [
+      PRODUCT_SURVEY_NAMES.trainingGoal,
+      PRODUCT_SURVEY_NAMES.trainingFriction,
+      PRODUCT_SURVEY_NAMES.nextFeature,
+    ]
+  );
+});
+
+test("upgrade survey eligibility supports cancellation or repeated no-checkout views", () => {
+  const now = 1_800_000_000_000;
+  const activity = {
+    ...EMPTY_PRODUCT_SURVEY_ACTIVITY,
+    upgradePageViewed: [now - 1_000, now - 2_000],
+  };
+  assert.equal(
+    getEligibleProductSurveyNames("upgrade", activity, now).has(
+      PRODUCT_SURVEY_NAMES.upgradeFriction
+    ),
+    true
+  );
+  assert.equal(
+    getEligibleProductSurveyNames(
+      "upgrade",
+      { ...activity, checkoutInitiated: [now - 500] },
+      now
+    ).has(PRODUCT_SURVEY_NAMES.upgradeFriction),
+    false
+  );
+  assert.equal(
+    getEligibleProductSurveyNames(
+      "upgrade",
+      {
+        ...activity,
+        checkoutInitiated: [now - 500],
+        checkoutCancelled: [now - 100],
+      },
+      now
+    ).has(PRODUCT_SURVEY_NAMES.upgradeFriction),
+    true
+  );
+});
+
+test("survey activity recording is privacy-safe, pruned, and resilient", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  };
+  const now = 1_800_000_000_000;
+
+  recordProductSurveyActivityEvent(
+    storage,
+    "training_completed",
+    { plan: "free", answer: "must-not-be-stored" },
+    now
+  );
+  const activity = readProductSurveyActivity(storage, now);
+  assert.deepEqual(activity.trainingCompleted, [now]);
+  assert.deepEqual(activity.freeTrainingCompleted, [now]);
+  assert.equal(values.values().next().value?.includes("must-not-be-stored"), false);
+
+  values.set("thetamac-product-survey-activity-v1", "not-json");
+  assert.deepEqual(
+    readProductSurveyActivity(storage, now),
+    EMPTY_PRODUCT_SURVEY_ACTIVITY
+  );
 });

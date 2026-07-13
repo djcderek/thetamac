@@ -9,13 +9,22 @@ import {
   isAnalyticsOptOutValue,
   sanitizeAnalyticsProperties,
 } from "@/lib/analytics";
+import { recordProductSurveyActivityEvent } from "@/lib/product-surveys";
 
 export function captureAnalyticsEvent(
   event: AnalyticsEventName,
   properties: AnalyticsProperties = {}
 ) {
   try {
-    posthog.capture(event, sanitizeAnalyticsProperties(properties));
+    const safeProperties = sanitizeAnalyticsProperties(properties);
+    posthog.capture(event, safeProperties);
+    if (typeof window !== "undefined") {
+      recordProductSurveyActivityEvent(
+        window.localStorage,
+        event,
+        safeProperties
+      );
+    }
   } catch {
     // Analytics must never interrupt a product workflow.
   }

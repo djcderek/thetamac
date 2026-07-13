@@ -8,7 +8,9 @@ import {
   PRODUCT_SURVEY_LAST_SHOWN_KEY,
   PRODUCT_SURVEY_PENDING_KEY,
   PRODUCT_SURVEY_PENDING_TTL_MS,
+  getEligibleProductSurveyNames,
   parseSurveyTimestamp,
+  readProductSurveyActivity,
   selectProductSurvey,
   shouldAttemptProductSurvey,
   type ProductSurveySurface,
@@ -149,7 +151,13 @@ export function ProductSurveyController({
       posthog.getActiveMatchingSurveys((surveys, context) => {
         if (disposed || context?.isLoaded === false || context?.error) return;
 
-        const survey = selectProductSurvey(surveys, surface);
+        const eligibilityNow = Date.now();
+        const eligibleNames = getEligibleProductSurveyNames(
+          surface,
+          readProductSurveyActivity(window.localStorage, eligibilityNow),
+          eligibilityNow
+        );
+        const survey = selectProductSurvey(surveys, surface, eligibleNames);
         if (!survey) return;
 
         attemptLockedRef.current = true;
