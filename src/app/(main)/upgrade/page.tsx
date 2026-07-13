@@ -257,6 +257,7 @@ export default async function UpgradePage({
         upgraded={upgraded}
         cancelled={cancelled}
         authState={userId ? "authenticated" : "guest"}
+        plan={isPremium ? "premium" : "free"}
       />
       <UpgradeAutoScroll feature={activeFeature} upgraded={upgraded} />
     </div>

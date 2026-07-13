@@ -31,6 +31,7 @@ import { TrainingHeader } from "@/components/training/training-header";
 import { TrainingSetup } from "@/components/training/training-setup";
 import { TrainingRun } from "@/components/training/training-run";
 import { TrainingGameOver } from "@/components/training/training-game-over";
+import { ProductSurveyController } from "@/components/analytics/product-survey-controller";
 
 const difficultyConfig: Record<Difficulty, DifficultySettings> = {
   easy: {
@@ -1631,6 +1632,7 @@ export default function TrainingPage() {
 
   return (
     <div className="min-h-screen">
+      <ProductSurveyController surface="training" enabled={!isPlaying} />
       <TrainingHeader />
 
       <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+340px)]" : ""}`}>

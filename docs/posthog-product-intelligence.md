@@ -57,14 +57,14 @@ This runbook configures the PostHog workspace after the application instrumentat
 
 ## Surveys
 
-Use PostHog's in-app presentation and event targeting. Allow at most one of these surveys per person every 30 days by excluding a dynamic cohort of recent `$survey_sent` or `$survey_response` activity.
+Use PostHog API surveys with the application-side product survey controller. Allow at most one survey per person every 14 days by excluding a dynamic cohort of recent `survey shown` activity; the browser also enforces the same cooldown immediately. PostHog records the lifecycle as `survey shown`, `survey sent`, `survey dismissed`, and `survey abandoned`.
 
-1. **Training goal** — show once after the second `training_completed`. Ask: “What are you mainly training for?” Options: consulting/interviews, school/exams, faster work calculations, personal improvement, competition/fun, other. Save the response as a person property named `training_goal`.
-2. **Repeated abandonment** — show after the second `training_abandoned` in 14 days. Ask: “What got in the way of finishing this session?” Options: session too long, difficulty felt wrong, controls/timer, interrupted, did not feel useful, technical problem, other.
-3. **Next product need** — show to free users after five completions across at least two days. Ask: “What would make thetamac meaningfully more useful?” Options: adaptive practice plan, clearer progress insights, interview-specific packs, mobile experience, competition/accountability, other. Include optional free text.
+1. **Training goal** — target activated trainers. Ask: “What are you mainly training for?” Options: consulting/interviews, school/exams, faster work calculations, personal improvement, competition/fun, other.
+2. **Training friction** — target repeated abandoners. Ask: “What got in the way of finishing your session?” Options: session too long, difficulty felt wrong, controls or timer, interrupted, did not feel useful, technical problem, other.
+3. **Next feature** — target repeat free trainers. Ask: “Which improvement would make thetamac most useful to you?” Options: adaptive practice plan, clearer progress insights, interview-specific packs, mobile experience, competition/accountability, other. Include the optional free-text follow-up “Anything specific you’d like us to know?”
 4. **Upgrade friction** — show after `checkout_cancelled` or a second paywall view without checkout. Ask: “What kept you from trying Pro?” Options: price, unclear value, do not need the features, trial/payment concern, missing feature, other.
 
-Do not show surveys during an active training run, authentication, checkout, or multiplayer game.
+Keep free-text answers in PostHog survey analytics only; do not copy them into person properties. Do not show surveys during an active training run, authentication, checkout, settings, or multiplayer game. All four use “Send feedback” and confirm with “Thanks — this helps us decide what to improve next.” Use PostHog's launch/stop controls for rollout and emergency rollback.
 
 ## Replays, heatmaps, and errors
 
