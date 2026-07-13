@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import posthog from "posthog-js";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -212,7 +213,11 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => {
+            posthog.capture("user_signed_out");
+            posthog.reset();
+            signOut({ callbackUrl: "/" });
+          }}
           className="cursor-pointer text-destructive focus:text-destructive"
         >
           <LogOut className="mr-2 h-4 w-4" />

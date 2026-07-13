@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { shopRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export async function GET() {
   try {
@@ -158,6 +159,20 @@ export async function POST(req: Request) {
         },
       }),
     ]);
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user.id,
+      event: "shop_item_purchased",
+      properties: {
+        item_id: item.id,
+        item_name: item.name,
+        item_type: item.type,
+        item_cost: item.cost,
+        coins_remaining: user.coins - item.cost,
+      },
+    });
+    await posthog.flush();
 
     return NextResponse.json({ success: true, coins: user.coins - item.cost });
   } catch (error) {

@@ -6,6 +6,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SessionProvider } from "@/components/auth/session-provider";
+import { PostHogIdentify } from "@/components/auth/posthog-identify";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -131,6 +132,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
         <SessionProvider>
+          <PostHogIdentify />
           <ThemeProvider defaultTheme="system" storageKey="thetamac-theme">
             <TooltipProvider>
               {children}
