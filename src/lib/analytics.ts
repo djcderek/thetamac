@@ -16,6 +16,8 @@ export const ANALYTICS_EVENTS = {
   leaderboardFilterChanged: "leaderboard_filter_changed",
   multiplayerCompleted: "multiplayer_completed",
   multiplayerJoined: "multiplayer_joined",
+  mobileTrainingUpdateViewed: "mobile_training_update_viewed",
+  mobileTrainingUpdateDismissed: "mobile_training_update_dismissed",
   premiumGateViewed: "premium_gate_viewed",
   secondarySurfaceViewed: "secondary_surface_viewed",
   seoCtaClicked: "seo_cta_clicked",

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { settingsRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
+import { isPreMobileReleaseAccount } from "@/lib/mobile-training-announcement";
 
 const avatarSchema = z
   .string()
@@ -59,6 +60,7 @@ export async function GET() {
           name: true,
           email: true,
           image: true,
+          createdAt: true,
           settings: true
         }
       });
@@ -73,6 +75,7 @@ export async function GET() {
           name: true,
           email: true,
           image: true,
+          createdAt: true,
           settings: true
         }
       });
@@ -109,7 +112,10 @@ export async function GET() {
         email: user.email,
         image: user.image
       },
-      settings
+      settings,
+      announcements: {
+        mobileTrainingUpdate: isPreMobileReleaseAccount(user.createdAt),
+      },
     });
   } catch (error) {
     console.error("Error fetching settings:", error);

@@ -6,7 +6,14 @@ import { useSearchParams } from "next/navigation";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
-import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
+import {
+  DEFAULT_TIMED_TRAINING_SETTINGS,
+  TIMED_MODE_LIMITS,
+  PRACTICE_TIMER_OPTIONS,
+  readGuestTrainingSettings,
+  writeGuestTrainingSettings,
+  type GuestTrainingSettings,
+} from "@/lib/training-settings";
 import { getTrainingPreset } from "@/lib/training-presets";
 import { ANALYTICS_EVENTS, type AnalyticsProperties } from "@/lib/analytics";
 import {
@@ -32,6 +39,7 @@ import { TrainingSetup } from "@/components/training/training-setup";
 import { TrainingRun } from "@/components/training/training-run";
 import { TrainingGameOver } from "@/components/training/training-game-over";
 import { ProductSurveyController } from "@/components/analytics/product-survey-controller";
+import { MobileTrainingAnnouncement } from "@/components/training/mobile-training-announcement";
 
 const difficultyConfig: Record<Difficulty, DifficultySettings> = {
   easy: {
@@ -99,8 +107,8 @@ function getPresetRanges(difficulty: Difficulty): OperationRanges {
   };
 }
 
-const timedModeLimits = [60, 120, 180, 300];
-const practiceTimerOptions = [5, 8, 10, 12, 15, 20, 30];
+const timedModeLimits = TIMED_MODE_LIMITS;
+const practiceTimerOptions = PRACTICE_TIMER_OPTIONS;
 
 // ============================================
 // MENTAL MATH TIPS SYSTEM
@@ -714,6 +722,9 @@ export default function TrainingPage() {
   const [practiceTimerLimit, setPracticeTimerLimit] = useState(10);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [returningAccount, setReturningAccount] = useState(false);
+  const [preferencesReady, setPreferencesReady] = useState(false);
+  const restoredGuestSettingsRef = useRef<GuestTrainingSettings | null>(null);
   const [submitMode, setSubmitMode] = useState<SubmitMode>("auto");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customRangesTouched, setCustomRangesTouched] = useState(false);
@@ -734,7 +745,7 @@ export default function TrainingPage() {
   const guestSubmittedRef = useRef(false);
   const guestCookieReadyRef = useRef(false);
   const sessionPromiseRef = useRef<Promise<string | null> | null>(null);
-  const presetAppliedRef = useRef(false);
+  const presetAppliedRef = useRef<string | null>(null);
   const firstAnswerTrackedRef = useRef(false);
   const completionTrackedRef = useRef(false);
   const setupViewedTrackedRef = useRef(false);
@@ -769,8 +780,32 @@ export default function TrainingPage() {
     useCustomKeypad && isPlaying && !!problem && !(gameMode === "learning" && hasAnswered);
   const answerInputDisabled = !isPlaying || !problem || hasAnswered;
 
+  // Restore after hydration, before saving defaults or enabling Start.
   useEffect(() => {
-    if (!activePreset || presetAppliedRef.current) return;
+    let saved: GuestTrainingSettings | null = null;
+    try {
+      saved = readGuestTrainingSettings(window.localStorage);
+    } catch {
+      // Accessing localStorage itself can be blocked by browser policy.
+    }
+    restoredGuestSettingsRef.current = saved;
+    if (saved) {
+      setGameMode(saved.gameMode);
+      setDifficulty(saved.difficulty);
+      setSelectedOperations(saved.selectedOperations);
+      setTimedModeLimit(saved.timedModeLimit);
+      setPracticeTimerLimit(saved.practiceTimerLimit);
+      setSubmitMode(saved.submitMode);
+      setShowAdvanced(saved.showAdvanced);
+      setCustomRangesTouched(saved.customRangesTouched);
+      setOperationRanges(saved.operationRanges);
+      setSelectedSkill(saved.selectedSkill);
+    }
+    setPreferencesReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesReady || !activePreset || presetAppliedRef.current === activePreset.id) return;
 
     setGameMode(activePreset.gameMode);
     setDifficulty(activePreset.difficulty);
@@ -779,16 +814,30 @@ export default function TrainingPage() {
     setSelectedSkill(activePreset.selectedSkill ?? null);
     setShowAdvanced(false);
     setCustomRangesTouched(false);
-    presetAppliedRef.current = true;
-  }, [activePreset]);
+    presetAppliedRef.current = activePreset.id;
+  }, [activePreset, preferencesReady]);
 
-  // On mobile, keep the timer + question card in view when the custom keypad is open / problem changes.
   useEffect(() => {
-    if (!showCustomKeypad) return;
+    if (!preferencesReady || authStatus !== "unauthenticated") return;
+    try {
+      writeGuestTrainingSettings(window.localStorage, {
+        gameMode, difficulty, selectedOperations, timedModeLimit, practiceTimerLimit,
+        submitMode, showAdvanced, customRangesTouched, operationRanges, selectedSkill,
+      });
+    } catch {
+      // Training still works when browser storage is unavailable.
+    }
+  }, [preferencesReady, authStatus, gameMode, difficulty, selectedOperations,
+    timedModeLimit, practiceTimerLimit, submitMode, showAdvanced,
+    customRangesTouched, operationRanges, selectedSkill]);
+
+  // Reset setup's scroll position after focus moves into a mobile run.
+  useEffect(() => {
+    if (!isPlaying || (!useCustomKeypad && !window.matchMedia("(max-width: 767px)").matches)) return;
     const node = timerAndProblemRef.current;
     if (!node) return;
 
-    const scroll = () => node.scrollIntoView({ behavior: "smooth", block: "start" });
+    const scroll = () => node.scrollIntoView({ behavior: "instant", block: "start" });
 
     let timeout: number | undefined;
     const raf = requestAnimationFrame(() => {
@@ -800,24 +849,25 @@ export default function TrainingPage() {
       cancelAnimationFrame(raf);
       if (timeout) window.clearTimeout(timeout);
     };
-  }, [showCustomKeypad, problem?.a, problem?.b, problem?.operation]);
+  }, [isPlaying, useCustomKeypad, showCustomKeypad, feedbackKey, problem?.a, problem?.b, problem?.operation]);
 
   // Load user settings on mount
   useEffect(() => {
-    if (!authSession?.user || settingsLoaded) return;
+    if (!preferencesReady || !authSession?.user || settingsLoaded) return;
 
     async function loadSettings() {
       try {
         const res = await fetch("/api/settings");
         if (res.ok) {
           const data = await res.json();
+          setReturningAccount(data.announcements?.mobileTrainingUpdate === true);
 
           if (typeof data.settings?.autoAdvance === "boolean") {
             setAutoAdvance(data.settings.autoAdvance);
           }
 
           // Presets intentionally override difficulty and timer defaults.
-          if (!activePreset && data.settings?.defaultTimer) {
+          if (!activePreset && !restoredGuestSettingsRef.current && data.settings?.defaultTimer) {
             const timerValue = parseInt(data.settings.defaultTimer.replace("s", ""));
             if (!isNaN(timerValue) && practiceTimerOptions.includes(timerValue)) {
               setPracticeTimerLimit(timerValue);
@@ -825,7 +875,7 @@ export default function TrainingPage() {
           }
 
           // Apply default difficulty setting (convert "Medium" -> "medium")
-          if (!activePreset && data.settings?.defaultDifficulty) {
+          if (!activePreset && !restoredGuestSettingsRef.current && data.settings?.defaultDifficulty) {
             const diffValue = data.settings.defaultDifficulty.toLowerCase() as Difficulty;
             if (["easy", "medium", "hard", "expert"].includes(diffValue)) {
               setDifficulty(diffValue);
@@ -840,7 +890,7 @@ export default function TrainingPage() {
     }
 
     loadSettings();
-  }, [authSession?.user, settingsLoaded, activePreset]);
+  }, [authSession?.user, settingsLoaded, activePreset, preferencesReady]);
 
   // Get next operation from queue, refilling with shuffled operations when empty
   const getNextOperation = useCallback(() => {
@@ -1035,6 +1085,7 @@ export default function TrainingPage() {
   }, [getTrainingTelemetryProperties]);
 
   const startTraining = async () => {
+    if (!preferencesReady) return;
     if (!authSession?.user) {
       await ensureGuestCookie();
       if (!guestCookieReadyRef.current) {
@@ -1632,11 +1683,17 @@ export default function TrainingPage() {
 
   return (
     <div className="min-h-screen">
-      <ProductSurveyController surface="training" enabled={!isPlaying} />
-      <TrainingHeader />
+      <TrainingHeader active={isPlaying} />
 
-      <div className={`p-4 md:p-6 ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+340px)]" : ""}`}>
+      <div className={`${isPlaying ? "p-3 md:p-6" : "p-4 md:p-6"} ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+300px)]" : ""}`}>
         <div className={`${containerWidthClass} mx-auto`}>
+          {!isPlaying && !isGameOver && (
+            <MobileTrainingAnnouncement
+              ready={preferencesReady && authStatus !== "loading" &&
+                (authStatus === "unauthenticated" || settingsLoaded)}
+              returningAccount={returningAccount}
+            />
+          )}
           {isGameOver ? (
             <TrainingGameOver
               difficultyLabel={currentConfig.label}
@@ -1682,6 +1739,7 @@ export default function TrainingPage() {
               setSubmitMode={setSubmitMode}
               formatTime={formatTime}
               startTraining={startTraining}
+              preferencesReady={preferencesReady}
             />
           ) : (
             <TrainingRun
@@ -1720,11 +1778,14 @@ export default function TrainingPage() {
               onNextProblem={startNewProblem}
             />
           )}
+          {isGameOver && !isPlaying && (
+            <ProductSurveyController surface="training" enabled inline />
+          )}
         </div>
       </div>
 
       {showCustomKeypad && (
-        <MobileNumpad value={userAnswer} setValue={setUserAnswer} disabled={answerInputDisabled} onDone={submitCurrentAnswer} />
+        <MobileNumpad value={userAnswer} setValue={setUserAnswer} disabled={answerInputDisabled} onDone={submitCurrentAnswer} doneLabel={submitMode === "manual" ? "Submit" : "Done"} />
       )}
     </div>
   );

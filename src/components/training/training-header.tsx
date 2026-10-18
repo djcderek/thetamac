@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { AsciiMorph } from "@/components/ui/ascii-morph";
+import { cn } from "@/lib/utils";
 
-export function TrainingHeader() {
+export function TrainingHeader({ active = false }: { active?: boolean }) {
   return (
-    <header className="relative overflow-hidden border-b border-border bg-background">
+    <header className={cn("relative overflow-hidden border-b border-border bg-background", active && "sr-only md:not-sr-only")}>
       <div className="bayer-fade-l pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 opacity-45 lg:block">
         <AsciiMorph shapes={["theta"]} animate={false} className="w-56" />
       </div>

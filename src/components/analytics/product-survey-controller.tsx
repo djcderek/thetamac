@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import posthog from "posthog-js";
 
 import { hasOptedOutOfAnalytics } from "@/lib/analytics-client";
@@ -83,10 +83,13 @@ function removeStoredTimestamp(storage: Storage, key: string) {
 export function ProductSurveyController({
   surface,
   enabled,
+  inline = false,
 }: {
   surface: ProductSurveySurface;
   enabled: boolean;
+  inline?: boolean;
 }) {
+  const containerId = `product-survey-${useId().replace(/:/g, "")}`;
   const attemptLockedRef = useRef(false);
   const selectedSurveyIdRef = useRef<string | null>(null);
 
@@ -146,6 +149,7 @@ export function ProductSurveyController({
     let disposed = false;
     let pendingTimeout: ReturnType<typeof setTimeout> | null = null;
     let appearanceObserver: MutationObserver | null = null;
+    let requestedSurveyId: string | null = null;
 
     try {
       posthog.getActiveMatchingSurveys((surveys, context) => {
@@ -161,6 +165,7 @@ export function ProductSurveyController({
         if (!survey) return;
 
         attemptLockedRef.current = true;
+        requestedSurveyId = survey.id;
         selectedSurveyIdRef.current = survey.id;
         writeStoredTimestamp(
           window.sessionStorage,
@@ -192,7 +197,12 @@ export function ProductSurveyController({
               subtree: true,
             });
 
-            posthog.displaySurvey(survey.id, {
+            posthog.displaySurvey(survey.id, inline ? {
+              displayType: "inline",
+              selector: `#${containerId}`,
+              ignoreConditions: false,
+              ignoreDelay: false,
+            } : {
               displayType: "popover",
               ignoreConditions: false,
               ignoreDelay: false,
@@ -232,8 +242,13 @@ export function ProductSurveyController({
       disposed = true;
       if (pendingTimeout) clearTimeout(pendingTimeout);
       appearanceObserver?.disconnect();
+      if (requestedSurveyId) {
+        posthog.cancelPendingSurvey(requestedSurveyId);
+      }
+      attemptLockedRef.current = false;
+      removeStoredTimestamp(window.sessionStorage, PRODUCT_SURVEY_PENDING_KEY);
     };
-  }, [enabled, surface]);
+  }, [enabled, surface, inline, containerId]);
 
-  return null;
+  return inline && enabled ? <div id={containerId} className="mt-6 w-full min-w-0" /> : null;
 }

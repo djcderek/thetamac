@@ -87,13 +87,15 @@ export function TrainingRun({
   onSkip: () => void;
   onNextProblem: () => void;
 }) {
+  const metricClass = "pt-2 sm:pt-3 [&>div]:mt-1 [&>div]:text-xl sm:[&>div]:mt-2 sm:[&>div]:text-3xl";
+  const metricCount = 1 + Number(gameMode !== "timed") + Number(submitMode === "manual") + Number(gameMode !== "learning");
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {/* Status ledger (mode + difficulty + timer) */}
-      <div ref={timerAndProblemRef} className="scroll-mt-4">
-        <div className="border-t-2 border-foreground pt-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+      <div ref={timerAndProblemRef} className="scroll-mt-16">
+        <div className="border-t-2 border-foreground pt-2 sm:pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <SectionLabel className="text-foreground">
                 {gameMode === "learning" ? "Learning" : gameMode === "timed" ? "Timed" : "Practice"}
               </SectionLabel>
@@ -115,7 +117,7 @@ export function TrainingRun({
             {gameMode === "learning" ? (
               <button
                 onClick={() => setShowTip(!showTip)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="flex min-h-11 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 {showTip ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 {showTip ? "Hide tips" : "Show tips"}
@@ -133,14 +135,18 @@ export function TrainingRun({
                 </div>
               </div>
             )}
+            <Button variant="outline" onClick={onStop} className="min-h-11">
+              <Square aria-hidden="true" className="h-4 w-4" />
+              Stop
+            </Button>
           </div>
 
           {gameMode === "practice" ? (
-            <div className="mt-3">
+            <div className="mt-2 sm:mt-3">
               <Progress value={(timeLeft / practiceTimerLimit) * 100} className="h-1" />
             </div>
           ) : gameMode === "timed" ? (
-            <div className="mt-3">
+            <div className="mt-2 sm:mt-3">
               <Progress value={(overallTimeLeft / timedModeLimit) * 100} className="h-1" />
             </div>
           ) : null}
@@ -178,15 +184,15 @@ export function TrainingRun({
       <Card
         key={feedbackKey}
         className={cn(
-          "transition-all duration-200",
+          "py-3 transition-colors duration-200 sm:py-6",
           isCorrect === true && "border-success animate-pulse-success",
           isCorrect === false && "border-destructive animate-shake"
         )}
       >
-        <CardContent className="p-6 sm:p-12">
+        <CardContent className="p-3 sm:p-12">
           {problem && (
             <div className="text-center">
-              <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-5 sm:mb-8">
+              <div className="mb-2 break-words font-mono text-3xl font-semibold tracking-wide sm:mb-8 sm:text-6xl">
                 {problem.a} {problem.operation} {problem.b}
               </div>
 
@@ -206,6 +212,7 @@ export function TrainingRun({
                   <Input
                     ref={inputRef}
                     type="number"
+                    aria-label="Answer"
                     value={userAnswer}
                     onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
                     placeholder="?"
@@ -213,6 +220,11 @@ export function TrainingRun({
                     autoFocus
                     disabled={gameMode === "learning" && hasAnswered}
                   />
+                )}
+                {submitMode === "manual" && !useCustomKeypad && (
+                  <Button type="submit" disabled={hasAnswered || !userAnswer || userAnswer === "-"} className="mx-auto mt-2 min-h-11 w-full max-w-[200px]">
+                    Submit
+                  </Button>
                 )}
               </form>
 
@@ -288,34 +300,24 @@ export function TrainingRun({
       {/* Stats */}
       <div
         className={`grid gap-4 ${
-          submitMode === "auto"
-            ? "grid-cols-2 sm:grid-cols-3"
-            : gameMode === "learning"
-              ? "grid-cols-3"
-              : gameMode === "timed"
-                ? "grid-cols-2 sm:grid-cols-3"
-                : "grid-cols-2 sm:grid-cols-4"
+          metricCount === 4 ? "grid-cols-4" : metricCount === 3 ? "grid-cols-3" : "grid-cols-2"
         }`}
       >
-        <MetricTile label="Solved" value={totalSolved} />
+        <MetricTile label="Solved" value={totalSolved} className={metricClass} />
 
-        {gameMode !== "timed" && <MetricTile label="Streak" value={streak} />}
+        {gameMode !== "timed" && <MetricTile label="Streak" value={streak} className={metricClass} />}
 
-        {submitMode === "manual" && <MetricTile label="Accuracy" value={`${accuracy}%`} />}
+        {submitMode === "manual" && <MetricTile label="Accuracy" value={`${accuracy}%`} className={metricClass} />}
 
         {gameMode !== "learning" && (
-          <MetricTile label="Avg time" value={`${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s`} />
+          <MetricTile label="Avg time" value={`${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s`} className={metricClass} />
         )}
       </div>
 
       {/* Controls */}
       <div className="flex justify-center gap-3">
-        <Button variant="outline" onClick={onStop}>
-          <Square className="w-4 h-4 mr-2" />
-          Stop
-        </Button>
         {!hasAnswered && gameMode !== "timed" && (
-          <Button variant="outline" onClick={onSkip}>
+          <Button variant="outline" onClick={onSkip} className="min-h-11">
             <RotateCcw className="w-4 h-4 mr-2" />
             Skip
           </Button>

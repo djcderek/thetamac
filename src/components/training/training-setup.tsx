@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  AlertCircle,
   ChevronDown,
   ChevronUp,
   CornerDownLeft,
@@ -82,6 +81,7 @@ export function TrainingSetup({
   setSubmitMode,
   formatTime,
   startTraining,
+  preferencesReady,
 }: {
   scorePercentile: ScoreDistribution | null;
   showLastRunPlacementCard: boolean;
@@ -110,6 +110,7 @@ export function TrainingSetup({
   setSubmitMode: (m: SubmitMode) => void;
   formatTime: (seconds: number) => string;
   startTraining: () => void;
+  preferencesReady: boolean;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const selectedOpsLabel = selectedOperations.join(" ");
@@ -169,8 +170,6 @@ export function TrainingSetup({
                       ? `${practiceTimerLimit}s`
                       : "no timer"}
                 </span>
-                <span className="text-border">/</span>
-                <span className="font-mono text-xs">{submitMode === "auto" ? "auto-submit" : "enter"}</span>
               </div>
 
               <Button
@@ -178,14 +177,46 @@ export function TrainingSetup({
                 variant="outline"
                 size="sm"
                 onClick={() => setSettingsOpen((v) => !v)}
-                className="shrink-0"
+                className="min-h-11 shrink-0"
+                aria-expanded={settingsOpen}
+                aria-controls="training-session-settings"
               >
                 {settingsOpen ? "Hide" : "Edit"}
               </Button>
             </div>
 
+            <fieldset className="space-y-2" aria-describedby="answer-submission-help">
+              <legend className="text-sm font-medium">Answer submission</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: "auto", label: "Auto-submit", Icon: Wand2 },
+                  { value: "manual", label: "Manual submit", Icon: CornerDownLeft },
+                ] as const).map(({ value, label, Icon }) => (
+                  <label key={value} className="relative cursor-pointer">
+                    <input
+                      type="radio"
+                      name="answer-submission"
+                      value={value}
+                      checked={submitMode === value}
+                      onChange={() => setSubmitMode(value)}
+                      className="peer sr-only"
+                    />
+                    <span className={cn(tileClass(submitMode === value), "flex min-h-11 items-center justify-center gap-2 py-2 text-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring")}>
+                      <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      {label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p id="answer-submission-help" className="text-xs leading-5 text-muted-foreground">
+                {submitMode === "manual"
+                  ? "Press Enter or tap Submit. Correct and incorrect answers count toward accuracy."
+                  : "Advances when correct. Choose Manual submit to measure accuracy."}
+              </p>
+            </fieldset>
+
             <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={startTraining} size="lg" className="w-full bg-brand text-brand-foreground hover:bg-brand/85">
+              <Button onClick={startTraining} disabled={!preferencesReady} size="lg" className="w-full bg-brand text-brand-foreground hover:bg-brand/85">
                 <Play className="mr-2 h-4 w-4" />
                 Start
               </Button>
@@ -280,7 +311,7 @@ export function TrainingSetup({
       {/* Right: Settings */}
       {settingsOpen ? (
       <div className="lg:col-span-7">
-        <section className="border-t-2 border-foreground pt-5">
+        <section id="training-session-settings" className="border-t-2 border-foreground pt-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <SectionLabel>Session settings</SectionLabel>
@@ -394,47 +425,6 @@ export function TrainingSetup({
                 </div>
               </div>
             )}
-
-            {/* Submission */}
-            <div className="space-y-2 border-t border-border pt-5">
-              <div className="text-sm font-medium">Answer submission</div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSubmitMode("manual")}
-                  className={tileClass(submitMode === "manual", "text-left")}
-                >
-                  <div className="flex items-center gap-2">
-                    <CornerDownLeft className="h-4 w-4" />
-                    <div className="text-sm font-medium">Press Enter</div>
-                  </div>
-                  <div className={cn("mt-1 text-xs", submitMode === "manual" ? "text-background/70" : "text-muted-foreground")}>
-                    Submit with Enter key
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSubmitMode("auto")}
-                  className={tileClass(submitMode === "auto", "text-left")}
-                >
-                  <div className="flex items-center gap-2">
-                    <Wand2 className="h-4 w-4" />
-                    <div className="text-sm font-medium">Auto-submit</div>
-                  </div>
-                  <div className={cn("mt-1 text-xs", submitMode === "auto" ? "text-background/70" : "text-muted-foreground")}>
-                    Submit when correct
-                  </div>
-                </button>
-              </div>
-              {submitMode === "auto" && (
-                <div className="flex items-start gap-2 border-l-2 border-warning pl-3 pt-1 text-xs">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                  <p className="text-muted-foreground">
-                    <span className="font-medium text-foreground">Note:</span> Accuracy isn&apos;t recorded in auto-submit mode.
-                  </p>
-                </div>
-              )}
-            </div>
 
             {/* Custom ranges */}
             <div className="space-y-3 border-t border-border pt-5">

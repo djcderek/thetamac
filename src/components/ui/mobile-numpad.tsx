@@ -8,6 +8,7 @@ export type MobileNumpadProps = {
   value: string;
   setValue: React.Dispatch<React.SetStateAction<string>>;
   onDone?: () => void;
+  doneLabel?: string;
   disabled?: boolean;
   /** Visual sizing. Use "compact" only where you need a shorter keypad (e.g. racing mobile). */
   variant?: "default" | "compact";
@@ -37,6 +38,7 @@ export function MobileNumpad({
   value,
   setValue,
   onDone,
+  doneLabel = "Done",
   disabled = false,
   variant = "default",
 }: MobileNumpadProps) {
@@ -294,7 +296,7 @@ export function MobileNumpad({
               {getRipplesForButton("done").map((r) => (
                 <RippleEffect key={r.id} x={r.x} y={r.y} />
               ))}
-              Done
+              {doneLabel}
             </button>
           </div>
         </div>
