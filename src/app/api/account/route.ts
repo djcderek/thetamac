@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { createDeletedUserId, DELETED_PLAYER_NAME } from "@/lib/deleted-user";
 import { getStripeClient } from "@/lib/stripe";
 import { accountDeletionRatelimit, checkRateLimit } from "@/lib/rate-limit";
 
@@ -20,8 +21,8 @@ async function cancelStripeSubscriptions({
 }: {
   customerId: string | null;
   subscriptionId: string | null;
-}) {
-  if (!customerId && !subscriptionId) return;
+}): Promise<number> {
+  if (!customerId && !subscriptionId) return 0;
 
   const stripe = getStripeClient();
   const subscriptionIds = new Set<string>();
@@ -51,16 +52,20 @@ async function cancelStripeSubscriptions({
     }
   }
 
+  let canceled = 0;
   for (const id of subscriptionIds) {
     try {
       await stripe.subscriptions.cancel(id);
+      canceled++;
     } catch (error) {
       if (!isMissingStripeResource(error)) throw error;
     }
   }
+  return canceled;
 }
 
 export async function DELETE(request: Request) {
+  let subscriptionCanceled = false;
   try {
     const session = await auth();
     const email = session?.user?.email;
@@ -99,16 +104,17 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Account not found." }, { status: 404 });
     }
 
-    await cancelStripeSubscriptions({
+    // Stripe is canceled first on purpose: if the account were deleted first and the
+    // cancellation then failed, the user would keep being billed with no account left.
+    const canceledCount = await cancelStripeSubscriptions({
       customerId: user.stripeCustomerId,
       subscriptionId: user.stripeSubscriptionId,
     });
+    subscriptionCanceled = canceledCount > 0;
 
-    const races = await db.racePlayer.findMany({
-      where: { userId: user.id },
-      select: { raceId: true },
-    });
-    const raceIds = [...new Set(races.map((race) => race.raceId))];
+    // Matches and races are shared with other players, so they are kept and the deleted
+    // user's ID is replaced with a tombstone instead of deleting opponents' history.
+    const tombstoneId = createDeletedUserId();
 
     await db.$transaction([
       db.featureRequest.deleteMany({
@@ -117,14 +123,34 @@ export async function DELETE(request: Request) {
         },
       }),
       db.leaderboardEntry.deleteMany({ where: { userId: user.id } }),
-      db.multiplayerMatch.deleteMany({
-        where: {
-          OR: [{ player1Id: user.id }, { player2Id: user.id }],
-        },
+      db.multiplayerMatch.updateMany({
+        where: { player1Id: user.id },
+        data: { player1Id: tombstoneId },
       }),
-      ...(raceIds.length > 0
-        ? [db.raceMatch.deleteMany({ where: { id: { in: raceIds } } })]
-        : []),
+      db.multiplayerMatch.updateMany({
+        where: { player2Id: user.id },
+        data: { player2Id: tombstoneId },
+      }),
+      db.multiplayerMatch.updateMany({
+        where: { winnerId: user.id },
+        data: { winnerId: tombstoneId },
+      }),
+      db.multiplayerMatch.updateMany({
+        where: { forfeitedBy: user.id },
+        data: { forfeitedBy: tombstoneId },
+      }),
+      db.matchRound.updateMany({
+        where: { winnerId: user.id },
+        data: { winnerId: tombstoneId },
+      }),
+      db.racePlayer.updateMany({
+        where: { userId: user.id },
+        data: { userId: tombstoneId, username: DELETED_PLAYER_NAME },
+      }),
+      db.raceEvent.updateMany({
+        where: { playerId: user.id },
+        data: { playerId: tombstoneId },
+      }),
       db.user.delete({ where: { id: user.id } }),
     ]);
 
@@ -133,8 +159,9 @@ export async function DELETE(request: Request) {
     console.error("Account deletion failed", error);
     return NextResponse.json(
       {
-        error:
-          "We could not delete your account safely. No account data was removed. Please try again or contact support.",
+        error: subscriptionCanceled
+          ? "Your subscription was canceled, but we could not finish deleting your account. No account data was removed. Please try again or contact support."
+          : "We could not delete your account safely. No account data was removed. Please try again or contact support.",
       },
       { status: 500 }
     );

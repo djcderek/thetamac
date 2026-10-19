@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe";
 import { isPremiumStatus, updateUserSubscription } from "@/lib/subscription";
+import { decideSubscriptionSync } from "@/lib/subscription-status";
 import { db } from "@/lib/db";
 import Stripe from "stripe";
 import { env } from "@/lib/env";
@@ -21,7 +22,30 @@ async function findUserIdByCustomer(customerId: string) {
 
 const PRO_SIGNUP_BONUS = 500;
 
-async function syncSubscription(subscription: Stripe.Subscription) {
+async function findLiveSubscription(
+  stripe: Stripe,
+  customerId: string,
+  excludeId: string
+) {
+  const subscriptions = await stripe.subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 20,
+  });
+  return (
+    subscriptions.data.find(
+      (candidate) => candidate.id !== excludeId && isPremiumStatus(candidate.status)
+    ) ?? null
+  );
+}
+
+/**
+ * Syncs the user from Stripe's current view of a subscription. `subscription` must be
+ * freshly retrieved, not a webhook snapshot: retried or out-of-order deliveries would
+ * otherwise apply stale states (e.g. an old "active" after the subscription was deleted).
+ */
+async function syncSubscription(stripe: Stripe, freshSubscription: Stripe.Subscription) {
+  let subscription = freshSubscription;
   const customerId = subscription.customer as string;
   const userId =
     subscription.metadata?.userId ||
@@ -41,8 +65,51 @@ async function syncSubscription(subscription: Stripe.Subscription) {
       isPremium: true,
       subscriptionStatus: true,
       subscriptionPlan: true,
+      stripeSubscriptionId: true,
     },
   });
+
+  if (!previousUser) {
+    console.warn("Stripe webhook: user no longer exists", userId, subscription.id);
+    return null;
+  }
+
+  const decision = decideSubscriptionSync({
+    currentSubscriptionId: previousUser.stripeSubscriptionId,
+    incomingSubscriptionId: subscription.id,
+    incomingStatus: subscription.status,
+  });
+
+  if (decision === "ignore") {
+    console.info(
+      "Stripe webhook: ignoring non-current subscription",
+      subscription.id,
+      subscription.status
+    );
+    return null;
+  }
+
+  if (decision === "find-replacement") {
+    const replacement = await findLiveSubscription(stripe, customerId, subscription.id);
+    if (replacement) {
+      console.info(
+        "Stripe webhook: current subscription ended; switching to live subscription",
+        subscription.id,
+        replacement.id
+      );
+      subscription = replacement;
+    }
+  } else if (
+    previousUser.stripeSubscriptionId &&
+    previousUser.stripeSubscriptionId !== subscription.id &&
+    isPremiumStatus(previousUser.subscriptionStatus)
+  ) {
+    console.warn(
+      "Stripe webhook: customer has more than one live subscription",
+      previousUser.stripeSubscriptionId,
+      subscription.id
+    );
+  }
 
   await updateUserSubscription({
     userId,
@@ -90,6 +157,7 @@ async function syncSubscription(subscription: Stripe.Subscription) {
 
   return {
     userId,
+    subscription,
     previousStatus: previousUser?.subscriptionStatus ?? null,
     previousPremium:
       Boolean(previousUser?.isPremium) ||
@@ -223,20 +291,20 @@ export async function POST(request: Request) {
           const subscription = await stripe.subscriptions.retrieve(
             subscriptionId
           );
-          const synced = await syncSubscription(subscription);
+          const synced = await syncSubscription(stripe, subscription);
           if (synced) {
             await captureServerAnalyticsEvent({
               distinctId: synced.userId,
               event: ANALYTICS_EVENTS.checkoutCompleted,
               properties: {
                 plan: synced.plan,
-                status: subscription.status,
-                currency: session.currency ?? subscription.currency,
+                status: synced.subscription.status,
+                currency: session.currency ?? synced.subscription.currency,
                 price_amount_minor: session.amount_total ?? undefined,
               },
               insertId: getAnalyticsInsertId(event.id),
             });
-            await captureSubscriptionTransition(event, subscription, synced);
+            await captureSubscriptionTransition(event, synced.subscription, synced);
           }
         }
         break;
@@ -244,9 +312,12 @@ export async function POST(request: Request) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        const synced = await syncSubscription(subscription);
-        await captureSubscriptionTransition(event, subscription, synced);
+        const snapshot = event.data.object as Stripe.Subscription;
+        const subscription = await stripe.subscriptions.retrieve(snapshot.id);
+        const synced = await syncSubscription(stripe, subscription);
+        if (synced) {
+          await captureSubscriptionTransition(event, synced.subscription, synced);
+        }
         break;
       }
       case "invoice.paid": {

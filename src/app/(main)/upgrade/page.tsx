@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Check, ArrowLeft } from "lucide-react";
 
-import { getCurrentUserPremiumStatus } from "@/lib/subscription";
+import { getCurrentUserPremiumStatus, subscriptionNeedsAttention } from "@/lib/subscription";
 import { getUpgradeUrl, type UpgradeFeature } from "@/lib/upgrade";
 
 import { SubscribeButton } from "@/components/billing/subscribe-button";
@@ -65,7 +65,11 @@ export default async function UpgradePage({
   const upgraded = resolvedSearchParams.upgraded === "1";
   const cancelled = resolvedSearchParams.cancelled === "1";
 
-  const { userId, isPremium } = await getCurrentUserPremiumStatus();
+  const { userId, isPremium, subscriptionStatus, trialEligible } =
+    await getCurrentUserPremiumStatus();
+  // An unpaid, incomplete or paused subscription is fixed in the billing portal, not a new checkout.
+  const needsBillingAttention =
+    !isPremium && subscriptionNeedsAttention(subscriptionStatus);
 
   const upgradeUrl = getUpgradeUrl({ feature: activeFeature, source });
 
@@ -170,7 +174,11 @@ export default async function UpgradePage({
               </ul>
 
               <p className="relative mt-5 font-mono text-xs text-background/70">
-                + 7-day free trial included +
+                {trialEligible
+                  ? "+ 7-day free trial included +"
+                  : needsBillingAttention
+                    ? "Your subscription needs attention. Update payment in billing."
+                    : "Billed today. Cancel anytime."}
               </p>
 
               <div className="relative mt-5 space-y-3">
@@ -184,7 +192,7 @@ export default async function UpgradePage({
                       Start Free Trial
                     </button>
                   </UpgradeAuthLink>
-                ) : isPremium ? (
+                ) : isPremium || needsBillingAttention ? (
                   <ManageBillingButton
                     returnUrl={upgradeUrl}
                     className="w-full rounded-full bg-background px-4 py-3 font-medium text-foreground transition-colors hover:bg-background/85"
@@ -197,7 +205,7 @@ export default async function UpgradePage({
                   <>
                     <SubscribeButton
                       plan="monthly"
-                      label="Start Free Trial"
+                      label={trialEligible ? "Start Free Trial" : "Go Monthly"}
                       returnUrl={upgradeUrl}
                       tracking={{
                         eventName: "upgrade_cta_click",

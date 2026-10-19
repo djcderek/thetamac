@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { isDeletedUserId } from "@/lib/deleted-user";
 import {
   aggregateDuelResults,
   aggregateRaceResults,
@@ -195,8 +196,13 @@ async function finalizeLeaderboard(
   currentUserId?: string | null,
   guests = new Map<string, GuestMeta>()
 ): Promise<LeaderboardResult> {
-  const rankedCurrent = sortRankedItems(currentItems);
-  const rankedComparison = sortRankedItems(comparisonItems);
+  // Deleted accounts keep their place in opponents' match history but are never ranked.
+  const rankedCurrent = sortRankedItems(
+    currentItems.filter((item) => !isDeletedUserId(item.userId))
+  );
+  const rankedComparison = sortRankedItems(
+    comparisonItems.filter((item) => !isDeletedUserId(item.userId))
+  );
   const trends = calculateRankTrends(rankedCurrent, rankedComparison);
   const comparisonLabel = getTrendComparisonLabel(period);
 
