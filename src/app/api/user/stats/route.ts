@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getDisplayedStreak, resolveTimeZone } from "@/lib/streak";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
 
@@ -89,6 +90,14 @@ export async function GET() {
       },
     ];
 
+    // The stored streak only changes when a session completes; show it as lapsed once a
+    // local day has passed without one.
+    const lastSession = await db.trainingSession.findFirst({
+      where: { userId, completedAt: { not: null } },
+      orderBy: { completedAt: "desc" },
+      select: { completedAt: true },
+    });
+
     // Find weakest skill for suggestions
     const weakestSkill = skills
       .filter((s) => s.total > 0)
@@ -99,7 +108,12 @@ export async function GET() {
       totalCorrect: totalCorrectFromOps,
       accuracy: Math.round(accuracy * 10) / 10,
       avgTime: Math.round(weightedAvgTime * 10) / 10,
-      currentStreak: userStats.currentStreak,
+      currentStreak: getDisplayedStreak({
+        currentStreak: userStats.currentStreak,
+        lastCompletedAt: lastSession?.completedAt ?? null,
+        now: new Date(),
+        timeZone: resolveTimeZone(new URL(request.url).searchParams.get("tz")),
+      }),
       longestStreak: userStats.longestStreak,
       rating: userStats.rating,
       skills,

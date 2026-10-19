@@ -18,7 +18,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function PerformancePage() {
+export default async function PerformancePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const upgraded = (await searchParams)?.upgraded === "1";
   // Server-side check - always fresh from database
   const { userId, isPremium } = await getCurrentUserPremiumStatus();
 
@@ -45,7 +50,8 @@ export default async function PerformancePage() {
 
   // Not premium - redirect to upgrade page
   if (!isPremium) {
-    redirect("/upgrade?feature=analytics&source=performance");
+    // Keep `upgraded` so a player back from checkout sees the confirmation state, not checkout.
+    redirect(`/upgrade?feature=analytics&source=performance${upgraded ? "&upgraded=1" : ""}`);
   }
 
   // Premium user - show dashboard

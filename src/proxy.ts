@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { getSafeCallbackPath } from "@/lib/auth-callback";
 
 // Routes that require authentication
 const protectedRoutes = [
@@ -52,13 +53,16 @@ export async function proxy(request: NextRequest) {
   // Redirect unauthenticated users trying to access protected routes
   if (isProtectedRoute && !isAuthenticated) {
     const signInUrl = new URL("/auth/signin", request.url);
-    signInUrl.searchParams.set("callbackUrl", pathname);
+    // Keep the query string so the player returns to the exact page (e.g. a filtered view).
+    signInUrl.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(signInUrl);
   }
 
   // Redirect authenticated users away from auth routes
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL("/", request.url));
+    // Honor where the player was headed instead of always landing on Training.
+    const destination = getSafeCallbackPath(request.nextUrl.searchParams.get("callbackUrl"));
+    return NextResponse.redirect(new URL(destination, request.url));
   }
 
   return NextResponse.next();

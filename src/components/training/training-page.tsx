@@ -1097,6 +1097,7 @@ export default function TrainingPage() {
             duration: Math.round((Date.now() - sessionStartTimeRef.current) / 1000),
             averageTime: results.avgTime,
             bestStreak: bestStreakRef.current,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
         }).catch(() => {});
       }
@@ -1222,11 +1223,15 @@ export default function TrainingPage() {
       if (!authSession?.user) return;
 
       try {
+        // Answers can land before the session POST resolves (often the first one); wait for it
+        // rather than dropping the attempt or saving it without a session.
+        const attemptSessionId =
+          sessionId ?? (sessionPromiseRef.current ? await sessionPromiseRef.current : null);
         await fetch("/api/training/attempt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            sessionId,
+            sessionId: attemptSessionId,
             operandA: problem.a,
             operandB: problem.b,
             operation: problem.operation,
@@ -1250,10 +1255,10 @@ export default function TrainingPage() {
       if (mistakeRecordedProblemRef.current === mistakeProblem) return;
       if (scoredProblemRef.current === mistakeProblem) return;
       mistakeRecordedProblemRef.current = mistakeProblem;
-      if (!authSession?.user || !sessionId) return;
+      if (!authSession?.user) return;
       recordAttempt(mistakeProblem, answerNum, false, (Date.now() - startTime) / 1000);
     },
-    [authSession?.user, sessionId, recordAttempt, startTime]
+    [authSession?.user, recordAttempt, startTime]
   );
 
   const isDefaultTimedConfig = () =>
@@ -1328,36 +1333,36 @@ export default function TrainingPage() {
       if (!finalSessionId && sessionPromiseRef.current) {
         finalSessionId = await sessionPromiseRef.current;
       }
-      if (!finalSessionId) return;
+      if (finalSessionId) {
+        const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
 
-      const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
+        try {
+          await fetch("/api/training/session", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: finalSessionId,
+              totalProblems: solved,
+              correctAnswers: correct,
+              duration,
+              averageTime: avgTimeVal,
+              bestStreak,
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            }),
+          });
+        } catch (error) {
+          console.error("Failed to end session:", error);
+        }
 
-      try {
-        await fetch("/api/training/session", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: finalSessionId,
-            totalProblems: solved,
-            correctAnswers: correct,
-            duration,
-            averageTime: avgTimeVal,
-            bestStreak,
-          }),
-        });
-      } catch (error) {
-        console.error("Failed to end session:", error);
+        setSessionId(null);
+        sessionPromiseRef.current = null;
       }
-
-      setSessionId(null);
-      sessionPromiseRef.current = null;
-      return;
-    }
-    if (!authSession?.user) {
+    } else {
       await submitGuestScore(solved, correct, bestStreak, avgTimeVal);
     }
 
-    if (gameMode === "timed" && isDefaultTimedConfig()) {
+    // Placement is shown on the results screen for signed-in players and guests alike.
+    if (outcome === "completed" && gameMode === "timed" && isDefaultTimedConfig()) {
       const scoreForDistribution = correct;
       try {
         const res = await fetch("/api/leaderboard/training/distribution");
@@ -1698,7 +1703,7 @@ export default function TrainingPage() {
       });
 
       // Record attempt to database (only correct attempts in auto mode)
-      if (authSession?.user && sessionId) {
+      if (authSession?.user) {
         recordAttempt(problem, answerNum, true, timeTaken);
       }
 
@@ -1731,6 +1736,12 @@ export default function TrainingPage() {
     trackFirstAnswer,
     autoAdvance,
   ]);
+
+  // Focus the answer box once each new problem has rendered. startNewProblem's own focus()
+  // runs while Learning mode's input is still disabled from the previous answer, so it failed.
+  useEffect(() => {
+    if (isPlaying && problem) inputRef.current?.focus();
+  }, [isPlaying, problem]);
 
   const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
 

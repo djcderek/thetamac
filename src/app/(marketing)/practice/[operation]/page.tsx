@@ -86,6 +86,10 @@ function isOperationSlug(value: string): value is OperationSlug {
   return value in operationPages;
 }
 
+// Unknown slugs 404 at routing time. Calling notFound() during render came after the
+// root loading.tsx had started streaming, so those pages answered 200 (a soft 404).
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return Object.keys(operationPages).map((operation) => ({ operation }));
 }

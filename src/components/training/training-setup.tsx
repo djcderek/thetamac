@@ -53,6 +53,45 @@ function modeDescription(mode: GameMode) {
   }
 }
 
+/**
+ * A range bound the player can clear and retype. Committing `parseInt(v) || 1` on every
+ * keystroke snapped a cleared field to 1, so typing "50" produced "150".
+ */
+function RangeInput({
+  value,
+  onCommit,
+  label,
+}: {
+  value: number;
+  onCommit: (value: number) => void;
+  label: string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [lastValue, setLastValue] = useState(value);
+  if (value !== lastValue) {
+    setLastValue(value);
+    setDraft(String(value));
+  }
+
+  return (
+    <Input
+      type="number"
+      inputMode="numeric"
+      aria-label={label}
+      value={draft}
+      onChange={(e) => {
+        const next = e.target.value;
+        setDraft(next);
+        const parsed = Number(next);
+        if (Number.isInteger(parsed) && parsed >= 1) onCommit(parsed);
+      }}
+      onBlur={() => setDraft(String(value))}
+      className="w-20 h-8 text-center text-sm"
+      min={1}
+    />
+  );
+}
+
 export function TrainingSetup({
   scorePercentile,
   showLastRunPlacementCard,
@@ -461,20 +500,16 @@ export function TrainingSetup({
                       <div key={op} className="flex items-center gap-3">
                         <span className="w-20 text-sm font-medium">{label}</span>
                         <div className="flex items-center gap-2 flex-1">
-                          <Input
-                            type="number"
+                          <RangeInput
                             value={operationRanges[op].min}
-                            onChange={(e) => updateRange(op, "min", parseInt(e.target.value) || 1)}
-                            className="w-20 h-8 text-center text-sm"
-                            min={1}
+                            onCommit={(value) => updateRange(op, "min", value)}
+                            label={`${label} minimum`}
                           />
                           <span className="text-muted-foreground text-sm">to</span>
-                          <Input
-                            type="number"
+                          <RangeInput
                             value={operationRanges[op].max}
-                            onChange={(e) => updateRange(op, "max", parseInt(e.target.value) || 1)}
-                            className="w-20 h-8 text-center text-sm"
-                            min={1}
+                            onCommit={(value) => updateRange(op, "max", value)}
+                            label={`${label} maximum`}
                           />
                         </div>
                       </div>

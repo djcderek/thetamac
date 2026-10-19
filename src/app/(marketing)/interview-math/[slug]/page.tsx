@@ -16,6 +16,10 @@ function buildGuideUrl(slug: string) {
   return `${siteUrl}/interview-math/${slug}`;
 }
 
+// Unknown slugs 404 at routing time. Calling notFound() during render came after the
+// root loading.tsx had started streaming, so those pages answered 200 (a soft 404).
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return INTERVIEW_MATH_GUIDES.map((guide) => ({ slug: guide.slug }));
 }

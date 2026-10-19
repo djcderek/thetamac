@@ -60,7 +60,7 @@ interface WeeklySummary {
   average: number;
   avgAccuracy: number;
   avgSpeed: number;
-  improvement: number;
+  improvement: number | null;
   peak: { correct: number; day: string } | null;
   totalAttempts: number;
 }
@@ -194,7 +194,7 @@ export function PerformanceDashboard() {
           <MetricTile
             label="Improvement"
             value={
-              weeklyData?.summary.improvement !== undefined
+              typeof weeklyData?.summary.improvement === "number"
                 ? `${weeklyData.summary.improvement >= 0 ? "+" : ""}${weeklyData.summary.improvement}%`
                 : "--"
             }
@@ -372,7 +372,7 @@ export function PerformanceDashboard() {
             <div>
               {weeklyData && weeklyData.summary.totalProblems > 0 ? (
                 <>
-                  {weeklyData.summary.improvement > 0 && (
+                  {(weeklyData.summary.improvement ?? 0) > 0 && (
                     <div className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                       <TrendingUp className="w-4 h-4 mt-0.5 text-success" />
                       <div>
@@ -383,7 +383,7 @@ export function PerformanceDashboard() {
                       </div>
                     </div>
                   )}
-                  {weeklyData.summary.improvement < 0 && (
+                  {(weeklyData.summary.improvement ?? 0) < 0 && (
                     <div className="flex items-start gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
                       <TrendingDown className="w-4 h-4 mt-0.5 text-destructive" />
                       <div>

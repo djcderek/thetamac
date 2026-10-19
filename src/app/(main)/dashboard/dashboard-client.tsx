@@ -68,7 +68,9 @@ export function DashboardClient() {
     async function fetchData() {
       try {
         const [statsRes, performanceRes, activityRes] = await Promise.all([
-          fetch("/api/user/stats"),
+          fetch(
+            `/api/user/stats?tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`
+          ),
           fetch("/api/user/performance"),
           fetch("/api/user/activity"),
         ]);
@@ -151,7 +153,7 @@ export function DashboardClient() {
           <MetricTile
             label="Current streak"
             value={`${stats?.currentStreak || 0} ${stats?.currentStreak === 1 ? "day" : "days"}`}
-            detail={<span className="inline-flex items-center gap-1.5"><Flame className="h-3.5 w-3.5 text-warning" />Best: {stats?.longestStreak || 0} days</span>}
+            detail={<span className="inline-flex items-center gap-1.5"><Flame className="h-3.5 w-3.5 text-warning" />Best: {stats?.longestStreak || 0} {stats?.longestStreak === 1 ? "day" : "days"}</span>}
           />
           <MetricTile
             label="Accuracy"
