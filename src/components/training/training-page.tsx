@@ -771,6 +771,9 @@ export default function TrainingPage() {
   // The problem whose answer has already been scored. Blocks repeat submits (double Enter,
   // effect re-runs, timeout racing a correct answer) until the next problem replaces it.
   const scoredProblemRef = useRef<Problem | null>(null);
+  // The problem whose first wrong entry has been recorded. Auto-submit never submits wrong
+  // answers, so without this Weak Points never sees mistakes made in the default mode.
+  const mistakeRecordedProblemRef = useRef<Problem | null>(null);
 
   // Operation queue for even distribution
   const operationQueueRef = useRef<Operation[]>([]);
@@ -840,7 +843,13 @@ export default function TrainingPage() {
     const node = timerAndProblemRef.current;
     if (!node) return;
 
-    const scroll = () => node.scrollIntoView({ behavior: "instant", block: "start" });
+    // Scroll the window directly: scrollIntoView ignored the node's scroll margin inside the
+    // overflow-hidden main wrapper and parked the timer and Stop button under the fixed top bar.
+    const scroll = () => {
+      const offset = parseFloat(window.getComputedStyle(node).scrollMarginTop) || 0;
+      const top = node.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: Math.max(0, top), behavior: "instant" });
+    };
 
     let timeout: number | undefined;
     const raf = requestAnimationFrame(() => {
@@ -1201,6 +1210,19 @@ export default function TrainingPage() {
     [authSession?.user, sessionId]
   );
 
+  // Auto-submit only ever submits correct answers; record the first wrong entry per problem
+  // so accuracy and Weak Points reflect mistakes. The run's score is unaffected.
+  const recordAutoSubmitMistake = useCallback(
+    (mistakeProblem: Problem, answerNum: number) => {
+      if (mistakeRecordedProblemRef.current === mistakeProblem) return;
+      if (scoredProblemRef.current === mistakeProblem) return;
+      mistakeRecordedProblemRef.current = mistakeProblem;
+      if (!authSession?.user || !sessionId) return;
+      recordAttempt(mistakeProblem, answerNum, false, (Date.now() - startTime) / 1000);
+    },
+    [authSession?.user, sessionId, recordAttempt, startTime]
+  );
+
   const isDefaultTimedConfig = () =>
     gameMode === DEFAULT_TIMED_TRAINING_SETTINGS.gameMode &&
     difficulty === DEFAULT_TIMED_TRAINING_SETTINGS.difficulty &&
@@ -1414,7 +1436,8 @@ export default function TrainingPage() {
     // Incorrect answers just clear the input (no tracking)
     if (submitMode === "auto") {
       if (correct) return; // Already handled by effect
-      // Wrong answer - just clear and let them try again
+      // Wrong answer - record the first mistake, clear, and let them try again
+      recordAutoSubmitMistake(problem, answerNum);
       setUserAnswer("");
       setIsCorrect(false);
       setFeedbackKey((k) => k + 1);
@@ -1551,8 +1574,8 @@ export default function TrainingPage() {
           setStreak(0);
           setTotalSolved((p) => p + 1);
 
-          // Record timeout as incorrect attempt
-          if (problem) {
+          // Record timeout as incorrect attempt, unless a wrong entry was already recorded
+          if (problem && mistakeRecordedProblemRef.current !== problem) {
             const timeTaken = practiceTimerLimit;
             recordAttempt(problem, null, false, timeTaken);
           }
@@ -1652,8 +1675,12 @@ export default function TrainingPage() {
       } else {
         setHasAnswered(true);
       }
+    } else if (!isNaN(answerNum) && userAnswer.length >= String(problem.answer).length) {
+      // As many characters as the answer but not it: a wrong entry, not one still being typed.
+      recordAutoSubmitMistake(problem, answerNum);
     }
   }, [
+    recordAutoSubmitMistake,
     userAnswer,
     problem,
     isPlaying,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkPremiumAccess } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,14 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+
+    const { isPremium } = await checkPremiumAccess(userId);
+    if (!isPremium) {
+      return NextResponse.json(
+        { error: "Premium subscription required." },
+        { status: 402 }
+      );
+    }
 
     // Fetch all problem attempts for the user (last 90 days for relevance)
     const ninetyDaysAgo = new Date();
@@ -318,6 +327,7 @@ export async function GET() {
           operandB: problem.operandB,
           operation: problem.operation,
         });
+        focusAreas.add(operationNames[problem.operation] || problem.operation);
       }
     }
 
