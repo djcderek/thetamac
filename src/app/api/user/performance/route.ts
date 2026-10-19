@@ -168,9 +168,11 @@ function handleWeeklyData(attempts: Attempt[], startDate: Date) {
   const midpoint = Math.floor(performanceData.length / 2);
   const firstHalfCorrect = performanceData.slice(0, midpoint).reduce((sum, d) => sum + d.correct, 0);
   const secondHalfCorrect = performanceData.slice(midpoint).reduce((sum, d) => sum + d.correct, 0);
-  const improvement = firstHalfCorrect > 0 
-    ? Math.round(((secondHalfCorrect - firstHalfCorrect) / firstHalfCorrect) * 100) 
-    : secondHalfCorrect > 0 ? 100 : 0;
+  // No activity in the first half means there is no baseline to compare against; reporting
+  // +100% made every new player's first day look like a breakthrough.
+  const improvement = firstHalfCorrect > 0
+    ? Math.round(((secondHalfCorrect - firstHalfCorrect) / firstHalfCorrect) * 100)
+    : null;
 
   return NextResponse.json({
     data: performanceData,

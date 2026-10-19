@@ -33,10 +33,13 @@ export function SignInForm() {
 
   const getErrorMessage = (error: string) => {
     switch (error) {
+      // Auth.js v5 codes ("Signin", "OAuthCallbackError") plus the v4 names they replaced.
+      case "Signin":
       case "OAuthSignin":
-        return "Error starting OAuth sign in";
+        return "Google sign-in couldn't start. Please try again.";
+      case "OAuthCallbackError":
       case "OAuthCallback":
-        return "Error during OAuth callback";
+        return "Google sign-in didn't finish. Please try again.";
       case "OAuthCreateAccount":
         return "Could not create OAuth account";
       case "EmailCreateAccount":

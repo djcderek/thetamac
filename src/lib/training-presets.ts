@@ -80,7 +80,8 @@ const TRAINING_PRESETS: Record<TrainingPresetId, TrainingPreset> = {
 };
 
 export function isTrainingPresetId(value: string | null | undefined): value is TrainingPresetId {
-  return Boolean(value && value in TRAINING_PRESETS);
+  // hasOwn, not `in`: `in` also matches inherited names like "toString", which crashed setup.
+  return Boolean(value && Object.hasOwn(TRAINING_PRESETS, value));
 }
 
 export function getTrainingPreset(value: string | null | undefined): TrainingPreset | null {

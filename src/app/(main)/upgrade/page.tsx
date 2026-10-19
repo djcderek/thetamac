@@ -12,6 +12,7 @@ import { UpgradeAuthLink } from "@/components/billing/upgrade-auth-link";
 import { AsciiMorph } from "@/components/ui/ascii-morph";
 
 import { UpgradeAutoScroll } from "./upgrade-auto-scroll";
+import { UpgradePendingRefresh } from "./upgrade-pending-refresh";
 import { UpgradeTelemetry } from "./upgrade-telemetry";
 
 function normalizeFeature(feature?: string | string[] | null): UpgradeFeature | undefined {
@@ -68,6 +69,9 @@ export default async function UpgradePage({
   const { userId, isPremium, subscriptionStatus, trialEligible } =
     await getCurrentUserPremiumStatus();
   // An unpaid, incomplete or paused subscription is fixed in the billing portal, not a new checkout.
+  // Back from checkout before the webhook has updated the account: show that the
+  // subscription is being confirmed instead of offering checkout again.
+  const confirmingUpgrade = upgraded && Boolean(userId) && !isPremium;
   const needsBillingAttention =
     !isPremium && subscriptionNeedsAttention(subscriptionStatus);
 
@@ -79,11 +83,11 @@ export default async function UpgradePage({
       <div className="px-4 md:px-6 pt-6">
         <div className="max-w-5xl mx-auto">
           <Link
-            href="/dashboard"
+            href={userId ? "/dashboard" : "/"}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
-            Back to Dashboard
+            {userId ? "Back to Dashboard" : "Back to Training"}
           </Link>
         </div>
       </div>
@@ -174,7 +178,11 @@ export default async function UpgradePage({
               </ul>
 
               <p className="relative mt-5 font-mono text-xs text-background/70">
-                {trialEligible
+                {confirmingUpgrade
+                  ? "Payment received. Activating Pro…"
+                  : upgraded && isPremium
+                    ? "+ You're on Pro +"
+                    : trialEligible
                   ? "+ 7-day free trial included +"
                   : needsBillingAttention
                     ? "Your subscription needs attention. Update payment in billing."
@@ -192,6 +200,11 @@ export default async function UpgradePage({
                       Start Free Trial
                     </button>
                   </UpgradeAuthLink>
+                ) : confirmingUpgrade ? (
+                  <p role="status" className="rounded-[3px] border border-background/30 px-4 py-3 text-sm text-background/85">
+                    Confirming your subscription. This usually takes a few seconds. If Pro
+                    isn&apos;t active within a minute, refresh this page or contact support.
+                  </p>
                 ) : isPremium || needsBillingAttention ? (
                   <ManageBillingButton
                     returnUrl={upgradeUrl}
@@ -268,6 +281,7 @@ export default async function UpgradePage({
         plan={isPremium ? "premium" : "free"}
       />
       <UpgradeAutoScroll feature={activeFeature} upgraded={upgraded} />
+      {confirmingUpgrade ? <UpgradePendingRefresh /> : null}
     </div>
   );
 }

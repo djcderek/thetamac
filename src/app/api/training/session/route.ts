@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getNextStreak, resolveTimeZone } from "@/lib/streak";
 import {
   getImplausibleResultReason,
   trainingSessionResultSchema,
@@ -126,30 +127,12 @@ export async function PATCH(request: Request) {
         orderBy: { completedAt: "desc" },
       });
 
-      let newCurrentStreak = userStats.currentStreak;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (lastSession?.completedAt) {
-        const lastSessionDate = new Date(lastSession.completedAt);
-        lastSessionDate.setHours(0, 0, 0, 0);
-        
-        const daysDiff = Math.floor((today.getTime() - lastSessionDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (daysDiff === 0) {
-          // Same day, keep streak
-          newCurrentStreak = userStats.currentStreak;
-        } else if (daysDiff === 1) {
-          // Next day, increment streak
-          newCurrentStreak = userStats.currentStreak + 1;
-        } else {
-          // More than a day gap, reset streak
-          newCurrentStreak = 1;
-        }
-      } else {
-        // First session ever
-        newCurrentStreak = 1;
-      }
+      const newCurrentStreak = getNextStreak({
+        currentStreak: userStats.currentStreak,
+        lastCompletedAt: lastSession?.completedAt ?? null,
+        now: new Date(),
+        timeZone: resolveTimeZone(parsed.data.timeZone),
+      });
 
       const newLongestStreak = Math.max(userStats.longestStreak, newCurrentStreak);
 

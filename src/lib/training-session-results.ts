@@ -14,6 +14,8 @@ export const trainingSessionResultSchema = z.object({
   duration: count,
   averageTime: z.number().nonnegative(),
   bestStreak: count,
+  // IANA time zone of the player, used to count streak days locally.
+  timeZone: z.string().max(64).optional(),
 });
 
 export type TrainingSessionResult = z.infer<typeof trainingSessionResultSchema>;

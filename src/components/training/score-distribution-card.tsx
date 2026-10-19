@@ -2,6 +2,7 @@
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ScoreDistribution } from "@/components/training/training-types";
+import { formatPlacement } from "@/lib/placement";
 
 export function ScoreDistributionCard({
   data,
@@ -20,7 +21,7 @@ export function ScoreDistributionCard({
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{heading}</p>
           <p className="mt-0.5 text-xl font-semibold tabular-nums sm:text-2xl">
-            {data.percentile !== null ? `${data.percentile}th percentile` : "Not enough data yet"}
+            {formatPlacement(data.percentile)}
           </p>
         </div>
         {typeof data.total === "number" ? (
@@ -40,7 +41,9 @@ export function ScoreDistributionCard({
 
       {hasBuckets ? (
         <div className="mt-3 rounded-[3px] border border-border bg-background/40 p-3">
-          <div className="flex gap-[3px] overflow-x-auto px-1 pb-2">
+          {/* Bars share the width so every bucket, including the player's, is visible; fixed-width
+              bars scrolled high scores out of view. */}
+          <div className="flex gap-px px-1 pb-2 sm:gap-[3px]">
             {data.buckets.map((bucket, idx) => {
               const isUserBucket = idx === data.userBucketIndex;
               const heightPctRaw = data.maxCount
@@ -58,7 +61,7 @@ export function ScoreDistributionCard({
                   <TooltipTrigger asChild>
                     <div
                       className={[
-                        "flex w-[18px] flex-none flex-col items-center",
+                        "flex min-w-0 max-w-[18px] flex-1 flex-col items-center",
                         "cursor-default select-none",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
                       ].join(" ")}
@@ -83,7 +86,7 @@ export function ScoreDistributionCard({
                       {showTickLabel ? (
                         <span
                           className={[
-                            "mt-2 text-[10px] font-mono tabular-nums leading-none",
+                            "mt-2 whitespace-nowrap text-[10px] font-mono tabular-nums leading-none",
                             isUserBucket
                               ? "font-semibold text-brand"
                               : "text-muted-foreground",

@@ -20,12 +20,6 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (reason) => {
   console.error("[process] unhandledRejection", reason);
 });
-process.on("SIGTERM", () => {
-  console.warn("[process] SIGTERM received");
-});
-process.on("SIGINT", () => {
-  console.warn("[process] SIGINT received");
-});
 
 // Check if we're running in WebSocket-only mode (production on Fly.io)
 const websocketOnly = process.env.WEBSOCKET_ONLY === "true";
@@ -129,6 +123,21 @@ const io = new SocketServer(httpServer, {
 io.engine.on("connection_error", (err: unknown) => {
   console.error("[socket.io] connection_error", err);
 });
+
+// Graceful shutdown. Handlers that only logged kept the process alive on SIGTERM/SIGINT, so
+// every Fly restart or deploy waited out the kill timeout and ended in SIGKILL.
+const SHUTDOWN_GRACE_MS = 4000; // under Fly's default 5s kill timeout
+let shuttingDown = false;
+function shutdown(signal: NodeJS.Signals) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.warn(`[process] ${signal} received; closing sockets and HTTP server`);
+  setTimeout(() => process.exit(0), SHUTDOWN_GRACE_MS).unref();
+  // Closes every Socket.io connection and the underlying HTTP server.
+  io.close(() => process.exit(0));
+}
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 // Setup multiplayer game handlers (1v1 mode)
 setupMultiplayerHandlers(io);
