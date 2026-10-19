@@ -602,7 +602,7 @@ export function SettingsClient() {
       />
 
       <div className="p-4 md:p-6">
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-2xl space-y-6">
           {/* Profile */}
           <Card>
             <CardHeader>
@@ -709,7 +709,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "light"}
                     onClick={() => updateTheme("light")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-colors ${
                       theme === "light"
                         ? "border-foreground bg-secondary"
                         : "border-border hover:bg-secondary/50"
@@ -722,7 +722,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "dark"}
                     onClick={() => updateTheme("dark")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-colors ${
                       theme === "dark"
                         ? "border-foreground bg-secondary"
                         : "border-border hover:bg-secondary/50"
@@ -735,7 +735,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "system"}
                     onClick={() => updateTheme("system")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-colors ${
                       theme === "system"
                         ? "border-foreground bg-secondary"
                         : "border-border hover:bg-secondary/50"
@@ -758,7 +758,7 @@ export function SettingsClient() {
                       type="button"
                       aria-pressed={tone === "warm"}
                       onClick={() => updateTone("warm")}
-                      className={`flex items-center gap-3 rounded-[3px] border p-3 text-left transition-colors ${
+                      className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
                         tone === "warm"
                           ? "border-foreground bg-secondary"
                           : "border-border hover:bg-secondary/50"
@@ -771,7 +771,7 @@ export function SettingsClient() {
                       type="button"
                       aria-pressed={tone === "neutral"}
                       onClick={() => updateTone("neutral")}
-                      className={`flex items-center gap-3 rounded-[3px] border p-3 text-left transition-colors ${
+                      className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
                         tone === "neutral"
                           ? "border-foreground bg-secondary"
                           : "border-border hover:bg-secondary/50"

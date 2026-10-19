@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { AsciiMorph, AsciiSpinner } from "@/components/ui/ascii-morph";
+import { AsciiSpinner } from "@/components/ui/ascii-morph";
 import { MedalMark } from "@/components/ui/medal-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricTile, SectionLabel } from "@/components/ui/visual-system";
@@ -597,7 +597,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
           <div className="text-center max-w-md">
             {privateDuel.error ? (
               <>
-                <div className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-[3px] border-2 border-destructive font-mono text-3xl font-semibold text-destructive" aria-hidden="true">
+                <div className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-2xl border-2 border-destructive font-mono text-3xl font-semibold text-destructive" aria-hidden="true">
                   ≠
                 </div>
                 <h2 className="text-lg font-semibold mb-2">Unable to Join Room</h2>
@@ -679,8 +679,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <CardContent className="p-4 sm:p-6 md:p-8">
                 {/* Result Header */}
                 <div className="text-center mb-4 sm:mb-6">
-                  <AsciiMorph shapes={["trophy"]} accent={isWinner} animate={isWinner} className="mx-auto mb-3 w-24" />
-                  <div className="font-serif text-2xl sm:text-3xl font-normal tracking-tight mb-1">
+                  <div className="font-semibold text-2xl sm:text-3xl tracking-tight mb-1">
                     {isWinner ? "You Won!" : "Game Over"}
                   </div>
                   <div className="text-sm text-muted-foreground">Your score: <span className="font-mono font-semibold">{myScore}</span></div>
@@ -691,7 +690,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   {privateDuel.gameOver.leaderboard.map((p, idx) => (
                     <div
                       key={p.playerId}
-                      className={`flex items-center justify-between rounded-[3px] border px-2.5 sm:px-3 py-2 ${
+                      className={`flex items-center justify-between rounded-2xl border px-2.5 sm:px-3 py-2 ${
                         p.playerId === playerId ? "border-2 border-foreground bg-secondary/40" : "border-border bg-card"
                       }`}
                     >
@@ -756,7 +755,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <div className="min-w-0 flex-1">
                 <h1 className="text-base sm:text-lg font-semibold">Private Room</h1>
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <span className="font-mono bg-muted px-1.5 py-0.5 rounded-[3px] text-foreground">{room.roomCode}</span>
+                  <span className="font-mono bg-muted px-1.5 py-0.5 rounded-2xl text-foreground">{room.roomCode}</span>
                   <span className="hidden xs:inline">•</span>
                   <span>{players.length}/{room.maxPlayers} players</span>
                 </div>
@@ -791,13 +790,13 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
             <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
               {/* Connection status banner - only show on mobile when disconnected */}
               {!isConnected && (
-                <div className="p-2.5 rounded-[3px] border border-warning/50 bg-warning/10 text-xs sm:text-sm flex items-center gap-2 sm:hidden">
+                <div className="p-2.5 rounded-2xl border border-warning/50 bg-warning/10 text-xs sm:text-sm flex items-center gap-2 sm:hidden">
                   <AsciiSpinner className="h-3.5 w-3.5 shrink-0 text-xs" />
                   Reconnecting... Don&apos;t close this tab.
                 </div>
               )}
               {privateDuel.error && privateDuel.error !== "Reconnecting..." && (
-                <div className="p-2.5 sm:p-3 rounded-[3px] border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm">
+                <div className="p-2.5 sm:p-3 rounded-2xl border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm">
                   {privateDuel.error}
                 </div>
               )}
@@ -809,7 +808,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     <p className="text-xs sm:text-sm font-medium mb-2">Share this link to invite friends</p>
                     {/* Mobile: Show room code prominently with copy button */}
                     <div className="flex sm:hidden items-center gap-2">
-                      <div className="flex-1 rounded-[3px] border-t-2 border-foreground bg-transparent px-4 py-3 text-center">
+                      <div className="flex-1 rounded-2xl bg-secondary px-4 py-3 text-center">
                         <SectionLabel>Room code</SectionLabel>
                         <p className="mt-1 text-2xl font-mono font-bold tracking-wider">{room.roomCode}</p>
                       </div>
@@ -846,7 +845,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     </div>
                     {/* Desktop: Show full URL */}
                     <div className="hidden sm:flex items-center gap-2">
-                      <div className="flex-1 bg-muted rounded-[3px] px-3 py-2 font-mono text-sm truncate border border-border">
+                      <div className="flex-1 bg-muted rounded-2xl px-3 py-2 font-mono text-sm truncate border border-border">
                         {privateDuel.joinUrl || `${typeof window !== "undefined" ? window.location.origin : ""}/multiplayer/private/duel/${room.roomCode}`}
                       </div>
                       <Button
@@ -901,7 +900,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                                 {p.id === playerId ? "You" : p.username}
                               </span>
                               {p.id === room.hostId && (
-                                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                                <span className="text-[12px] font-medium tracking-[0.14em] text-muted-foreground">
                                   Host
                                 </span>
                               )}
@@ -916,7 +915,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     
                     {/* Waiting for players indicator */}
                     {players.length < 2 && (
-                      <div className="flex items-center justify-center gap-2 rounded-[3px] border border-dashed border-border px-3 py-4 text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border px-3 py-4 text-muted-foreground">
                         <AsciiSpinner className="h-4 w-4 text-sm" />
                         <span className="text-xs sm:text-sm">Waiting for more players...</span>
                       </div>
@@ -926,7 +925,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   {/* Game Controls */}
                   {privateDuel.countdown > 0 ? (
                     <div className="mt-4 sm:mt-6 text-center">
-                      <div className="inline-flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-[0.14em]">
+                      <div className="inline-flex items-center gap-2 text-sm font-medium tracking-[0.14em]">
                         <AsciiSpinner className="h-4 w-4 text-sm" />
                         <span>Starting in {privateDuel.countdown}...</span>
                       </div>
@@ -1018,7 +1017,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   Round <span className="font-mono font-semibold text-foreground">{privateDuel.currentRound}/{privateDuel.totalRounds}</span>
                 </span>
                 <span className="text-muted-foreground">•</span>
-                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded-[3px]">{room.roomCode}</span>
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded-2xl">{room.roomCode}</span>
               </div>
               {/* Desktop: Two lines */}
               <div className="hidden sm:block">
@@ -1049,13 +1048,13 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
           <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4">
             {/* Connection status banner - only show on mobile when disconnected */}
             {!isConnected && (
-              <div className="p-2.5 rounded-[3px] border border-warning/50 bg-warning/10 text-xs flex items-center gap-2 sm:hidden">
+              <div className="p-2.5 rounded-2xl border border-warning/50 bg-warning/10 text-xs flex items-center gap-2 sm:hidden">
                 <AsciiSpinner className="h-3.5 w-3.5 shrink-0 text-xs" />
                 Reconnecting... Don&apos;t close this tab.
               </div>
             )}
             {privateDuel.error && privateDuel.error !== "Reconnecting..." && (
-              <div className="p-2.5 sm:p-3 rounded-[3px] border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm">
+              <div className="p-2.5 sm:p-3 rounded-2xl border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm">
                 {privateDuel.error}
               </div>
             )}
@@ -1106,7 +1105,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                           return (
                             <div
                               key={r.playerId}
-                              className={`flex items-center justify-between rounded-[3px] px-2 sm:px-3 py-1.5 sm:py-2 ${
+                              className={`flex items-center justify-between rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2 ${
                                 isYou ? "border-2 border-foreground bg-secondary/40" : "bg-muted/50"
                               }`}
                             >
@@ -1161,7 +1160,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                               role="textbox"
                               aria-label="Answer"
                               aria-readonly="true"
-                              className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-[3px] border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
+                              className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-2xl border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
                                 privateAnswerSubmitted ? "border-success text-success" : "border-input"
                               }`}
                             >
@@ -1336,9 +1335,8 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
         <div className="p-4 md:p-6">
           <Card className="max-w-lg mx-auto">
             <CardContent className="p-8 text-center">
-              <AsciiMorph shapes={["trophy"]} accent={isWinner} animate={isWinner} className="mx-auto mb-6 w-28" />
 
-              <h2 className="font-serif text-3xl font-normal tracking-tight mb-2">
+              <h2 className="font-semibold text-3xl tracking-tight mb-2">
                 {isDraw ? "It's a Draw!" : isWinner ? "You Won!" : "You Lost"}
               </h2>
 
@@ -1463,7 +1461,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        <span className="text-[13px] font-medium tracking-[0.14em] text-muted-foreground">
                           R {gameplay.currentRound}/10
                         </span>
                         <span
@@ -1478,7 +1476,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       <div className="flex items-center gap-2 min-w-0 justify-end">
                         {gameplay.opponentAnswered && (
                           <span
-                            className="inline-flex h-5 w-5 items-center justify-center rounded-[3px] border-2 border-success text-success shrink-0"
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-2xl border-2 border-success text-success shrink-0"
                             aria-label="Opponent answered"
                             title="Opponent answered"
                           >
@@ -1591,7 +1589,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                                     role="textbox"
                                     aria-label="Answer"
                                     aria-readonly="true"
-                                    className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-[3px] border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
+                                    className={`h-12 text-center text-xl font-mono tabular-nums w-full rounded-2xl border bg-background px-3 flex items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap ${
                                       answerSubmitted ? "border-success text-success" : "border-input"
                                     }`}
                                   >
@@ -1645,7 +1643,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   
                   {/* Round Result Overlay - Covers the problem but keeps input in DOM */}
                   {gameplay.status === "round_end" && gameplay.roundResult && (
-                    <div className="absolute inset-0 z-10 bg-background/95 rounded-[3px]">
+                    <div className="absolute inset-0 z-10 bg-background/95 rounded-2xl">
                       <Card className={`h-full bg-transparent ${
                         gameplay.roundResult.winnerId === playerId
                           ? "border-success"
@@ -1659,13 +1657,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                           </div>
                           <p className="text-muted-foreground text-sm mb-3 sm:mb-4">Correct Answer</p>
 
-                          <p className={`mx-auto font-mono text-[11px] font-semibold uppercase tracking-[0.14em] ${
-                            gameplay.roundResult.winnerId === playerId
-                              ? "text-success"
-                              : gameplay.roundResult.winnerId === null
-                              ? "text-muted-foreground"
-                              : "text-destructive"
-                          }`}>
+                          <p className={`mx-auto text-[13px] font-medium tracking-[0.14em] ${ gameplay.roundResult.winnerId === playerId ? "text-success" : gameplay.roundResult.winnerId === null ? "text-muted-foreground" : "text-destructive" }`}>
                             {gameplay.roundResult.winnerId === playerId
                               ? "= You got it"
                               : gameplay.roundResult.winnerId === null
@@ -1807,7 +1799,6 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
             </div>
             <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
               <div className="max-w-md w-full text-center">
-                <AsciiMorph shapes={["times"]} animate={false} className="mx-auto mb-4 w-32 opacity-60" />
                 <div className="mb-4 flex items-center justify-center gap-2">
                   <AsciiSpinner className="h-4 w-4 text-sm" />
                   <SectionLabel>Searching for opponent</SectionLabel>
@@ -1835,7 +1826,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
             </div>
             <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
               <div className="max-w-lg w-full text-center">
-                <h2 className="mb-6 font-serif text-3xl font-normal tracking-tight">Match found</h2>
+                <h2 className="font-semibold mb-6 text-3xl tracking-tight">Match found</h2>
                 <div className="flex items-center justify-center gap-8 mb-8">
                   <div className="text-center min-w-0">
                     <Avatar className="h-16 w-16 mx-auto mb-2">
@@ -1883,7 +1874,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 sm:gap-3 min-w-0">
                 {isGuest && (
                   <>
-                    <span className="max-w-[140px] truncate font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    <span className="max-w-[140px] truncate text-[13px] font-medium tracking-[0.14em] text-muted-foreground">
                       {playerName} · Guest · Unrated
                     </span>
                     <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>
@@ -1907,7 +1898,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <Card>
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row items-center gap-6">
-                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[3px] border-2 border-foreground font-mono text-2xl" aria-hidden="true">
+                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border-2 border-foreground font-mono text-2xl" aria-hidden="true">
                       ×
                     </div>
                     <div className="flex-1 text-center sm:text-left">
@@ -1928,7 +1919,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <Card>
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-2xl text-muted-foreground" aria-hidden="true">
+                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-border font-mono text-2xl text-muted-foreground" aria-hidden="true">
                       ÷
                     </div>
                     <div className="flex-1 w-full">
@@ -1980,7 +1971,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="flex items-start gap-3">
-                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl border border-border font-mono text-sm font-semibold">
                         1
                       </div>
                       <div>
@@ -1991,7 +1982,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl border border-border font-mono text-sm font-semibold">
                         2
                       </div>
                       <div>
@@ -2002,7 +1993,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl border border-border font-mono text-sm font-semibold">
                         3
                       </div>
                       <div>

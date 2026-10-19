@@ -19,7 +19,7 @@ export function ChartPaywall({ title }: ChartPaywallProps) {
   };
 
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center bg-muted/20 rounded-[3px] border border-dashed border-border p-4 text-center animate-in fade-in zoom-in duration-300">
+    <div className="h-full w-full flex flex-col items-center justify-center bg-muted/20 rounded-2xl border border-dashed border-border p-4 text-center animate-in fade-in zoom-in duration-300">
       <div className="p-3 bg-background rounded-full shadow-sm mb-3">
         <Lock className="w-6 h-6 text-primary" />
       </div>

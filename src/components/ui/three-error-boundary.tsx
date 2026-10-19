@@ -29,7 +29,7 @@ export class ThreeErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         this.props.fallback || (
-          <div className="w-full h-full flex items-center justify-center bg-muted/50 rounded-[3px]">
+          <div className="w-full h-full flex items-center justify-center bg-muted/50 rounded-2xl">
             <div className="text-center p-4">
               <div className="text-muted-foreground text-sm">
                 3D preview unavailable

@@ -108,7 +108,7 @@ export default function ArithmeticSpeedTestPage() {
         </Link>
       </MarketingHero>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Quick Answer</h2>
         <p className="text-sm text-muted-foreground">
           Use the same settings each time: 120 seconds, medium difficulty, and all four operations.
@@ -147,7 +147,7 @@ export default function ArithmeticSpeedTestPage() {
         </div>
       </section>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Looking for a free Zetamac alternative?</h2>
         <p className="text-sm text-muted-foreground">
           Compare thetamac&apos;s two-minute benchmark, focused drills, and progress tracking with
@@ -161,7 +161,7 @@ export default function ArithmeticSpeedTestPage() {
         </Link>
       </section>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">FAQ</h2>
         <div className="space-y-5">
           {faq.map((item) => (

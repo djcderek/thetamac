@@ -139,7 +139,7 @@ export default function AboutPage() {
         </Link>
       </MarketingHero>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="mb-3 text-xl font-semibold">What thetamac is</h2>
         <p className="text-sm leading-6 text-muted-foreground">
           thetamac combines timed arithmetic drills, learning mode explanations,
@@ -160,7 +160,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="mb-3 text-xl font-semibold">The quick version</h2>
         <p className="mb-4 text-sm leading-6 text-muted-foreground">
           thetamac is built around short practice loops: run a timed benchmark, find

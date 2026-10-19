@@ -101,7 +101,7 @@ export default function InterviewMathHubPage() {
         shapes={["theta", "times"]}
       />
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Start Here (10-Minute Plan)</h2>
         <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
           <li>Warm up for 2 minutes with easy mixed arithmetic.</li>

@@ -146,7 +146,7 @@ export default function ZetamacAlternativePage() {
         </Link>
       </MarketingHero>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Is thetamac a free Zetamac alternative?</h2>
         <p className="text-sm text-muted-foreground">
           Yes. Start with the two-minute mixed benchmark, then use focused drills and learning
@@ -157,7 +157,7 @@ export default function ZetamacAlternativePage() {
 
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">How the Practice Experience Compares</h2>
-        <div className="overflow-hidden rounded-[3px] border border-border">
+        <div className="overflow-hidden rounded-2xl border border-border">
           <div className="grid grid-cols-3 border-b border-border bg-secondary/30 text-sm font-medium">
             <div className="p-3">Need</div>
             <div className="p-3">Zetamac-style practice</div>
@@ -187,7 +187,7 @@ export default function ZetamacAlternativePage() {
         ))}
       </section>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">A Better Weekly Practice Loop</h2>
         <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
           <li>Run the default two-minute mixed arithmetic benchmark.</li>
@@ -207,7 +207,7 @@ export default function ZetamacAlternativePage() {
         </ol>
       </section>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">FAQ</h2>
         <div className="space-y-5">
           {faq.map((item) => (

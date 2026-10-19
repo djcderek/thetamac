@@ -93,7 +93,7 @@ export function MobileNavDrawer() {
         // tab order and away from screen readers.
         inert={!isOpen}
         className={cn(
-          "fixed top-0 right-0 h-full w-[min(320px,calc(100vw-3rem))] overflow-hidden bg-sidebar border-l border-sidebar-border z-50 transform transition-transform duration-300 ease-in-out md:hidden",
+          "fixed top-0 right-0 h-full w-[min(320px,calc(100vw-3rem))] overflow-hidden bg-background border-l border-border z-50 transform transition-transform duration-300 ease-in-out md:hidden",
           isOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
@@ -101,7 +101,7 @@ export function MobileNavDrawer() {
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           <Link href="/" onClick={close} className="flex items-center gap-2">
             <LogoMark size={24} />
-            <span className="font-semibold">thetamac</span>
+            <span className="text-[17px] font-semibold tracking-[-0.03em]">thetamac</span>
           </Link>
           <button
             ref={closeButtonRef}
@@ -128,10 +128,10 @@ export function MobileNavDrawer() {
                   href={item.href}
                   onClick={close}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-full text-sm transition-colors",
+                    "flex min-h-12 items-center gap-3 px-4 py-3 rounded-2xl text-[15px] transition-colors",
                     isActive
-                      ? "bg-brand/12 text-foreground font-semibold ring-1 ring-inset ring-brand/25"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      ? "bg-secondary text-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   )}
                 >
                   <item.icon className="w-5 h-5 shrink-0" />
@@ -154,10 +154,10 @@ export function MobileNavDrawer() {
                   href={item.href}
                   onClick={close}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-full text-sm transition-colors",
+                    "flex min-h-12 items-center gap-3 px-4 py-3 rounded-2xl text-[15px] transition-colors",
                     isActive
-                      ? "bg-secondary text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      ? "bg-secondary text-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   )}
                 >
                   <item.icon className={cn("w-5 h-5 shrink-0", item.accent && "text-brand")} />

@@ -780,7 +780,7 @@ export function SkillsDashboard() {
                 <div className="mt-4 pt-3 border-t border-border">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-medium">Matrix Size</label>
-                    <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded-[3px]">0 – {matrixSize}</span>
+                    <span className="text-xs font-mono bg-secondary px-2.5 py-0.5 rounded-full">0 – {matrixSize}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground w-4">5</span>
@@ -866,7 +866,7 @@ export function SkillsDashboard() {
             </Card>
 
             {/* Detailed Breakdown Section */}
-            <div className="border-t-2 border-foreground pt-3">
+            <div className="rounded-[22px] bg-secondary p-4">
               <SectionLabel>Detailed Breakdown</SectionLabel>
             </div>
 

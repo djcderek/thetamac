@@ -61,16 +61,16 @@ function AuthErrorContent() {
     <Card className="ph-no-capture w-full max-w-md mx-auto">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
-          <div className="grid h-14 w-14 place-items-center rounded-[3px] border-2 border-destructive font-mono text-2xl font-semibold text-destructive" aria-hidden="true">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl border-2 border-destructive font-mono text-2xl font-semibold text-destructive" aria-hidden="true">
             ≠
           </div>
         </div>
-        <CardTitle className="font-serif text-3xl font-normal tracking-tight">Authentication Error</CardTitle>
+        <CardTitle className="font-semibold text-3xl tracking-tight">Authentication Error</CardTitle>
         <CardDescription>{getErrorMessage(error)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {googleSignInError && (
-          <div className="flex items-center gap-2 rounded-[3px] bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="flex items-center gap-2 rounded-2xl bg-destructive/10 p-3 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{googleSignInError}</span>
           </div>
@@ -105,7 +105,7 @@ function AuthErrorContent() {
 export default function AuthErrorPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Suspense fallback={<div className="w-full max-w-md h-64 animate-pulse bg-secondary rounded-[3px]" />}>
+      <Suspense fallback={<div className="w-full max-w-md h-64 animate-pulse bg-secondary rounded-2xl" />}>
         <AuthErrorContent />
       </Suspense>
     </div>

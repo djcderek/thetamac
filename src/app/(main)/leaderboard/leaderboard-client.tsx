@@ -327,7 +327,7 @@ export function LeaderboardClient({
                   className="w-full sm:w-auto"
                   onValueChange={handleModeChange}
                 >
-                  <TabsList className="grid w-full grid-cols-3 rounded-[3px] sm:w-auto">
+                  <TabsList className="grid w-full grid-cols-3 rounded-2xl sm:w-auto">
                     <TabsTrigger className="rounded-[2px] px-4" value="training">
                       Timed Training
                     </TabsTrigger>
@@ -351,7 +351,7 @@ export function LeaderboardClient({
               <div className="space-y-2">
                 <SectionLabel>Timeframe</SectionLabel>
                 {mode === "training" && view === "topScores" ? (
-                  <Badge variant="outline" className="h-8 rounded-[3px] bg-card px-3 font-normal">
+                  <Badge variant="outline" className="h-8 rounded-2xl bg-card px-3 font-normal">
                     All time
                   </Badge>
                 ) : (
@@ -361,7 +361,7 @@ export function LeaderboardClient({
                     className="w-full sm:w-auto"
                     onValueChange={handlePeriodChange}
                   >
-                    <TabsList className="min-h-9 rounded-[3px] p-0.5">
+                    <TabsList className="min-h-9 rounded-2xl p-0.5">
                       <TabsTrigger className="h-7 rounded-[2px] px-3" value="all">
                         All time
                       </TabsTrigger>
@@ -385,7 +385,7 @@ export function LeaderboardClient({
                     className="w-full sm:w-auto"
                     onValueChange={handleViewChange}
                   >
-                    <TabsList className="grid min-h-9 w-full grid-cols-3 rounded-[3px] p-0.5 sm:w-auto">
+                    <TabsList className="grid min-h-9 w-full grid-cols-3 rounded-2xl p-0.5 sm:w-auto">
                       <TabsTrigger className="h-7 rounded-[2px] px-3" value="distribution">
                         Distribution
                       </TabsTrigger>

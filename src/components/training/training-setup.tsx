@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
   CornerDownLeft,
   Copy,
   Divide,
-  GraduationCap,
   Info,
   LayoutGrid,
   Play,
@@ -16,7 +15,6 @@ import {
   Shuffle,
   Square,
   Target,
-  Timer,
   Wand2,
   Zap,
   Circle,
@@ -154,28 +152,12 @@ export function TrainingSetup({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const selectedOpsLabel = selectedOperations.join(" ");
 
-  const modeIcon = useMemo(() => {
-    switch (gameMode) {
-      case "timed":
-        return <Zap className="h-4 w-4 text-primary" />;
-      case "practice":
-        return <Timer className="h-4 w-4 text-primary" />;
-      case "learning":
-        return <GraduationCap className="h-4 w-4 text-primary" />;
-    }
-  }, [gameMode]);
-
   return (
-    <div className={cn("grid gap-6", settingsOpen ? "lg:grid-cols-12" : "")}>
-      {/* Left: Quick start */}
-      <div className={cn("space-y-8", settingsOpen ? "lg:col-span-5" : "lg:col-span-12")}>
-        <section className="border-t-2 border-foreground pt-5">
-          <div className="flex items-baseline justify-between gap-3">
-            <SectionLabel className="text-brand">Quick start</SectionLabel>
-            <span className="font-mono text-xs text-muted-foreground">{selectedOpsLabel}</span>
-          </div>
-
-          <div className="mt-4 space-y-5">
+    <div className={cn("grid gap-6", settingsOpen ? "lg:grid-cols-12" : "mx-auto max-w-xl")}>
+      {/* Left: Quick start — one grey grouped card, then the single orange action. */}
+      <div className={cn("space-y-6", settingsOpen ? "lg:col-span-5" : "lg:col-span-12")}>
+        <section aria-label="Quick start">
+          <div className="space-y-5 rounded-[26px] bg-secondary p-4 sm:p-5">
             <Tabs value={gameMode} onValueChange={(v) => setGameMode(v as GameMode)}>
               <TabsList className="w-full">
                 <TabsTrigger value="timed" className="flex-1">
@@ -190,42 +172,40 @@ export function TrainingSetup({
               </TabsList>
             </Tabs>
 
-            <div className="flex items-start gap-2 text-sm text-muted-foreground">
-              {modeIcon}
-              <p className="leading-6">{modeDescription(gameMode)}</p>
-            </div>
+            <p className="px-1 text-[15px] leading-6 text-muted-foreground">{modeDescription(gameMode)}</p>
 
-            <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                <span className="editorial-label">Settings</span>
-                <span className={cn("font-mono text-xs capitalize", !showAdvanced && "font-medium")}>
-                  {showAdvanced ? "custom ranges" : difficulty}
-                </span>
-                <span className="text-border">/</span>
-                <span className="font-mono text-xs">
+            {/* Settings summary: a white row inside the grey group, like Kurb's detail rows. */}
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-background py-2 pl-4 pr-2">
+              <div className="min-w-0">
+                <p className="text-[13px] text-muted-foreground">Settings</p>
+                <p className="truncate text-[15px] font-medium tabular-nums">
+                  <span className="capitalize">{showAdvanced ? "Custom ranges" : difficulty}</span>
+                  {" · "}
                   {gameMode === "timed"
                     ? formatTime(timedModeLimit)
                     : gameMode === "practice"
-                      ? `${practiceTimerLimit}s`
-                      : "no timer"}
-                </span>
+                      ? `${practiceTimerLimit}s per problem`
+                      : "No timer"}
+                  {" · "}
+                  {selectedOpsLabel}
+                </p>
               </div>
 
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setSettingsOpen((v) => !v)}
-                className="min-h-11 shrink-0"
+                className="min-h-10 shrink-0"
                 aria-expanded={settingsOpen}
                 aria-controls="training-session-settings"
               >
-                {settingsOpen ? "Hide" : "Edit"}
+                {settingsOpen ? "Done" : "Edit"}
               </Button>
             </div>
 
             <fieldset className="space-y-2" aria-describedby="answer-submission-help">
-              <legend className="text-sm font-medium">Answer submission</legend>
+              <legend className="px-1 text-[13px] text-muted-foreground">Answer submission</legend>
               <div className="grid grid-cols-2 gap-2">
                 {([
                   { value: "auto", label: "Auto-submit", Icon: Wand2 },
@@ -240,37 +220,39 @@ export function TrainingSetup({
                       onChange={() => setSubmitMode(value)}
                       className="peer sr-only"
                     />
-                    <span className={cn(tileClass(submitMode === value), "flex min-h-11 items-center justify-center gap-2 py-2 text-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring")}>
+                    <span className={cn(
+                      "flex min-h-11 items-center justify-center gap-2 rounded-2xl py-2 text-[15px] font-medium transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring",
+                      submitMode === value ? "bg-foreground text-background" : "bg-background text-foreground hover:bg-accent",
+                    )}>
                       <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
                       {label}
                     </span>
                   </label>
                 ))}
               </div>
-              <p id="answer-submission-help" className="text-xs leading-5 text-muted-foreground">
+              <p id="answer-submission-help" className="px-1 text-[13px] leading-5 text-muted-foreground">
                 {submitMode === "manual"
                   ? "Press Enter or tap Submit. Correct and incorrect answers count toward accuracy."
                   : "Advances when correct. Choose Manual submit to measure accuracy."}
               </p>
             </fieldset>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={startTraining} disabled={!preferencesReady} size="lg" className="w-full bg-brand text-brand-foreground hover:bg-brand/85">
-                <Play className="mr-2 h-4 w-4" />
-                Start
-              </Button>
-              <Button asChild variant="outline" size="lg" className="w-full">
-                <Link href="/training/weak-points" className="justify-between">
-                  <span className="flex items-center gap-2">
-                    <Target className="h-4 w-4" />
-                    Weak Points
-                  </span>
-                  <span className="ml-2 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                    PRO
-                  </span>
-                </Link>
-              </Button>
-            </div>
+          </div>
+
+          {/* The one orange action on the page. */}
+          <div className="mt-5 space-y-3">
+            <Button onClick={startTraining} disabled={!preferencesReady} variant="brand" size="lg" className="h-14 w-full text-[17px]">
+              Start
+              <Play aria-hidden="true" className="h-4 w-4 fill-current" />
+            </Button>
+            <Link
+              href="/training/weak-points"
+              className="flex items-center justify-center gap-1.5 py-1 text-[15px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Target aria-hidden="true" className="h-4 w-4" />
+              Train your weak points
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-[12px] font-semibold text-foreground">Pro</span>
+            </Link>
 
             {showLastRunPlacementCard && scorePercentile && (
               <ScoreDistributionCard
@@ -350,7 +332,7 @@ export function TrainingSetup({
       {/* Right: Settings */}
       {settingsOpen ? (
       <div className="lg:col-span-7">
-        <section id="training-session-settings" className="border-t-2 border-foreground pt-5">
+        <section id="training-session-settings" className="rounded-[26px] bg-secondary p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <SectionLabel>Session settings</SectionLabel>

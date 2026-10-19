@@ -96,7 +96,7 @@ export default function CaseInterviewMathPracticePage() {
         </Link>
       </MarketingHero>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Quick Answer</h2>
         <p className="text-sm text-muted-foreground">
           Practice basic arithmetic under time pressure, then layer business prompts on top. Most

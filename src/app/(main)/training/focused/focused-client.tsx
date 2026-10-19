@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { AsciiMorph } from "@/components/ui/ascii-morph";
 import { MetricTile, SectionLabel, optionTileClass } from "@/components/ui/visual-system";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
@@ -60,7 +59,7 @@ function FocusedHeader({ title, description }: { title: string; description?: st
           <ArrowLeft className="mr-1 h-4 w-4" />
           Back to Weak Points
         </Link>
-        <h1 className="font-serif text-3xl font-normal tracking-tight">{title}</h1>
+        <h1 className="font-semibold text-3xl tracking-tight">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
     </div>
@@ -482,9 +481,8 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
         <div className="p-4 md:p-6">
           <Card className="max-w-lg mx-auto">
             <CardContent className="p-8 text-center">
-              <AsciiMorph shapes={["trophy"]} accent={accuracy >= 80} className="mx-auto mb-6 w-28" />
 
-              <h2 className="font-serif text-3xl font-normal tracking-tight mb-2">
+              <h2 className="font-semibold text-3xl tracking-tight mb-2">
                 {accuracy >= 80 ? "Great Work!" : accuracy >= 60 ? "Good Progress!" : "Keep Practicing!"}
               </h2>
               <p className="text-muted-foreground mb-6">
@@ -501,7 +499,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
               </div>
 
               {!authSession?.user && (
-                <div className="rounded-[3px] border border-border p-4 text-left mb-8">
+                <div className="rounded-2xl border border-border p-4 text-left mb-8">
                   <p className="text-sm font-semibold">Save your progress</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Sign in (or create an account) to keep track of your scores and improvement over time.
@@ -566,7 +564,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                 {/* Settings summary - clickable to expand */}
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="w-full p-3 rounded-[3px] border border-border hover:border-foreground/50 transition-colors text-left mb-6"
+                  className="w-full p-3 rounded-2xl border border-border hover:border-foreground/50 transition-colors text-left mb-6"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -586,7 +584,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
                 {/* Collapsible Settings Section */}
                 {showSettings && (
-                  <div className="mb-6 border-t-2 border-foreground pt-4 text-left">
+                  <div className="mb-6 rounded-[22px] bg-secondary p-5 text-left">
                     <SectionLabel className="mb-3">Submission mode</SectionLabel>
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -669,7 +667,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                         role="textbox"
                         aria-label="Answer"
                         aria-readonly="true"
-                        className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-[3px] border border-input bg-background px-3 flex items-center justify-center ${
+                        className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-2xl border border-input bg-background px-3 flex items-center justify-center ${
                           answerInputDisabled ? "opacity-50" : ""
                         }`}
                       >

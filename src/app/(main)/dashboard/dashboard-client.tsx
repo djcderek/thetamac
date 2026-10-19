@@ -138,7 +138,7 @@ export function DashboardClient() {
 
       <div className="p-4 md:p-6 space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <MetricTile
             label="Problems solved"
             value={(stats?.totalProblems || 0).toLocaleString()}
@@ -164,11 +164,11 @@ export function DashboardClient() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Performance Chart */}
           <Link href="/stats/performance" className="lg:col-span-8 block">
-            <Card className="h-full transition-all hover:border-brand/60 cursor-pointer">
+            <Card className="h-full cursor-pointer transition-colors hover:bg-accent">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <SectionLabel className="mb-1 text-brand">Last 7 days</SectionLabel>
+                    <SectionLabel className="mb-1">Last 7 days</SectionLabel>
                     <CardTitle className="text-lg tracking-tight">Performance</CardTitle>
                   </div>
                   <p className="text-xs text-muted-foreground">Correct answers (Timed Mode) →</p>
@@ -209,7 +209,7 @@ export function DashboardClient() {
                           stroke="currentColor"
                           strokeWidth={2}
                           fill="url(#correctGradient)"
-                          className="text-brand"
+                          className="text-foreground"
                           dot={{ r: 3, fill: "var(--background)", stroke: "currentColor", strokeWidth: 2 }}
                           activeDot={{ r: 5, fill: "var(--foreground)", stroke: "var(--background)", strokeWidth: 2 }}
                         />
@@ -241,11 +241,11 @@ export function DashboardClient() {
 
           {/* Skills */}
           <Link href="/stats/skills" className="lg:col-span-4 block">
-            <Card className="h-full transition-all hover:border-brand/60 cursor-pointer">
+            <Card className="h-full cursor-pointer transition-colors hover:bg-accent">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <SectionLabel className="mb-1 text-brand">Accuracy</SectionLabel>
+                    <SectionLabel className="mb-1">Accuracy</SectionLabel>
                     <CardTitle className="text-lg tracking-tight">Skills</CardTitle>
                   </div>
                   <p className="text-xs text-muted-foreground">Accuracy by type →</p>
@@ -263,9 +263,9 @@ export function DashboardClient() {
                           {skill.total > 0 ? `${skill.value}%` : "--"}
                         </span>
                       </div>
-                      <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-background">
                         <div
-                          className="h-full bg-brand rounded-full transition-all duration-300"
+                          className="h-full rounded-full bg-foreground transition-all duration-300"
                           style={{ width: `${skill.value}%` }}
                         />
                       </div>
@@ -289,7 +289,7 @@ export function DashboardClient() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <SectionLabel className="mb-1 text-brand">Rhythm</SectionLabel>
+                  <SectionLabel className="mb-1">Rhythm</SectionLabel>
                   <CardTitle className="text-lg tracking-tight">This week</CardTitle>
                 </div>
                 <p className="text-xs text-muted-foreground">Problems solved</p>
@@ -314,8 +314,8 @@ export function DashboardClient() {
                       <Bar
                         dataKey="problems"
                         fill="currentColor"
-                        radius={[4, 4, 0, 0]}
-                        className="text-brand"
+                        radius={[6, 6, 6, 6]}
+                        className="text-foreground"
                       />
                     </BarChart>
                   </ResponsiveContainer>
@@ -345,30 +345,30 @@ export function DashboardClient() {
           </Card>
 
           {/* Quick Actions */}
-          <Card className="lg:col-span-7 flex flex-col overflow-hidden bg-foreground text-background border-foreground">
+          <Card className="lg:col-span-7 flex flex-col overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <SectionLabel className="mb-1 text-brand">Keep moving</SectionLabel>
+                  <SectionLabel className="mb-1">Keep moving</SectionLabel>
                   <CardTitle className="text-lg tracking-tight">Quick start</CardTitle>
                 </div>
-                <p className="text-xs text-background/60">Jump into action</p>
+                <p className="text-xs text-muted-foreground">Jump into action</p>
               </div>
             </CardHeader>
             <CardContent className="flex-1 flex">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
                 <Link href="/" className="block">
-                  <div className="h-full p-4 rounded-[3px] border border-background/20 hover:border-brand hover:bg-background/5 transition-colors cursor-pointer group flex flex-col">
-                    <Brain className="w-5 h-5 mb-3 text-brand" />
-                    <p className="font-medium text-sm">Practice</p>
-                    <p className="text-xs text-background/60 mt-1">Start a training session</p>
+                  <div className="group flex h-full cursor-pointer flex-col rounded-2xl bg-background p-4 transition-colors hover:bg-accent">
+                    <Brain className="mb-3 h-5 w-5 text-muted-foreground" />
+                    <p className="text-[15px] font-semibold">Practice</p>
+                    <p className="mt-0.5 text-[13px] text-muted-foreground">Start a training session</p>
                   </div>
                 </Link>
                 <Link href="/multiplayer" className="block">
-                  <div className="h-full p-4 rounded-[3px] border border-background/20 hover:border-brand hover:bg-background/5 transition-colors cursor-pointer group flex flex-col">
-                    <Swords className="w-5 h-5 mb-3 text-brand" />
-                    <p className="font-medium text-sm">1v1 Match</p>
-                    <p className="text-xs text-background/60 mt-1">Challenge a player</p>
+                  <div className="group flex h-full cursor-pointer flex-col rounded-2xl bg-background p-4 transition-colors hover:bg-accent">
+                    <Swords className="mb-3 h-5 w-5 text-muted-foreground" />
+                    <p className="text-[15px] font-semibold">1v1 Match</p>
+                    <p className="mt-0.5 text-[13px] text-muted-foreground">Challenge a player</p>
                   </div>
                 </Link>
               </div>
@@ -388,7 +388,7 @@ export function DashboardClient() {
                 <Link href="/training/weak-points" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-[3px] border border-brand/40 flex items-center justify-center">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background">
                         <Target className="w-4 h-4 text-primary" />
                       </div>
                       <div>
@@ -408,7 +408,7 @@ export function DashboardClient() {
                 <Link href="/" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-[3px] border border-border flex items-center justify-center">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background">
                         <Flame className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div>
@@ -425,7 +425,7 @@ export function DashboardClient() {
                 <Link href="/" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-[3px] border border-border flex items-center justify-center">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background">
                         <Brain className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div>
@@ -443,7 +443,7 @@ export function DashboardClient() {
                 <Link href="/" className="block">
                   <div className="flex items-center justify-between py-2 group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-[3px] border border-border flex items-center justify-center">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background">
                         <Clock className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div>

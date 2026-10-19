@@ -92,7 +92,7 @@ export default function MentalMathPracticePage() {
         </div>
       </section>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Pick a focus</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Link href="/practice/multiplication" className="text-primary hover:underline">

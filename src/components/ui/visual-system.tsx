@@ -2,19 +2,18 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { AsciiMorph } from "./ascii-morph";
-import { CornerBrackets } from "./corner-frame";
 
 export function DotField({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div aria-hidden="true" className={cn("dot-field", className)} {...props} />;
 }
 
-// Option tiles print in ink when selected — no tinted borders.
+// Option tiles: soft grey chips that fill with ink when selected (Kurb's Active/Resolved).
 export function optionTileClass(selected: boolean, extra?: string) {
   return cn(
-    "rounded-[3px] border px-3 py-3 transition-colors",
+    "rounded-2xl px-3 py-3 transition-colors",
     selected
-      ? "border-foreground bg-foreground text-background"
-      : "border-border hover:border-foreground/50",
+      ? "bg-foreground text-background"
+      : "bg-secondary hover:bg-accent",
     extra,
   );
 }
@@ -42,15 +41,13 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("relative overflow-hidden border-b border-border bg-background", className)}>
-      <div className="bayer-fade-l pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 opacity-45 lg:block">
-        <AsciiMorph shapes={["theta"]} animate={false} flipY className="w-56" />
-      </div>
-      <div className="relative flex min-h-32 items-center justify-between gap-6 px-5 py-7 md:px-8">
+    // Plain, type-led page header: no rule, ornament, or eyebrow color.
+    <header className={cn("bg-background", className)}>
+      <div className="flex flex-wrap items-end justify-between gap-4 px-4 pt-10 pb-6 md:px-6 md:pt-14">
         <div className="max-w-2xl">
-          {eyebrow && <SectionLabel className="mb-2 text-brand">{eyebrow}</SectionLabel>}
-          <h1 className="font-serif text-3xl font-normal tracking-tight md:text-4xl">{title}</h1>
-          {description && <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>}
+          {eyebrow && <SectionLabel className="mb-2">{eyebrow}</SectionLabel>}
+          <h1 className="text-[34px] font-semibold leading-[1.05] tracking-[-0.035em] md:text-[44px]">{title}</h1>
+          {description && <p className="mt-3 text-[15px] leading-6 text-muted-foreground">{description}</p>}
         </div>
         {action}
       </div>
@@ -58,13 +55,13 @@ export function PageHeader({
   );
 }
 
-// Ledger stat: a strong top rule, a label, and a bare tabular numeral. No box.
+// Stat tile: a soft grey surface with a small label above a large tabular numeral.
 export function MetricTile({ label, value, detail, className }: { label: string; value: ReactNode; detail?: ReactNode; className?: string }) {
   return (
-    <div className={cn("border-t-2 border-foreground/80 pt-3", className)}>
+    <div className={cn("rounded-[20px] bg-secondary px-4 py-4", className)}>
       <SectionLabel>{label}</SectionLabel>
-      <div className="mt-2 font-mono text-3xl font-semibold tracking-tight">{value}</div>
-      {detail && <div className="mt-1.5 text-xs text-muted-foreground">{detail}</div>}
+      <div className="mt-1.5 text-[28px] font-semibold leading-tight tracking-[-0.03em] tabular-nums">{value}</div>
+      {detail && <div className="mt-1 text-[13px] text-muted-foreground">{detail}</div>}
     </div>
   );
 }
@@ -81,17 +78,14 @@ export function BrandedEmptyState({
   compact?: boolean;
 }) {
   return (
+    // Quiet empty state: a short title, one line of guidance, and at most one action.
     <div
       className={cn(
-        "flex flex-col items-center justify-center border-y border-border text-center",
-        compact ? "h-full min-h-0 py-3" : "min-h-40 py-10",
+        "flex flex-col items-center justify-center rounded-[20px] bg-secondary text-center",
+        compact ? "h-full min-h-0 px-4 py-4" : "min-h-40 px-6 py-10",
       )}
     >
-      <div className={cn("relative", compact ? "mb-1 px-4 py-1.5" : "mb-3 px-5 py-2.5")}>
-        <CornerBrackets size={10} />
-        <DitherIllustration className={compact ? "w-12" : "w-20"} />
-      </div>
-      <h3 className="font-semibold tracking-tight">{title}</h3>
+      <h3 className="text-[17px] font-semibold tracking-tight">{title}</h3>
       <p
         className={cn(
           "max-w-sm text-muted-foreground",

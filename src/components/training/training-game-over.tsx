@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { RotateCcw, LogIn, UserPlus } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AsciiMorph } from "@/components/ui/ascii-morph";
 import type { DifficultySettings, ScoreDistribution } from "@/components/training/training-types";
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -51,66 +49,43 @@ export function TrainingGameOver({
     });
   }, [accuracy, showAuthCallout, totalSolved, trainingRunId]);
 
+  // Secondary stats read as receipt rows (Kurb's "Hourly rate · $10" detail list).
+  const detailRows = [
+    showAccuracyCard ? { label: "Accuracy", value: `${accuracy}%` } : null,
+    { label: "Average time", value: `${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s` },
+    showBestStreakCard ? { label: "Best streak", value: String(bestStreak) } : null,
+    { label: "Difficulty", value: difficultyLabel, className: difficultyBadgeClassName },
+  ].filter((row): row is { label: string; value: string; className?: string } => row !== null);
+
   return (
-    <Card>
-      <CardHeader className="border-b border-border">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="text-base">Time&apos;s up</CardTitle>
-            <CardDescription>Session summary</CardDescription>
-          </div>
-          <div
-            className={`shrink-0 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] ${difficultyBadgeClassName}`}
-          >
-            {difficultyLabel}
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-6">
-        <AsciiMorph shapes={["trophy"]} accent className="mx-auto w-28" />
-        <div
-          className={`grid grid-cols-2 gap-3 ${
-            showAccuracyCard
-              ? showBestStreakCard
-                ? "sm:grid-cols-4"
-                : "sm:grid-cols-3"
-              : showBestStreakCard
-                ? "sm:grid-cols-3"
-                : "sm:grid-cols-2"
-          }`}
-        >
-          <div className="border-t-2 border-foreground/80 pt-3">
-            <div className="text-xs text-muted-foreground">Solved</div>
-            <div className="mt-1 text-3xl font-semibold font-mono tabular-nums">{totalSolved}</div>
-          </div>
-          {showAccuracyCard && (
-            <div className="border-t-2 border-foreground/80 pt-3">
-              <div className="text-xs text-muted-foreground">Accuracy</div>
-              <div className="mt-1 text-3xl font-semibold font-mono tabular-nums">{accuracy}%</div>
-            </div>
-          )}
-          {showBestStreakCard && (
-            <div className="border-t-2 border-foreground/80 pt-3">
-              <div className="text-xs text-muted-foreground">Best streak</div>
-              <div className="mt-1 text-3xl font-semibold font-mono tabular-nums">{bestStreak}</div>
-            </div>
-          )}
-          <div className="border-t-2 border-foreground/80 pt-3">
-            <div className="text-xs text-muted-foreground">Avg time</div>
-            <div className="mt-1 text-3xl font-semibold font-mono tabular-nums">
-              {avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s
-            </div>
-          </div>
+    <div className="mx-auto max-w-xl pt-4 sm:pt-10">
+      <div className="space-y-6">
+        <div className="text-center">
+          <p className="text-[15px] font-medium text-muted-foreground">Time&apos;s up</p>
+          <p className="mt-2 text-[88px] font-semibold leading-none tracking-[-0.05em] tabular-nums sm:text-[112px]">
+            {totalSolved}
+          </p>
+          <p className="mt-2 text-[17px] text-muted-foreground">
+            {totalSolved === 1 ? "problem solved" : "problems solved"}
+          </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={onChangeSettings}>
-            Change settings
-          </Button>
-          <Button onClick={onPlayAgain}>
-            <RotateCcw className="w-4 h-4 mr-2" />
+        <dl className="divide-y divide-border rounded-[22px] bg-secondary px-5">
+          {detailRows.map((row) => (
+            <div key={row.label} className="flex items-center justify-between py-3.5 text-[15px]">
+              <dt className="text-muted-foreground">{row.label}</dt>
+              <dd className={`font-semibold tabular-nums ${row.className ?? ""}`}>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="space-y-2">
+          <Button variant="brand" size="lg" onClick={onPlayAgain} className="h-14 w-full text-[17px]">
+            <RotateCcw aria-hidden="true" />
             Play again
+          </Button>
+          <Button variant="secondary" size="lg" onClick={onChangeSettings} className="w-full">
+            Change settings
           </Button>
         </div>
 
@@ -119,11 +94,11 @@ export function TrainingGameOver({
         )}
 
         {showAuthCallout && (
-          <div className="border-t border-border pt-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-[22px] bg-secondary p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-sm font-medium">Save your runs</div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-[17px] font-semibold tracking-tight">Keep your runs</div>
+                <div className="mt-0.5 text-[15px] text-muted-foreground">
                   Sign in to keep history, streaks, and leaderboard entries.
                 </div>
               </div>
@@ -139,8 +114,7 @@ export function TrainingGameOver({
                     })
                   }
                 >
-                  <Button variant="outline" size="sm">
-                    <LogIn className="w-4 h-4 mr-2" />
+                  <Button variant="outline" size="sm" className="bg-background">
                     Sign in
                   </Button>
                 </Link>
@@ -155,16 +129,13 @@ export function TrainingGameOver({
                     })
                   }
                 >
-                  <Button size="sm">
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Create account
-                  </Button>
+                  <Button size="sm">Create account</Button>
                 </Link>
               </div>
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

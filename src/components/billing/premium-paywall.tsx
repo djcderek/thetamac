@@ -32,11 +32,11 @@ export function PremiumPaywall({
         className
       )}
     >
-      <div className="w-full max-w-3xl border-t-2 border-foreground pt-4">
+      <div className="w-full max-w-3xl rounded-[26px] bg-secondary p-5">
         <PremiumGateTelemetry featureName={featureName} />
         <div className="space-y-3">
-          <SectionLabel className="text-brand">Pro</SectionLabel>
-          <h2 className="font-serif text-3xl font-normal tracking-tight">
+          <SectionLabel>Pro</SectionLabel>
+          <h2 className="font-semibold text-3xl tracking-tight">
             Unlock {featureName}
           </h2>
           <p className="text-sm leading-6 text-muted-foreground max-w-2xl">
@@ -46,7 +46,7 @@ export function PremiumPaywall({
         </div>
         <div className="mt-6 space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-[3px] border border-border p-4">
+            <div className="rounded-2xl border border-border p-4">
               <SectionLabel className="mb-1">Monthly</SectionLabel>
               <p className="font-mono text-3xl font-semibold tracking-tight">$0.99</p>
               <p className="text-xs text-muted-foreground mb-4">
@@ -54,10 +54,10 @@ export function PremiumPaywall({
               </p>
               <SubscribeButton plan="monthly" label="Go monthly" variant="outline" />
             </div>
-            <div className="ink-panel relative overflow-hidden rounded-[3px] border p-4">
+            <div className="ink-panel relative overflow-hidden rounded-2xl border p-4">
               <div className="dot-field pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
               <div className="relative">
-                <p className="mb-1 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-background/60">
+                <p className="mb-1 text-[13px] font-medium tracking-[0.14em] text-background/60">
                   Yearly · Best value
                 </p>
                 <p className="font-mono text-3xl font-semibold tracking-tight">$5.99</p>

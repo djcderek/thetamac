@@ -52,7 +52,7 @@ export default function BlogIndexPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
       <header className="mb-12">
-        <h1 className="font-serif text-4xl sm:text-5xl font-normal tracking-tight mb-3">
+        <h1 className="font-semibold text-4xl sm:text-5xl tracking-tight mb-3">
           Blog
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl">

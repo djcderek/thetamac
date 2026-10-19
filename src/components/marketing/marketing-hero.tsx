@@ -1,39 +1,32 @@
 import type { ReactNode } from "react";
 
-import { AsciiMorph } from "@/components/ui/ascii-morph";
 import type { AsciiShapeName } from "@/components/ui/ascii-shapes";
-import { CornerBrackets } from "@/components/ui/corner-frame";
-import { SectionLabel } from "@/components/ui/visual-system";
 
-// Shared hero for (marketing) landing pages: serif display headline on the
-// left, the animated digit-field figure on the right. One per page.
+// Shared hero for (marketing) landing pages, after Kurb's landing: a centered, type-led
+// headline with a short lede and the calls to action beneath it. No decorative figure.
 export function MarketingHero({
   eyebrow,
   title,
   lede,
-  shapes = ["theta", "times", "bolt", "trophy"],
   children,
 }: {
   eyebrow?: string;
   title: string;
   lede?: string;
+  /** Kept for existing callers; the hero no longer draws a figure. */
   shapes?: AsciiShapeName[];
   children?: ReactNode;
 }) {
   return (
-    <header className="mb-12 grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_minmax(200px,250px)]">
-      <div className="max-w-3xl">
-        {eyebrow && <SectionLabel className="mb-3 text-brand">{eyebrow}</SectionLabel>}
-        <h1 className="mb-4 font-serif text-4xl font-normal tracking-tight text-balance sm:text-5xl">
-          {title}
-        </h1>
-        {lede && <p className="text-lg leading-8 text-muted-foreground">{lede}</p>}
-        {children && <div className="mt-6 flex flex-wrap gap-3">{children}</div>}
-      </div>
-      <div className="relative hidden self-center p-6 md:block">
-        <CornerBrackets />
-        <AsciiMorph shapes={shapes} accent className="w-full" />
-      </div>
+    <header className="mx-auto mb-16 max-w-3xl pt-6 text-center sm:pt-12">
+      {eyebrow && <p className="mb-3 text-[15px] font-medium text-muted-foreground">{eyebrow}</p>}
+      <h1 className="text-[40px] font-semibold leading-[1.04] tracking-[-0.045em] text-balance sm:text-[56px]">
+        {title}
+      </h1>
+      {lede && (
+        <p className="mx-auto mt-5 max-w-2xl text-[17px] leading-8 text-muted-foreground sm:text-lg">{lede}</p>
+      )}
+      {children && <div className="mt-8 flex flex-wrap justify-center gap-3">{children}</div>}
     </header>
   );
 }
