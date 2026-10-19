@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { isDeletedUserId } from "@/lib/deleted-user";
+import { getCached } from "@/lib/server-cache";
 import {
   aggregateDuelResults,
   aggregateRaceResults,
@@ -189,6 +190,34 @@ function createTopScoreEntry(
   };
 }
 
+// Standings are recomputed from full table scans, so they are cached briefly and shared by
+// every viewer; only the per-viewer parts (your rank, profiles) are computed per request.
+const STANDINGS_TTL_SECONDS = 30;
+
+type Standings = {
+  current: RankedItem[];
+  comparison: RankedItem[];
+  guests: [string, GuestMeta][];
+};
+
+function getStandings(mode: Mode, period: Period, load: () => Promise<Standings>) {
+  return getCached(`leaderboard:${mode}:${period}`, STANDINGS_TTL_SECONDS, load);
+}
+
+async function finalizeStandings(
+  standings: Standings,
+  period: Period,
+  currentUserId?: string | null
+) {
+  return finalizeLeaderboard(
+    standings.current,
+    standings.comparison,
+    period,
+    currentUserId,
+    new Map(standings.guests)
+  );
+}
+
 async function finalizeLeaderboard(
   currentItems: RankedItem[],
   comparisonItems: RankedItem[],
@@ -262,6 +291,11 @@ async function buildDuelLeaderboard(
   period: Period,
   currentUserId?: string | null
 ): Promise<LeaderboardResult> {
+  const standings = await getStandings("duel", period, () => loadDuelStandings(period));
+  return finalizeStandings(standings, period, currentUserId);
+}
+
+async function loadDuelStandings(period: Period): Promise<Standings> {
   const now = new Date();
   const queryStart = getQueryStart(period, now);
   const matches = await db.multiplayerMatch.findMany({
@@ -293,18 +327,22 @@ async function buildDuelLeaderboard(
     winnerId: match.winnerId,
     isDraw: match.isDraw,
   });
-  return finalizeLeaderboard(
-    aggregateDuelResults(current.map(mapMatch), period === "all"),
-    aggregateDuelResults(comparison.map(mapMatch), period === "all"),
-    period,
-    currentUserId
-  );
+  return {
+    current: aggregateDuelResults(current.map(mapMatch), period === "all"),
+    comparison: aggregateDuelResults(comparison.map(mapMatch), period === "all"),
+    guests: [],
+  };
 }
 
 async function buildRaceLeaderboard(
   period: Period,
   currentUserId?: string | null
 ): Promise<LeaderboardResult> {
+  const standings = await getStandings("racing", period, () => loadRaceStandings(period));
+  return finalizeStandings(standings, period, currentUserId);
+}
+
+async function loadRaceStandings(period: Period): Promise<Standings> {
   const now = new Date();
   const queryStart = getQueryStart(period, now);
   const racePlayers = await db.racePlayer.findMany({
@@ -334,18 +372,22 @@ async function buildRaceLeaderboard(
     ratingChange: player.ratingChange ?? 0,
     finishPosition: player.finishPosition,
   });
-  return finalizeLeaderboard(
-    aggregateRaceResults(current.map(mapResult), period === "all"),
-    aggregateRaceResults(comparison.map(mapResult), period === "all"),
-    period,
-    currentUserId
-  );
+  return {
+    current: aggregateRaceResults(current.map(mapResult), period === "all"),
+    comparison: aggregateRaceResults(comparison.map(mapResult), period === "all"),
+    guests: [],
+  };
 }
 
 async function buildTrainingLeaderboard(
   period: Period,
   currentUserId?: string | null
 ): Promise<LeaderboardResult> {
+  const standings = await getStandings("training", period, () => loadTrainingStandings(period));
+  return finalizeStandings(standings, period, currentUserId);
+}
+
+async function loadTrainingStandings(period: Period): Promise<Standings> {
   const now = new Date();
   const queryStart = getQueryStart(period, now);
   const [sessions, guestScores] = await Promise.all([
@@ -418,18 +460,19 @@ async function buildTrainingLeaderboard(
     ...comparisonGuestScores.map(mapGuestRun),
   ];
 
-  return finalizeLeaderboard(
-    aggregateTrainingRuns(currentRuns),
-    aggregateTrainingRuns(comparisonRuns),
-    period,
-    currentUserId,
-    buildGuestMeta(currentGuestScores)
-  );
+  return {
+    current: aggregateTrainingRuns(currentRuns),
+    comparison: aggregateTrainingRuns(comparisonRuns),
+    guests: Array.from(buildGuestMeta(currentGuestScores)),
+  };
 }
 
-export async function getTrainingTopScores(
-  currentUserId?: string | null
-): Promise<TrainingTopScoresResult> {
+type TopScoreStandings = {
+  ranked: { userId: string; score: number }[];
+  guests: [string, GuestMeta][];
+};
+
+async function loadTrainingTopScoreStandings(): Promise<TopScoreStandings> {
   const [sessions, guestScores] = await Promise.all([
     db.trainingSession.findMany({
       where: {
@@ -473,7 +516,22 @@ export async function getTrainingTopScores(
       achievedAt: score.createdAt,
     })),
   ]);
-  const guests = buildGuestMeta(validGuestScores);
+  return {
+    ranked: rankedScores.map(({ userId, score }) => ({ userId, score })),
+    guests: Array.from(buildGuestMeta(validGuestScores)),
+  };
+}
+
+export async function getTrainingTopScores(
+  currentUserId?: string | null
+): Promise<TrainingTopScoresResult> {
+  const standings = await getCached(
+    "leaderboard:training-top-scores",
+    STANDINGS_TTL_SECONDS,
+    loadTrainingTopScoreStandings
+  );
+  const rankedScores = standings.ranked;
+  const guests = new Map(standings.guests);
   const userIndex = currentUserId
     ? rankedScores.findIndex((score) => score.userId === currentUserId)
     : -1;

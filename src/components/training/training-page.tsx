@@ -753,6 +753,12 @@ export default function TrainingPage() {
   const trainingRunIdRef = useRef<string | null>(null);
   const trainingTelemetryRef = useRef<AnalyticsProperties>({});
   const runResultsRef = useRef({ totalSolved: 0, totalCorrect: 0, avgTime: 0 });
+  // Timers count down to wall-clock deadlines, so throttled or backgrounded tabs can't
+  // stretch a run (interval ticks are delayed or paused there).
+  const timedDeadlineRef = useRef(0);
+  const questionDeadlineRef = useRef(0);
+  // Latest session ID for the unmount/pagehide save, which runs outside render.
+  const sessionIdRef = useRef<string | null>(null);
   const [scorePercentile, setScorePercentile] = useState<ScoreDistribution | null>(null);
 
   // Learning mode state
@@ -964,6 +970,7 @@ export default function TrainingPage() {
     setIsCorrect(null);
     setHasAnswered(false);
     if (gameMode === "practice") {
+      questionDeadlineRef.current = Date.now() + practiceTimerLimit * 1000;
       setTimeLeft(practiceTimerLimit);
     }
     setStartTime(Date.now());
@@ -1051,6 +1058,10 @@ export default function TrainingPage() {
   }, [totalSolved, totalCorrect, avgTime]);
 
   useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  useEffect(() => {
     if (authStatus === "loading") return;
     if (setupViewedTrackedRef.current) return;
     setupViewedTrackedRef.current = true;
@@ -1069,6 +1080,27 @@ export default function TrainingPage() {
       if (!activeRunRef.current || completionTrackedRef.current) return;
       completionTrackedRef.current = true;
       const results = runResultsRef.current;
+
+      // Save a signed-in run the way Stop does. Practice and Learning have no natural end,
+      // so leaving the page used to drop the session and its streak credit. `keepalive`
+      // lets the request finish while the page unloads.
+      const unsavedSessionId = sessionIdRef.current;
+      if (unsavedSessionId && results.totalSolved > 0) {
+        void fetch("/api/training/session", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          keepalive: true,
+          body: JSON.stringify({
+            sessionId: unsavedSessionId,
+            totalProblems: results.totalSolved,
+            correctAnswers: results.totalCorrect,
+            duration: Math.round((Date.now() - sessionStartTimeRef.current) / 1000),
+            averageTime: results.avgTime,
+            bestStreak: bestStreakRef.current,
+          }),
+        }).catch(() => {});
+      }
+
       captureAnalyticsEvent(ANALYTICS_EVENTS.trainingAbandoned, {
         ...trainingTelemetryRef.current,
         end_reason: "navigation",
@@ -1148,6 +1180,7 @@ export default function TrainingPage() {
     captureAnalyticsEvent(ANALYTICS_EVENTS.trainingStarted, startProperties);
 
     if (gameMode === "timed") {
+      timedDeadlineRef.current = Date.now() + timedModeLimit * 1000;
       setOverallTimeLeft(timedModeLimit);
     }
 
@@ -1562,56 +1595,59 @@ export default function TrainingPage() {
 
   // Practice mode per-question timer
   useEffect(() => {
-    if (!isPlaying || gameMode !== "practice" || timeLeft <= 0 || hasAnswered) return;
+    if (!isPlaying || gameMode !== "practice" || hasAnswered || !problem) return;
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          // The answer landed just before the timeout; don't also count it as wrong.
-          if (problem && scoredProblemRef.current === problem) return 0;
-          if (problem) scoredProblemRef.current = problem;
-          setIsCorrect(false);
-          setStreak(0);
-          setTotalSolved((p) => p + 1);
+    const tick = () => {
+      const remaining = Math.ceil((questionDeadlineRef.current - Date.now()) / 1000);
+      if (remaining > 0) {
+        setTimeLeft(remaining);
+        return;
+      }
+      window.clearInterval(timer);
+      setTimeLeft(0);
+      // The answer landed just before the timeout; don't also count it as wrong.
+      if (scoredProblemRef.current === problem) return;
+      scoredProblemRef.current = problem;
+      setIsCorrect(false);
+      setStreak(0);
+      setTotalSolved((p) => p + 1);
 
-          // Record timeout as incorrect attempt, unless a wrong entry was already recorded
-          if (problem && mistakeRecordedProblemRef.current !== problem) {
-            const timeTaken = practiceTimerLimit;
-            recordAttempt(problem, null, false, timeTaken);
-          }
+      // Record timeout as incorrect attempt, unless a wrong entry was already recorded
+      if (mistakeRecordedProblemRef.current !== problem) {
+        recordAttempt(problem, null, false, practiceTimerLimit);
+      }
 
-          if (autoAdvance) {
-            setTimeout(() => startNewProblem(), 600);
-          } else {
-            setHasAnswered(true);
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      if (autoAdvance) {
+        setTimeout(() => startNewProblem(), 600);
+      } else {
+        setHasAnswered(true);
+      }
+    };
 
-    return () => clearInterval(timer);
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying, gameMode, timeLeft, startNewProblem, problem, difficulty, autoAdvance, hasAnswered]);
+  }, [isPlaying, gameMode, startNewProblem, problem, autoAdvance, hasAnswered]);
 
   // Timed mode overall timer
   useEffect(() => {
-    if (!isPlaying || gameMode !== "timed" || overallTimeLeft <= 0) return;
+    if (!isPlaying || gameMode !== "timed") return;
 
-    const timer = setInterval(() => {
-      setOverallTimeLeft((prev) => {
-        if (prev <= 1) {
-          setIsPlaying(false);
-          setIsGameOver(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const tick = () => {
+      const remaining = Math.ceil((timedDeadlineRef.current - Date.now()) / 1000);
+      if (remaining > 0) {
+        setOverallTimeLeft(remaining);
+        return;
+      }
+      window.clearInterval(timer);
+      setOverallTimeLeft(0);
+      setIsPlaying(false);
+      setIsGameOver(true);
+    };
 
-    return () => clearInterval(timer);
-  }, [isPlaying, gameMode, overallTimeLeft]);
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [isPlaying, gameMode]);
 
   // End session when game is over (timed mode)
   useEffect(() => {
