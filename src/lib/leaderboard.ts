@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { standardTimedSessionWhere } from "@/lib/standard-timed-sessions";
 import { isDeletedUserId } from "@/lib/deleted-user";
 import { getCached } from "@/lib/server-cache";
 import {
@@ -17,7 +18,6 @@ import {
   type RankedItem,
   type RankTrend,
 } from "@/lib/leaderboard-ranking";
-import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 export type Period = "all" | "weekly" | "daily";
 export type Mode = "duel" | "racing" | "training";
@@ -393,9 +393,7 @@ async function loadTrainingStandings(period: Period): Promise<Standings> {
   const [sessions, guestScores] = await Promise.all([
     db.trainingSession.findMany({
       where: {
-        gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
-        difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
-        operations: { hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations] },
+        ...standardTimedSessionWhere,
         completedAt: { not: null, ...(queryStart ? { gte: queryStart } : {}) },
       },
       select: {
@@ -476,9 +474,7 @@ async function loadTrainingTopScoreStandings(): Promise<TopScoreStandings> {
   const [sessions, guestScores] = await Promise.all([
     db.trainingSession.findMany({
       where: {
-        gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
-        difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
-        operations: { hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations] },
+        ...standardTimedSessionWhere,
         completedAt: { not: null },
       },
       select: {

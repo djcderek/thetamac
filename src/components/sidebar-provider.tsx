@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useCallback, useContext, useState, useEffect, ReactNode } from "react";
 
 interface SidebarContextType {
   isCollapsed: boolean;
@@ -39,19 +39,20 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("resize", checkScreenSize);
   }, [isMobile]);
 
-  const toggle = () => {
+  // Stable callbacks: the mobile drawer's focus handling depends on `close`.
+  const toggle = useCallback(() => {
     if (isMobile) {
       setIsOpen((prev) => !prev);
     } else {
       setIsCollapsed((prev) => !prev);
     }
-  };
+  }, [isMobile]);
 
-  const close = () => {
+  const close = useCallback(() => {
     if (isMobile) {
       setIsOpen(false);
     }
-  };
+  }, [isMobile]);
 
   return (
     <SidebarContext.Provider value={{ isCollapsed, isMobile, isOpen, toggle, close }}>

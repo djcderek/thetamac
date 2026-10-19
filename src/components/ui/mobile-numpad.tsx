@@ -74,66 +74,70 @@ export function MobileNumpad({
     return ripples.filter((r) => r.buttonKey === buttonKey);
   }, [ripples]);
 
-  // Memoized handlers for performance
-  const appendDigit = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>, digit: string) => {
-      e.preventDefault();
-      if (disabled) return;
-      createRipple(e, `digit-${digit}`);
-      triggerHaptic("light");
-      setValue((prev) => `${prev}${digit}`.replace(/[^0-9\-]/g, ""));
-    },
-    [disabled, setValue, createRipple]
+  // Actions shared by touch, keyboard activation of a button, and a hardware keyboard.
+  const pressDigit = useCallback(
+    (digit: string) => setValue((prev) => `${prev}${digit}`.replace(/[^0-9\-]/g, "")),
+    [setValue]
   );
-
-  const toggleMinus = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-      if (disabled) return;
-      createRipple(e, "minus");
-      triggerHaptic("light");
+  const pressMinus = useCallback(
+    () =>
       setValue((prev) => {
         if (prev.startsWith("-")) return prev.slice(1);
         return prev.length === 0 ? "-" : `-${prev.replace(/^-/, "")}`;
-      });
+      }),
+    [setValue]
+  );
+  const pressBackspace = useCallback(() => setValue((prev) => prev.slice(0, -1)), [setValue]);
+  const pressClear = useCallback(() => setValue(""), [setValue]);
+  const canSubmit = !disabled && Boolean(onDone) && value.length > 0 && value !== "-";
+  const pressDone = useCallback(() => {
+    if (canSubmit) onDone?.();
+  }, [canSubmit, onDone]);
+
+  // Touch and mouse act on pointerdown (fast, with ripple and haptics). Buttons activated
+  // with Enter/Space fire only a click with detail 0, which previously did nothing.
+  const pointerHandler = useCallback(
+    (buttonKey: string, haptic: "light" | "medium", action: () => void) =>
+      (e: React.PointerEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+        if (disabled) return;
+        createRipple(e, buttonKey);
+        triggerHaptic(haptic);
+        action();
+      },
+    [disabled, createRipple]
+  );
+  const keyboardClickHandler = useCallback(
+    (action: () => void) => (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (e.detail !== 0 || disabled) return;
+      action();
     },
-    [disabled, setValue, createRipple]
+    [disabled]
   );
 
-  const backspace = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>) => {
+  // Devices with the numpad have no text input, so typing on a hardware keyboard (an iPad
+  // with a keyboard case) did nothing. Map digits, minus, Backspace and Enter here.
+  useEffect(() => {
+    if (disabled) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Skip keys another control already handled (e.g. a focused lane button's Enter).
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      // A focused button handles its own Enter (e.g. a numpad key activated from the keyboard).
+      if (e.key === "Enter" && target?.closest("button")) return;
+      if (/^[0-9]$/.test(e.key)) pressDigit(e.key);
+      else if (e.key === "-") pressMinus();
+      else if (e.key === "Backspace") pressBackspace();
+      else if (e.key === "Enter") pressDone();
+      else return;
       e.preventDefault();
-      if (disabled) return;
-      createRipple(e, "backspace");
-      triggerHaptic("light");
-      setValue((prev) => prev.slice(0, -1));
-    },
-    [disabled, setValue, createRipple]
-  );
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [disabled, pressDigit, pressMinus, pressBackspace, pressDone]);
 
-  const clearAnswer = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-      if (disabled) return;
-      createRipple(e, "clear");
-      triggerHaptic("medium");
-      setValue("");
-    },
-    [disabled, setValue, createRipple]
-  );
-
-  const handleDone = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-      if (disabled || !onDone || value.length === 0 || value === "-") return;
-      createRipple(e, "done");
-      triggerHaptic("medium");
-      onDone();
-    },
-    [disabled, onDone, value, createRipple]
-  );
-
-  const doneDisabled = disabled || !onDone || value.length === 0 || value === "-";
+  const doneDisabled = !canSubmit;
   const isCompact = variant === "compact";
 
   // Base button classes with performance optimizations
@@ -228,7 +232,8 @@ export function MobileNumpad({
                 key={d}
                 type="button"
                 className={digitBtnClass}
-                onPointerDown={(e) => appendDigit(e, d)}
+                onPointerDown={pointerHandler(`digit-${d}`, "light", () => pressDigit(d))}
+                onClick={keyboardClickHandler(() => pressDigit(d))}
                 disabled={disabled}
               >
                 {getRipplesForButton(`digit-${d}`).map((r) => (
@@ -242,7 +247,8 @@ export function MobileNumpad({
             <button
               type="button"
               className={actionBtnClass}
-              onPointerDown={toggleMinus}
+              onPointerDown={pointerHandler("minus", "light", pressMinus)}
+              onClick={keyboardClickHandler(pressMinus)}
               disabled={disabled}
               aria-label="Toggle negative sign"
             >
@@ -254,7 +260,8 @@ export function MobileNumpad({
             <button
               type="button"
               className={actionBtnClass}
-              onPointerDown={(e) => appendDigit(e, "0")}
+              onPointerDown={pointerHandler("digit-0", "light", () => pressDigit("0"))}
+              onClick={keyboardClickHandler(() => pressDigit("0"))}
               disabled={disabled}
             >
               {getRipplesForButton("digit-0").map((r) => (
@@ -265,7 +272,8 @@ export function MobileNumpad({
             <button
               type="button"
               className={backspaceBtnClass}
-              onPointerDown={backspace}
+              onPointerDown={pointerHandler("backspace", "light", pressBackspace)}
+              onClick={keyboardClickHandler(pressBackspace)}
               disabled={disabled}
               aria-label="Backspace"
             >
@@ -279,7 +287,8 @@ export function MobileNumpad({
             <button
               type="button"
               className={clearBtnClass}
-              onPointerDown={clearAnswer}
+              onPointerDown={pointerHandler("clear", "medium", pressClear)}
+              onClick={keyboardClickHandler(pressClear)}
               disabled={disabled}
             >
               {getRipplesForButton("clear").map((r) => (
@@ -290,7 +299,8 @@ export function MobileNumpad({
             <button
               type="button"
               className={cn(doneBtnClass, "col-span-2", doneDisabled && "opacity-50 cursor-not-allowed")}
-              onPointerDown={handleDone}
+              onPointerDown={pointerHandler("done", "medium", pressDone)}
+              onClick={keyboardClickHandler(pressDone)}
               disabled={doneDisabled}
             >
               {getRipplesForButton("done").map((r) => (
