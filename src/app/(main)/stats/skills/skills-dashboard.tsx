@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -403,9 +403,12 @@ export function SkillsDashboard() {
   const [showPerformanceScore, setShowPerformanceScore] = useState(false);
   const [matrixSize, setMatrixSize] = useState(15);
   const [matrixLoading, setMatrixLoading] = useState(false);
+  // Only the latest request may update the view, so quick slider moves can't land out of order.
+  const latestRequestRef = useRef(0);
 
   // Fetch skills data with optional matrix size
   const fetchSkillsData = useCallback(async (maxNumber: number = 15, isInitial: boolean = true) => {
+    const requestId = ++latestRequestRef.current;
     try {
       if (isInitial) {
         setLoading(true);
@@ -418,6 +421,7 @@ export function SkillsDashboard() {
         throw new Error("Failed to fetch skills data");
       }
       const skillsData = await response.json();
+      if (requestId !== latestRequestRef.current) return;
       setData(skillsData);
     } catch (err) {
       console.error("Error fetching skills data:", err);
@@ -425,17 +429,21 @@ export function SkillsDashboard() {
         setError("Failed to load skills data");
       }
     } finally {
-      if (isInitial) {
-        setLoading(false);
-      } else {
-        setMatrixLoading(false);
+      if (requestId === latestRequestRef.current) {
+        if (isInitial) {
+          setLoading(false);
+        } else {
+          setMatrixLoading(false);
+        }
       }
     }
   }, []);
 
+  // Load once on mount. Depending on matrixSize re-ran this full-page load on every slider
+  // step, unmounting the slider mid-drag; slider changes fetch on release instead.
   useEffect(() => {
-    fetchSkillsData(matrixSize, true);
-  }, [fetchSkillsData, matrixSize]);
+    fetchSkillsData(15, true);
+  }, [fetchSkillsData]);
   
   // Debounced matrix size change handler
   const handleMatrixSizeChange = (newSize: number) => {

@@ -213,6 +213,8 @@ export function WeakPointsDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      // Clear the previous failure, or "Try Again" stays on the error screen after a success.
+      setError(null);
       const response = await fetch("/api/user/weak-points");
       if (!response.ok) {
         throw new Error("Failed to fetch weak points data");

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,42 @@ const secondaryNavigation = [
 export function MobileNavDrawer() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebar();
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // While open: move focus in, keep Tab inside, close on Escape, and hand focus back to the
+  // control that opened the drawer when it closes.
+  useEffect(() => {
+    if (!isOpen) return;
+    const opener = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+        return;
+      }
+      if (e.key !== "Tab" || !drawerRef.current) return;
+      const focusable = drawerRef.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])");
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      opener?.focus?.();
+    };
+  }, [isOpen, close]);
 
   return (
     <>
@@ -47,6 +84,14 @@ export function MobileNavDrawer() {
 
       {/* Drawer */}
       <aside
+        ref={drawerRef}
+        id="mobile-nav-drawer"
+        role="dialog"
+        aria-modal={isOpen}
+        aria-label="Navigation menu"
+        // Closed, the drawer is only translated off-screen; inert keeps its links out of the
+        // tab order and away from screen readers.
+        inert={!isOpen}
         className={cn(
           "fixed top-0 right-0 h-full w-[min(320px,calc(100vw-3rem))] overflow-hidden bg-sidebar border-l border-sidebar-border z-50 transform transition-transform duration-300 ease-in-out md:hidden",
           isOpen ? "translate-x-0" : "translate-x-full"
@@ -59,6 +104,7 @@ export function MobileNavDrawer() {
             <span className="font-semibold">thetamac</span>
           </Link>
           <button
+            ref={closeButtonRef}
             onClick={close}
             className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
             aria-label="Close navigation menu"

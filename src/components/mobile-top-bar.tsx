@@ -9,7 +9,7 @@ import { LogoMark } from "@/components/brand/logo-mark";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
 
 export function MobileTopBar() {
-  const { toggle } = useSidebar();
+  const { toggle, isOpen } = useSidebar();
   const { isPinned } = useMobileTopBarPinning();
 
   return (
@@ -37,6 +37,8 @@ export function MobileTopBar() {
           onClick={toggle}
           className="rounded-full border border-border bg-card p-2 text-muted-foreground transition-colors hover:border-brand/50 hover:text-foreground"
           aria-label="Open navigation menu"
+          aria-expanded={isOpen}
+          aria-controls="mobile-nav-drawer"
         >
           <Menu className="w-5 h-5" />
         </button>

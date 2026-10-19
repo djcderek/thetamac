@@ -179,6 +179,9 @@ export function SettingsClient() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [themeFeedback, setThemeFeedback] = useState<SaveFeedback>(null);
   const [settingsFeedback, setSettingsFeedback] = useState<SaveFeedback>(null);
+  // Save feedback appears only in the card that triggered it; rendering it in both cards
+  // showed it twice and made screen readers announce every save twice.
+  const [settingsFeedbackSection, setSettingsFeedbackSection] = useState<"preferences" | "training">("preferences");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -658,21 +661,24 @@ export function SettingsClient() {
 
               <div className="grid gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Display Name</label>
+                  <label htmlFor="settings-display-name" className="text-sm font-medium mb-2 block">Display Name</label>
                   <Input 
+                    id="settings-display-name"
                     value={profile.name} 
                     onChange={(e) => setProfile({...profile, name: e.target.value})}
                     maxLength={80}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Email</label>
+                  <label htmlFor="settings-email" className="text-sm font-medium mb-2 block">Email</label>
                   <Input 
+                    id="settings-email"
                     value={profile.email} 
+                    aria-describedby="settings-email-help"
                     disabled
                     className="bg-muted text-muted-foreground opacity-100"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p id="settings-email-help" className="text-xs text-muted-foreground mt-1">
                     Email address cannot be changed.
                   </p>
                 </div>
@@ -791,11 +797,16 @@ export function SettingsClient() {
                 label="Auto-advance"
                 description="Automatically show the next problem after each result"
                 enabled={settings.autoAdvance}
-                onToggle={() => updateSettings({ autoAdvance: !settings.autoAdvance })}
+                onToggle={() => {
+                  setSettingsFeedbackSection("preferences");
+                  updateSettings({ autoAdvance: !settings.autoAdvance });
+                }}
               />
-              <div className="pb-4">
-                <FeedbackMessage feedback={settingsFeedback} />
-              </div>
+              {settingsFeedbackSection === "preferences" && (
+                <div className="pb-4">
+                  <FeedbackMessage feedback={settingsFeedback} />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -806,14 +817,18 @@ export function SettingsClient() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Default Difficulty</label>
-                <div className="flex gap-2">
+                <p id="default-difficulty-label" className="text-sm font-medium mb-2 block">Default Difficulty</p>
+                <div role="group" aria-labelledby="default-difficulty-label" className="flex gap-2">
                   {DIFFICULTY_OPTIONS.map((diff) => (
                     <Button
                       key={diff}
                       variant={settings.defaultDifficulty === diff ? "default" : "outline"}
                       size="sm"
-                      onClick={() => updateSettings({ defaultDifficulty: diff })}
+                      aria-pressed={settings.defaultDifficulty === diff}
+                      onClick={() => {
+                        setSettingsFeedbackSection("training");
+                        updateSettings({ defaultDifficulty: diff });
+                      }}
                     >
                       {diff}
                     </Button>
@@ -821,24 +836,35 @@ export function SettingsClient() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Practice question timer</label>
-                <p className="mb-2 text-xs text-muted-foreground">
+                <p id="practice-timer-label" className="text-sm font-medium mb-1 block">Practice question timer</p>
+                <p id="practice-timer-help" className="mb-2 text-xs text-muted-foreground">
                   Time allowed for each problem in Practice mode.
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div
+                  role="group"
+                  aria-labelledby="practice-timer-label"
+                  aria-describedby="practice-timer-help"
+                  className="flex flex-wrap gap-2"
+                >
                   {PRACTICE_TIMER_OPTIONS.map((time) => (
                     <Button
                       key={time}
                       variant={settings.defaultTimer === time ? "default" : "outline"}
                       size="sm"
-                      onClick={() => updateSettings({ defaultTimer: time })}
+                      aria-pressed={settings.defaultTimer === time}
+                      onClick={() => {
+                        setSettingsFeedbackSection("training");
+                        updateSettings({ defaultTimer: time });
+                      }}
                     >
                       {time}
                     </Button>
                   ))}
                 </div>
               </div>
-              <FeedbackMessage feedback={settingsFeedback} />
+              {settingsFeedbackSection === "training" && (
+                <FeedbackMessage feedback={settingsFeedback} />
+              )}
             </CardContent>
           </Card>
 

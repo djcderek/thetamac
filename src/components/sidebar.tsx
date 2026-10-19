@@ -63,6 +63,8 @@ export function Sidebar() {
         )}
         <button
           onClick={toggle}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!isCollapsed}
           className={cn(
             "p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors",
             !showExpanded && "p-2"
@@ -88,6 +90,9 @@ export function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
+                // Collapsed links show only an icon, so they need a name of their own.
+                aria-label={showExpanded ? undefined : item.name}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "group flex min-h-10 items-center gap-3 rounded-full px-3 py-2 text-sm transition-colors",
                   isActive
@@ -149,6 +154,8 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              aria-label={showExpanded ? undefined : item.name}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex min-h-10 items-center gap-3 rounded-full px-3 py-2 text-sm transition-colors",
                 isActive

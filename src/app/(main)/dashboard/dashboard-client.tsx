@@ -128,15 +128,9 @@ export function DashboardClient() {
   const hasPerformanceData = performanceData.some((d) => d.correct > 0);
   const hasActivityData = activityData.some((d) => d.problems > 0);
   const hasSkillsData = skillsData.some((s) => s.total > 0);
-  const overallAccuracy = hasSkillsData
-    ? Math.round(
-        (skillsData
-          .filter((s) => s.total > 0)
-          .reduce((a, b) => a + b.value, 0) /
-          (skillsData.filter((s) => s.total > 0).length || 1)) *
-          1
-      )
-    : null;
+  // Same attempt-weighted figure as the Accuracy tile. Averaging the four per-operation
+  // percentages gave a second, different "overall" number on the same page.
+  const overallAccuracy = hasSkillsData ? stats?.accuracy ?? null : null;
 
   return (
     <div className="min-h-screen">

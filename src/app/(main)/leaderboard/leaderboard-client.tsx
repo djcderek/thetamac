@@ -141,6 +141,8 @@ export function LeaderboardClient({
 
   useEffect(() => {
     if (!hasInteracted || view === "topScores") return;
+    // Switching tabs quickly could let an older, slower response overwrite the tab now shown.
+    let superseded = false;
 
     async function fetchLeaderboard() {
       setIsLoading(true);
@@ -148,6 +150,7 @@ export function LeaderboardClient({
         const res = await fetch(`/api/leaderboard?period=${period}&mode=${mode}`);
         if (res.ok) {
           const data = await res.json();
+          if (superseded) return;
           setLeaderboardData(data.leaderboard);
           setUserRank(data.userRank);
           setTrendComparisonLabel(data.trendComparisonLabel);
@@ -155,11 +158,14 @@ export function LeaderboardClient({
       } catch (error) {
         console.error("Failed to fetch leaderboard", error);
       } finally {
-        setIsLoading(false);
+        if (!superseded) setIsLoading(false);
       }
     }
 
     fetchLeaderboard();
+    return () => {
+      superseded = true;
+    };
   }, [period, mode, view, hasInteracted]);
 
   useEffect(() => {
