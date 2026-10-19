@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getCached } from "@/lib/server-cache";
 import { isGuestLeaderboardId } from "@/lib/leaderboard-ranking";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
@@ -85,7 +86,15 @@ function getStdDev(scores: number[], mean: number | null): number | null {
   return Math.sqrt(variance);
 }
 
-export async function getTrainingDistribution(): Promise<DistributionResult> {
+// The distribution is the same for every viewer and scans every timed run, so it is cached
+// briefly. A new score shifts it by at most one run, which the placement card tolerates.
+const DISTRIBUTION_TTL_SECONDS = 30;
+
+export function getTrainingDistribution(): Promise<DistributionResult> {
+  return getCached("training-distribution", DISTRIBUTION_TTL_SECONDS, loadTrainingDistribution);
+}
+
+async function loadTrainingDistribution(): Promise<DistributionResult> {
   const [sessions, guestSessions] = await Promise.all([
     db.trainingSession.findMany({
       where: {
