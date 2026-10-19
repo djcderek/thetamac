@@ -768,6 +768,9 @@ export default function TrainingPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const sessionStartTimeRef = useRef<number>(0);
   const bestStreakRef = useRef<number>(0);
+  // The problem whose answer has already been scored. Blocks repeat submits (double Enter,
+  // effect re-runs, timeout racing a correct answer) until the next problem replaces it.
+  const scoredProblemRef = useRef<Problem | null>(null);
 
   // Operation queue for even distribution
   const operationQueueRef = useRef<Operation[]>([]);
@@ -1419,6 +1422,12 @@ export default function TrainingPage() {
       return;
     }
 
+    if (scoredProblemRef.current === problem) return;
+    // A wrong answer in Timed mode can be retried; everything else scores the problem once.
+    if (correct || gameMode !== "timed") {
+      scoredProblemRef.current = problem;
+    }
+
     const timeTaken = (Date.now() - startTime) / 1000;
 
     if (gameMode === "learning") {
@@ -1535,6 +1544,9 @@ export default function TrainingPage() {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
+          // The answer landed just before the timeout; don't also count it as wrong.
+          if (problem && scoredProblemRef.current === problem) return 0;
+          if (problem) scoredProblemRef.current = problem;
           setIsCorrect(false);
           setStreak(0);
           setTotalSolved((p) => p + 1);
@@ -1600,10 +1612,12 @@ export default function TrainingPage() {
   // Auto-submit when correct answer is typed
   useEffect(() => {
     if (!isPlaying || !problem || submitMode !== "auto" || hasAnswered) return;
+    if (scoredProblemRef.current === problem) return;
 
     const answerNum = parseInt(userAnswer);
     if (!isNaN(answerNum) && answerNum === problem.answer) {
       // Correct answer typed - auto submit
+      scoredProblemRef.current = problem;
       const timeTaken = (Date.now() - startTime) / 1000;
       trackFirstAnswer();
 

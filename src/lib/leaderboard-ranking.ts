@@ -51,6 +51,17 @@ export interface RaceResult {
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Guest IDs have always been UUIDs (legacy localStorage IDs and signed guest cookies alike),
+ * while user IDs are cuids. Anything else was written through the old body-supplied guestId
+ * fallback and must not be ranked, or it would merge into a signed-in user's entry.
+ */
+export function isGuestLeaderboardId(id: string): boolean {
+  return UUID_PATTERN.test(id);
+}
+
 export function getCurrentPeriodStart(
   period: "all" | "weekly" | "daily",
   now: Date

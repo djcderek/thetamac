@@ -7,6 +7,7 @@ import {
   getPersonalBestTrainingScores,
   getQueryStart,
   getTrendComparisonLabel,
+  isGuestLeaderboardId,
   isInComparisonPeriod,
   isInCurrentPeriod,
   sortRankedItems,
@@ -100,7 +101,9 @@ function filterGuestRuns(
   scores: GuestScore[],
   period: Period
 ): GuestScore[] {
-  const plausible = scores.filter((score) => !isImplausibleLegacyGuestRun(score));
+  const plausible = scores.filter(
+    (score) => isGuestLeaderboardId(score.guestId) && !isImplausibleLegacyGuestRun(score)
+  );
   const unverifiedTotals = new Map<string, number>();
   for (const score of plausible) {
     if (!score.identityVerified) {
