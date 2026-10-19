@@ -271,9 +271,11 @@ export function WeakPointsDashboard() {
   }
 
   const hasData = data && data.totalAttempts > 0;
-  // Check for weak points in any category: problems with <100% accuracy, improvement areas, or operations below 90%
+  // Check for weak points in any category: problems with <100% accuracy, slow problems,
+  // improvement areas, or operations below 90%
   const hasWeakPoints = hasData && (
-    data.topWeakProblems.length > 0 || 
+    data.topWeakProblems.length > 0 ||
+    data.slowestProblems.length > 0 ||
     data.recentMistakes.length > 0 ||
     data.improvementAreas.length > 0 ||
     data.operationWeaknesses.some(op => op.accuracy < 90)

@@ -230,6 +230,8 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     setTimes([]);
     setMistakes([]);
     setIsRetryRound(false);
+    setUserAnswer("");
+    setIsCorrect(null);
     setStartTime(Date.now());
     inputRef.current?.focus();
   };
@@ -258,6 +260,9 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     setProblems(shuffleArray(mistakes));
     setMistakes([]);
     setCurrentIndex(0);
+    setCorrectCount(0);
+    setUserAnswer("");
+    setIsCorrect(null);
     setIsRetryRound(true);
     setIsComplete(false);
     setIsPlaying(true);
@@ -442,7 +447,10 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     }
   }, [userAnswer, isPlaying, currentProblem, submitMode, isCorrect, startTime, bestStreak, recordAttempt, nextProblem]);
 
-  const accuracy = problems.length > 0 ? Math.round((correctCount / Math.max(currentIndex, 1)) * 100) : 0;
+  // currentIndex stays on the last problem at completion, and the current problem counts as
+  // answered once it has feedback, so dividing by currentIndex alone overstated accuracy.
+  const answeredCount = isComplete ? problems.length : currentIndex + (isCorrect !== null ? 1 : 0);
+  const accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
 
   if (problems.length === 0) {
     return (
