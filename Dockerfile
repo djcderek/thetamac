@@ -26,6 +26,24 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
 
+# Fly serves only Socket.io; its image needs no Next.js build or database access.
+FROM deps AS websocket
+COPY server.ts tsconfig.json ./
+COPY src ./src
+
+ARG GIT_REVISION=unknown
+RUN printf '%s\n' "$GIT_REVISION" > REVISION \
+  && addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
+
+ENV NODE_ENV=production
+ENV WEBSOCKET_ONLY=true
+ENV PORT=3000
+
+USER nextjs
+EXPOSE 3000
+CMD ["node", "--import", "tsx", "server.ts"]
+
 # Builder stage
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
