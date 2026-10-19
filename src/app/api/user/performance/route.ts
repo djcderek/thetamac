@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkPremiumAccess } from "@/lib/subscription";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -17,6 +18,17 @@ export async function GET(request: Request) {
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const range = searchParams.get("range") || "weekly";
+
+    // The free dashboard uses the weekly view; longer ranges belong to Pro analytics.
+    if (range === "monthly" || range === "yearly") {
+      const { isPremium } = await checkPremiumAccess(userId);
+      if (!isPremium) {
+        return NextResponse.json(
+          { error: "Premium subscription required." },
+          { status: 402 }
+        );
+      }
+    }
 
     const now = new Date();
     let startDate: Date;
