@@ -5,6 +5,7 @@ import { getNextStreak, resolveTimeZone } from "@/lib/streak";
 import {
   getImplausibleResultReason,
   trainingSessionResultSchema,
+  trainingSessionStartSchema,
 } from "@/lib/training-session-results";
 
 // POST - Start a new training session
@@ -17,16 +18,16 @@ export async function POST(request: Request) {
     }
 
     const userId = session.user.id;
-    const body = await request.json();
-    const { gameMode, difficulty, operations } = body;
+    const parsed = trainingSessionStartSchema.safeParse(await request.json().catch(() => null));
 
-    // Validate input
-    if (!gameMode || !difficulty || !operations || operations.length === 0) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Invalid session settings" },
         { status: 400 }
       );
     }
+
+    const { gameMode, difficulty, operations, timeLimitSeconds, customRanges } = parsed.data;
 
     // Create new training session
     const trainingSession = await db.trainingSession.create({
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
         gameMode,
         difficulty,
         operations,
+        timeLimitSeconds: gameMode === "timed" ? timeLimitSeconds : null,
+        customRanges: customRanges ?? false,
       },
     });
 
@@ -74,7 +77,7 @@ export async function PATCH(request: Request) {
 
     const existing = await db.trainingSession.findFirst({
       where: { id: sessionId, userId },
-      select: { createdAt: true, completedAt: true },
+      select: { createdAt: true, completedAt: true, gameMode: true, timeLimitSeconds: true },
     });
 
     if (!existing) {
@@ -85,7 +88,11 @@ export async function PATCH(request: Request) {
     }
 
     const elapsedSeconds = (Date.now() - existing.createdAt.getTime()) / 1000;
-    const implausibleReason = getImplausibleResultReason(parsed.data, elapsedSeconds);
+    const implausibleReason = getImplausibleResultReason(
+      parsed.data,
+      elapsedSeconds,
+      existing.gameMode === "timed" ? existing.timeLimitSeconds : null
+    );
     if (implausibleReason) {
       return NextResponse.json({ error: implausibleReason }, { status: 400 });
     }

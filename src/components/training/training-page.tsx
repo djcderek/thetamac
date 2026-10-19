@@ -948,10 +948,10 @@ export default function TrainingPage() {
     if (gameMode === "learning" && selectedSkill) {
       const skill = TRAINING_SKILLS.find((s) => s.id === selectedSkill);
       if (skill) {
-        const presetRanges = getPresetRanges(difficulty);
-        const effectiveRange = showAdvanced
-          ? operationRanges[skill.operation]
-          : presetRanges[skill.operation];
+        // Each technique has a range suited to it (e.g. squaring numbers ending in 5). Difficulty
+        // presets squeezed those to 1-10 on Easy, so 5x5 was the only "ends in 5" problem.
+        // Custom ranges still apply when the player sets them.
+        const effectiveRange = showAdvanced ? operationRanges[skill.operation] : undefined;
         const newProblem = skill.generateProblem({ range: effectiveRange });
         setProblem(newProblem);
         setUserAnswer("");
@@ -1185,7 +1185,10 @@ export default function TrainingPage() {
       setOverallTimeLeft(timedModeLimit);
     }
 
-    // Create session in database if user is logged in
+    // Create session in database if user is logged in. Clear the previous run's ID first:
+    // "Play again" during a slow save left it set, so the new run's first answers were
+    // recorded against the previous session.
+    setSessionId(null);
     if (authSession?.user) {
       sessionPromiseRef.current = (async () => {
         try {
@@ -1196,6 +1199,8 @@ export default function TrainingPage() {
               gameMode,
               difficulty,
               operations: selectedOperations,
+              timeLimitSeconds: gameMode === "timed" ? timedModeLimit : undefined,
+              customRanges: showAdvanced,
             }),
           });
 
@@ -1328,10 +1333,15 @@ export default function TrainingPage() {
       clearAnalyticsSessionProperties("training_run_id", "training_type", "game_mode");
     }
 
+    // "Play again" can start the next run while this one is still saving; anything this
+    // call clears or sets afterwards must still belong to the run it is ending.
+    const endingRunId = trainingRunIdRef.current;
+    const endingSessionPromise = sessionPromiseRef.current;
+
     if (authSession?.user) {
       let finalSessionId = sessionId;
-      if (!finalSessionId && sessionPromiseRef.current) {
-        finalSessionId = await sessionPromiseRef.current;
+      if (!finalSessionId && endingSessionPromise) {
+        finalSessionId = await endingSessionPromise;
       }
       if (finalSessionId) {
         const duration = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
@@ -1354,8 +1364,10 @@ export default function TrainingPage() {
           console.error("Failed to end session:", error);
         }
 
-        setSessionId(null);
-        sessionPromiseRef.current = null;
+        setSessionId((current) => (current === finalSessionId ? null : current));
+        if (sessionPromiseRef.current === endingSessionPromise) {
+          sessionPromiseRef.current = null;
+        }
       }
     } else {
       await submitGuestScore(solved, correct, bestStreak, avgTimeVal);
@@ -1366,7 +1378,8 @@ export default function TrainingPage() {
       const scoreForDistribution = correct;
       try {
         const res = await fetch("/api/leaderboard/training/distribution");
-        if (res.ok) {
+        // A new run started meanwhile: this placement belongs to the previous one.
+        if (res.ok && trainingRunIdRef.current === endingRunId) {
           const data = await res.json();
           const buckets: ScoreBucket[] = data.buckets || [];
           const total: number = data.total || 0;
@@ -1434,8 +1447,9 @@ export default function TrainingPage() {
   };
 
   const stopTraining = async () => {
-    // Save session before stopping if we have data
-    if (totalSolved > 0) {
+    // Save session before stopping if we have data. A finished run ("Change settings" on the
+    // results screen) was already saved when it ended.
+    if (totalSolved > 0 && !isGameOver) {
       await endSession(
         totalSolved,
         totalCorrect,

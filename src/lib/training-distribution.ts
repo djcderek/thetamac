@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
+import { standardTimedSessionWhere } from "@/lib/standard-timed-sessions";
 import { getCached } from "@/lib/server-cache";
 import { isGuestLeaderboardId } from "@/lib/leaderboard-ranking";
-import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 const MAX_BUCKET_COUNT = 48;
 const MAX_LEGACY_GUEST_SCORE_PER_RUN = 500;
@@ -98,9 +98,7 @@ async function loadTrainingDistribution(): Promise<DistributionResult> {
   const [sessions, guestSessions] = await Promise.all([
     db.trainingSession.findMany({
       where: {
-        gameMode: DEFAULT_TIMED_TRAINING_SETTINGS.gameMode,
-        difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
-        operations: { hasEvery: [...DEFAULT_TIMED_TRAINING_SETTINGS.operations] },
+        ...standardTimedSessionWhere,
         completedAt: { not: null },
       },
       select: { correctAnswers: true, totalProblems: true },

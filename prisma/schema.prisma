@@ -183,6 +183,10 @@ model TrainingSession {
   gameMode        String    // "timed", "practice", "learning"
   difficulty      String    // "easy", "medium", "hard", "expert"
   operations      String[]  // ["+", "-", "×", "÷"]
+  // Timed runs only rank against the standard setup. Null on sessions recorded before these
+  // were stored, whose settings are unknown.
+  timeLimitSeconds Int?
+  customRanges     Boolean?
   
   // Session results
   totalProblems   Int       @default(0)

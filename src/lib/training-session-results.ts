@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TIMED_MODE_LIMITS } from "./training-settings";
 
 // Generous ceiling on solve rate; the best timed runs stay well under 2 problems per second.
 export const MAX_PROBLEMS_PER_SECOND = 4;
@@ -6,6 +7,25 @@ export const MAX_PROBLEMS_PER_SECOND = 4;
 const ELAPSED_SLACK_SECONDS = 5;
 
 const count = z.number().int().nonnegative();
+
+export const trainingSessionStartSchema = z
+  .object({
+    gameMode: z.enum(["timed", "practice", "learning"]),
+    difficulty: z.enum(["easy", "medium", "hard", "expert"]),
+    operations: z.array(z.enum(["+", "-", "×", "÷"])).min(1).max(4),
+    // Recorded so only standard timed runs (2:00, preset ranges) rank on the leaderboard.
+    timeLimitSeconds: z
+      .number()
+      .int()
+      .refine((value) => TIMED_MODE_LIMITS.includes(value))
+      .optional(),
+    customRanges: z.boolean().optional(),
+  })
+  .refine((start) => start.gameMode !== "timed" || start.timeLimitSeconds !== undefined, {
+    message: "Timed sessions need a time limit",
+  });
+
+export type TrainingSessionStart = z.infer<typeof trainingSessionStartSchema>;
 
 export const trainingSessionResultSchema = z.object({
   sessionId: z.string().min(1),
@@ -26,9 +46,15 @@ export type TrainingSessionResult = z.infer<typeof trainingSessionResultSchema>;
  */
 export function getImplausibleResultReason(
   result: TrainingSessionResult,
-  elapsedSeconds: number
+  elapsedSeconds: number,
+  timeLimitSeconds?: number | null
 ): string | null {
-  const allowedSeconds = Math.max(0, elapsedSeconds) + ELAPSED_SLACK_SECONDS;
+  // A timed run can't use more time than its limit, however late its results arrive.
+  const sessionSeconds =
+    typeof timeLimitSeconds === "number"
+      ? Math.min(Math.max(0, elapsedSeconds), timeLimitSeconds)
+      : Math.max(0, elapsedSeconds);
+  const allowedSeconds = sessionSeconds + ELAPSED_SLACK_SECONDS;
 
   if (result.correctAnswers > result.totalProblems) {
     return "Correct answers cannot exceed total problems";
