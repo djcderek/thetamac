@@ -7,6 +7,7 @@ import {
   calculateRankTrends,
   getPersonalBestTrainingScores,
   getQueryStart,
+  isGuestLeaderboardId,
   isInComparisonPeriod,
   isInCurrentPeriod,
   sortRankedItems,
@@ -135,4 +136,10 @@ test("daily and weekly windows separate current and previous activity", () => {
   assert.equal(isInComparisonPeriod(tenDaysAgo, "weekly", now), true);
   assert.equal(getQueryStart("daily", now)?.toISOString(), "2026-07-10T20:00:00.000Z");
   assert.equal(getQueryStart("all", now), null);
+});
+
+test("only UUID guest IDs are ranked, so guest rows can't impersonate user IDs", () => {
+  assert.equal(isGuestLeaderboardId("7b7d74a6-8243-474c-8842-8ec843f19c5d"), true);
+  assert.equal(isGuestLeaderboardId("cmvfhfz360000hffhxip96sri"), false);
+  assert.equal(isGuestLeaderboardId("anything-at-all"), false);
 });

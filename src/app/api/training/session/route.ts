@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {
+  getImplausibleResultReason,
+  trainingSessionResultSchema,
+} from "@/lib/training-session-results";
 
 // POST - Start a new training session
 export async function POST(request: Request) {
@@ -56,19 +60,38 @@ export async function PATCH(request: Request) {
     }
 
     const userId = session.user.id;
-    const body = await request.json();
-    const { sessionId, totalProblems, correctAnswers, duration, averageTime, bestStreak } = body;
+    const parsed = trainingSessionResultSchema.safeParse(await request.json().catch(() => null));
 
-    if (!sessionId) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Session ID required" },
+        { error: "Invalid session results" },
         { status: 400 }
       );
     }
 
-    // Update the training session
-    const trainingSession = await db.trainingSession.update({
+    const { sessionId, totalProblems, correctAnswers, duration, averageTime, bestStreak } = parsed.data;
+
+    const existing = await db.trainingSession.findFirst({
       where: { id: sessionId, userId },
+      select: { createdAt: true, completedAt: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    if (existing.completedAt) {
+      return NextResponse.json({ error: "Session already completed" }, { status: 409 });
+    }
+
+    const elapsedSeconds = (Date.now() - existing.createdAt.getTime()) / 1000;
+    const implausibleReason = getImplausibleResultReason(parsed.data, elapsedSeconds);
+    if (implausibleReason) {
+      return NextResponse.json({ error: implausibleReason }, { status: 400 });
+    }
+
+    // Complete the session only once, so replays can't add to stats again.
+    const { count } = await db.trainingSession.updateMany({
+      where: { id: sessionId, userId, completedAt: null },
       data: {
         totalProblems,
         correctAnswers,
@@ -77,6 +100,14 @@ export async function PATCH(request: Request) {
         bestStreak,
         completedAt: new Date(),
       },
+    });
+
+    if (count === 0) {
+      return NextResponse.json({ error: "Session already completed" }, { status: 409 });
+    }
+
+    const trainingSession = await db.trainingSession.findUnique({
+      where: { id: sessionId },
     });
 
     // Update user stats
@@ -125,9 +156,9 @@ export async function PATCH(request: Request) {
       await db.userStats.update({
         where: { userId },
         data: {
-          totalProblems: userStats.totalProblems + totalProblems,
-          totalCorrect: userStats.totalCorrect + correctAnswers,
-          totalTimePlayed: userStats.totalTimePlayed + duration,
+          totalProblems: { increment: totalProblems },
+          totalCorrect: { increment: correctAnswers },
+          totalTimePlayed: { increment: duration },
           currentStreak: newCurrentStreak,
           longestStreak: newLongestStreak,
         },

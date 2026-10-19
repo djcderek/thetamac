@@ -51,8 +51,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      guestId,
-      displayName,
       totalProblems,
       correctAnswers,
       averageTime,
@@ -67,16 +65,14 @@ export async function POST(request: Request) {
     const guestCookie = (await cookies()).get(GUEST_COOKIE_NAME)?.value;
     const verifiedGuest = guestCookie ? await verifyGuestToken(guestCookie) : null;
 
-    // Prefer server-verified cookie identity, but keep fallback for compatibility.
-    const resolvedGuestId = verifiedGuest?.guestId || (typeof guestId === "string" ? guestId : null);
-    const identityVerified = Boolean(verifiedGuest);
-    if (!resolvedGuestId || resolvedGuestId.length < 8) {
-      return NextResponse.json({ error: "guestId required" }, { status: 400 });
+    // Identity comes only from the server-signed guest cookie. Accepting a guestId from the
+    // body let anyone write scores under another player's ID, including signed-in users.
+    if (!verifiedGuest) {
+      return NextResponse.json({ error: "Guest session required" }, { status: 401 });
     }
-    const resolvedDisplayName = sanitizeDisplayName(
-      verifiedGuest?.guestName || displayName,
-      "Guest"
-    );
+    const resolvedGuestId = verifiedGuest.guestId;
+    const identityVerified = true;
+    const resolvedDisplayName = sanitizeDisplayName(verifiedGuest.guestName, "Guest");
 
     const clientIp = getClientIp(request);
     const rateLimit = await checkRateLimit(

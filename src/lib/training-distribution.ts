@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { isGuestLeaderboardId } from "@/lib/leaderboard-ranking";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 const MAX_BUCKET_COUNT = 48;
@@ -119,7 +120,7 @@ export async function getTrainingDistribution(): Promise<DistributionResult> {
     (session) => session.correctAnswers ?? session.totalProblems ?? 0
   );
   for (const guest of guestSessions) {
-    if (isImplausibleLegacyGuestRun(guest)) continue;
+    if (!isGuestLeaderboardId(guest.guestId) || isImplausibleLegacyGuestRun(guest)) continue;
     if (
       !guest.identityVerified &&
       (legacyGuestTotals.get(guest.guestId) ?? 0) > MAX_LEGACY_GUEST_TOTAL
