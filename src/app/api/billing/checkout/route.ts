@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStripeClient } from "@/lib/stripe";
-import { userHasPremiumAccess } from "@/lib/subscription";
+import {
+  isTrialEligible,
+  subscriptionNeedsAttention,
+  userHasPremiumAccess,
+} from "@/lib/subscription";
 import { env } from "@/lib/env";
 import { checkoutRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import Stripe from "stripe";
@@ -33,6 +37,36 @@ function normalizeReturnPath(
   if (!trimmed.startsWith("/")) return null;
   if (trimmed.startsWith("//")) return null;
   return trimmed;
+}
+
+/**
+ * Only the newest open Checkout session may be completed, so two tabs can't both
+ * start a subscription. Sessions created before `current` are expired.
+ */
+async function expireEarlierOpenCheckouts(
+  stripe: Stripe,
+  customerId: string,
+  current: Stripe.Checkout.Session
+) {
+  try {
+    const open = await stripe.checkout.sessions.list({
+      customer: customerId,
+      status: "open",
+      limit: 20,
+    });
+    const earlier = open.data.filter(
+      (candidate) =>
+        candidate.id !== current.id &&
+        (candidate.created < current.created ||
+          (candidate.created === current.created && candidate.id < current.id))
+    );
+    await Promise.all(
+      earlier.map((candidate) => stripe.checkout.sessions.expire(candidate.id))
+    );
+  } catch (error) {
+    // Failing to expire older sessions must not block this checkout.
+    console.error("Unable to expire earlier checkout sessions", error);
+  }
 }
 
 export async function POST(request: Request) {
@@ -111,31 +145,43 @@ export async function POST(request: Request) {
     const stripe = getStripeClient();
 
     let customerId = user.stripeCustomerId;
-    let eligibleForTrial = !user.proTrialUsed && !user.proSignupCreditGranted;
+    let eligibleForTrial = isTrialEligible(user);
 
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email ?? undefined,
-        name: user.name ?? undefined,
-        metadata: {
-          userId: user.id,
+      // The idempotency key makes concurrent first checkouts (two tabs, double click)
+      // resolve to the same Stripe customer instead of creating two.
+      const customer = await stripe.customers.create(
+        {
+          email: user.email ?? undefined,
+          name: user.name ?? undefined,
+          metadata: {
+            userId: user.id,
+          },
         },
+        { idempotencyKey: `checkout-customer-${user.id}` }
+      );
+
+      const { count } = await db.user.updateMany({
+        where: { id: user.id, stripeCustomerId: null },
+        data: { stripeCustomerId: customer.id },
       });
 
-      customerId = customer.id;
-
-      await db.user.update({
-        where: { id: user.id },
-        data: {
-          stripeCustomerId: customerId,
-        },
-      });
+      if (count > 0) {
+        customerId = customer.id;
+      } else {
+        const latest = await db.user.findUnique({
+          where: { id: user.id },
+          select: { stripeCustomerId: true },
+        });
+        customerId = latest?.stripeCustomerId ?? customer.id;
+      }
     } else {
-      // Double-check Stripe for any active subscriptions (handles DB sync issues)
-      // Check for active, trialing, and past_due statuses
+      // Double-check Stripe for existing subscriptions (handles DB sync issues).
+      // `status: "all"` includes canceled ones, which still count as trial history.
       const existingSubscriptions = await stripe.subscriptions.list({
         customer: customerId,
-        limit: 10,
+        status: "all",
+        limit: 20,
       });
 
       // If Stripe already has *any* subscription history for this customer, don't offer a trial.
@@ -169,6 +215,22 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { error: "You already have an active subscription." },
           { status: 400 }
+        );
+      }
+
+      // A subscription awaiting payment or paused must be resolved in the billing portal;
+      // a new checkout would create a second subscription.
+      const subscriptionNeedingAttention = existingSubscriptions.data.find((sub) =>
+        subscriptionNeedsAttention(sub.status)
+      );
+      if (subscriptionNeedingAttention) {
+        return NextResponse.json(
+          {
+            error:
+              "Your existing subscription needs attention. Use Manage billing on the pricing page to update payment or resume it.",
+            manageBilling: true,
+          },
+          { status: 409 }
         );
       }
     }
@@ -211,6 +273,8 @@ export async function POST(request: Request) {
         plan,
       },
     });
+
+    await expireEarlierOpenCheckouts(stripe, customerId, checkoutSession);
 
     await captureServerAnalyticsEvent({
       distinctId: session.user.id,

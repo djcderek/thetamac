@@ -3,10 +3,12 @@ import { db } from "./db";
 import { auth } from "./auth";
 import {
   isPremiumStatus,
+  isTrialEligible,
+  subscriptionNeedsAttention,
   userHasPremiumAccess,
 } from "./subscription-status";
 
-export { isPremiumStatus, userHasPremiumAccess };
+export { isPremiumStatus, isTrialEligible, subscriptionNeedsAttention, userHasPremiumAccess };
 
 /**
  * Server-side check for premium access.
@@ -18,6 +20,7 @@ export async function checkPremiumAccess(userId?: string | null): Promise<{
   subscriptionStatus: string | null;
   subscriptionPlan: SubscriptionPlan | null;
   subscriptionCurrentPeriodEnd: Date | null;
+  trialEligible: boolean;
 }> {
   if (!userId) {
     return {
@@ -25,6 +28,7 @@ export async function checkPremiumAccess(userId?: string | null): Promise<{
       subscriptionStatus: null,
       subscriptionPlan: null,
       subscriptionCurrentPeriodEnd: null,
+      trialEligible: true,
     };
   }
 
@@ -35,6 +39,9 @@ export async function checkPremiumAccess(userId?: string | null): Promise<{
       subscriptionStatus: true,
       subscriptionPlan: true,
       subscriptionCurrentPeriodEnd: true,
+      stripeSubscriptionId: true,
+      proTrialUsed: true,
+      proSignupCreditGranted: true,
     },
   });
 
@@ -44,6 +51,7 @@ export async function checkPremiumAccess(userId?: string | null): Promise<{
       subscriptionStatus: null,
       subscriptionPlan: null,
       subscriptionCurrentPeriodEnd: null,
+      trialEligible: true,
     };
   }
 
@@ -54,6 +62,7 @@ export async function checkPremiumAccess(userId?: string | null): Promise<{
     subscriptionStatus: user.subscriptionStatus,
     subscriptionPlan: user.subscriptionPlan,
     subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd,
+    trialEligible: isTrialEligible(user),
   };
 }
 
