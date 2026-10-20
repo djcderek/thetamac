@@ -57,7 +57,7 @@ export function PremiumPaywall({
             <div className="ink-panel relative overflow-hidden rounded-2xl border p-4">
               <div className="dot-field pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
               <div className="relative">
-                <p className="mb-1 text-[13px] font-medium tracking-[0.14em] text-background/60">
+                <p className="mb-1 text-[13px] font-medium text-background/60">
                   Yearly · Best value
                 </p>
                 <p className="font-mono text-3xl font-semibold tracking-tight">$5.99</p>

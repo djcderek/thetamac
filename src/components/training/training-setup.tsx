@@ -84,7 +84,7 @@ function RangeInput({
         if (Number.isInteger(parsed) && parsed >= 1) onCommit(parsed);
       }}
       onBlur={() => setDraft(String(value))}
-      className="w-20 h-8 text-center text-sm"
+      className="h-10 w-20 rounded-xl px-2 text-center text-[15px] tabular-nums"
       min={1}
     />
   );
@@ -366,10 +366,17 @@ export function TrainingSetup({
                       key={op}
                       type="button"
                       onClick={() => toggleOperation(op)}
-                      className={tileClass(isSelected, "text-center")}
+                      aria-pressed={isSelected}
+                      // Multi-select: chosen operations lift to white; ink is for single choices.
+                      className={cn(
+                        "rounded-2xl px-3 py-3 text-center transition-colors",
+                        isSelected
+                          ? "bg-background text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06)]"
+                          : "bg-control text-muted-foreground hover:bg-control-hover",
+                      )}
                     >
-                      <div className="font-mono text-2xl">{op}</div>
-                      <div className={cn("text-xs", isSelected ? "text-background/70" : "text-muted-foreground")}>
+                      <div className="font-mono text-2xl font-semibold">{op}</div>
+                      <div className="text-xs text-muted-foreground">
                         {label}
                       </div>
                     </button>
@@ -462,7 +469,7 @@ export function TrainingSetup({
               </button>
 
               {showAdvanced && (
-                <div className="space-y-4 border-l-2 border-border pl-4">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs text-muted-foreground">Overrides difficulty presets.</p>
                     <button

@@ -183,13 +183,14 @@ export function TrainingRun({
                 {problem.a} {problem.operation} {problem.b}
               </div>
 
-              <form onSubmit={onSubmit}>
+              {/* Answer and Submit stack in one column at the same width. */}
+              <form onSubmit={onSubmit} className="mx-auto flex w-full max-w-[280px] flex-col gap-2">
                 {useCustomKeypad ? (
                   <div
                     role="textbox"
                     aria-label="Answer"
                     aria-readonly="true"
-                    className={`mx-auto flex h-14 max-w-[220px] items-center justify-center rounded-2xl bg-background px-3 text-center font-mono text-2xl font-semibold sm:h-16 sm:text-3xl ${
+                    className={`flex h-16 w-full items-center justify-center rounded-2xl bg-background px-3 text-center font-mono text-3xl font-semibold ${
                       answerInputDisabled ? "opacity-50" : ""
                     }`}
                   >
@@ -203,13 +204,13 @@ export function TrainingRun({
                     value={userAnswer}
                     onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
                     placeholder="?"
-                    className="mx-auto h-14 max-w-[220px] rounded-2xl bg-background text-center font-mono text-2xl font-semibold sm:h-16 sm:text-3xl"
+                    className="h-16 w-full rounded-2xl bg-background text-center font-mono text-3xl font-semibold focus:placeholder:text-transparent md:text-3xl"
                     autoFocus
                     disabled={gameMode === "learning" && hasAnswered}
                   />
                 )}
                 {submitMode === "manual" && !useCustomKeypad && (
-                  <Button type="submit" disabled={hasAnswered || !userAnswer || userAnswer === "-"} className="mx-auto mt-2 min-h-11 w-full max-w-[200px]">
+                  <Button type="submit" variant="brand" size="lg" disabled={hasAnswered || !userAnswer || userAnswer === "-"} className="w-full">
                     Submit
                   </Button>
                 )}
@@ -227,7 +228,7 @@ export function TrainingRun({
 
       {/* Solution Breakdown - After answering in Learning mode */}
       {gameMode === "learning" && hasAnswered && currentTip && (
-        <Card className={isCorrect ? "border-success" : "border-destructive"}>
+        <Card className={isCorrect ? "ring-2 ring-success/40" : "ring-2 ring-destructive/40"}>
           <CardContent className="p-5">
             <div className="space-y-4">
               {/* Result header */}

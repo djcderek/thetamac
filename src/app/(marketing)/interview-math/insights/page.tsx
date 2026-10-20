@@ -161,13 +161,13 @@ export default async function InterviewMathInsightsPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             href="/"
-            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center rounded-full bg-primary h-11 px-5 text-[15px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             Start Training
           </Link>
           <Link
             href="/interview-math"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+            className="inline-flex items-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
           >
             Browse Interview Guides
           </Link>

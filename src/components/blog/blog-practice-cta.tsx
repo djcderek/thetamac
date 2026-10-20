@@ -35,7 +35,7 @@ export function BlogPracticeCta({
         {secondaryHref && secondaryLabel ? (
           <Link
             href={secondaryHref}
-            className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/50"
+            className="inline-flex items-center justify-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold transition-colors hover:bg-secondary/50"
           >
             {secondaryLabel}
           </Link>

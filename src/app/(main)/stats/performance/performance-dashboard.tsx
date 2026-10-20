@@ -279,7 +279,7 @@ export function PerformanceDashboard() {
                         <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                         <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                         <Tooltip content={<SimpleTooltip />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
-                        <Bar dataKey="total" fill="currentColor" radius={[4, 4, 0, 0]} className="text-foreground" />
+                        <Bar dataKey="total" fill="currentColor" radius={8} maxBarSize={36} className="text-foreground" />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (

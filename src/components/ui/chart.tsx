@@ -23,7 +23,7 @@ export function ChartTooltipFrame({ label, children }: { label?: ReactNode; chil
   return (
     <div className="ink-panel rounded-2xl px-3 py-2">
       {label != null && (
-        <p className="text-[12px] font-medium tracking-[0.14em] text-background/60">{label}</p>
+        <p className="text-[12px] font-medium text-background/60">{label}</p>
       )}
       <div className="mt-0.5 space-y-0.5">{children}</div>
     </div>

@@ -314,7 +314,8 @@ export function DashboardClient() {
                       <Bar
                         dataKey="problems"
                         fill="currentColor"
-                        radius={[6, 6, 6, 6]}
+                        radius={8}
+                        maxBarSize={28}
                         className="text-foreground"
                       />
                     </BarChart>

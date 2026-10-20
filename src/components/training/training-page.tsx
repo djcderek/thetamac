@@ -843,6 +843,13 @@ export default function TrainingPage() {
     timedModeLimit, practiceTimerLimit, submitMode, showAdvanced,
     customRangesTouched, operationRanges, selectedSkill]);
 
+  // Desktop: start each run and its results at the top. The hero collapses when a run starts,
+  // and the old scroll position otherwise left the status row under the sticky top bar.
+  useEffect(() => {
+    if ((!isPlaying && !isGameOver) || useCustomKeypad || window.matchMedia("(max-width: 767px)").matches) return;
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [isPlaying, isGameOver, useCustomKeypad]);
+
   // Reset setup's scroll position after focus moves into a mobile run.
   useEffect(() => {
     if (!isPlaying || (!useCustomKeypad && !window.matchMedia("(max-width: 767px)").matches)) return;
@@ -1785,7 +1792,7 @@ export default function TrainingPage() {
 
   return (
     <div className="min-h-screen">
-      <TrainingHeader active={isPlaying} />
+      <TrainingHeader active={isPlaying || isGameOver} />
 
       <div className={`${isPlaying ? "p-3 md:p-6" : "p-4 md:p-6"} ${showCustomKeypad ? "pb-[calc(env(safe-area-inset-bottom,0.5rem)+300px)]" : ""}`}>
         <div className={`${containerWidthClass} mx-auto`}>

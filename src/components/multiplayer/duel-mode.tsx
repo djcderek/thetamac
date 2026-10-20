@@ -900,7 +900,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                                 {p.id === playerId ? "You" : p.username}
                               </span>
                               {p.id === room.hostId && (
-                                <span className="text-[12px] font-medium tracking-[0.14em] text-muted-foreground">
+                                <span className="text-[12px] font-medium text-muted-foreground">
                                   Host
                                 </span>
                               )}
@@ -925,7 +925,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                   {/* Game Controls */}
                   {privateDuel.countdown > 0 ? (
                     <div className="mt-4 sm:mt-6 text-center">
-                      <div className="inline-flex items-center gap-2 text-sm font-medium tracking-[0.14em]">
+                      <div className="inline-flex items-center gap-2 text-sm font-medium">
                         <AsciiSpinner className="h-4 w-4 text-sm" />
                         <span>Starting in {privateDuel.countdown}...</span>
                       </div>
@@ -1461,7 +1461,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[13px] font-medium tracking-[0.14em] text-muted-foreground">
+                        <span className="text-[13px] font-medium text-muted-foreground">
                           R {gameplay.currentRound}/10
                         </span>
                         <span
@@ -1571,7 +1571,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     });
                   }}
                 >
-                  <Card className={answerSubmitted ? "border-success" : ""}>
+                  <Card className={answerSubmitted ? "ring-2 ring-success/40" : ""}>
                     <CardContent className="py-3 px-4 sm:p-12">
                       <div className="text-center">
                         <div className="text-3xl sm:text-6xl font-mono font-semibold tracking-wide leading-tight mb-2 sm:mb-8 min-h-12 sm:min-h-16 px-1 wrap-break-word">
@@ -1646,10 +1646,10 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                     <div className="absolute inset-0 z-10 bg-background/95 rounded-2xl">
                       <Card className={`h-full bg-transparent ${
                         gameplay.roundResult.winnerId === playerId
-                          ? "border-success"
+                          ? "ring-2 ring-success/40"
                           : gameplay.roundResult.winnerId === null
-                          ? "border-border"
-                          : "border-destructive"
+                          ? ""
+                          : "ring-2 ring-destructive/40"
                       }`}>
                         <CardContent className="p-4 sm:p-8 text-center h-full flex flex-col justify-center">
                           <div className="text-3xl sm:text-4xl font-mono font-bold mb-2 sm:mb-4">
@@ -1657,7 +1657,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
                           </div>
                           <p className="text-muted-foreground text-sm mb-3 sm:mb-4">Correct Answer</p>
 
-                          <p className={`mx-auto text-[13px] font-medium tracking-[0.14em] ${ gameplay.roundResult.winnerId === playerId ? "text-success" : gameplay.roundResult.winnerId === null ? "text-muted-foreground" : "text-destructive" }`}>
+                          <p className={`mx-auto text-[13px] font-medium ${ gameplay.roundResult.winnerId === playerId ? "text-success" : gameplay.roundResult.winnerId === null ? "text-muted-foreground" : "text-destructive" }`}>
                             {gameplay.roundResult.winnerId === playerId
                               ? "= You got it"
                               : gameplay.roundResult.winnerId === null
@@ -1874,7 +1874,7 @@ export function DuelMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?: 
               <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 sm:gap-3 min-w-0">
                 {isGuest && (
                   <>
-                    <span className="max-w-[140px] truncate text-[13px] font-medium tracking-[0.14em] text-muted-foreground">
+                    <span className="max-w-[140px] truncate text-[13px] font-medium text-muted-foreground">
                       {playerName} · Guest · Unrated
                     </span>
                     <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>

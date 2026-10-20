@@ -13,7 +13,7 @@ export function optionTileClass(selected: boolean, extra?: string) {
     "rounded-2xl px-3 py-3 transition-colors",
     selected
       ? "bg-foreground text-background"
-      : "bg-secondary hover:bg-accent",
+      : "bg-control hover:bg-control-hover",
     extra,
   );
 }

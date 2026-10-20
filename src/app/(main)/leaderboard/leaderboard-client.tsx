@@ -21,7 +21,7 @@ import type {
   TrainingTopScoreEntry,
   TrainingTopScoresResult,
 } from "@/lib/leaderboard";
-import { PageHeader, SectionLabel } from "@/components/ui/visual-system";
+import { PageHeader } from "@/components/ui/visual-system";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
@@ -312,92 +312,50 @@ export function LeaderboardClient({
       <PageHeader
         title="Leaderboard"
         description="Global rankings across duels, racing, and timed training using default settings."
-        action={activeUserRank ? <Badge variant="outline" className="bg-card">Your {getRankLabel()}: #{activeUserRank.rank}</Badge> : undefined}
+        action={activeUserRank ? <Badge variant="secondary">Your {getRankLabel()}: #{activeUserRank.rank}</Badge> : undefined}
       />
 
       <div className="p-4 md:p-6">
         <div className="max-w-3xl mx-auto space-y-6">
-          <section aria-label="Leaderboard controls" className="space-y-4 border-b border-border pb-5">
-            <div>
-              <div className="space-y-2">
-                <SectionLabel>Competition</SectionLabel>
-                <Tabs
-                  defaultValue={initialMode}
-                  value={mode}
-                  className="w-full sm:w-auto"
-                  onValueChange={handleModeChange}
-                >
-                  <TabsList className="grid w-full grid-cols-3 rounded-2xl sm:w-auto">
-                    <TabsTrigger className="rounded-[2px] px-4" value="training">
-                      Timed Training
-                    </TabsTrigger>
-                    <TabsTrigger className="rounded-[2px] px-4" value="duel">
-                      Duel
-                    </TabsTrigger>
-                    <TabsTrigger className="rounded-[2px] px-4" value="racing">
-                      Racing
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                {mode === "training" && (
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    Default setup: Medium · All operations · Standard timer
-                  </p>
-                )}
-              </div>
+          <section aria-label="Leaderboard controls" className="space-y-5">
+            {/* Main choice: a segmented control. Secondary filters: chips. */}
+            <div className="space-y-2">
+              <Tabs value={mode} className="w-full" onValueChange={handleModeChange}>
+                <TabsList aria-label="Competition" className="w-full">
+                  <TabsTrigger value="training">Timed training</TabsTrigger>
+                  <TabsTrigger value="duel">Duel</TabsTrigger>
+                  <TabsTrigger value="racing">Racing</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {mode === "training" && (
+                <p className="px-1 text-[13px] text-muted-foreground">
+                  Default setup: Medium · All operations · 2:00
+                </p>
+              )}
             </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-8">
-              <div className="space-y-2">
-                <SectionLabel>Timeframe</SectionLabel>
-                {mode === "training" && view === "topScores" ? (
-                  <Badge variant="outline" className="h-8 rounded-2xl bg-card px-3 font-normal">
-                    All time
-                  </Badge>
-                ) : (
-                  <Tabs
-                    defaultValue={initialPeriod}
-                    value={period}
-                    className="w-full sm:w-auto"
-                    onValueChange={handlePeriodChange}
-                  >
-                    <TabsList className="min-h-9 rounded-2xl p-0.5">
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="all">
-                        All time
-                      </TabsTrigger>
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="weekly">
-                        Weekly
-                      </TabsTrigger>
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="daily">
-                        Daily
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                )}
-              </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Top scores are personal bests across all time, so the other periods don't apply. */}
+              <Tabs value={mode === "training" && view === "topScores" ? "all" : period} onValueChange={handlePeriodChange}>
+                <TabsList variant="chips" aria-label="Timeframe">
+                  <TabsTrigger value="all">All time</TabsTrigger>
+                  <TabsTrigger value="weekly" disabled={mode === "training" && view === "topScores"}>
+                    Weekly
+                  </TabsTrigger>
+                  <TabsTrigger value="daily" disabled={mode === "training" && view === "topScores"}>
+                    Daily
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
               {mode === "training" && (
-                <div className="space-y-2">
-                  <SectionLabel>View</SectionLabel>
-                  <Tabs
-                    defaultValue="distribution"
-                    value={view}
-                    className="w-full sm:w-auto"
-                    onValueChange={handleViewChange}
-                  >
-                    <TabsList className="grid min-h-9 w-full grid-cols-3 rounded-2xl p-0.5 sm:w-auto">
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="distribution">
-                        Distribution
-                      </TabsTrigger>
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="board">
-                        Rankings
-                      </TabsTrigger>
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="topScores">
-                        Top Scores
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
+                <Tabs value={view} onValueChange={handleViewChange}>
+                  <TabsList variant="chips" aria-label="View">
+                    <TabsTrigger value="distribution">Distribution</TabsTrigger>
+                    <TabsTrigger value="board">Rankings</TabsTrigger>
+                    <TabsTrigger value="topScores">Top scores</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               )}
             </div>
           </section>
@@ -501,7 +459,7 @@ export function LeaderboardClient({
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                              className="h-8 rounded-full bg-background px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-accent"
                               onClick={() => setShowAdvancedStats((prev) => !prev)}
                             >
                               {showAdvancedStats ? "Hide advanced stats" : "Show advanced stats"}

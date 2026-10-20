@@ -227,8 +227,8 @@ export function ShopDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {shopItems.map((item) => (
                 <Card key={item.id} className="overflow-hidden">
-                  <div className="bayer-field relative flex h-32 items-center justify-center overflow-hidden border-b border-border bg-secondary/40">
-                    <span className="editorial-label absolute left-2 top-2 z-10">
+                  <div className="relative mx-3 mt-3 flex h-36 items-center justify-center overflow-hidden rounded-2xl bg-background">
+                    <span className="editorial-label absolute left-3 top-2.5 z-10">
                       {categoryLabels[item.type] ?? item.type}
                     </span>
                     <div className="absolute inset-0">
@@ -241,16 +241,16 @@ export function ShopDashboard() {
                     <div className="flex items-center justify-between">
                         <CardTitle>{item.name}</CardTitle>
                         {item.isProOnly && (
-                          <span className="rounded-2xl bg-foreground px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-background">
-                            PRO
-                          </span>
+                          <span className="rounded-full bg-control px-2 py-0.5 text-[12px] font-semibold">Pro</span>
                         )}
                     </div>
                     <CardDescription>{item.description}</CardDescription>
                   </CardHeader>
                   <CardFooter className="flex-col items-stretch gap-2">
+                    {/* White pills: a grid of solid ink buttons read as a wall of black. */}
                     <Button
-                        className="w-full gap-2"
+                        variant="outline"
+                        className="w-full gap-2 border-transparent"
                         onClick={() => handleBuy(item.id)}
                         disabled={actionLoading === item.id || data.userCoins < item.cost}
                     >

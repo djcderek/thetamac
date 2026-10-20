@@ -102,7 +102,7 @@ export default function ArithmeticSpeedTestPage() {
         />
         <Link
           href="/leaderboard"
-          className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+          className="inline-flex items-center justify-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
         >
           View Leaderboard
         </Link>

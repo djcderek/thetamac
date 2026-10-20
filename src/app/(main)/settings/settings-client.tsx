@@ -22,7 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
-import { PageHeader } from "@/components/ui/visual-system";
+import { optionTileClass, PageHeader } from "@/components/ui/visual-system";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile-events";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import {
@@ -709,11 +709,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "light"}
                     onClick={() => updateTheme("light")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-colors ${
-                      theme === "light"
-                        ? "border-foreground bg-secondary"
-                        : "border-border hover:bg-secondary/50"
-                    }`}
+                    className={optionTileClass(theme === "light", "flex flex-col items-center gap-2 p-4")}
                   >
                     <Sun className="w-5 h-5" />
                     <span className="text-sm font-medium">Light</span>
@@ -722,11 +718,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "dark"}
                     onClick={() => updateTheme("dark")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-colors ${
-                      theme === "dark"
-                        ? "border-foreground bg-secondary"
-                        : "border-border hover:bg-secondary/50"
-                    }`}
+                    className={optionTileClass(theme === "dark", "flex flex-col items-center gap-2 p-4")}
                   >
                     <Moon className="w-5 h-5" />
                     <span className="text-sm font-medium">Dark</span>
@@ -735,11 +727,7 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "system"}
                     onClick={() => updateTheme("system")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-colors ${
-                      theme === "system"
-                        ? "border-foreground bg-secondary"
-                        : "border-border hover:bg-secondary/50"
-                    }`}
+                    className={optionTileClass(theme === "system", "flex flex-col items-center gap-2 p-4")}
                   >
                     <Monitor className="w-5 h-5" />
                     <span className="text-sm font-medium">System</span>
@@ -758,11 +746,7 @@ export function SettingsClient() {
                       type="button"
                       aria-pressed={tone === "warm"}
                       onClick={() => updateTone("warm")}
-                      className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
-                        tone === "warm"
-                          ? "border-foreground bg-secondary"
-                          : "border-border hover:bg-secondary/50"
-                      }`}
+                      className={optionTileClass(tone === "warm", "flex items-center gap-3 p-3 text-left")}
                     >
                       <span className="h-5 w-5 rounded-full border border-border bg-[oklch(0.92_0.045_65)]" />
                       <span className="text-sm font-medium">Warm</span>
@@ -771,11 +755,7 @@ export function SettingsClient() {
                       type="button"
                       aria-pressed={tone === "neutral"}
                       onClick={() => updateTone("neutral")}
-                      className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
-                        tone === "neutral"
-                          ? "border-foreground bg-secondary"
-                          : "border-border hover:bg-secondary/50"
-                      }`}
+                      className={optionTileClass(tone === "neutral", "flex items-center gap-3 p-3 text-left")}
                     >
                       <span className="h-5 w-5 rounded-full border border-border bg-[oklch(0.92_0.004_260)]" />
                       <span className="text-sm font-medium">Neutral</span>

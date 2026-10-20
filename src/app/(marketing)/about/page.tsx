@@ -127,13 +127,13 @@ export default function AboutPage() {
       >
         <Link
           href="/?source=about"
-          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="inline-flex items-center justify-center rounded-full bg-primary h-11 px-5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
         >
           Start Training
         </Link>
         <Link
           href="/interview-math"
-          className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/50"
+          className="inline-flex items-center justify-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold transition-colors hover:bg-secondary/50"
         >
           Explore Interview Math
         </Link>
@@ -187,7 +187,7 @@ export default function AboutPage() {
         </div>
         <a
           href={contactHref}
-          className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/50"
+          className="inline-flex items-center justify-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold transition-colors hover:bg-secondary/50"
         >
           {supportEmail ?? "Contact thetamac"}
         </a>
@@ -200,7 +200,7 @@ export default function AboutPage() {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-secondary/40"
+              className="inline-flex items-center rounded-full border border-border h-9 px-4 text-sm transition-colors hover:bg-secondary/40"
             >
               {link.label}
             </Link>

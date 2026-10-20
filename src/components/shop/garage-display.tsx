@@ -902,7 +902,7 @@ export function GarageDisplay({ equippedSkin, equippedTrail, equippedVehicle, eq
         {/* Overlay sits on the dark 3D scene, so it keeps fixed scene colors */}
         <div className="flex items-center gap-2 rounded-2xl bg-black/80 px-3 py-1.5 text-white">
             <div className="h-1.5 w-1.5 bg-green-500 [animation:ascii-blink_1.2s_steps(1)_infinite]" />
-            <span className="text-[12px] font-medium tracking-[0.14em] text-white/80">Showroom Live</span>
+            <span className="text-[12px] font-medium text-white/80">Showroom Live</span>
         </div>
       </div>
     </div>

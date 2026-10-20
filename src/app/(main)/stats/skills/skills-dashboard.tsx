@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ChartTooltip, ChartTooltipFrame } from "@/components/ui/chart";
-import { BrandedEmptyState, PageHeader, SectionLabel } from "@/components/ui/visual-system";
+import { BrandedEmptyState, PageHeader } from "@/components/ui/visual-system";
 import { heatClass, speedHeatClass } from "@/lib/heat";
 import {
   Tooltip as UITooltip,
@@ -324,7 +324,7 @@ function NumberCombinationMatrix({
                     <UITooltip key={`cell-${rowNum}-${colNum}`}>
                       <TooltipTrigger asChild>
                         <div
-                          className={`${cellStyle.size} flex items-center justify-center ${cellStyle.font} font-mono rounded-[2px] m-[0.5px] cursor-default transition-all hover:scale-125 hover:z-20 shrink-0 ${bgClass} ${
+                          className={`${cellStyle.size} flex items-center justify-center ${cellStyle.font} font-mono rounded-[4px] m-[0.5px] cursor-default transition-all hover:scale-125 hover:z-20 shrink-0 ${bgClass} ${
                             hasAttempts ? "font-medium" : "text-muted-foreground/50"
                           }`}
                         >
@@ -366,29 +366,29 @@ function NumberCombinationMatrix({
           {viewMode === "accuracy" ? (
             <>
               <span className="editorial-label normal-case tracking-normal">needs work</span>
-              <div className="w-3 h-3 rounded-[2px] bg-brand/55" />
-              <div className="w-3 h-3 rounded-[2px] bg-brand/30" />
+              <div className="w-3 h-3 rounded-[4px] bg-brand/55" />
+              <div className="w-3 h-3 rounded-[4px] bg-brand/30" />
               <span aria-hidden="true" className="mx-1 text-muted-foreground">·</span>
-              <div className="w-3 h-3 rounded-[2px] bg-foreground/12" />
-              <div className="w-3 h-3 rounded-[2px] bg-foreground/25" />
-              <div className="w-3 h-3 rounded-[2px] bg-foreground/45" />
-              <div className="w-3 h-3 rounded-[2px] bg-foreground/65" />
-              <div className="w-3 h-3 rounded-[2px] bg-foreground/85" />
+              <div className="w-3 h-3 rounded-[4px] bg-foreground/12" />
+              <div className="w-3 h-3 rounded-[4px] bg-foreground/25" />
+              <div className="w-3 h-3 rounded-[4px] bg-foreground/45" />
+              <div className="w-3 h-3 rounded-[4px] bg-foreground/65" />
+              <div className="w-3 h-3 rounded-[4px] bg-foreground/85" />
               <span className="editorial-label normal-case tracking-normal">mastered</span>
             </>
           ) : (
             <>
               <span className="editorial-label normal-case tracking-normal">slow</span>
-              <div className="w-3 h-3 rounded-[2px] bg-brand/55" />
-              <div className="w-3 h-3 rounded-[2px] bg-brand/30" />
+              <div className="w-3 h-3 rounded-[4px] bg-brand/55" />
+              <div className="w-3 h-3 rounded-[4px] bg-brand/30" />
               <span aria-hidden="true" className="mx-1 text-muted-foreground">·</span>
-              <div className="w-3 h-3 rounded-[2px] bg-foreground/40" />
-              <div className="w-3 h-3 rounded-[2px] bg-foreground/65" />
-              <div className="w-3 h-3 rounded-[2px] bg-foreground/85" />
+              <div className="w-3 h-3 rounded-[4px] bg-foreground/40" />
+              <div className="w-3 h-3 rounded-[4px] bg-foreground/65" />
+              <div className="w-3 h-3 rounded-[4px] bg-foreground/85" />
               <span className="editorial-label normal-case tracking-normal">fast</span>
             </>
           )}
-          <div className="ml-2 w-3 h-3 rounded-[2px] border border-border/60" />
+          <div className="ml-2 w-3 h-3 rounded-[4px] border border-border/60" />
           <span className="text-muted-foreground">No data</span>
         </div>
       </div>
@@ -688,7 +688,7 @@ export function SkillsDashboard() {
                         <XAxis type="number" domain={[0, 100]} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
                         <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={90} />
                         <Tooltip content={<ChartTooltip formatValue={(v) => `${v}%`} />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
-                        <Bar dataKey="accuracy" fill="currentColor" radius={[0, 4, 4, 0]} className="text-foreground" />
+                        <Bar dataKey="accuracy" fill="currentColor" radius={8} maxBarSize={18} className="text-foreground" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -866,9 +866,7 @@ export function SkillsDashboard() {
             </Card>
 
             {/* Detailed Breakdown Section */}
-            <div className="rounded-[22px] bg-secondary p-4">
-              <SectionLabel>Detailed Breakdown</SectionLabel>
-            </div>
+            <h2 className="px-1 text-[17px] font-semibold tracking-tight">Detailed breakdown</h2>
 
             {/* Digit Length Performance */}
             {data?.digitLengthData && data.digitLengthData.some(d => d.count > 0) && (
@@ -917,7 +915,7 @@ export function SkillsDashboard() {
                         <XAxis dataKey="range" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                         <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                         <Tooltip content={<ChartTooltip formatValue={(v) => `${v}%`} />} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
-                        <Bar dataKey="accuracy" fill="currentColor" radius={[4, 4, 0, 0]} className="text-foreground" />
+                        <Bar dataKey="accuracy" fill="currentColor" radius={8} maxBarSize={40} className="text-foreground" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

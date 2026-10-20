@@ -94,7 +94,7 @@ export default function BlogIndexPage() {
             <Link
               key={path.href}
               href={path.href}
-              className="rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-secondary/40"
+              className="inline-flex items-center rounded-full border border-border h-9 px-4 text-sm transition-colors hover:bg-secondary/40"
             >
               {path.label} drills
             </Link>

@@ -309,7 +309,7 @@ function ProblemPanel({
                           e.stopPropagation();
                           openMobileKeypad("left");
                         }}
-                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-xl border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "left" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
                         aria-label="Answer (Left)"
@@ -392,7 +392,7 @@ function ProblemPanel({
                     e.stopPropagation();
                     openMobileKeypad("forward");
                   }}
-                  className={`h-7 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                  className={`h-7 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-xl border bg-background px-3 flex items-center justify-center ${
                     mobileKeypadAction === "forward" ? "border-primary/70" : "border-input"
                   } ${problemInputsDisabled ? "opacity-50" : ""}`}
                   aria-label="Answer (Forward)"
@@ -470,7 +470,7 @@ function ProblemPanel({
                           e.stopPropagation();
                           openMobileKeypad("right");
                         }}
-                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-xl border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "right" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
                         aria-label="Answer (Right)"
@@ -540,7 +540,7 @@ function ProblemPanel({
                   +
                 </div>
                 <div>
-                  <div className="text-[12px] sm:text-xs font-medium tracking-[0.14em] text-brand">
+                  <div className="text-[12px] sm:text-xs font-medium text-brand">
                     BOOST +3m (Harder)
                   </div>
                   <div className="text-base sm:text-2xl font-mono font-bold leading-none">
@@ -560,7 +560,7 @@ function ProblemPanel({
                       e.stopPropagation();
                       openMobileKeypad("boost");
                     }}
-                    className={`h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                    className={`h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-xl border bg-background px-3 flex items-center justify-center ${
                       mobileKeypadAction === "boost" ? "border-primary/60" : "border-input"
                     } ${problemInputsDisabled ? "opacity-50" : ""}`}
                     aria-label="Answer (Boost)"
@@ -658,7 +658,7 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
                 {myRatingChange >= 0 ? "+" : ""}{myRatingChange} rating
               </div>
             ) : (
-              <div className="mt-2 text-[13px] font-medium tracking-[0.14em] text-background/60">
+              <div className="mt-2 text-[13px] font-medium text-background/60">
                 Unrated race
               </div>
             )}
@@ -1002,7 +1002,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
               {/* Show finished state or problem panel */}
               <div className={hasFinished ? "mt-6" : "relative z-10 -mt-10 sm:mt-6"}>
                 {hasFinished ? (
-                  <Card className="border-success">
+                  <Card className="ring-2 ring-success/40">
                     <CardContent className="p-8 text-center">
                       <MedalMark rank={race.myFinishPosition ?? 0} size="lg" className="mx-auto mb-4" />
                       <h2 className="text-2xl font-bold mb-2">
@@ -1111,7 +1111,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                 {linkCopied ? <Check className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
                 {linkCopied ? "Copied!" : "Copy Link"}
               </Button>
-              <span className="text-[13px] font-medium tracking-[0.14em] text-muted-foreground">
+              <span className="text-[13px] font-medium text-muted-foreground">
                 {privateRoom.room?.players.length ?? 0} / 8 Players
               </span>
             </div>
@@ -1227,7 +1227,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               {isGuest && (
                 <>
-                  <span className="max-w-[160px] truncate text-[13px] font-medium tracking-[0.14em] text-muted-foreground">
+                  <span className="max-w-[160px] truncate text-[13px] font-medium text-muted-foreground">
                     {playerName} · Guest · Unrated
                   </span>
                   <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>

@@ -184,14 +184,14 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
           {guide.slug === "mental-math-speed-test" ? (
             <Link
               href="/arithmetic-speed-test"
-              className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center rounded-full bg-primary h-11 px-5 text-[15px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               Take Arithmetic Speed Test
             </Link>
           ) : null}
           <Link
             href="/"
-            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            className={`inline-flex items-center rounded-full h-11 px-5 text-[15px] font-semibold transition-colors ${
               guide.slug === "mental-math-speed-test"
                 ? "border border-border hover:bg-secondary/50"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -201,7 +201,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
           </Link>
           <Link
             href="/training/focused"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+            className="inline-flex items-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
           >
             Focused Training
           </Link>

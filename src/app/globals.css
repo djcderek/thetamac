@@ -44,6 +44,10 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-surface-raised: var(--surface-raised);
+  /* Control fills are translucent ink, so fields, tracks, chips, and grey buttons stay
+     visible on white pages and grey cards alike (an opaque grey vanished on grey cards). */
+  --color-control: color-mix(in oklab, var(--foreground) 6%, transparent);
+  --color-control-hover: color-mix(in oklab, var(--foreground) 10%, transparent);
   --color-dot: var(--dot);
   --color-ascii-ink: var(--ascii-ink);
   --color-ascii-ink-soft: var(--ascii-ink-soft);
@@ -180,8 +184,10 @@
   body {
     @apply bg-background text-foreground selection:bg-brand/30;
   }
-  button, a, input, select, textarea, summary {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  /* One neutral focus ring for actions. Fields (input, textarea, select) style their own
+     focus; applying this to them too stacked two orange rings. */
+  button, a, summary {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 }
 

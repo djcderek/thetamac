@@ -615,8 +615,8 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                   </div>
                 )}
 
-                <Button onClick={startTraining} size="lg" className="w-full">
-                  <Play className="w-4 h-4 mr-2" />
+                <Button onClick={startTraining} variant="brand" size="lg" className="w-full">
+                  <Play aria-hidden="true" className="fill-current" />
                   Start Training
                 </Button>
               </CardContent>
@@ -650,24 +650,25 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
             <Progress value={progress} className="h-2" />
           </div>
 
-          {/* Problem */}
+          {/* Problem. Feedback is a ring, like the main run: the grouped surface has no border. */}
           {currentProblem && (
-            <Card className={`transition-colors ${
-              isCorrect === true ? "border-success" : isCorrect === false ? "border-destructive" : ""
+            <Card className={`rounded-[28px] py-6 transition-shadow sm:py-10 ${
+              isCorrect === true ? "ring-2 ring-success/50" : isCorrect === false ? "ring-2 ring-destructive/50" : ""
             }`}>
               <CardContent className="p-6 sm:p-12">
                 <div className="text-center">
-                  <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-5 sm:mb-8">
+                  <div data-problem className="mb-5 break-words font-mono text-[44px] font-semibold leading-none tracking-[-0.04em] sm:mb-10 sm:text-[80px]">
                     {currentProblem.operandA} {operationSymbols[currentProblem.operation] || currentProblem.operation} {currentProblem.operandB}
                   </div>
 
-                  <form onSubmit={handleSubmit}>
+                  {/* Same answer well as the main run screen. */}
+                  <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-[280px] flex-col gap-2">
                     {useCustomKeypad ? (
                       <div
                         role="textbox"
                         aria-label="Answer"
                         aria-readonly="true"
-                        className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-2xl border border-input bg-background px-3 flex items-center justify-center ${
+                        className={`flex h-16 w-full items-center justify-center rounded-2xl bg-background px-3 text-center font-mono text-3xl font-semibold ${
                           answerInputDisabled ? "opacity-50" : ""
                         }`}
                       >
@@ -680,7 +681,8 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                         value={userAnswer}
                         onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
                         placeholder="?"
-                        className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto"
+                        aria-label="Answer"
+                        className="h-16 w-full rounded-2xl bg-background text-center font-mono text-3xl font-semibold focus:placeholder:text-transparent md:text-3xl"
                         autoFocus
                       />
                     )}

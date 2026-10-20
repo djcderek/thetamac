@@ -128,8 +128,9 @@ export function FeatureRequestDialog({
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Example: Add custom timer durations and a streak-based XP bonus..."
             className={cn(
-              "min-h-[120px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm",
-              "ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              // Same well as Input: grey fill, 14px radius, soft neutral focus.
+              "min-h-[120px] w-full resize-none rounded-[14px] border border-transparent bg-control px-4 py-3 text-[15px] outline-none transition-[background-color,box-shadow]",
+              "placeholder:text-muted-foreground focus-visible:border-foreground/25 focus-visible:bg-background focus-visible:ring-4 focus-visible:ring-foreground/[0.06]"
             )}
           />
           {error ? (
