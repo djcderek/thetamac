@@ -1,6 +1,8 @@
 "use client";
 
 import type { FormEvent, RefObject } from "react";
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
+import { morphContentIn, morphSpring } from "@/lib/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,21 +168,35 @@ export function TrainingRun({
         </div>
       )}
 
-      {/* Problem Display */}
+      {/* Problem Display. The surface is shared with the Start / Play again pill ("run-surface"):
+          it grows out of the orange pill, settling to grey, and the content fades in after. */}
+      <motion.div
+        layoutId="run-surface"
+        transition={morphSpring}
+        style={{ borderRadius: 28 }}
+        initial={{ backgroundColor: "var(--brand)" }}
+        animate={{ backgroundColor: "var(--secondary)" }}
+        className="overflow-hidden"
+      >
+      <motion.div layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={morphContentIn}>
       <Card
         key={feedbackKey}
         className={cn(
-          // Feedback as a ring: the grouped surface has no border to color.
-          "rounded-[28px] py-6 transition-shadow duration-200 sm:py-10",
-          isCorrect === true && "ring-2 ring-success/50 animate-pulse-success",
-          isCorrect === false && "ring-2 ring-destructive/50 animate-shake"
+          // Feedback as an inset ring: the grouped surface has no border to color.
+          "rounded-[28px] bg-transparent py-6 transition-shadow duration-200 sm:py-10",
+          isCorrect === true && "ring-2 ring-inset ring-success/50 animate-pulse-success",
+          isCorrect === false && "ring-2 ring-inset ring-destructive/50 animate-shake"
         )}
       >
         <CardContent className="p-3 sm:p-12">
           {problem && (
             <div className="text-center">
-              <div data-problem className="mb-5 break-words font-mono text-[44px] font-semibold leading-none tracking-[-0.04em] sm:mb-10 sm:text-[80px]">
-                {problem.a} {problem.operation} {problem.b}
+              {/* Each new problem lifts in while the previous one slides up and out. Both share
+                  one grid cell, so the card never changes height during the swap. */}
+              <div className="mb-5 grid sm:mb-10">
+                <AnimatePresence initial={false}>
+                  <ProblemText key={`${problem.a}${problem.operation}${problem.b}`} text={`${problem.a} ${problem.operation} ${problem.b}`} />
+                </AnimatePresence>
               </div>
 
               {/* Answer and Submit stack in one column at the same width. */}
@@ -225,6 +241,8 @@ export function TrainingRun({
           )}
         </CardContent>
       </Card>
+      </motion.div>
+      </motion.div>
 
       {/* Solution Breakdown - After answering in Learning mode */}
       {gameMode === "learning" && hasAnswered && currentTip && (
@@ -315,3 +333,21 @@ export function TrainingRun({
   );
 }
 
+// The problem line. While it animates out, it drops its test hook and is hidden from
+// assistive tech, so only the current problem is ever read.
+function ProblemText({ text }: { text: string }) {
+  const isPresent = useIsPresent();
+  return (
+    <motion.div
+      data-problem={isPresent ? "" : undefined}
+      aria-hidden={isPresent ? undefined : true}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0, transition: { duration: 0.22, delay: 0.04, ease: [0.22, 1, 0.36, 1] } }}
+      // The old problem clears out quickly so the two never read as one jumbled line.
+      exit={{ opacity: 0, y: -16, transition: { duration: 0.1, ease: "easeIn" } }}
+      className="[grid-area:1/1] break-words font-mono text-[44px] font-semibold leading-none tracking-[-0.04em] sm:text-[80px]"
+    >
+      {text}
+    </motion.div>
+  );
+}

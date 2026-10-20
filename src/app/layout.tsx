@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "@fontsource-variable/figtree";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { MotionProvider } from "@/components/motion-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SessionProvider } from "@/components/auth/session-provider";
 import { PostHogIdentify } from "@/components/auth/posthog-identify";
@@ -131,7 +132,9 @@ export default function RootLayout({
           <PostHogIdentify />
           <ThemeProvider defaultTheme="system" storageKey="thetamac-theme">
             <TooltipProvider>
-              {children}
+              <MotionProvider>
+                {children}
+              </MotionProvider>
             </TooltipProvider>
           </ThemeProvider>
         </SessionProvider>

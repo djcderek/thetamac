@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
+import { settleSpring } from "@/lib/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -307,6 +309,14 @@ export function LeaderboardClient({
   const formatStatValue = (value: number | null) =>
     typeof value === "number" ? value.toFixed(1) : "—";
 
+  const resultsKey = `${mode}-${period}-${view}-${isLoading ? "loading" : "ready"}`;
+  const [shownResultsKey, setShownResultsKey] = useState(resultsKey);
+  const [resultsChanged, setResultsChanged] = useState(false);
+  if (resultsKey !== shownResultsKey) {
+    setShownResultsKey(resultsKey);
+    setResultsChanged(true);
+  }
+
   return (
     <div className="min-h-screen">
       <PageHeader
@@ -360,6 +370,14 @@ export function LeaderboardClient({
             </div>
           </section>
 
+          {/* Each filter change settles the results in, instead of swapping them in place.
+              The first render stays static (an initial opacity would ship invisible). */}
+          <motion.div
+            key={resultsKey}
+            initial={resultsChanged ? { opacity: 0, y: 8 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={settleSpring}
+          >
           {isLoading && view === "board" ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -936,6 +954,7 @@ export function LeaderboardClient({
               </Card>
             </>
           )}
+          </motion.div>
         </div>
       </div>
     </div>

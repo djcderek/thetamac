@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { animate, motion, useReducedMotion } from "motion/react";
+import { morphLabelIn, morphSpring, settleSpring } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import type { DifficultySettings, ScoreDistribution } from "@/components/training/training-types";
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -63,7 +66,7 @@ export function TrainingGameOver({
         <div className="text-center">
           <p className="text-[15px] font-medium text-muted-foreground">Time&apos;s up</p>
           <p className="mt-2 text-[88px] font-semibold leading-none tracking-[-0.05em] tabular-nums sm:text-[112px]">
-            {totalSolved}
+            <CountUp value={totalSolved} />
           </p>
           <p className="mt-2 text-[17px] text-muted-foreground">
             {totalSolved === 1 ? "problem solved" : "problems solved"}
@@ -71,19 +74,35 @@ export function TrainingGameOver({
         </div>
 
         <dl className="divide-y divide-border rounded-[22px] bg-secondary px-5">
-          {detailRows.map((row) => (
-            <div key={row.label} className="flex items-center justify-between py-3.5 text-[15px]">
+          {detailRows.map((row, index) => (
+            <motion.div
+              key={row.label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...settleSpring, delay: 0.25 + index * 0.06 }}
+              className="flex items-center justify-between py-3.5 text-[15px]"
+            >
               <dt className="text-muted-foreground">{row.label}</dt>
               <dd className={`font-semibold tabular-nums ${row.className ?? ""}`}>{row.value}</dd>
-            </div>
+            </motion.div>
           ))}
         </dl>
 
         <div className="space-y-2">
-          <Button variant="brand" size="lg" onClick={onPlayAgain} className="h-14 w-full text-[17px]">
-            <RotateCcw aria-hidden="true" />
-            Play again
-          </Button>
+          {/* The run's card collapses into this pill, and expands back out of it on Play again. */}
+          <motion.button
+            type="button"
+            layoutId="run-surface"
+            transition={morphSpring}
+            style={{ borderRadius: 28 }}
+            onClick={onPlayAgain}
+            className={cn(buttonVariants({ variant: "brand", size: "lg" }), "h-14 w-full text-[17px]")}
+          >
+            <motion.span layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={morphLabelIn} className="inline-flex items-center gap-2">
+              <RotateCcw aria-hidden="true" className="h-4 w-4" />
+              Play again
+            </motion.span>
+          </motion.button>
           <Button variant="secondary" size="lg" onClick={onChangeSettings} className="w-full">
             Change settings
           </Button>
@@ -138,4 +157,21 @@ export function TrainingGameOver({
       </div>
     </div>
   );
+}
+
+// The score counts up once, easing out, so the result lands rather than just appearing.
+function CountUp({ value }: { value: number }) {
+  const reduceMotion = useReducedMotion();
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (reduceMotion) return;
+    const controls = animate(0, value, {
+      duration: Math.min(1.1, 0.45 + value * 0.012),
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: (latest) => setShown(Math.round(latest)),
+    });
+    return () => controls.stop();
+  }, [value, reduceMotion]);
+  // Reduced motion shows the final score straight away.
+  return <>{reduceMotion ? value : shown}</>;
 }

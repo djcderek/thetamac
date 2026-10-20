@@ -149,7 +149,7 @@ export default function MentalMathPracticePage() {
         </div>
         <div className="border-b border-border">
           {TRAINING_SEO_FAQ.map((item) => (
-            <details key={item.question} className="group border-t border-border">
+            <details key={item.question} className="disclosure group border-t border-border">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-medium marker:content-none">
                 {item.question}
                 <ChevronDown

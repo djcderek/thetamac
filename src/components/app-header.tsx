@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
+import { motion } from "motion/react";
+import { snapSpring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/auth/user-menu";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
@@ -42,10 +44,19 @@ export function AppHeader() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                  active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
+                  "relative isolate rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200",
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
+                {/* One pill that travels to the active page (the header persists across pages). */}
+                {active && (
+                  <motion.span
+                    layoutId="app-nav-indicator"
+                    transition={snapSpring}
+                    aria-hidden="true"
+                    className="absolute inset-0 -z-10 rounded-full bg-secondary"
+                  />
+                )}
                 {item.name}
               </Link>
             );

@@ -22,7 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
-import { optionTileClass, PageHeader } from "@/components/ui/visual-system";
+import { optionTileClass, PageHeader, SelectionPill } from "@/components/ui/visual-system";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile-events";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import {
@@ -709,8 +709,9 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "light"}
                     onClick={() => updateTheme("light")}
-                    className={optionTileClass(theme === "light", "flex flex-col items-center gap-2 p-4")}
+                    className={optionTileClass(theme === "light", "flex flex-col items-center gap-2 p-4", { slidingPill: true })}
                   >
+                    {theme === "light" && <SelectionPill group="settings-theme" />}
                     <Sun className="w-5 h-5" />
                     <span className="text-sm font-medium">Light</span>
                   </button>
@@ -718,8 +719,9 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "dark"}
                     onClick={() => updateTheme("dark")}
-                    className={optionTileClass(theme === "dark", "flex flex-col items-center gap-2 p-4")}
+                    className={optionTileClass(theme === "dark", "flex flex-col items-center gap-2 p-4", { slidingPill: true })}
                   >
+                    {theme === "dark" && <SelectionPill group="settings-theme" />}
                     <Moon className="w-5 h-5" />
                     <span className="text-sm font-medium">Dark</span>
                   </button>
@@ -727,8 +729,9 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "system"}
                     onClick={() => updateTheme("system")}
-                    className={optionTileClass(theme === "system", "flex flex-col items-center gap-2 p-4")}
+                    className={optionTileClass(theme === "system", "flex flex-col items-center gap-2 p-4", { slidingPill: true })}
                   >
+                    {theme === "system" && <SelectionPill group="settings-theme" />}
                     <Monitor className="w-5 h-5" />
                     <span className="text-sm font-medium">System</span>
                   </button>
@@ -746,8 +749,9 @@ export function SettingsClient() {
                       type="button"
                       aria-pressed={tone === "warm"}
                       onClick={() => updateTone("warm")}
-                      className={optionTileClass(tone === "warm", "flex items-center gap-3 p-3 text-left")}
+                      className={optionTileClass(tone === "warm", "flex items-center gap-3 p-3 text-left", { slidingPill: true })}
                     >
+                      {tone === "warm" && <SelectionPill group="settings-tone" />}
                       <span className="h-5 w-5 rounded-full border border-border bg-[oklch(0.92_0.045_65)]" />
                       <span className="text-sm font-medium">Warm</span>
                     </button>
@@ -755,8 +759,9 @@ export function SettingsClient() {
                       type="button"
                       aria-pressed={tone === "neutral"}
                       onClick={() => updateTone("neutral")}
-                      className={optionTileClass(tone === "neutral", "flex items-center gap-3 p-3 text-left")}
+                      className={optionTileClass(tone === "neutral", "flex items-center gap-3 p-3 text-left", { slidingPill: true })}
                     >
+                      {tone === "neutral" && <SelectionPill group="settings-tone" />}
                       <span className="h-5 w-5 rounded-full border border-border bg-[oklch(0.92_0.004_260)]" />
                       <span className="text-sm font-medium">Neutral</span>
                     </button>
@@ -802,14 +807,16 @@ export function SettingsClient() {
                   {DIFFICULTY_OPTIONS.map((diff) => (
                     <Button
                       key={diff}
-                      variant={settings.defaultDifficulty === diff ? "default" : "outline"}
+                      variant="secondary"
                       size="sm"
+                      className={`relative isolate capitalize ${settings.defaultDifficulty === diff ? "text-background hover:bg-control" : ""}`}
                       aria-pressed={settings.defaultDifficulty === diff}
                       onClick={() => {
                         setSettingsFeedbackSection("training");
                         updateSettings({ defaultDifficulty: diff });
                       }}
                     >
+                      {settings.defaultDifficulty === diff && <SelectionPill group="settings-difficulty" className="rounded-full" />}
                       {diff}
                     </Button>
                   ))}
@@ -829,14 +836,16 @@ export function SettingsClient() {
                   {PRACTICE_TIMER_OPTIONS.map((time) => (
                     <Button
                       key={time}
-                      variant={settings.defaultTimer === time ? "default" : "outline"}
+                      variant="secondary"
                       size="sm"
+                      className={`relative isolate capitalize ${settings.defaultTimer === time ? "text-background hover:bg-control" : ""}`}
                       aria-pressed={settings.defaultTimer === time}
                       onClick={() => {
                         setSettingsFeedbackSection("training");
                         updateSettings({ defaultTimer: time });
                       }}
                     >
+                      {settings.defaultTimer === time && <SelectionPill group="settings-timer" className="rounded-full" />}
                       {time}
                     </Button>
                   ))}

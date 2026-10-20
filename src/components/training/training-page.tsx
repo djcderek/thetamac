@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import { motion } from "motion/react";
+import { settleSpring } from "@/lib/motion";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
@@ -739,6 +741,7 @@ export default function TrainingPage() {
   const [overallTimeLeft, setOverallTimeLeft] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [hasStartedRun, setHasStartedRun] = useState(false);
   const [avgTime, setAvgTime] = useState(0);
   const [, setTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState<number>(0);
@@ -1145,6 +1148,7 @@ export default function TrainingPage() {
       }
     }
     const isRestart = isGameOver;
+    setHasStartedRun(true);
     const previousRunId = trainingRunIdRef.current;
     const trainingRunId = createAnalyticsId();
     trainingRunIdRef.current = trainingRunId;
@@ -1820,6 +1824,13 @@ export default function TrainingPage() {
               trainingRunId={trainingRunIdRef.current}
             />
           ) : !isPlaying ? (
+            // After a run, setup settles back in rather than cutting; on first load it renders
+            // as-is (an initial opacity would ship invisible in the server HTML).
+            <motion.div
+              initial={hasStartedRun ? { opacity: 0, y: 12 } : false}
+              animate={{ opacity: 1, y: 0 }}
+              transition={settleSpring}
+            >
             <TrainingSetup
               scorePercentile={scorePercentile}
               showLastRunPlacementCard={!!scorePercentile && gameMode === "timed" && isDefaultTimedConfig()}
@@ -1850,6 +1861,7 @@ export default function TrainingPage() {
               startTraining={startTraining}
               preferencesReady={preferencesReady}
             />
+            </motion.div>
           ) : (
             <TrainingRun
               gameMode={gameMode}

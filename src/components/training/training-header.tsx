@@ -20,12 +20,12 @@ export function TrainingHeader({ active = false }: { active?: boolean }) {
           Timed mental math drills for interviews, school, and the fun of getting faster.
         </p>
 
-        <details className="group mx-auto mt-5 max-w-xl text-left">
+        <details className="disclosure group mx-auto mt-5 max-w-xl text-left">
           <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors marker:content-none hover:text-foreground">
             About this trainer
             <ChevronDown
               aria-hidden="true"
-              className="h-3.5 w-3.5 transition-transform group-open:rotate-180"
+              className="h-3.5 w-3.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-open:rotate-180"
             />
           </summary>
 

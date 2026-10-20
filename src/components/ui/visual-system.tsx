@@ -1,6 +1,11 @@
+"use client";
+
 import type { HTMLAttributes, ReactNode } from "react";
 
+import { motion } from "motion/react";
+
 import { cn } from "@/lib/utils";
+import { snapSpring } from "@/lib/motion";
 import { AsciiMorph } from "./ascii-morph";
 
 export function DotField({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
@@ -8,13 +13,30 @@ export function DotField({ className, ...props }: HTMLAttributes<HTMLDivElement>
 }
 
 // Option tiles: soft grey chips that fill with ink when selected (Kurb's Active/Resolved).
-export function optionTileClass(selected: boolean, extra?: string) {
+// With `slidingPill`, the ink fill is drawn by <SelectionPill> instead, so it can slide
+// between the options of a group.
+export function optionTileClass(selected: boolean, extra?: string, { slidingPill = false } = {}) {
   return cn(
-    "rounded-2xl px-3 py-3 transition-colors",
+    "rounded-2xl px-3 py-3 transition-colors duration-200",
+    slidingPill && "relative isolate",
     selected
-      ? "bg-foreground text-background"
+      ? slidingPill ? "bg-control text-background" : "bg-foreground text-background"
       : "bg-control hover:bg-control-hover",
     extra,
+  );
+}
+
+/** The ink fill of the selected option; one per group (`group` = a unique layoutId). */
+export function SelectionPill({ group, className }: { group: string; className?: string }) {
+  return (
+    <motion.span
+      layoutId={group}
+      // Animate only the hand-off between options, never page reflow.
+      layoutDependency={group}
+      transition={snapSpring}
+      aria-hidden="true"
+      className={cn("absolute inset-0 -z-10 rounded-2xl bg-foreground", className)}
+    />
   );
 }
 
