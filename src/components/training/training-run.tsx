@@ -1,7 +1,8 @@
 "use client";
 
 import type { FormEvent, RefObject } from "react";
-import { AnimatePresence, motion, useIsPresent } from "motion/react";
+import { useLayoutEffect } from "react";
+import { motion, useAnimate } from "motion/react";
 import { morphContentIn, morphSpring } from "@/lib/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,16 @@ export function TrainingRun({
 }) {
   const metricClass = "pt-2 sm:pt-3 [&>div]:mt-1 [&>div]:text-xl sm:[&>div]:mt-2 sm:[&>div]:text-3xl";
   const metricCount = 1 + Number(gameMode !== "timed") + Number(submitMode === "manual") + Number(gameMode !== "learning");
+  // Fade the problem in only when it changes. The card remounts on every answer (to replay
+  // the correct/wrong feedback), so a mount animation would also replay on the old problem.
+  const [problemScope, animateProblem] = useAnimate<HTMLDivElement>();
+  const problemKey = problem ? `${problem.a}${problem.operation}${problem.b}` : "";
+  // Layout effect: start from opacity 0 before the new text is painted, so it can't flash.
+  useLayoutEffect(() => {
+    if (!problemKey || !problemScope.current) return;
+    animateProblem(problemScope.current, { opacity: [0, 1], y: [6, 0] }, { duration: 0.09, ease: "easeOut" });
+  }, [problemKey, animateProblem, problemScope]);
+
   return (
     <div className="space-y-3 sm:space-y-6">
       {/* Status row: mode in plain text, time and Stop as grey pills. */}
@@ -191,12 +202,14 @@ export function TrainingRun({
         <CardContent className="p-3 sm:p-12">
           {problem && (
             <div className="text-center">
-              {/* Each new problem lifts in while the previous one slides up and out. Both share
-                  one grid cell, so the card never changes height during the swap. */}
-              <div className="mb-5 grid sm:mb-10">
-                <AnimatePresence initial={false}>
-                  <ProblemText key={`${problem.a}${problem.operation}${problem.b}`} text={`${problem.a} ${problem.operation} ${problem.b}`} />
-                </AnimatePresence>
+              {/* A new problem lifts in fast enough to read straight away (this is a speed
+                  drill); see the effect above. */}
+              <div
+                ref={problemScope}
+                data-problem
+                className="mb-5 break-words font-mono text-[44px] font-semibold leading-none tracking-[-0.04em] sm:mb-10 sm:text-[80px]"
+              >
+                {problem.a} {problem.operation} {problem.b}
               </div>
 
               {/* Answer and Submit stack in one column at the same width. */}
@@ -330,24 +343,5 @@ export function TrainingRun({
         )}
       </div>
     </div>
-  );
-}
-
-// The problem line. While it animates out, it drops its test hook and is hidden from
-// assistive tech, so only the current problem is ever read.
-function ProblemText({ text }: { text: string }) {
-  const isPresent = useIsPresent();
-  return (
-    <motion.div
-      data-problem={isPresent ? "" : undefined}
-      aria-hidden={isPresent ? undefined : true}
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0, transition: { duration: 0.22, delay: 0.04, ease: [0.22, 1, 0.36, 1] } }}
-      // The old problem clears out quickly so the two never read as one jumbled line.
-      exit={{ opacity: 0, y: -16, transition: { duration: 0.1, ease: "easeIn" } }}
-      className="[grid-area:1/1] break-words font-mono text-[44px] font-semibold leading-none tracking-[-0.04em] sm:text-[80px]"
-    >
-      {text}
-    </motion.div>
   );
 }
