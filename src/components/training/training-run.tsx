@@ -16,7 +16,6 @@ import {
   Eye,
   EyeOff,
   RotateCcw,
-  Square,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -110,6 +109,8 @@ export function TrainingRun({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
+      // Leaving (Stop or time up): the run sinks back and fades before the results arrive.
+      exit={{ opacity: 0, y: 6, scale: 0.98, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] } }}
       transition={runEnter}
       className="space-y-3 sm:space-y-6"
     >
@@ -147,8 +148,17 @@ export function TrainingRun({
                 {gameMode === "practice" ? `${timeLeft}s` : formatTime(overallTimeLeft)}
               </div>
             )}
-            <Button variant="secondary" size="sm" onClick={onStop} className="min-h-10">
-              <Square aria-hidden="true" className="h-3.5 w-3.5 fill-current" />
+            {/* Stop fills with ink on hover (it ends the run) and its square tightens on press. */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onStop}
+              className="group min-h-10 hover:bg-foreground hover:text-background active:scale-95"
+            >
+              <span
+                aria-hidden="true"
+                className="size-3 rounded-[3px] bg-current transition-[transform,border-radius] duration-200 ease-out group-hover:rounded-[4px] group-active:scale-75"
+              />
               Stop
             </Button>
           </div>

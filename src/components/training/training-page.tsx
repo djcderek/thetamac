@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
@@ -742,6 +742,8 @@ export default function TrainingPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [hasStartedRun, setHasStartedRun] = useState(false);
+  // Seconds into the run when the player pressed Stop; null when the run ran its course.
+  const [stoppedAfterSeconds, setStoppedAfterSeconds] = useState<number | null>(null);
   const [avgTime, setAvgTime] = useState(0);
   const [, setTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState<number>(0);
@@ -1232,6 +1234,7 @@ export default function TrainingPage() {
 
     guestSubmittedRef.current = false;
     setScorePercentile(null);
+    setStoppedAfterSeconds(null);
 
     startNewProblem();
   };
@@ -1460,6 +1463,20 @@ export default function TrainingPage() {
     }
   };
 
+  // Stop mid-run: show how the run went (the game-over effect saves it as abandoned). With
+  // nothing answered yet there is nothing to show, so it goes straight back to setup.
+  const handleStop = () => {
+    if (totalSolved === 0 || isGameOver) {
+      void stopTraining();
+      return;
+    }
+    setStoppedAfterSeconds(Math.round((Date.now() - sessionStartTimeRef.current) / 1000));
+    setIsPlaying(false);
+    setProblem(null);
+    setHasAnswered(false);
+    setIsGameOver(true);
+  };
+
   const stopTraining = async () => {
     // Save session before stopping if we have data. A finished run ("Change settings" on the
     // results screen) was already saved when it ended.
@@ -1684,7 +1701,15 @@ export default function TrainingPage() {
   // End session when game is over (timed mode)
   useEffect(() => {
     if (isGameOver && totalSolved > 0) {
-      endSession(totalSolved, totalCorrect, bestStreakRef.current, avgTime);
+      const stopped = stoppedAfterSeconds !== null;
+      endSession(
+        totalSolved,
+        totalCorrect,
+        bestStreakRef.current,
+        avgTime,
+        stopped ? "abandoned" : "completed",
+        stopped ? "manual_stop" : "timer_finished",
+      );
     } else if (isGameOver && activeRunRef.current && !completionTrackedRef.current) {
       completionTrackedRef.current = true;
       activeRunRef.current = false;
@@ -1808,8 +1833,12 @@ export default function TrainingPage() {
               returningAccount={returningAccount}
             />
           )}
+          {/* Leaving a run, the run screen exits first (quickly) and the next view enters after.
+              Setup and results have no exit, so Start and Play again stay instant. */}
+          <AnimatePresence mode="wait" initial={false}>
           {isGameOver ? (
             <TrainingGameOver
+              key="results"
               difficultyLabel={currentConfig.label}
               difficultyBadgeClassName={getDifficultyColor(difficulty)}
               totalSolved={totalSolved}
@@ -1820,6 +1849,8 @@ export default function TrainingPage() {
               showBestStreakCard={gameMode !== "timed"}
               onPlayAgain={startTraining}
               onChangeSettings={stopTraining}
+              stoppedAt={stoppedAfterSeconds === null ? null : formatTime(stoppedAfterSeconds)}
+              runSeconds={stoppedAfterSeconds ?? (gameMode === "timed" ? timedModeLimit : null)}
               scorePercentile={scorePercentile}
               showAuthCallout={!authSession?.user}
               trainingRunId={trainingRunIdRef.current}
@@ -1828,6 +1859,7 @@ export default function TrainingPage() {
             // After a run, setup settles back in rather than cutting; on first load it renders
             // as-is (an initial opacity would ship invisible in the server HTML).
             <motion.div
+              key="setup"
               initial={hasStartedRun ? { opacity: 0, y: 12 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={settleSpring}
@@ -1865,6 +1897,7 @@ export default function TrainingPage() {
             </motion.div>
           ) : (
             <TrainingRun
+              key="run"
               gameMode={gameMode}
               submitMode={submitMode}
               showAdvanced={showAdvanced}
@@ -1896,11 +1929,12 @@ export default function TrainingPage() {
               setUserAnswer={setUserAnswer}
               inputRef={inputRef}
               onSubmit={handleSubmit}
-              onStop={stopTraining}
+              onStop={handleStop}
               onSkip={handleSkipProblem}
               onNextProblem={startNewProblem}
             />
           )}
+          </AnimatePresence>
           {isGameOver && !isPlaying && (
             <ProductSurveyController surface="training" enabled inline />
           )}

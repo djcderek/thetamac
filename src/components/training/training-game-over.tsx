@@ -22,6 +22,8 @@ export function TrainingGameOver({
   showBestStreakCard,
   onPlayAgain,
   onChangeSettings,
+  stoppedAt,
+  runSeconds,
   scorePercentile,
   showAuthCallout,
   trainingRunId,
@@ -36,6 +38,10 @@ export function TrainingGameOver({
   showBestStreakCard: boolean;
   onPlayAgain: () => void;
   onChangeSettings: () => void;
+  /** Time into the run when the player pressed Stop (e.g. "0:42"); null when it ran its course. */
+  stoppedAt: string | null;
+  /** How long the run lasted, for the pace row; null when there was no overall clock. */
+  runSeconds: number | null;
   scorePercentile: ScoreDistribution | null;
   showAuthCallout: boolean;
   trainingRunId: string | null;
@@ -54,16 +60,26 @@ export function TrainingGameOver({
   // Secondary stats read as receipt rows (Kurb's "Hourly rate · $10" detail list).
   const detailRows = [
     showAccuracyCard ? { label: "Accuracy", value: `${accuracy}%` } : null,
+    runSeconds !== null && runSeconds >= 5
+      ? { label: "Pace", value: `${Math.round((totalSolved / runSeconds) * 60)} per minute` }
+      : null,
     { label: "Average time", value: `${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s` },
     showBestStreakCard ? { label: "Best streak", value: String(bestStreak) } : null,
     { label: "Difficulty", value: difficultyLabel, className: difficultyBadgeClassName },
   ].filter((row): row is { label: string; value: string; className?: string } => row !== null);
 
   return (
-    <div className="mx-auto max-w-xl pt-4 sm:pt-10">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={settleSpring}
+      className="mx-auto max-w-xl pt-4 sm:pt-10"
+    >
       <div className="space-y-6">
         <div className="text-center">
-          <p className="text-[15px] font-medium text-muted-foreground">Time&apos;s up</p>
+          <p className="text-[15px] font-medium text-muted-foreground">
+            {stoppedAt ? `Stopped after ${stoppedAt}` : "Time\u2019s up"}
+          </p>
           <p className="mt-2 text-[88px] font-semibold leading-none tracking-[-0.05em] tabular-nums sm:text-[112px]">
             <CountUp value={totalSolved} />
           </p>
@@ -78,7 +94,7 @@ export function TrainingGameOver({
               key={row.label}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ ...settleSpring, delay: 0.25 + index * 0.06 }}
+              transition={{ ...settleSpring, delay: 0.08 + index * 0.05 }}
               className="flex items-center justify-between py-3.5 text-[15px]"
             >
               <dt className="text-muted-foreground">{row.label}</dt>
@@ -144,7 +160,7 @@ export function TrainingGameOver({
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
