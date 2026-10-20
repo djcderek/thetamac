@@ -3,7 +3,7 @@
 import type { FormEvent, RefObject } from "react";
 import { useLayoutEffect } from "react";
 import { motion, useAnimate } from "motion/react";
-import { morphContentIn, morphSpring } from "@/lib/motion";
+import { runEnter } from "@/lib/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,7 +105,14 @@ export function TrainingRun({
   }, [problemKey, animateProblem, problemScope]);
 
   return (
-    <div className="space-y-3 sm:space-y-6">
+    // Entering a run: the screen rises in quickly and the problem card lands a beat after,
+    // with no overshoot. Short enough that the first problem is readable almost at once.
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={runEnter}
+      className="space-y-3 sm:space-y-6"
+    >
       {/* Status row: mode in plain text, time and Stop as grey pills. */}
       <div ref={timerAndProblemRef} className="scroll-mt-16 pt-1 sm:pt-4">
         <div className="flex items-center justify-between gap-3">
@@ -181,22 +188,17 @@ export function TrainingRun({
         </div>
       )}
 
-      {/* Problem Display. The surface is shared with the Start / Play again pill ("run-surface"):
-          it grows out of the orange pill, settling to grey, and the content fades in after. */}
+      {/* Problem Display */}
       <motion.div
-        layoutId="run-surface"
-        transition={morphSpring}
-        style={{ borderRadius: 28 }}
-        initial={{ backgroundColor: "var(--brand)" }}
-        animate={{ backgroundColor: "var(--secondary)" }}
-        className="overflow-hidden"
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={runEnter}
       >
-      <motion.div layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={morphContentIn}>
       <Card
         key={feedbackKey}
         className={cn(
           // Feedback as an inset ring: the grouped surface has no border to color.
-          "relative rounded-[28px] bg-transparent py-6 transition-shadow duration-200 sm:py-10",
+          "relative rounded-[28px] py-6 transition-shadow duration-200 sm:py-10",
           isCorrect === true && "ring-2 ring-inset ring-success/50 animate-pulse-success",
           isCorrect === false && "ring-2 ring-inset ring-destructive/50 animate-shake"
         )}
@@ -264,7 +266,6 @@ export function TrainingRun({
         </CardContent>
       </Card>
       </motion.div>
-      </motion.div>
 
       {/* Solution Breakdown - After answering in Learning mode */}
       {gameMode === "learning" && hasAnswered && currentTip && (
@@ -325,8 +326,11 @@ export function TrainingRun({
         </Button>
       )}
 
-      {/* Stats */}
-      <div
+      {/* Stats arrive just after the card, so the screen builds top-down. */}
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...runEnter, delay: 0.08 }}
         className={`grid gap-4 ${
           metricCount === 4 ? "grid-cols-4" : metricCount === 3 ? "grid-cols-3" : "grid-cols-2"
         }`}
@@ -340,7 +344,7 @@ export function TrainingRun({
         {gameMode !== "learning" && (
           <MetricTile label="Avg time" value={`${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s`} className={metricClass} />
         )}
-      </div>
+      </motion.div>
 
       {/* Controls */}
       <div className="flex justify-center gap-3">
@@ -351,6 +355,6 @@ export function TrainingRun({
           </Button>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { animate, motion, useReducedMotion } from "motion/react";
-import { morphLabelIn, morphSpring, settleSpring } from "@/lib/motion";
-import { cn } from "@/lib/utils";
+import { settleSpring } from "@/lib/motion";
 import type { DifficultySettings, ScoreDistribution } from "@/components/training/training-types";
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -89,20 +88,10 @@ export function TrainingGameOver({
         </dl>
 
         <div className="space-y-2">
-          {/* The run's card collapses into this pill, and expands back out of it on Play again. */}
-          <motion.button
-            type="button"
-            layoutId="run-surface"
-            transition={morphSpring}
-            style={{ borderRadius: 28 }}
-            onClick={onPlayAgain}
-            className={cn(buttonVariants({ variant: "brand", size: "lg" }), "h-14 w-full text-[17px]")}
-          >
-            <motion.span layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={morphLabelIn} className="inline-flex items-center gap-2">
-              <RotateCcw aria-hidden="true" className="h-4 w-4" />
-              Play again
-            </motion.span>
-          </motion.button>
+          <Button variant="brand" size="lg" onClick={onPlayAgain} className="h-14 w-full text-[17px]">
+            <RotateCcw aria-hidden="true" />
+            Play again
+          </Button>
           <Button variant="secondary" size="lg" onClick={onChangeSettings} className="w-full">
             Change settings
           </Button>

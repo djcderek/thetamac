@@ -12,6 +12,9 @@ export const snapSpring: Transition = { type: "spring", bounce: 0, duration: 0.3
 /** Drawers and sheets: quick and critically damped (no flick precedes them). */
 export const drawerSpring: Transition = { type: "spring", bounce: 0, duration: 0.4 };
 
+/** A screen arriving (e.g. a run starting): quick ease-out, no overshoot. */
+export const runEnter: Transition = { duration: 0.26, ease: [0.22, 1, 0.36, 1] };
+
 /** Content entering or leaving: calm, no overshoot. */
 export const settleSpring: Transition = { type: "spring", bounce: 0, duration: 0.45 };
 

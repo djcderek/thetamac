@@ -273,22 +273,10 @@ export function TrainingSetup({
 
           {/* The one orange action on the page. */}
           <div className="mt-5 space-y-3">
-            {/* Start is the same surface as the run's problem card ("run-surface"): it expands
-                into the card when a run starts, and the card shrinks back into it on Stop. */}
-            <motion.button
-              type="button"
-              layoutId="run-surface"
-              transition={morphSpring}
-              style={{ borderRadius: 28 }}
-              onClick={startTraining}
-              disabled={!preferencesReady}
-              className={cn(buttonVariants({ variant: "brand", size: "lg" }), "h-14 w-full text-[17px]")}
-            >
-              <motion.span layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={morphLabelIn} className="inline-flex items-center gap-2">
-                Start
-                <Play aria-hidden="true" className="h-4 w-4 fill-current" />
-              </motion.span>
-            </motion.button>
+            <Button onClick={startTraining} disabled={!preferencesReady} variant="brand" size="lg" className="h-14 w-full text-[17px]">
+              Start
+              <Play aria-hidden="true" className="h-4 w-4 fill-current" />
+            </Button>
             <Link
               href="/training/weak-points"
               className="flex items-center justify-center gap-1.5 py-1 text-[15px] font-medium text-muted-foreground transition-colors hover:text-foreground"
