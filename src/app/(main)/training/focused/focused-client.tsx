@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { MetricTile, SectionLabel, optionTileClass } from "@/components/ui/visual-system";
+import { MetricTile, SectionLabel, SelectionPill, optionTileClass } from "@/components/ui/visual-system";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -118,7 +118,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   const [correctFlashKey, setCorrectFlashKey] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [submitMode, setSubmitMode] = useState<SubmitMode>("manual");
+  const [submitMode, setSubmitMode] = useState<SubmitMode>("auto");
 
   // Stats
   const [correctCount, setCorrectCount] = useState(0);
@@ -596,27 +596,31 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                     <SectionLabel className="mb-3">Submission mode</SectionLabel>
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => setSubmitMode("manual")}
-                        className={optionTileClass(submitMode === "manual", "text-center")}
-                      >
-                        <div className="flex items-center justify-center gap-2 mb-1">
-                          <CornerDownLeft className="w-4 h-4" />
-                          <span className="font-medium text-sm">Press Enter</span>
-                        </div>
-                        <span className={`text-xs block ${submitMode === "manual" ? "text-background/70" : "text-muted-foreground"}`}>
-                          Submit with Enter key
-                        </span>
-                      </button>
-                      <button
                         onClick={() => setSubmitMode("auto")}
-                        className={optionTileClass(submitMode === "auto", "text-center")}
+                        aria-pressed={submitMode === "auto"}
+                        className={optionTileClass(submitMode === "auto", "text-center", { slidingPill: true })}
                       >
+                        {submitMode === "auto" && <SelectionPill group="focused-submit-mode" />}
                         <div className="flex items-center justify-center gap-2 mb-1">
                           <Wand2 className="w-4 h-4" />
                           <span className="font-medium text-sm">Auto-submit</span>
                         </div>
                         <span className={`text-xs block ${submitMode === "auto" ? "text-background/70" : "text-muted-foreground"}`}>
                           Submit when correct
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setSubmitMode("manual")}
+                        aria-pressed={submitMode === "manual"}
+                        className={optionTileClass(submitMode === "manual", "text-center", { slidingPill: true })}
+                      >
+                        {submitMode === "manual" && <SelectionPill group="focused-submit-mode" />}
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <CornerDownLeft className="w-4 h-4" />
+                          <span className="font-medium text-sm">Press Enter</span>
+                        </div>
+                        <span className={`text-xs block ${submitMode === "manual" ? "text-background/70" : "text-muted-foreground"}`}>
+                          Submit with Enter key
                         </span>
                       </button>
                     </div>
