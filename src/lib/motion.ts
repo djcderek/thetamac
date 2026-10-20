@@ -6,6 +6,9 @@ import type { Transition } from "motion/react";
 /** Shape morphs (a control expanding into a panel): a little bounce reads as a blob. */
 export const morphSpring: Transition = { type: "spring", bounce: 0.2, duration: 0.6 };
 
+/** A morph closing back into its control: settles without overshoot, so it lands cleanly. */
+export const closeSpring: Transition = { type: "spring", bounce: 0, duration: 0.42 };
+
 /** Sliding indicators and small repositions: critically damped, no overshoot. */
 export const snapSpring: Transition = { type: "spring", bounce: 0, duration: 0.35 };
 
@@ -20,9 +23,3 @@ export const settleSpring: Transition = { type: "spring", bounce: 0, duration: 0
 
 /** Content inside a morphing surface fades in once the shape has mostly formed. */
 export const morphContentIn: Transition = { duration: 0.22, delay: 0.12, ease: [0.22, 1, 0.36, 1] };
-
-/** A small label inside a surface that is shrinking back into a control: appears late. */
-export const morphLabelIn: Transition = { duration: 0.18, delay: 0.28, ease: [0.22, 1, 0.36, 1] };
-
-/** Content leaving a morphing surface: gone before the shape changes much. */
-export const morphContentOut: Transition = { duration: 0.1, ease: "easeOut" };

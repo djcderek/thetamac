@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -24,8 +24,8 @@ import {
 import { cn } from "@/lib/utils";
 import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { morphContentIn, morphContentOut, morphLabelIn, morphSpring } from "@/lib/motion";
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { closeSpring, morphContentIn, morphSpring } from "@/lib/motion";
 import { Input } from "@/components/ui/input";
 import { SectionLabel, SelectionPill, optionTileClass } from "@/components/ui/visual-system";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -152,6 +152,28 @@ export function TrainingSetup({
   preferencesReady: boolean;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsPanelRef = useRef<HTMLElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  // Opening settings brings the whole panel into view: on desktop its bottom sits below the
+  // fold, and on phones it stacks under the quick-start card. Scroll only as far as needed.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const panel = settingsPanelRef.current;
+    if (!panel) return;
+    // Layout position (offsetTop ignores the morph's in-flight transforms).
+    let top = 0;
+    for (let node: HTMLElement | null = panel; node; node = node.offsetParent as HTMLElement | null) {
+      top += node.offsetTop;
+    }
+    const headerHeight = window.matchMedia("(min-width: 768px)").matches ? 64 : 56;
+    const bottomFits = top + panel.offsetHeight - window.innerHeight + 24;
+    const topFits = top - headerHeight - 16;
+    const target = Math.min(bottomFits, topFits);
+    if (target > window.scrollY) {
+      window.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });
+    }
+  }, [settingsOpen, reduceMotion]);
   const selectedOpsLabel = selectedOperations.join(" ");
 
   return (
@@ -160,7 +182,7 @@ export function TrainingSetup({
         slides it left; a resize would scale-distort its text mid-animation. */}
     <div className={cn("mx-auto grid gap-6", settingsOpen ? "max-w-5xl lg:grid-cols-[36rem_minmax(0,1fr)]" : "max-w-xl")}>
       {/* Left: Quick start — one grey grouped card, then the single orange action. */}
-      <motion.div layout="position" transition={morphSpring} className="min-w-0 space-y-6">
+      <motion.div layout="position" transition={settingsOpen ? morphSpring : closeSpring} className="min-w-0 space-y-6">
         <section aria-label="Quick start">
           <div className="space-y-5 rounded-[26px] bg-secondary p-4 sm:p-5">
             <Tabs value={gameMode} onValueChange={(v) => setGameMode(v as GameMode)}>
@@ -196,43 +218,43 @@ export function TrainingSetup({
                 </p>
               </div>
 
-              {/* Edit is the same element as the settings panel (shared layoutId): it grows out
-                  into the panel like a blob, and the panel shrinks back into it on close. */}
-              <AnimatePresence initial={false}>
-              {settingsOpen ? (
-                <motion.span key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: morphContentOut }} transition={morphContentIn}>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setSettingsOpen(false)}
-                    className="min-h-10 shrink-0"
-                    aria-expanded
-                    aria-controls="training-session-settings"
+              {/* One button that stays put; only its label swaps (Edit / Done). Closed, its
+                  background is the morph anchor: the settings panel grows out of it and
+                  shrinks back into it, so nothing is left over at the end of the close. */}
+              <button
+                type="button"
+                onClick={() => setSettingsOpen((open) => !open)}
+                aria-expanded={settingsOpen}
+                aria-controls="training-session-settings"
+                className={cn(
+                  buttonVariants({ variant: "secondary", size: "sm" }),
+                  "group relative isolate min-h-10 min-w-[4.75rem] shrink-0 overflow-visible bg-transparent hover:bg-transparent",
+                )}
+              >
+                {settingsOpen ? (
+                  <span aria-hidden="true" className="absolute inset-0 -z-10 rounded-full bg-secondary transition-colors group-hover:bg-accent" />
+                ) : (
+                  <motion.span
+                    aria-hidden="true"
+                    layoutId="session-settings-morph"
+                    layoutCrossfade={false}
+                    transition={closeSpring}
+                    style={{ borderRadius: 20 }}
+                    className="absolute inset-0 -z-10 bg-secondary transition-colors group-hover:bg-accent"
+                  />
+                )}
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.span
+                    key={settingsOpen ? "done" : "edit"}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.14, ease: "easeOut" }}
                   >
-                    Done
-                  </Button>
-                </motion.span>
-              ) : (
-                <motion.button
-                  key="edit"
-                  type="button"
-                  layoutId="session-settings-morph"
-                  exit={{ opacity: 0, transition: morphContentOut }}
-                  transition={morphSpring}
-                  style={{ borderRadius: 18 }}
-                  onClick={() => setSettingsOpen(true)}
-                  className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "min-h-10 shrink-0")}
-                  aria-expanded={false}
-                  aria-controls="training-session-settings"
-                >
-                  {/* `layout` (not "position") also counter-scales the label while the pill shrinks. */}
-                  <motion.span layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={morphLabelIn}>
-                    Edit
+                    {settingsOpen ? "Done" : "Edit"}
                   </motion.span>
-                </motion.button>
-              )}
-              </AnimatePresence>
+                </AnimatePresence>
+              </button>
             </div>
 
             <fieldset className="space-y-2" aria-describedby="answer-submission-help">
@@ -363,22 +385,21 @@ export function TrainingSetup({
         )}
       </motion.div>
 
-      {/* Right: Settings — morphs out of the Edit pill. AnimatePresence keeps it mounted on close
-          so it shrinks back into the pill instead of vanishing. */}
-      <AnimatePresence initial={false}>
+      {/* Right: Settings — grows out of the Edit button's background (shared layoutId). On
+          close it unmounts and that background shrinks back from the panel's box. */}
       {settingsOpen ? (
         <motion.section
-          key="session-settings"
+          ref={settingsPanelRef}
           id="training-session-settings"
           layoutId="session-settings-morph"
+          layoutCrossfade={false}
           transition={morphSpring}
-          exit={{ opacity: 0, transition: { duration: 0.35, ease: "easeIn" } }}
           style={{ borderRadius: 26 }}
           className="min-w-0 overflow-hidden bg-secondary p-4 sm:p-5"
         >
         {/* `layout` counter-scales the content while the surface morphs; it fades in once the
             shape has mostly formed. */}
-        <motion.div layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: morphContentOut }} transition={morphContentIn}>
+        <motion.div layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={morphContentIn}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <SectionLabel>Session settings</SectionLabel>
@@ -563,7 +584,6 @@ export function TrainingSetup({
         </motion.div>
         </motion.section>
       ) : null}
-      </AnimatePresence>
     </div>
     </LayoutGroup>
   );
