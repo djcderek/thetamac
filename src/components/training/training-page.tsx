@@ -772,6 +772,9 @@ export default function TrainingPage() {
 
   // Animation feedback state - key increments to re-trigger animations
   const [feedbackKey, setFeedbackKey] = useState(0);
+  // Bumped on each correct answer that advances; the run card flashes green from it, so the
+  // next problem can appear immediately without cutting the feedback short.
+  const [correctFlashKey, setCorrectFlashKey] = useState(0);
 
   // Session tracking for database persistence
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -1569,9 +1572,8 @@ export default function TrainingPage() {
         });
 
         if (autoAdvance) {
-          setTimeout(() => {
-            startNewProblem();
-          }, 200);
+          setCorrectFlashKey((k) => k + 1);
+          startNewProblem();
         } else {
           setHasAnswered(true);
         }
@@ -1735,9 +1737,8 @@ export default function TrainingPage() {
       if (gameMode === "learning") {
         setHasAnswered(true);
       } else if (autoAdvance) {
-        setTimeout(() => {
-          startNewProblem();
-        }, 200);
+        setCorrectFlashKey((k) => k + 1);
+        startNewProblem();
       } else {
         setHasAnswered(true);
       }
@@ -1886,6 +1887,7 @@ export default function TrainingPage() {
               formatTime={formatTime}
               timerAndProblemRef={timerAndProblemRef}
               feedbackKey={feedbackKey}
+              correctFlashKey={correctFlashKey}
               isCorrect={isCorrect}
               problem={problem}
               useCustomKeypad={useCustomKeypad}

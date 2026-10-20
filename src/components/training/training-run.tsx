@@ -44,6 +44,7 @@ export function TrainingRun({
   formatTime,
   timerAndProblemRef,
   feedbackKey,
+  correctFlashKey,
   isCorrect,
   problem,
   useCustomKeypad,
@@ -78,6 +79,7 @@ export function TrainingRun({
   formatTime: (seconds: number) => string;
   timerAndProblemRef: RefObject<HTMLDivElement | null>;
   feedbackKey: number;
+  correctFlashKey: number;
   isCorrect: boolean | null;
   problem: Problem | null;
   useCustomKeypad: boolean;
@@ -194,11 +196,18 @@ export function TrainingRun({
         key={feedbackKey}
         className={cn(
           // Feedback as an inset ring: the grouped surface has no border to color.
-          "rounded-[28px] bg-transparent py-6 transition-shadow duration-200 sm:py-10",
+          "relative rounded-[28px] bg-transparent py-6 transition-shadow duration-200 sm:py-10",
           isCorrect === true && "ring-2 ring-inset ring-success/50 animate-pulse-success",
           isCorrect === false && "ring-2 ring-inset ring-destructive/50 animate-shake"
         )}
       >
+        {correctFlashKey > 0 && (
+          <span
+            key={correctFlashKey}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-[28px] ring-2 ring-inset ring-success/50 animate-flash-out"
+          />
+        )}
         <CardContent className="p-3 sm:p-12">
           {problem && (
             <div className="text-center">

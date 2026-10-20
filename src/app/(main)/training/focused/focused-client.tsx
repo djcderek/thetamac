@@ -115,6 +115,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [correctFlashKey, setCorrectFlashKey] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [submitMode, setSubmitMode] = useState<SubmitMode>("manual");
@@ -269,7 +270,9 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     inputRef.current?.focus();
   };
 
-  const nextProblem = useCallback(() => {
+  // `afterCorrect` plays the green flash over the next problem (correct answers advance at once).
+  const nextProblem = useCallback((afterCorrect = false) => {
+    if (afterCorrect) setCorrectFlashKey((k) => k + 1);
     if (currentIndex < problems.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setUserAnswer("");
@@ -394,9 +397,15 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
       });
     }
 
-    setTimeout(() => {
-      nextProblem();
-    }, correct ? 200 : 600);
+    // Correct answers advance at once (the green flash plays over the next problem); a miss
+    // holds for a moment so it can be seen.
+    if (correct) {
+      nextProblem(true);
+    } else {
+      setTimeout(() => {
+        nextProblem();
+      }, 600);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -440,9 +449,8 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
       recordAttempt(currentProblem, answerNum, true, timeTaken);
 
-      setTimeout(() => {
-        nextProblem();
-      }, 200);
+      // Next tick rather than synchronously inside the effect (no perceptible wait).
+      setTimeout(() => nextProblem(true), 0);
     }
   }, [userAnswer, isPlaying, currentProblem, submitMode, isCorrect, startTime, bestStreak, recordAttempt, nextProblem]);
 
@@ -652,9 +660,16 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
           {/* Problem. Feedback is a ring, like the main run: the grouped surface has no border. */}
           {currentProblem && (
-            <Card className={`rounded-[28px] py-6 transition-shadow sm:py-10 ${
-              isCorrect === true ? "ring-2 ring-success/50" : isCorrect === false ? "ring-2 ring-destructive/50" : ""
+            <Card className={`relative rounded-[28px] py-6 transition-shadow sm:py-10 ${
+              isCorrect === false ? "ring-2 ring-destructive/50" : ""
             }`}>
+              {correctFlashKey > 0 && (
+                <span
+                  key={correctFlashKey}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-[28px] ring-2 ring-inset ring-success/50 animate-flash-out"
+                />
+              )}
               <CardContent className="p-6 sm:p-12">
                 <div className="text-center">
                   <div data-problem className="mb-5 break-words font-mono text-[44px] font-semibold leading-none tracking-[-0.04em] sm:mb-10 sm:text-[80px]">
@@ -708,7 +723,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
           {/* Skip button */}
           <div className="flex justify-center">
-            <Button variant="outline" onClick={nextProblem}>
+            <Button variant="outline" onClick={() => nextProblem()}>
               Skip
             </Button>
           </div>

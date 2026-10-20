@@ -313,6 +313,16 @@ h1, h2, h3, .font-serif {
   animation: shake 0.4s ease-in-out;
 }
 
+/* A feedback overlay that shows at full strength, then fades away on its own. */
+@keyframes flash-out {
+  0%, 30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-flash-out {
+  animation: flash-out 0.45s ease-out forwards;
+}
+
 .animate-pulse-success {
   animation: pulse-success 0.4s ease-out;
 }
