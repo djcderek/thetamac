@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { standardTimedSessionWhere } from "@/lib/standard-timed-sessions";
 import { isDeletedUserId } from "@/lib/deleted-user";
 import { getCached } from "@/lib/server-cache";
+import { leaderboardInitials } from "@/lib/leaderboard-initials";
 import {
   aggregateDuelResults,
   aggregateRaceResults,
@@ -40,6 +41,7 @@ export interface LeaderboardEntry {
   performance: PerformanceMetric;
   trend: RankTrend;
   isYou?: boolean;
+  isGuest?: boolean;
 }
 
 export interface LeaderboardResult {
@@ -57,6 +59,7 @@ export interface TrainingTopScoreEntry {
   level: number;
   score: number;
   isYou?: boolean;
+  isGuest?: boolean;
 }
 
 export interface TrainingTopScoresResult {
@@ -147,9 +150,7 @@ function createEntry(
   const guest = guests.get(item.userId);
   const user = users.get(item.userId);
   const displayName = guest?.name || user?.username || user?.name || "Anonymous";
-  const avatar = user?.username
-    ? user.username.substring(0, 2).toUpperCase()
-    : displayName.substring(0, 2).toUpperCase();
+  const avatar = leaderboardInitials(displayName);
 
   return {
     rank: rankIndex + 1,
@@ -158,6 +159,7 @@ function createEntry(
     avatar,
     image: guest ? null : user?.image,
     level: guest ? 1 : getLevel(user?.stats?.totalProblems),
+    isGuest: Boolean(guest),
     score: Math.round(item.score),
     performance: item.performance,
     trend: trends.get(item.userId) ?? { kind: "unavailable" },
@@ -175,9 +177,7 @@ function createTopScoreEntry(
   const guest = guests.get(score.userId);
   const user = users.get(score.userId);
   const displayName = guest?.name || user?.username || user?.name || "Anonymous";
-  const avatar = user?.username
-    ? user.username.substring(0, 2).toUpperCase()
-    : displayName.substring(0, 2).toUpperCase();
+  const avatar = leaderboardInitials(displayName);
   return {
     rank: rankIndex + 1,
     id: score.userId,
@@ -185,6 +185,7 @@ function createTopScoreEntry(
     avatar,
     image: guest ? null : user?.image,
     level: guest ? 1 : getLevel(user?.stats?.totalProblems),
+    isGuest: Boolean(guest),
     score: Math.round(score.score),
     isYou: currentUserId === score.userId,
   };
