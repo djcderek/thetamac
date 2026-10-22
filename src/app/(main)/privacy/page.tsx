@@ -271,6 +271,9 @@ export default function PrivacyPolicyPage() {
               <p className="text-sm text-muted-foreground">
                 Training and match history is generally retained to power your stats and leaderboards.
                 You can request deletion of your account by contacting us.
+                When an account is deleted, we keep only a one-way keyed hash of its email address
+                and whether the free trial or the Pro sign-up bonus was used, so they aren&apos;t
+                granted twice. The hash can&apos;t be turned back into the address.
               </p>
             </CardContent>
           </Card>

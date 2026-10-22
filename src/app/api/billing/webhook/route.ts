@@ -8,6 +8,7 @@ import Stripe from "stripe";
 import { env } from "@/lib/env";
 import { captureServerAnalyticsEvent } from "@/lib/posthog-server";
 import { ANALYTICS_EVENTS, getAnalyticsInsertId } from "@/lib/analytics";
+import { getTrialUsage, recordTrialUsage } from "@/lib/trial-usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,34 +127,42 @@ async function syncSubscription(stripe: Stripe, freshSubscription: Stripe.Subscr
 
   // Mark free trial as used once a user actually enters a premium/trialing state.
   // (We keep this flag persistent even if the subscription later cancels.)
-  if (
+  const usedTrial =
     isPremiumStatus(subscription.status) ||
-    Boolean(subscription.trial_start || subscription.trial_end)
-  ) {
+    Boolean(subscription.trial_start || subscription.trial_end);
+  if (usedTrial) {
     await db.user.updateMany({
       where: { id: userId, proTrialUsed: false },
       data: { proTrialUsed: true },
     });
   }
 
-  // Grant one-time signup credits when a user becomes premium for the first time.
+  // Grant one-time signup credits when a user becomes premium for the first time, once per
+  // person: an earlier account for the same inbox that already received them doesn't
+  // get them again.
+  const email = (await db.user.findUnique({ where: { id: userId }, select: { email: true } }))?.email;
+  let grantedCredit = false;
   if (isPremiumStatus(subscription.status)) {
+    const alreadyCredited = Boolean((await getTrialUsage(email))?.signupCreditAt);
     const result = await db.user.updateMany({
       where: { id: userId, proSignupCreditGranted: false },
       data: {
-        coins: { increment: PRO_SIGNUP_BONUS },
+        coins: alreadyCredited ? undefined : { increment: PRO_SIGNUP_BONUS },
         proSignupCreditGranted: true,
       },
     });
+    grantedCredit = result.count > 0 && !alreadyCredited;
 
-    if (result.count > 0) {
+    if (grantedCredit) {
       console.info(
         `Granted ${PRO_SIGNUP_BONUS} signup credits to user`,
         userId
       );
     }
-
   }
+
+  // Kept apart from the account, so deleting it and signing up again doesn't reset these.
+  await recordTrialUsage(email, { trial: usedTrial, signupCredit: grantedCredit });
 
   return {
     userId,

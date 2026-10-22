@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createDeletedUserId, DELETED_PLAYER_NAME } from "@/lib/deleted-user";
 import { getStripeClient } from "@/lib/stripe";
+import { recordTrialUsage } from "@/lib/trial-usage";
 import { accountDeletionRatelimit, checkRateLimit } from "@/lib/rate-limit";
 
 function isMissingStripeResource(error: unknown) {
@@ -97,6 +98,8 @@ export async function DELETE(request: Request) {
         email: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
+        proTrialUsed: true,
+        proSignupCreditGranted: true,
       },
     });
 
@@ -111,6 +114,18 @@ export async function DELETE(request: Request) {
       subscriptionId: user.stripeSubscriptionId,
     });
     subscriptionCanceled = canceledCount > 0;
+
+    // The trial and sign-up bonus stay used for this inbox after the account is gone (as a
+    // keyed hash of the email, not the address), so signing up again doesn't grant them twice.
+    try {
+      await recordTrialUsage(user.email, {
+        trial: user.proTrialUsed || Boolean(user.stripeSubscriptionId),
+        signupCredit: user.proSignupCreditGranted,
+      });
+    } catch (error) {
+      // Deleting the account matters more than remembering the trial.
+      console.error("Failed to record trial use before deleting an account", error);
+    }
 
     // Matches and races are shared with other players, so they are kept and the deleted
     // user's ID is replaced with a tombstone instead of deleting opponents' history.

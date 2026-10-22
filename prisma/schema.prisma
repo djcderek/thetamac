@@ -58,6 +58,18 @@ model User {
   @@map("users")
 }
 
+// Free-trial and Pro sign-up bonus use, once per person (src/lib/trial-usage.ts). Keyed by
+// a keyed hash of the normalized email, with no link to the account, so it outlives
+// deletion and deleting then signing up again doesn't grant either twice.
+model TrialUsage {
+  emailHash      String    @id
+  trialUsedAt    DateTime?
+  signupCreditAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@map("trial_usage")
+}
+
 // ============================================
 // PRODUCT FEEDBACK
 // ============================================

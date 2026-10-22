@@ -11,6 +11,7 @@ import { env } from "@/lib/env";
 import { checkoutRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import Stripe from "stripe";
 import { captureServerAnalyticsEvent } from "@/lib/posthog-server";
+import { getTrialUsage, recordTrialUsage } from "@/lib/trial-usage";
 import { ANALYTICS_EVENTS, getAnalyticsInsertId } from "@/lib/analytics";
 
 function normalizeReturnPath(
@@ -67,6 +68,22 @@ async function expireEarlierOpenCheckouts(
     // Failing to expire older sessions must not block this checkout.
     console.error("Unable to expire earlier checkout sessions", error);
   }
+}
+
+/** Whether another Stripe customer with this email (an earlier account) ever subscribed. */
+async function hasEarlierStripeSubscription(stripe: Stripe, email: string, currentCustomerId: string) {
+  try {
+    const customers = await stripe.customers.list({ email, limit: 10 });
+    for (const customer of customers.data) {
+      if (customer.id === currentCustomerId) continue;
+      const subscriptions = await stripe.subscriptions.list({ customer: customer.id, status: "all", limit: 1 });
+      if (subscriptions.data.length > 0) return true;
+    }
+  } catch (error) {
+    // A failed lookup must not block checkout; the trial is offered as before.
+    console.error("Unable to check earlier Stripe customers", error);
+  }
+  return false;
 }
 
 export async function POST(request: Request) {
@@ -146,6 +163,12 @@ export async function POST(request: Request) {
 
     let customerId = user.stripeCustomerId;
     let eligibleForTrial = isTrialEligible(user);
+    // Once per person: a trial used on an earlier account for the same inbox (since
+    // deleted, or an alias) counts.
+    if (eligibleForTrial && (await getTrialUsage(user.email))?.trialUsedAt) {
+      eligibleForTrial = false;
+      await db.user.update({ where: { id: user.id }, data: { proTrialUsed: true } });
+    }
 
     if (!customerId) {
       // The idempotency key makes concurrent first checkouts (two tabs, double click)
@@ -233,6 +256,14 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+    }
+
+    // Accounts deleted before trial use was recorded apart from the account still have their
+    // Stripe customer: a subscription there for the same email means the trial was used.
+    if (eligibleForTrial && (await hasEarlierStripeSubscription(stripe, user.email, customerId))) {
+      eligibleForTrial = false;
+      await db.user.update({ where: { id: user.id }, data: { proTrialUsed: true } });
+      await recordTrialUsage(user.email, { trial: true });
     }
 
     const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =

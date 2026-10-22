@@ -1,6 +1,7 @@
 import { SubscriptionPlan } from "@prisma/client";
 import { db } from "./db";
 import { auth } from "./auth";
+import { getTrialUsage } from "./trial-usage";
 import {
   isPremiumStatus,
   isTrialEligible,
@@ -77,6 +78,11 @@ export async function getCurrentUserPremiumStatus() {
   }
   
   const premiumStatus = await checkPremiumAccess(session.user.id);
+  // A trial used on an earlier (deleted) account for the same inbox counts too, so the
+  // pricing page doesn't offer a trial that checkout won't give.
+  if (premiumStatus.trialEligible && (await getTrialUsage(session.user.email))?.trialUsedAt) {
+    premiumStatus.trialEligible = false;
+  }
   return { userId: session.user.id, user: session.user, ...premiumStatus };
 }
 
