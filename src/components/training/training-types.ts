@@ -38,6 +38,20 @@ export type PracticeProgress = {
   missed: Problem[];
 };
 
+/** Past misses due for review, from /api/training/review. */
+export type ReviewSummary = {
+  /** Free accounts see the counts and an example, not the set. */
+  locked: boolean;
+  dueCount: number;
+  waitingCount: number;
+  /** Whole days until the next waiting problem is due (0 = later today); null if none. */
+  nextDueInDays: number | null;
+  problems: Problem[];
+  example: { problem: Problem; misses: number } | null;
+};
+
+export type PracticeKind = "set" | "retry" | "review";
+
 export interface OperationRange {
   min: number;
   max: number;

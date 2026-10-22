@@ -39,8 +39,10 @@ import type {
   MathTip,
   Operation,
   OperationRanges,
+  PracticeKind,
   PracticeProgress,
   Problem,
+  ReviewSummary,
   ScoreBucket,
   ScoreDistribution,
   SubmitMode,
@@ -799,6 +801,9 @@ export default function TrainingPage() {
   const [practiceMissed, setPracticeMissed] = useState(false);
   // How long a Practice set took, for the results screen.
   const [practiceSeconds, setPracticeSeconds] = useState<number | null>(null);
+  const [practiceKind, setPracticeKind] = useState<PracticeKind>("set");
+  // Signed-in players' past misses due for review (Pro runs them; free sees a prompt).
+  const [review, setReview] = useState<ReviewSummary | null>(null);
 
   // Learning mode state
   const [showTip, setShowTip] = useState(true);
@@ -960,6 +965,32 @@ export default function TrainingPage() {
 
     loadSettings();
   }, [authSession?.user, settingsLoaded, activePreset, preferencesReady]);
+
+  // Load the review each time setup shows, so a finished set's misses (and clears) appear.
+  const showingSetup = !isPlaying && !isGameOver;
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !showingSetup) return;
+    let cancelled = false;
+    fetch("/api/training/review", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setReview({
+          locked: data.locked,
+          dueCount: data.dueCount,
+          waitingCount: data.waitingCount,
+          nextDueInDays: data.nextDueAt
+            ? Math.max(0, Math.floor((new Date(data.nextDueAt).getTime() - Date.now()) / 86400000))
+            : null,
+          problems: data.problems,
+          example: data.example,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [authStatus, showingSetup]);
 
   // Get next operation from queue, refilling with shuffled operations when empty
   const getNextOperation = useCallback(() => {
@@ -1203,8 +1234,8 @@ export default function TrainingPage() {
     );
   }, [getTrainingTelemetryProperties]);
 
-  // `retryProblems` starts a Practice set made of an earlier set's misses.
-  const startTraining = async (retryProblems?: Problem[]) => {
+  // `planned` starts a Practice set of given problems: an earlier set's misses, or a review.
+  const startTraining = async (planned?: Problem[], kind: PracticeKind = planned ? "retry" : "set") => {
     if (!preferencesReady) return;
     if (!authSession?.user) {
       await ensureGuestCookie();
@@ -1247,7 +1278,7 @@ export default function TrainingPage() {
     const startProperties = {
       ...getTrainingTelemetryProperties(),
       training_run_id: trainingRunId,
-      practice_retry: retryProblems ? true : undefined,
+      practice_kind: gameMode === "practice" ? kind : undefined,
     };
     trainingTelemetryRef.current = startProperties;
     registerAnalyticsSessionProperties({
@@ -1262,7 +1293,8 @@ export default function TrainingPage() {
       setOverallTimeLeft(timedModeLimit);
     }
     practiceSetRef.current =
-      gameMode === "practice" ? createPracticeSet(practiceSetSize, retryProblems ?? []) : null;
+      gameMode === "practice" ? createPracticeSet(practiceSetSize, planned ?? []) : null;
+    setPracticeKind(kind);
     setPracticeProgress(practiceSetRef.current ? getPracticeProgress(practiceSetRef.current) : null);
     setPracticeSeconds(null);
 
@@ -1954,6 +1986,7 @@ export default function TrainingPage() {
               onPlayAgain={() => startTraining()}
               onChangeSettings={stopTraining}
               practice={gameMode === "practice" && practiceProgress ? {
+                kind: practiceKind,
                 complete: stoppedAfterSeconds === null,
                 size: practiceProgress.size,
                 firstTry: practiceProgress.firstTry,
@@ -1964,6 +1997,7 @@ export default function TrainingPage() {
                 })),
               } : null}
               onRetryMisses={() => startTraining(shuffleArray(practiceProgress?.missed ?? []))}
+              reviewPrompt={!authSession?.user || !review ? null : review.locked ? "locked" : "pro"}
               stoppedAt={stoppedAfterSeconds === null ? null : formatTime(stoppedAfterSeconds)}
               runSeconds={gameMode === "practice" ? null : stoppedAfterSeconds ?? (gameMode === "timed" ? timedModeLimit : null)}
               scorePercentile={scorePercentile}
@@ -2010,6 +2044,8 @@ export default function TrainingPage() {
               setSubmitMode={setSubmitMode}
               formatTime={formatTime}
               startTraining={() => startTraining()}
+              review={gameMode === "practice" ? review : null}
+              onStartReview={() => review && startTraining(shuffleArray(review.problems), "review")}
               preferencesReady={preferencesReady}
             />
             </motion.div>

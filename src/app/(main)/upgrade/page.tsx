@@ -15,7 +15,7 @@ import { UpgradeTelemetry } from "./upgrade-telemetry";
 
 function normalizeFeature(feature?: string | string[] | null): UpgradeFeature | undefined {
   if (!feature || Array.isArray(feature)) return undefined;
-  if (feature === "analytics" || feature === "coins") return feature;
+  if (feature === "analytics" || feature === "coins" || feature === "review") return feature;
   return undefined;
 }
 
@@ -45,6 +45,7 @@ const freeFeatures = [
 
 const proFeatures = [
   "Everything in Free",
+  "Review: your past misses come back until they stick",
   "Advanced analytics & charts",
   "Weak point training",
   "Skill breakdowns & trends",
@@ -97,7 +98,7 @@ export default async function UpgradePage({
           Free to practice. <span className="text-brand">Pro</span> to go deeper.
         </h1>
         <p className="mx-auto mt-4 max-w-md text-[17px] leading-7 text-muted-foreground">
-          Every drill is free. Pro adds the analytics, weak-point training, and perks.
+          Every drill is free. Pro remembers what you miss and brings it back, plus the analytics and perks.
         </p>
       </div>
 

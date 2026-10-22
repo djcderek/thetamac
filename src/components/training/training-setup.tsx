@@ -30,17 +30,80 @@ import { Input } from "@/components/ui/input";
 import { SectionLabel, SelectionPill, optionTileClass } from "@/components/ui/visual-system";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
+import { getUpgradeUrl } from "@/lib/upgrade";
 import type {
   Difficulty,
   DifficultySettings,
   GameMode,
   Operation,
   OperationRanges,
+  ReviewSummary,
   ScoreDistribution,
   SubmitMode,
 } from "@/components/training/training-types";
 
 const tileClass = optionTileClass;
+
+function inDays(days: number) {
+  return days === 0 ? "later today" : days === 1 ? "tomorrow" : `in ${days} days`;
+}
+
+/**
+ * Past misses due for review, as a detail row in the Practice card. Pro starts a review set;
+ * a free account sees what is waiting for it and where to unlock it.
+ */
+function ReviewRow({ review, onStart }: { review: ReviewSummary; onStart: () => void }) {
+  const { locked, dueCount, waitingCount, nextDueInDays, example } = review;
+  if (locked && dueCount === 0) return null;
+
+  let detail: string;
+  if (locked) {
+    const { a, operation, b } = example!.problem;
+    detail = dueCount === 1 ? `${a} ${operation} ${b} to review` : `${a} ${operation} ${b} and ${dueCount - 1} more to review`;
+  } else if (dueCount > 0) {
+    detail = `${dueCount} past ${dueCount === 1 ? "miss" : "misses"} due`;
+  } else if (waitingCount > 0 && nextDueInDays !== null) {
+    detail = `All caught up · next ${inDays(nextDueInDays)}`;
+  } else {
+    detail = "Nothing yet. Misses land here.";
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-background py-2 pl-4 pr-2">
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+          Review past misses
+          <span className="rounded-full bg-secondary px-1.5 text-[11px] font-semibold leading-4 text-foreground">Pro</span>
+        </p>
+        <p className="truncate text-[15px] font-medium tabular-nums">{detail}</p>
+      </div>
+      {locked ? (
+        <Link
+          href={getUpgradeUrl({ feature: "review", source: "practice_review" })}
+          onClick={() =>
+            captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, {
+              feature: "review",
+              surface: "practice_setup",
+              action: "open_pricing",
+              review_due_count: dueCount,
+            })
+          }
+          className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "min-h-10 shrink-0")}
+        >
+          Unlock
+        </Link>
+      ) : (
+        dueCount > 0 && (
+          <Button variant="secondary" size="sm" onClick={onStart} className="min-h-10 shrink-0">
+            Start review
+          </Button>
+        )
+      )}
+    </div>
+  );
+}
 
 function modeDescription(mode: GameMode) {
   switch (mode) {
@@ -123,6 +186,8 @@ export function TrainingSetup({
   setSubmitMode,
   formatTime,
   startTraining,
+  review,
+  onStartReview,
   preferencesReady,
 }: {
   scorePercentile: ScoreDistribution | null;
@@ -155,6 +220,8 @@ export function TrainingSetup({
   setSubmitMode: (m: SubmitMode) => void;
   formatTime: (seconds: number) => string;
   startTraining: () => void;
+  review: ReviewSummary | null;
+  onStartReview: () => void;
   preferencesReady: boolean;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -262,6 +329,8 @@ export function TrainingSetup({
                 </AnimatePresence>
               </button>
             </div>
+
+            {gameMode === "practice" && review && <ReviewRow review={review} onStart={onStartReview} />}
 
             <fieldset className="space-y-2" aria-describedby="answer-submission-help">
               <legend className="px-1 text-[13px] text-muted-foreground">Answer submission</legend>

@@ -6,10 +6,12 @@ import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { animate, motion, useReducedMotion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
-import type { DifficultySettings, Problem, ScoreDistribution } from "@/components/training/training-types";
+import type { DifficultySettings, PracticeKind, Problem, ScoreDistribution } from "@/components/training/training-types";
+import { getUpgradeUrl } from "@/lib/upgrade";
 
 /** A Practice set's results: how many were right first time, and what to go over. */
 export type PracticeSummary = {
+  kind: PracticeKind;
   /** False when the player stopped before the set was done. */
   complete: boolean;
   size: number;
@@ -38,6 +40,7 @@ export function TrainingGameOver({
   onChangeSettings,
   practice,
   onRetryMisses,
+  reviewPrompt,
   stoppedAt,
   runSeconds,
   scorePercentile,
@@ -56,6 +59,8 @@ export function TrainingGameOver({
   onChangeSettings: () => void;
   practice: PracticeSummary | null;
   onRetryMisses: () => void;
+  /** Signed in: "pro" notes misses are saved for review, "locked" offers it. */
+  reviewPrompt: "pro" | "locked" | null;
   /** Time into the run when the player pressed Stop (e.g. "0:42"); null when it ran its course. */
   stoppedAt: string | null;
   /** How long the run lasted, for the pace row; null when there was no overall clock. */
@@ -84,7 +89,8 @@ export function TrainingGameOver({
       : null,
     { label: "Average time", value: `${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s` },
     showBestStreakCard ? { label: "Best streak", value: String(bestStreak) } : null,
-    { label: "Difficulty", value: difficultyLabel, className: difficultyBadgeClassName },
+    // A review mixes problems from every difficulty.
+    practice?.kind === "review" ? null : { label: "Difficulty", value: difficultyLabel, className: difficultyBadgeClassName },
   ].filter((row): row is { label: string; value: string; className?: string } => row !== null);
 
   return (
@@ -97,7 +103,9 @@ export function TrainingGameOver({
       <div className="space-y-6">
         <div className="text-center">
           <p className="text-[15px] font-medium text-muted-foreground">
-            {stoppedAt ? `Stopped after ${stoppedAt}` : practice ? "Set complete" : "Time\u2019s up"}
+            {stoppedAt
+              ? `Stopped after ${stoppedAt}`
+              : practice ? (practice.kind === "review" ? "Review complete" : "Set complete") : "Time\u2019s up"}
           </p>
           <p className="mt-2 text-[88px] font-semibold leading-none tracking-[-0.05em] tabular-nums sm:text-[112px]">
             <CountUp value={practice ? practice.firstTry : totalSolved} />
@@ -149,6 +157,11 @@ export function TrainingGameOver({
                 </li>
               ))}
             </ul>
+            {reviewPrompt === "pro" && (
+              <p className="px-1 text-[13px] leading-5 text-muted-foreground">
+                Saved to your review. They come back in a later session until they stick.
+              </p>
+            )}
           </motion.section>
         )}
 
@@ -180,6 +193,33 @@ export function TrainingGameOver({
             </>
           )}
         </div>
+
+        {/* Free accounts: the misses are already saved; Pro is what brings them back. */}
+        {practice && practice.misses.length > 0 && reviewPrompt === "locked" && (
+          <div className="flex flex-col gap-4 rounded-[22px] bg-secondary p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-[17px] font-semibold tracking-tight">Make these stick</div>
+              <div className="mt-0.5 text-[15px] text-muted-foreground">
+                Pro brings your misses back in later sessions until you get them every time.
+              </div>
+            </div>
+            <Link
+              href={getUpgradeUrl({ feature: "review", source: "practice_results" })}
+              onClick={() =>
+                captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, {
+                  feature: "review",
+                  surface: "training_game_over",
+                  action: "open_pricing",
+                  training_run_id: trainingRunId ?? undefined,
+                  review_miss_count: practice.misses.length,
+                })
+              }
+              className="shrink-0"
+            >
+              <Button size="sm">Unlock review</Button>
+            </Link>
+          </div>
+        )}
 
         {scorePercentile && (
           <ScoreDistributionCard data={scorePercentile} heading="Your placement" scoreLabel="Best score this run:" />
