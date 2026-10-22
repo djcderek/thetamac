@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getLesson, isFreeLesson, type LessonId } from "@/lib/lessons";
 import { LessonIntro, LessonList } from "@/components/training/lesson-picker";
+import { TodayCard } from "@/components/training/today-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { closeSpring, morphContentIn, morphSpring } from "@/lib/motion";
@@ -29,6 +30,7 @@ import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
 import { getUpgradeUrl } from "@/lib/upgrade";
 import type {
+  DailySummary,
   Difficulty,
   DifficultySettings,
   GameMode,
@@ -186,6 +188,8 @@ export function TrainingSetup({
   startTraining,
   review,
   onStartReview,
+  daily,
+  onStartDaily,
   preferencesReady,
 }: {
   scorePercentile: ScoreDistribution | null;
@@ -222,6 +226,9 @@ export function TrainingSetup({
   startTraining: () => void;
   review: ReviewSummary | null;
   onStartReview: () => void;
+  /** Signed in: today's session, shown above the setup. */
+  daily: DailySummary | null;
+  onStartDaily: () => void;
   preferencesReady: boolean;
 }) {
   const [settingsOpenState, setSettingsOpen] = useState(false);
@@ -262,6 +269,7 @@ export function TrainingSetup({
     <div className={cn("mx-auto grid gap-6", settingsOpen ? "max-w-5xl lg:grid-cols-[36rem_minmax(0,1fr)]" : "max-w-xl")}>
       {/* Left: Quick start — one grey grouped card, then the single orange action. */}
       <motion.div layout="position" transition={settingsOpen ? morphSpring : closeSpring} className="min-w-0 space-y-6">
+        {daily && <TodayCard daily={daily} onStart={onStartDaily} />}
         <section aria-label="Quick start">
           <div className="space-y-5 rounded-[26px] bg-secondary p-4 sm:p-5">
             <Tabs value={gameMode} onValueChange={(v) => setGameMode(v as GameMode)}>

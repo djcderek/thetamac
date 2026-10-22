@@ -44,12 +44,18 @@ export type ReviewSchedule = {
 };
 
 // 7 × 8 and 8 × 7 are the same fact, as in Weak Points.
-function factKey(a: number, b: number, operation: string) {
+export function factKey(a: number, b: number, operation: string) {
   if (operation === "+" || operation === "×") {
     const [low, high] = a <= b ? [a, b] : [b, a];
     return `${low}${operation}${high}`;
   }
   return `${a}${operation}${b}`;
+}
+
+/** The answer to a stored attempt's problem, or null if the trainer can't ask it again. */
+export function answerFor(operandA: number, operandB: number, operation: string): number | null {
+  const answer = ANSWERS[operation]?.(operandA, operandB);
+  return answer === undefined || !Number.isInteger(answer) ? null : answer;
 }
 
 type Track = {
@@ -73,8 +79,7 @@ export function buildReviewSchedule(attempts: ReviewAttempt[], now: Date): Revie
 
   for (const attempt of sorted) {
     // Only problems the trainer can ask again: a known operation with a whole-number answer.
-    const answer = ANSWERS[attempt.operation]?.(attempt.operandA, attempt.operandB);
-    if (answer === undefined || !Number.isInteger(answer)) continue;
+    if (answerFor(attempt.operandA, attempt.operandB, attempt.operation) === null) continue;
     const key = factKey(attempt.operandA, attempt.operandB, attempt.operation);
     const track = tracks.get(key);
 

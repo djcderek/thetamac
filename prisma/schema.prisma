@@ -52,6 +52,7 @@ model User {
   trainingSessions TrainingSession[]
   problemAttempts  ProblemAttempt[]
   lessonProgress   LessonProgress[]
+  dailySessions    DailySession[]
   featureRequests  FeatureRequest[]
 
   @@map("users")
@@ -257,6 +258,23 @@ model LessonProgress {
 
   @@unique([userId, lessonId])
   @@map("lesson_progress")
+}
+
+// One row per day a player finished the daily session (Pro). The first finish of a day counts.
+model DailySession {
+  id             String   @id @default(cuid())
+  userId         String
+  // Days since the epoch for the player's local date (src/lib/streak.ts localDayNumber).
+  day            Int
+  problems       Int
+  firstTry       Int
+  averageSeconds Float?
+  completedAt    DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("daily_sessions")
 }
 
 // ============================================

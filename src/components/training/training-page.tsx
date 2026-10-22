@@ -36,6 +36,8 @@ import {
   resolvePracticeProblem,
   type PracticeSetState,
 } from "@/lib/practice-set";
+import { DAILY_SIZE } from "@/lib/daily-session";
+import { problemKey } from "@/lib/practice-set";
 import { ANALYTICS_EVENTS, type AnalyticsProperties } from "@/lib/analytics";
 import {
   captureAnalyticsEvent,
@@ -46,6 +48,9 @@ import {
 import type {
   Difficulty,
   DifficultySettings,
+  DailyOutcome,
+  DailySectionId,
+  DailySummary,
   GameMode,
   LessonOutcome,
   LessonsSummary,
@@ -842,6 +847,14 @@ export default function TrainingPage() {
   const lessonSoloRef = useRef(false);
   const [lessonOutcome, setLessonOutcome] = useState<LessonOutcome | null>(null);
 
+  // Signed in: today's session (Pro runs it; free sees what it would hold).
+  const [daily, setDaily] = useState<DailySummary | null>(null);
+  // During a daily session: which part each problem came from, for the results.
+  const dailySectionsRef = useRef<Map<string, DailySectionId> | null>(null);
+  const [dailyOutcome, setDailyOutcome] = useState<DailyOutcome | null>(null);
+  // The tab that was open before the daily session switched to Practice, restored after it.
+  const modeBeforeDailyRef = useRef<GameMode | null>(null);
+
   // Animation feedback state - key increments to re-trigger animations
   const [feedbackKey, setFeedbackKey] = useState(0);
   // Bumped on each correct answer that advances; the run card flashes green from it, so the
@@ -1031,6 +1044,22 @@ export default function TrainingPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: LessonsSummary | null) => {
         if (!cancelled && data) setLessons(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [authStatus, showingSetup]);
+
+  // Today's session loads with setup too, so finishing it shows as done.
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !showingSetup) return;
+    let cancelled = false;
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    fetch(`/api/training/daily?tz=${encodeURIComponent(timeZone)}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: DailySummary | null) => {
+        if (!cancelled && data) setDaily(data);
       })
       .catch(() => {});
     return () => {
@@ -1277,8 +1306,14 @@ export default function TrainingPage() {
   const startTraining = async (
     planned?: Problem[],
     kind: PracticeKind = planned ? "retry" : gameMode === "learning" ? "lesson" : "set",
+    // The daily session runs as Practice whichever tab is open.
+    mode: GameMode = gameMode,
   ) => {
     if (!preferencesReady) return;
+    if (mode !== gameMode) {
+      modeBeforeDailyRef.current = gameMode;
+      setGameMode(mode);
+    }
     const lesson = getLesson(lessonId)!;
     if (!authSession?.user) {
       await ensureGuestCookie();
@@ -1319,28 +1354,31 @@ export default function TrainingPage() {
     const startProperties = {
       ...getTrainingTelemetryProperties(),
       training_run_id: trainingRunId,
-      practice_kind: gameMode !== "timed" ? kind : undefined,
+      game_mode: mode,
+      practice_kind: mode !== "timed" ? kind : undefined,
     };
     trainingTelemetryRef.current = startProperties;
     registerAnalyticsSessionProperties({
       training_run_id: trainingRunId,
       training_type: "standard",
-      game_mode: gameMode,
+      game_mode: mode,
     });
     captureAnalyticsEvent(ANALYTICS_EVENTS.trainingStarted, startProperties);
 
-    if (gameMode === "timed") {
+    if (mode === "timed") {
       timedDeadlineRef.current = Date.now() + timedModeLimit * 1000;
       setOverallTimeLeft(timedModeLimit);
     }
     practiceSetRef.current =
-      gameMode === "practice"
+      mode === "practice"
         ? createPracticeSet(practiceSetSize, planned ?? [])
-        : gameMode === "learning"
+        : mode === "learning"
           ? createPracticeSet(LESSON_SET_SIZE, planned ?? createLessonProblems(lesson))
           : null;
     // Only a lesson played through is scored; retrying its misses is just practice.
     lessonRunRef.current = kind === "lesson" ? { soloCount: 0, soloFirstTry: 0, soloTimes: [] } : null;
+    if (kind !== "daily") dailySectionsRef.current = null;
+    setDailyOutcome(null);
     setLessonGuided(false);
     setLessonOutcome(null);
     setPracticeKind(kind);
@@ -1358,10 +1396,10 @@ export default function TrainingPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              gameMode,
+              gameMode: mode,
               difficulty,
-              operations: gameMode === "learning" ? [lesson.operation] : selectedOperations,
-              timeLimitSeconds: gameMode === "timed" ? timedModeLimit : undefined,
+              operations: mode === "learning" ? [lesson.operation] : selectedOperations,
+              timeLimitSeconds: mode === "timed" ? timedModeLimit : undefined,
               customRanges: showAdvanced,
             }),
           });
@@ -1633,6 +1671,11 @@ export default function TrainingPage() {
   };
 
   const stopTraining = async () => {
+    // Back from the daily session: return to the tab that was open before it.
+    if (modeBeforeDailyRef.current) {
+      setGameMode(modeBeforeDailyRef.current);
+      modeBeforeDailyRef.current = null;
+    }
     // Save session before stopping if we have data. A finished run ("Change settings" on the
     // results screen) was already saved when it ended.
     if (totalSolved > 0 && !isGameOver) {
@@ -1815,10 +1858,13 @@ export default function TrainingPage() {
     submitCurrentAnswer();
   };
 
+  // The daily session has no question timer: it's the same five minutes for everyone.
+  const questionTimerLimit = gameMode === "practice" && practiceKind !== "daily" ? practiceTimerLimit : 0;
+
   // Practice mode per-question timer (when on). Running out counts as a miss: the answer
   // shows and the clock stops until the player types it.
   useEffect(() => {
-    if (!isPlaying || gameMode !== "practice" || practiceTimerLimit === 0) return;
+    if (!isPlaying || questionTimerLimit === 0) return;
     if (hasAnswered || practiceMissed || !problem) return;
 
     const tick = () => {
@@ -1834,7 +1880,7 @@ export default function TrainingPage() {
 
     const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
-  }, [isPlaying, gameMode, practiceTimerLimit, problem, hasAnswered, practiceMissed, missPracticeProblem]);
+  }, [isPlaying, questionTimerLimit, practiceTimerLimit, problem, hasAnswered, practiceMissed, missPracticeProblem]);
 
   // Timed mode overall timer
   useEffect(() => {
@@ -1925,6 +1971,70 @@ export default function TrainingPage() {
       body: JSON.stringify({ lessonId: lesson.id, ...result }),
     }).catch((error) => console.error("Failed to save lesson:", error));
   }, [isGameOver, stoppedAfterSeconds, lessonId, lessons, lessonsLocked, authSession?.user, getTrainingTelemetryProperties]);
+
+  // Today's session: the planned problems (review, lesson checks, weak spots) topped up with a
+  // general mix, shuffled so the parts interleave.
+  const startDaily = () => {
+    if (!daily || daily.locked) return;
+    const sections = new Map<string, DailySectionId>();
+    const problems: Problem[] = [];
+    for (const item of daily.items) {
+      if (sections.has(problemKey(item.problem))) continue;
+      sections.set(problemKey(item.problem), item.section);
+      problems.push(item.problem);
+    }
+    const mixOperations: Operation[] = ["+", "-", "×", "÷"];
+    for (let tries = 0; problems.length < DAILY_SIZE && tries < 200; tries++) {
+      const problem = generateProblem(mixOperations[tries % 4], "medium", false, operationRanges);
+      if (sections.has(problemKey(problem))) continue;
+      sections.set(problemKey(problem), "mix");
+      problems.push(problem);
+    }
+    dailySectionsRef.current = sections;
+    void startTraining(shuffleArray(problems), "daily", "practice");
+  };
+
+  // A daily session played to the end marks today done and shows the streak.
+  useEffect(() => {
+    const sections = dailySectionsRef.current;
+    if (!isGameOver || !sections || !practiceProgress) return;
+    dailySectionsRef.current = null;
+    if (stoppedAfterSeconds !== null) return;
+    const missed = new Set(practiceProgress.missed.map(problemKey));
+    const order: DailySectionId[] = ["review", "lesson", "weak", "mix"];
+    const breakdown = order
+      .map((section) => {
+        const keys = [...sections].filter(([, value]) => value === section).map(([key]) => key);
+        return { section, total: keys.length, firstTry: keys.filter((key) => !missed.has(key)).length };
+      })
+      .filter((part) => part.total > 0);
+    const averageSeconds = avgTime > 0 ? Math.round(avgTime * 10) / 10 : null;
+    const repeat = !!daily?.doneToday;
+    const local: DailyOutcome = {
+      streak: daily ? (repeat ? daily.streak : daily.streak + 1) : 1,
+      week: daily ? [...daily.week.slice(0, 6), true] : [false, false, false, false, false, false, true],
+      sections: breakdown,
+      averageSeconds,
+      baselineSeconds: null,
+      repeat,
+    };
+    setDailyOutcome(local);
+    fetch("/api/training/daily", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        problems: practiceProgress.size,
+        firstTry: practiceProgress.firstTry,
+        averageSeconds,
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setDailyOutcome({ ...local, streak: data.streak, week: data.week, baselineSeconds: data.baselineSeconds });
+      })
+      .catch((error) => console.error("Failed to save today's session:", error));
+  }, [isGameOver, stoppedAfterSeconds, practiceProgress, avgTime, daily]);
 
   // Auto-submit when correct answer is typed
   useEffect(() => {
@@ -2062,7 +2172,7 @@ export default function TrainingPage() {
               avgTimeSeconds={avgTime}
               bestStreak={bestStreakRef.current}
               showAccuracyCard={submitMode === "manual" && gameMode === "timed"}
-              showBestStreakCard={gameMode === "practice"}
+              showBestStreakCard={gameMode === "practice" && practiceKind !== "daily"}
               onPlayAgain={() => startTraining()}
               onChangeSettings={stopTraining}
               practice={gameMode !== "timed" && practiceProgress ? {
@@ -2079,14 +2189,15 @@ export default function TrainingPage() {
               } : null}
               runMisses={runMisses.map((missed) => ({ problem: missed, technique: getTipForProblem(missed).title }))}
               lesson={lessonOutcome}
+              daily={practiceKind === "daily" ? dailyOutcome : null}
               onOpenLesson={(id: string) => {
                 setLessonId(id as LessonId);
                 stopTraining();
               }}
               onRetryMisses={() => startTraining(shuffleArray(practiceProgress?.missed ?? []))}
               onOpenReview={() => {
+                void stopTraining();
                 setGameMode("practice");
-                stopTraining();
               }}
               reviewPrompt={!authSession?.user || !review ? null : review.locked ? "locked" : "pro"}
               stoppedAt={stoppedAfterSeconds === null ? null : formatTime(stoppedAfterSeconds)}
@@ -2138,6 +2249,8 @@ export default function TrainingPage() {
               formatTime={formatTime}
               startTraining={() => startTraining()}
               review={gameMode === "practice" ? review : null}
+              daily={authSession?.user ? daily : null}
+              onStartDaily={startDaily}
               onStartReview={() => review && startTraining(shuffleArray(review.problems), "review")}
               preferencesReady={preferencesReady}
             />
@@ -2159,7 +2272,7 @@ export default function TrainingPage() {
               accuracy={accuracy}
               avgTimeSeconds={avgTime}
               timeLeft={timeLeft}
-              practiceTimerLimit={gameMode === "practice" ? practiceTimerLimit : 0}
+              practiceTimerLimit={questionTimerLimit}
               practiceProgress={gameMode === "timed" ? null : practiceProgress}
               practiceMissed={practiceMissed}
               onRevealAnswer={revealPracticeAnswer}
