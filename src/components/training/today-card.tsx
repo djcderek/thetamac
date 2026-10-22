@@ -22,6 +22,13 @@ export function describeDaily({ review, lesson, weak }: DailySummary["counts"]) 
     .join(" · ");
 }
 
+/** "0.4s faster than your first days" (or slower); null when it's about the same. */
+export function compareToBaseline(today: number, baseline: number) {
+  const difference = Math.round((baseline - today) * 10) / 10;
+  if (Math.abs(difference) < 0.1) return null;
+  return `${Math.abs(difference).toFixed(1)}s ${difference > 0 ? "faster" : "slower"} than your first days`;
+}
+
 /** Seven dots for the last week, today last; each fills in once that day's session is done. */
 export function WeekDots({ week, className }: { week: boolean[]; className?: string }) {
   const reduceMotion = useReducedMotion();

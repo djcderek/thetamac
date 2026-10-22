@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Check, Flame, RotateCcw } from "lucide-react";
-import { WeekDots } from "@/components/training/today-card";
+import { WeekDots, compareToBaseline } from "@/components/training/today-card";
 import { Button } from "@/components/ui/button";
 import { animate, motion, useReducedMotion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
@@ -450,13 +450,6 @@ const DAILY_SECTION_LABELS: Record<DailySectionId, string> = {
   weak: "Weak spots",
   mix: "Mix",
 };
-
-/** "0.4s faster than your first days" (or slower); null when it's about the same. */
-function compareToBaseline(today: number, baseline: number) {
-  const difference = Math.round((baseline - today) * 10) / 10;
-  if (Math.abs(difference) < 0.1) return null;
-  return `${Math.abs(difference).toFixed(1)}s ${difference > 0 ? "faster" : "slower"} than your first days`;
-}
 
 /** After a lesson: on to the next one once it's mastered, otherwise another go. */
 function LessonActions({

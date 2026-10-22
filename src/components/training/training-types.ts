@@ -65,6 +65,10 @@ export type DailySummary = {
   week: boolean[];
   counts: { review: number; lesson: number; weak: number };
   items: { problem: Problem; section: DailySectionId; lessonId?: string }[];
+  /** Recent sessions' average seconds, oldest first (local day numbers). */
+  history: { day: number; averageSeconds: number }[];
+  /** The latest session's average against the first few; null until there are enough. */
+  trend: { latestSeconds: number; baselineSeconds: number } | null;
 };
 
 /** How today's session went, for the results screen. */

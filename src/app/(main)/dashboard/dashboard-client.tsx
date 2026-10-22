@@ -25,6 +25,8 @@ import { ChartTooltip } from "@/components/ui/chart";
 import { BrandedEmptyState, MetricTile, PageHeader, SectionLabel } from "@/components/ui/visual-system";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
+import type { DailySummary } from "@/components/training/training-types";
+import { TodayDashboardCard } from "./today-dashboard-card";
 
 interface UserStats {
   totalProblems: number;
@@ -62,18 +64,23 @@ export function DashboardClient() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [performance, setPerformance] = useState<PerformanceData | null>(null);
   const [activity, setActivity] = useState<ActivityData | null>(null);
+  const [daily, setDaily] = useState<DailySummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [statsRes, performanceRes, activityRes] = await Promise.all([
-          fetch(
-            `/api/user/stats?tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`
-          ),
+        const timeZone = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
+        const [statsRes, performanceRes, activityRes, dailyRes] = await Promise.all([
+          fetch(`/api/user/stats?tz=${timeZone}`),
           fetch("/api/user/performance"),
           fetch("/api/user/activity"),
+          fetch(`/api/training/daily?tz=${timeZone}`, { cache: "no-store" }),
         ]);
+
+        if (dailyRes.ok) {
+          setDaily(await dailyRes.json());
+        }
 
         if (statsRes.ok) {
           const statsData = await statsRes.json();
@@ -137,6 +144,8 @@ export function DashboardClient() {
       <PageHeader title="Dashboard" description="Track your mental math progress and find the next skill worth improving." />
 
       <div className="p-4 md:p-6 space-y-6">
+        {daily && <TodayDashboardCard daily={daily} />}
+
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <MetricTile

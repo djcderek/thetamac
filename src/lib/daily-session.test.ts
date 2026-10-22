@@ -5,6 +5,7 @@ import {
   buildDailyPlan,
   dailyBaseline,
   dailyStreak,
+  dailyTrend,
   findWeakSpots,
   lastSevenDays,
   pickLessonChecks,
@@ -90,4 +91,19 @@ test("today is compared with the first three daily sessions once there are three
   ];
   assert.equal(dailyBaseline(sessions, 5), null);
   assert.equal(dailyBaseline(sessions, 9), 3);
+});
+
+test("the dashboard trend is the latest session against the first three before it", () => {
+  assert.equal(dailyTrend([]), null);
+  assert.equal(dailyTrend([{ day: 1, averageSeconds: 3 }, { day: 2, averageSeconds: 2 }]), null);
+  assert.deepEqual(
+    dailyTrend([
+      { day: 7, averageSeconds: 1.5 },
+      { day: 1, averageSeconds: 3 },
+      { day: 2, averageSeconds: null },
+      { day: 3, averageSeconds: 2 },
+      { day: 4, averageSeconds: 4 },
+    ]),
+    { latestSeconds: 1.5, baselineSeconds: 3 },
+  );
 });
