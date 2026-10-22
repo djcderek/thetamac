@@ -51,7 +51,34 @@ export type ReviewSummary = {
 };
 
 /** "lesson" is a Learning lesson played through, the only kind that is scored for mastery. */
-export type PracticeKind = "set" | "retry" | "review" | "lesson";
+export type PracticeKind = "set" | "retry" | "review" | "lesson" | "daily";
+
+export type DailySectionId = "review" | "lesson" | "weak" | "mix";
+
+/** Today's session for a signed-in player, from /api/training/daily. */
+export type DailySummary = {
+  /** Free accounts see what it would hold, not the problems. */
+  locked: boolean;
+  doneToday: boolean;
+  streak: number;
+  /** The last seven days, oldest first: whether each had a daily session. */
+  week: boolean[];
+  counts: { review: number; lesson: number; weak: number };
+  items: { problem: Problem; section: DailySectionId; lessonId?: string }[];
+};
+
+/** How today's session went, for the results screen. */
+export type DailyOutcome = {
+  streak: number;
+  week: boolean[];
+  /** First-try results per part of the session, in order; empty parts left out. */
+  sections: { section: DailySectionId; firstTry: number; total: number }[];
+  averageSeconds: number | null;
+  /** The average of the player's first daily sessions, once there are a few. */
+  baselineSeconds: number | null;
+  /** Already done earlier today, so this one didn't add to the streak. */
+  repeat: boolean;
+};
 
 export type LessonProgressSummary = {
   plays: number;

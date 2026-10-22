@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, RotateCcw } from "lucide-react";
+import { Check, Flame, RotateCcw } from "lucide-react";
+import { WeekDots } from "@/components/training/today-card";
 import { Button } from "@/components/ui/button";
 import { animate, motion, useReducedMotion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
 import type {
+  DailyOutcome,
+  DailySectionId,
   DifficultySettings,
   LessonOutcome,
   PracticeKind,
@@ -55,6 +58,7 @@ export function TrainingGameOver({
   onChangeSettings,
   practice,
   lesson,
+  daily,
   onOpenLesson,
   runMisses,
   onRetryMisses,
@@ -79,6 +83,8 @@ export function TrainingGameOver({
   practice: PracticeSummary | null;
   /** A lesson played to the end: how it went and what comes next. */
   lesson: LessonOutcome | null;
+  /** Today's session played to the end: the streak and how each part went. */
+  daily: DailyOutcome | null;
   /** Back to the lesson picker on a lesson (the next one, or this one again). */
   onOpenLesson: (id: string) => void;
   /** Outside Practice: every problem missed this run. */
@@ -113,7 +119,23 @@ export function TrainingGameOver({
   const shownMisses = misses.slice(0, MISSES_SHOWN);
 
   // Secondary stats read as receipt rows (Kurb's "Hourly rate · $10" detail list).
+  const dailyComparison =
+    daily?.averageSeconds != null && daily.baselineSeconds != null
+      ? compareToBaseline(daily.averageSeconds, daily.baselineSeconds)
+      : null;
+
   const detailRows = [
+    ...(daily?.sections.map((part) => ({
+      label: DAILY_SECTION_LABELS[part.section],
+      value: `${part.firstTry} of ${part.total}`,
+      className: undefined as string | undefined,
+    })) ?? []),
+    daily
+      ? {
+          label: "Average time",
+          value: `${daily.averageSeconds === null ? "–" : `${daily.averageSeconds.toFixed(1)}s`}${dailyComparison ? ` · ${dailyComparison}` : ""}`,
+        }
+      : null,
     lesson
       ? {
           label: "Mastery",
@@ -134,10 +156,10 @@ export function TrainingGameOver({
     runSeconds !== null && runSeconds >= 5
       ? { label: "Pace", value: `${Math.round((totalSolved / runSeconds) * 60)} per minute` }
       : null,
-    lesson ? null : { label: "Average time", value: `${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s` },
+    lesson || daily ? null : { label: "Average time", value: `${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s` },
     showBestStreakCard ? { label: "Best streak", value: String(bestStreak) } : null,
     // A review mixes problems from every difficulty, and a lesson's problems are its own.
-    practice?.kind === "review" || practice?.lessonTitle
+    practice?.kind === "review" || practice?.kind === "daily" || practice?.lessonTitle
       ? null
       : { label: "Difficulty", value: difficultyLabel, className: difficultyBadgeClassName },
   ].filter((row): row is { label: string; value: string; className?: string } => row !== null);
@@ -165,6 +187,8 @@ export function TrainingGameOver({
           <p className="text-[15px] font-medium text-muted-foreground">
             {stoppedAt
               ? `Stopped after ${stoppedAt}`
+              : daily
+                ? daily.repeat ? "Today, again" : "Today done"
               : lesson
                 ? lesson.newlyMastered ? `${lesson.title} mastered` : `${lesson.title} complete`
                 : practice ? (practice.kind === "review" ? "Review complete" : "Set complete") : "Time\u2019s up"}
@@ -179,6 +203,20 @@ export function TrainingGameOver({
                 ? practice.complete ? `of ${practice.size} right first time` : "right first time"
                 : totalSolved === 1 ? "problem solved" : "problems solved"}
           </p>
+          {daily && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...settleSpring, delay: 0.1 }}
+              className="mx-auto mt-5 flex w-fit items-center gap-4 rounded-full bg-secondary py-2 pl-4 pr-5"
+            >
+              <p className="flex items-center gap-1 text-[15px] font-semibold tabular-nums">
+                <Flame aria-hidden="true" className="h-4 w-4 text-brand" />
+                {daily.streak} {daily.streak === 1 ? "day" : "days"}
+              </p>
+              <WeekDots week={daily.week} />
+            </motion.div>
+          )}
         </div>
 
         <dl className="divide-y divide-border rounded-[22px] bg-secondary px-5">
@@ -247,7 +285,21 @@ export function TrainingGameOver({
         )}
 
         <div className="space-y-2">
-          {lesson ? (
+          {daily && misses.length === 0 ? (
+            <Button variant="brand" size="lg" onClick={onChangeSettings} className="h-14 w-full text-[17px]">
+              Done
+            </Button>
+          ) : daily ? (
+            <>
+              <Button variant="brand" size="lg" onClick={onRetryMisses} className="h-14 w-full text-[17px]">
+                <RotateCcw aria-hidden="true" />
+                Retry {misses.length === 1 ? "this one" : `these ${misses.length}`}
+              </Button>
+              <Button variant="secondary" size="lg" onClick={onChangeSettings} className="w-full">
+                Done
+              </Button>
+            </>
+          ) : lesson ? (
             <LessonActions
               lesson={lesson}
               missCount={misses.length}
@@ -390,6 +442,20 @@ export function TrainingGameOver({
       </div>
     </motion.div>
   );
+}
+
+const DAILY_SECTION_LABELS: Record<DailySectionId, string> = {
+  review: "Past misses",
+  lesson: "Lesson checks",
+  weak: "Weak spots",
+  mix: "Mix",
+};
+
+/** "0.4s faster than your first days" (or slower); null when it's about the same. */
+function compareToBaseline(today: number, baseline: number) {
+  const difference = Math.round((baseline - today) * 10) / 10;
+  if (Math.abs(difference) < 0.1) return null;
+  return `${Math.abs(difference).toFixed(1)}s ${difference > 0 ? "faster" : "slower"} than your first days`;
 }
 
 /** After a lesson: on to the next one once it's mastered, otherwise another go. */

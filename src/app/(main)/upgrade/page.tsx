@@ -15,7 +15,8 @@ import { UpgradeTelemetry } from "./upgrade-telemetry";
 
 function normalizeFeature(feature?: string | string[] | null): UpgradeFeature | undefined {
   if (!feature || Array.isArray(feature)) return undefined;
-  if (feature === "analytics" || feature === "coins" || feature === "review" || feature === "lessons") {
+  if (feature === "analytics" || feature === "coins" || feature === "review" || feature === "lessons" ||
+    feature === "daily") {
     return feature;
   }
   return undefined;
@@ -48,6 +49,7 @@ const freeFeatures = [
 
 const proFeatures = [
   "Everything in Free",
+  "Today: a daily five minutes built from your own misses and slow spots",
   "Review: your past misses come back until they stick",
   "All 12 Learning lessons",
   "Advanced analytics & charts",
