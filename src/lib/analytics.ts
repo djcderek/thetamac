@@ -14,6 +14,7 @@ export const ANALYTICS_EVENTS = {
   checkoutReturned: "checkout_returned",
   featureRequestSubmitted: "feature_request_submitted",
   leaderboardFilterChanged: "leaderboard_filter_changed",
+  lessonCompleted: "lesson_completed",
   multiplayerCompleted: "multiplayer_completed",
   multiplayerJoined: "multiplayer_joined",
   mobileTrainingUpdateViewed: "mobile_training_update_viewed",

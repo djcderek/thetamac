@@ -51,6 +51,7 @@ model User {
   stats         UserStats?
   trainingSessions TrainingSession[]
   problemAttempts  ProblemAttempt[]
+  lessonProgress   LessonProgress[]
   featureRequests  FeatureRequest[]
 
   @@map("users")
@@ -234,6 +235,28 @@ model ProblemAttempt {
   @@index([userId, operation])
   @@index([userId, createdAt])
   @@map("problem_attempts")
+}
+
+// ============================================
+// LEARNING LESSONS
+// ============================================
+
+// One row per lesson a player has finished; lesson ids are defined in src/lib/lessons.ts.
+model LessonProgress {
+  id                 String    @id @default(cuid())
+  userId             String
+  lessonId           String
+  plays              Int       @default(0)
+  // Best run: solo problems right first time, and the average seconds on them.
+  bestFirstTry       Int       @default(0)
+  bestAverageSeconds Float?
+  masteredAt         DateTime?
+  lastPlayedAt       DateTime  @default(now())
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@map("lesson_progress")
 }
 
 // ============================================

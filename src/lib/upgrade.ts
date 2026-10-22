@@ -1,4 +1,4 @@
-export type UpgradeFeature = "analytics" | "coins" | "review";
+export type UpgradeFeature = "analytics" | "coins" | "review" | "lessons";
 
 export function getUpgradeUrl({
   feature,

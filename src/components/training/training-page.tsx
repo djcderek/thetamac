@@ -6,7 +6,18 @@ import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
-import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
+import {
+  LESSONS,
+  LESSON_GUIDED,
+  LESSON_SET_SIZE,
+  createLessonProblems,
+  findLessonFor,
+  getLesson,
+  isFreeLesson,
+  isLessonMastered,
+  lessonTip,
+  type LessonId,
+} from "@/lib/lessons";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import {
   DEFAULT_TIMED_TRAINING_SETTINGS,
@@ -36,6 +47,8 @@ import type {
   Difficulty,
   DifficultySettings,
   GameMode,
+  LessonOutcome,
+  LessonsSummary,
   MathTip,
   Operation,
   OperationRanges,
@@ -554,6 +567,9 @@ function getDivisionTip(a: number, b: number): MathTip {
 }
 
 function getTipForProblem(problem: Problem): MathTip {
+  // A lesson's trick, where one fits, is worked through with the problem's own numbers.
+  const lesson = findLessonFor(problem);
+  if (lesson) return lessonTip(lesson, problem);
   switch (problem.operation) {
     case "+":
       return getAdditionTip(problem.a, problem.b);
@@ -804,12 +820,27 @@ export default function TrainingPage() {
   const [practiceKind, setPracticeKind] = useState<PracticeKind>("set");
   // Signed-in players' past misses due for review (Pro runs them; free sees a prompt).
   const [review, setReview] = useState<ReviewSummary | null>(null);
+  // Every distinct problem missed this run, in order, for the results screen.
+  const [runMisses, setRunMisses] = useState<Problem[]>([]);
 
   // Learning mode state
-  const [showTip, setShowTip] = useState(true);
   const [hasAnswered, setHasAnswered] = useState(false);
-  const [tipExpanded, setTipExpanded] = useState(true);
-  const [selectedSkill, setSelectedSkill] = useState<SkillId | null>(null);
+  const [lessonId, setLessonIdState] = useState<LessonId>(LESSONS[0].id);
+  // Once the player picks a lesson (or one is restored), progress loading doesn't move it.
+  const lessonChosenRef = useRef(false);
+  const setLessonId = useCallback((id: LessonId) => {
+    lessonChosenRef.current = true;
+    setLessonIdState(id);
+  }, []);
+  // Signed in: each lesson's saved progress, and whether the Pro lessons are open.
+  const [lessons, setLessons] = useState<LessonsSummary | null>(null);
+  // A lesson in progress: how the problems done without the steps are going. Null outside
+  // a lesson (and once it is scored).
+  const lessonRunRef = useRef<{ soloCount: number; soloFirstTry: number; soloTimes: number[] } | null>(null);
+  // The current lesson problem shows its steps (the first few of a lesson).
+  const [lessonGuided, setLessonGuided] = useState(false);
+  const lessonSoloRef = useRef(false);
+  const [lessonOutcome, setLessonOutcome] = useState<LessonOutcome | null>(null);
 
   // Animation feedback state - key increments to re-trigger animations
   const [feedbackKey, setFeedbackKey] = useState(0);
@@ -836,7 +867,7 @@ export default function TrainingPage() {
   const isMobileDevice = useIsMobileDevice();
   const useCustomKeypad = isMobileDevice;
   const showCustomKeypad =
-    useCustomKeypad && isPlaying && !!problem && !(gameMode === "learning" && hasAnswered);
+    useCustomKeypad && isPlaying && !!problem;
   const answerInputDisabled = !isPlaying || !problem || hasAnswered;
 
   // Restore after hydration, before saving defaults or enabling Start.
@@ -859,10 +890,10 @@ export default function TrainingPage() {
       setShowAdvanced(saved.showAdvanced);
       setCustomRangesTouched(saved.customRangesTouched);
       setOperationRanges(saved.operationRanges);
-      setSelectedSkill(saved.selectedSkill);
+      if (saved.lessonId) setLessonId(saved.lessonId);
     }
     setPreferencesReady(true);
-  }, []);
+  }, [setLessonId]);
 
   useEffect(() => {
     if (!preferencesReady || !activePreset || presetAppliedRef.current === activePreset.id) return;
@@ -871,7 +902,6 @@ export default function TrainingPage() {
     setDifficulty(activePreset.difficulty);
     setSelectedOperations(activePreset.operations);
     setTimedModeLimit(activePreset.timedModeLimit);
-    setSelectedSkill(activePreset.selectedSkill ?? null);
     setShowAdvanced(false);
     setCustomRangesTouched(false);
     presetAppliedRef.current = activePreset.id;
@@ -882,14 +912,15 @@ export default function TrainingPage() {
     try {
       writeGuestTrainingSettings(window.localStorage, {
         gameMode, difficulty, selectedOperations, timedModeLimit, practiceTimerLimit,
-        practiceSetSize, submitMode, showAdvanced, customRangesTouched, operationRanges, selectedSkill,
+        practiceSetSize, submitMode, showAdvanced, customRangesTouched, operationRanges,
+        lessonId: lessonChosenRef.current ? lessonId : undefined,
       });
     } catch {
       // Training still works when browser storage is unavailable.
     }
   }, [preferencesReady, authStatus, gameMode, difficulty, selectedOperations,
     timedModeLimit, practiceTimerLimit, practiceSetSize, submitMode, showAdvanced,
-    customRangesTouched, operationRanges, selectedSkill]);
+    customRangesTouched, operationRanges, lessonId]);
 
   // Desktop: start each run and its results at the top. The hero collapses when a run starts,
   // and the old scroll position otherwise left the status row under the sticky top bar.
@@ -992,6 +1023,32 @@ export default function TrainingPage() {
     };
   }, [authStatus, showingSetup]);
 
+  // Lesson progress loads with setup too, so a lesson just mastered shows as mastered.
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !showingSetup) return;
+    let cancelled = false;
+    fetch("/api/lessons/progress", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: LessonsSummary | null) => {
+        if (!cancelled && data) setLessons(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [authStatus, showingSetup]);
+
+  // Until the player picks one, Learning opens on the first lesson not yet mastered.
+  const lessonsReady = authStatus === "unauthenticated" || lessons !== null;
+  useEffect(() => {
+    if (!lessonsReady || lessonChosenRef.current) return;
+    const next = LESSONS.find((lesson) => !lessons?.progress[lesson.id]?.mastered);
+    if (next) setLessonIdState(next.id);
+  }, [lessonsReady, lessons]);
+
+  // Pro lessons are open to Pro accounts (the session's plan until the progress arrives).
+  const lessonsLocked = lessons ? lessons.locked : !authSession?.user?.isPremium;
+
   // Get next operation from queue, refilling with shuffled operations when empty
   const getNextOperation = useCallback(() => {
     if (operationQueueRef.current.length === 0) {
@@ -1026,27 +1083,9 @@ export default function TrainingPage() {
   };
 
   const startNewProblem = useCallback(() => {
-    // If a specific skill is selected in learning mode, use that generator
-    if (gameMode === "learning" && selectedSkill) {
-      const skill = TRAINING_SKILLS.find((s) => s.id === selectedSkill);
-      if (skill) {
-        // Each technique has a range suited to it (e.g. squaring numbers ending in 5). Difficulty
-        // presets squeezed those to 1-10 on Easy, so 5x5 was the only "ends in 5" problem.
-        // Custom ranges still apply when the player sets them.
-        const effectiveRange = showAdvanced ? operationRanges[skill.operation] : undefined;
-        const newProblem = skill.generateProblem({ range: effectiveRange });
-        setProblem(newProblem);
-        setUserAnswer("");
-        setIsCorrect(null);
-        setHasAnswered(false);
-        setStartTime(Date.now());
-        inputRef.current?.focus();
-        return;
-      }
-    }
-
     let newProblem: Problem;
-    if (gameMode === "practice" && practiceSetRef.current) {
+    // Practice and Learning both run as sets (a lesson's set is its own problems).
+    if (practiceSetRef.current) {
       const drawn = drawPracticeProblem(practiceSetRef.current, () =>
         generateProblem(getNextOperation(), difficulty, showAdvanced, operationRanges),
       );
@@ -1063,6 +1102,12 @@ export default function TrainingPage() {
       }
       practiceSetRef.current = drawn.state;
       setPracticeProgress(getPracticeProgress(drawn.state));
+      if (lessonRunRef.current) {
+        // The first few new problems of a lesson show the steps; the rest are the player's own.
+        const isNew = drawn.card.returns === 0;
+        setLessonGuided(isNew && drawn.state.dealt <= LESSON_GUIDED);
+        lessonSoloRef.current = isNew && drawn.state.dealt > LESSON_GUIDED;
+      }
       // A fresh object even for a problem coming back: the scoring guards compare by identity.
       newProblem = { ...drawn.card.problem };
     } else {
@@ -1084,16 +1129,8 @@ export default function TrainingPage() {
     gameMode,
     showAdvanced,
     operationRanges,
-    selectedSkill,
     practiceTimerLimit,
   ]);
-
-  const handleSkipProblem = useCallback(() => {
-    // In learning + practice, skipping should break the current streak.
-    // (Timed mode skip is hidden, but keep this safe/explicit anyway.)
-    setStreak(0);
-    startNewProblem();
-  }, [startNewProblem]);
 
   // When advanced ranges are shown for the first time (or before the user edits),
   // prefill with the preset for the current difficulty.
@@ -1135,6 +1172,7 @@ export default function TrainingPage() {
     timed_mode_limit: timedModeLimit,
     practice_timer_limit: practiceTimerLimit,
     practice_set_size: gameMode === "practice" ? practiceSetSize : undefined,
+    lesson_id: gameMode === "learning" ? lessonId : undefined,
     auto_advance: autoAdvance,
     submit_mode: submitMode,
     show_advanced: showAdvanced,
@@ -1149,6 +1187,7 @@ export default function TrainingPage() {
     timedModeLimit,
     practiceTimerLimit,
     practiceSetSize,
+    lessonId,
     autoAdvance,
     submitMode,
     showAdvanced,
@@ -1235,8 +1274,12 @@ export default function TrainingPage() {
   }, [getTrainingTelemetryProperties]);
 
   // `planned` starts a Practice set of given problems: an earlier set's misses, or a review.
-  const startTraining = async (planned?: Problem[], kind: PracticeKind = planned ? "retry" : "set") => {
+  const startTraining = async (
+    planned?: Problem[],
+    kind: PracticeKind = planned ? "retry" : gameMode === "learning" ? "lesson" : "set",
+  ) => {
     if (!preferencesReady) return;
+    const lesson = getLesson(lessonId)!;
     if (!authSession?.user) {
       await ensureGuestCookie();
       if (!guestCookieReadyRef.current) {
@@ -1267,8 +1310,6 @@ export default function TrainingPage() {
     setTotalCorrect(0);
     setTimes([]);
     setAvgTime(0);
-    setShowTip(true);
-    setTipExpanded(true);
     bestStreakRef.current = 0;
     sessionStartTimeRef.current = Date.now();
     firstAnswerTrackedRef.current = false;
@@ -1278,7 +1319,7 @@ export default function TrainingPage() {
     const startProperties = {
       ...getTrainingTelemetryProperties(),
       training_run_id: trainingRunId,
-      practice_kind: gameMode === "practice" ? kind : undefined,
+      practice_kind: gameMode !== "timed" ? kind : undefined,
     };
     trainingTelemetryRef.current = startProperties;
     registerAnalyticsSessionProperties({
@@ -1293,7 +1334,15 @@ export default function TrainingPage() {
       setOverallTimeLeft(timedModeLimit);
     }
     practiceSetRef.current =
-      gameMode === "practice" ? createPracticeSet(practiceSetSize, planned ?? []) : null;
+      gameMode === "practice"
+        ? createPracticeSet(practiceSetSize, planned ?? [])
+        : gameMode === "learning"
+          ? createPracticeSet(LESSON_SET_SIZE, planned ?? createLessonProblems(lesson))
+          : null;
+    // Only a lesson played through is scored; retrying its misses is just practice.
+    lessonRunRef.current = kind === "lesson" ? { soloCount: 0, soloFirstTry: 0, soloTimes: [] } : null;
+    setLessonGuided(false);
+    setLessonOutcome(null);
     setPracticeKind(kind);
     setPracticeProgress(practiceSetRef.current ? getPracticeProgress(practiceSetRef.current) : null);
     setPracticeSeconds(null);
@@ -1311,7 +1360,7 @@ export default function TrainingPage() {
             body: JSON.stringify({
               gameMode,
               difficulty,
-              operations: selectedOperations,
+              operations: gameMode === "learning" ? [lesson.operation] : selectedOperations,
               timeLimitSeconds: gameMode === "timed" ? timedModeLimit : undefined,
               customRanges: showAdvanced,
             }),
@@ -1332,6 +1381,7 @@ export default function TrainingPage() {
     guestSubmittedRef.current = false;
     setScorePercentile(null);
     setStoppedAfterSeconds(null);
+    setRunMisses([]);
 
     startNewProblem();
   };
@@ -1339,6 +1389,13 @@ export default function TrainingPage() {
   // Record a problem attempt to the database
   const recordAttempt = useCallback(
     async (problem: Problem, userAnswerNum: number | null, correct: boolean, timeTaken: number) => {
+      if (!correct) {
+        setRunMisses((prev) =>
+          prev.some((p) => p.a === problem.a && p.b === problem.b && p.operation === problem.operation)
+            ? prev
+            : [...prev, problem],
+        );
+      }
       if (!authSession?.user) return;
 
       try {
@@ -1374,10 +1431,9 @@ export default function TrainingPage() {
       if (mistakeRecordedProblemRef.current === mistakeProblem) return;
       if (scoredProblemRef.current === mistakeProblem) return;
       mistakeRecordedProblemRef.current = mistakeProblem;
-      if (!authSession?.user) return;
       recordAttempt(mistakeProblem, answerNum, false, (Date.now() - startTime) / 1000);
     },
-    [authSession?.user, recordAttempt, startTime]
+    [recordAttempt, startTime]
   );
 
   const isDefaultTimedConfig = () =>
@@ -1569,7 +1625,7 @@ export default function TrainingPage() {
     }
     const elapsed = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
     setStoppedAfterSeconds(elapsed);
-    if (gameMode === "practice") setPracticeSeconds(elapsed);
+    if (gameMode !== "timed") setPracticeSeconds(elapsed);
     setIsPlaying(false);
     setProblem(null);
     setHasAnswered(false);
@@ -1632,6 +1688,15 @@ export default function TrainingPage() {
       scoredProblemRef.current = doneProblem;
       const missed = practiceMissedRef.current === doneProblem;
       practiceSetRef.current = resolvePracticeProblem(state, missed);
+      const lessonRun = lessonRunRef.current;
+      if (lessonRun && lessonSoloRef.current) {
+        lessonSoloRef.current = false;
+        lessonRun.soloCount += 1;
+        if (!missed) {
+          lessonRun.soloFirstTry += 1;
+          lessonRun.soloTimes.push(timeTaken);
+        }
+      }
       setPracticeProgress(getPracticeProgress(practiceSetRef.current));
       setTotalSolved((prev) => prev + 1);
 
@@ -1680,7 +1745,7 @@ export default function TrainingPage() {
     const correct = answerNum === problem.answer;
     trackFirstAnswer();
 
-    if (gameMode === "practice") {
+    if (gameMode !== "timed") {
       const timeTaken = (Date.now() - startTime) / 1000;
       if (correct) completePracticeProblem(problem, timeTaken);
       else missPracticeProblem(problem, answerNum, timeTaken);
@@ -1701,77 +1766,47 @@ export default function TrainingPage() {
     }
 
     if (scoredProblemRef.current === problem) return;
-    // A wrong answer in Timed mode can be retried; everything else scores the problem once.
-    if (correct || gameMode !== "timed") {
+    // A wrong answer in Timed mode can be retried.
+    if (correct) {
       scoredProblemRef.current = problem;
     }
 
     const timeTaken = (Date.now() - startTime) / 1000;
 
-    if (gameMode === "learning") {
-      // Learning mode: show solution breakdown after answering
-      setIsCorrect(correct);
-      setFeedbackKey((k) => k + 1);
-      setHasAnswered(true);
-      setTotalSolved((prev) => prev + 1);
+    // Timed mode: track all attempts for accuracy
+    setIsCorrect(correct);
+    setFeedbackKey((k) => k + 1);
+    setTotalSolved((prev) => prev + 1);
 
-      // Record attempt to database
-      recordAttempt(problem, answerNum, correct, timeTaken);
+    // Record attempt to database
+    recordAttempt(problem, answerNum, correct, timeTaken);
 
-      if (correct) {
-        setTotalCorrect((prev) => prev + 1);
-        setStreak((prev) => {
-          const newStreak = prev + 1;
-          if (newStreak > bestStreakRef.current) {
-            bestStreakRef.current = newStreak;
-          }
-          return newStreak;
-        });
-        setTimes((prev) => {
-          const newTimes = [...prev, timeTaken];
-          setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
-          return newTimes;
-        });
-      } else {
-        setStreak(0);
-      }
-      // Don't auto-advance - let user study the solution
-    } else if (gameMode === "timed") {
-      // Timed mode: track all attempts for accuracy
-      setIsCorrect(correct);
-      setFeedbackKey((k) => k + 1);
-      setTotalSolved((prev) => prev + 1);
-
-      // Record attempt to database
-      recordAttempt(problem, answerNum, correct, timeTaken);
-
-      if (correct) {
-        setTotalCorrect((prev) => prev + 1);
-        setStreak((prev) => {
-          const newStreak = prev + 1;
-          if (newStreak > bestStreakRef.current) {
-            bestStreakRef.current = newStreak;
-          }
-          return newStreak;
-        });
-        setTimes((prev) => {
-          const newTimes = [...prev, timeTaken];
-          setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
-          return newTimes;
-        });
-
-        if (autoAdvance) {
-          setCorrectFlashKey((k) => k + 1);
-          startNewProblem();
-        } else {
-          setHasAnswered(true);
+    if (correct) {
+      setTotalCorrect((prev) => prev + 1);
+      setStreak((prev) => {
+        const newStreak = prev + 1;
+        if (newStreak > bestStreakRef.current) {
+          bestStreakRef.current = newStreak;
         }
+        return newStreak;
+      });
+      setTimes((prev) => {
+        const newTimes = [...prev, timeTaken];
+        setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
+        return newTimes;
+      });
+
+      if (autoAdvance) {
+        setCorrectFlashKey((k) => k + 1);
+        startNewProblem();
       } else {
-        // Wrong answer in Timed mode: reset streak, clear input, try again
-        setStreak(0);
-        setUserAnswer("");
-        setTimeout(() => setIsCorrect(null), 300);
+        setHasAnswered(true);
       }
+    } else {
+      // Wrong answer in Timed mode: reset streak, clear input, try again
+      setStreak(0);
+      setUserAnswer("");
+      setTimeout(() => setIsCorrect(null), 300);
     }
   };
 
@@ -1831,7 +1866,7 @@ export default function TrainingPage() {
         bestStreakRef.current,
         avgTime,
         stopped ? "abandoned" : "completed",
-        stopped ? "manual_stop" : gameMode === "practice" ? "set_finished" : "timer_finished",
+        stopped ? "manual_stop" : gameMode === "timed" ? "timer_finished" : "set_finished",
       );
     } else if (isGameOver && activeRunRef.current && !completionTrackedRef.current) {
       completionTrackedRef.current = true;
@@ -1848,13 +1883,56 @@ export default function TrainingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGameOver]);
 
+  // A lesson played to the end is scored, and saved for signed-in players.
+  useEffect(() => {
+    const run = lessonRunRef.current;
+    if (!isGameOver || !run) return;
+    lessonRunRef.current = null;
+    if (stoppedAfterSeconds !== null) return;
+    const lesson = getLesson(lessonId)!;
+    const result = {
+      soloCount: run.soloCount,
+      soloFirstTry: run.soloFirstTry,
+      soloAverageSeconds: run.soloTimes.length
+        ? Math.round((run.soloTimes.reduce((a, b) => a + b, 0) / run.soloTimes.length) * 10) / 10
+        : null,
+    };
+    const mastered = isLessonMastered(lesson, result);
+    const wasMastered = !!lessons?.progress[lesson.id]?.mastered;
+    const nextLesson = LESSONS[LESSONS.indexOf(lesson) + 1] ?? null;
+    setLessonOutcome({
+      lessonId: lesson.id,
+      title: lesson.title,
+      ...result,
+      targetSeconds: lesson.targetSeconds,
+      mastered: mastered || wasMastered,
+      newlyMastered: mastered && !wasMastered,
+      next: nextLesson
+        ? { id: nextLesson.id, title: nextLesson.title, locked: lessonsLocked && !isFreeLesson(nextLesson.id) }
+        : null,
+    });
+    captureAnalyticsEvent(ANALYTICS_EVENTS.lessonCompleted, {
+      ...getTrainingTelemetryProperties(),
+      lesson_id: lesson.id,
+      solo_first_try: result.soloFirstTry,
+      solo_average_seconds: result.soloAverageSeconds ?? undefined,
+      mastered,
+    });
+    if (!authSession?.user) return;
+    fetch("/api/lessons/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonId: lesson.id, ...result }),
+    }).catch((error) => console.error("Failed to save lesson:", error));
+  }, [isGameOver, stoppedAfterSeconds, lessonId, lessons, lessonsLocked, authSession?.user, getTrainingTelemetryProperties]);
+
   // Auto-submit when correct answer is typed
   useEffect(() => {
     if (!isPlaying || !problem || submitMode !== "auto" || hasAnswered) return;
     if (scoredProblemRef.current === problem) return;
 
     const answerNum = parseInt(userAnswer);
-    if (gameMode === "practice") {
+    if (gameMode !== "timed") {
       const timeTaken = (Date.now() - startTime) / 1000;
       if (!isNaN(answerNum) && answerNum === problem.answer) {
         trackFirstAnswer();
@@ -1893,9 +1971,7 @@ export default function TrainingPage() {
         recordAttempt(problem, answerNum, true, timeTaken);
       }
 
-      if (gameMode === "learning") {
-        setHasAnswered(true);
-      } else if (autoAdvance) {
+      if (autoAdvance) {
         setCorrectFlashKey((k) => k + 1);
         startNewProblem();
       } else {
@@ -1938,7 +2014,11 @@ export default function TrainingPage() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const currentTip = problem ? getTipForProblem(problem) : null;
+  const activeLesson = gameMode === "learning" ? getLesson(lessonId) : null;
+  // In a lesson, the explanation is always that lesson's trick.
+  const currentTip = problem
+    ? activeLesson?.matches(problem) ? lessonTip(activeLesson, problem) : getTipForProblem(problem)
+    : null;
   const currentConfig = difficultyConfig[difficulty];
   const containerWidthClass = isPlaying ? "max-w-3xl" : isGameOver ? "max-w-3xl" : "max-w-5xl";
 
@@ -1981,12 +2061,13 @@ export default function TrainingPage() {
               accuracy={accuracy}
               avgTimeSeconds={avgTime}
               bestStreak={bestStreakRef.current}
-              showAccuracyCard={submitMode === "manual" && gameMode !== "practice"}
-              showBestStreakCard={gameMode !== "timed"}
+              showAccuracyCard={submitMode === "manual" && gameMode === "timed"}
+              showBestStreakCard={gameMode === "practice"}
               onPlayAgain={() => startTraining()}
               onChangeSettings={stopTraining}
-              practice={gameMode === "practice" && practiceProgress ? {
+              practice={gameMode !== "timed" && practiceProgress ? {
                 kind: practiceKind,
+                lessonTitle: activeLesson?.title ?? null,
                 complete: stoppedAfterSeconds === null,
                 size: practiceProgress.size,
                 firstTry: practiceProgress.firstTry,
@@ -1996,10 +2077,20 @@ export default function TrainingPage() {
                   technique: getTipForProblem(missed).title,
                 })),
               } : null}
+              runMisses={runMisses.map((missed) => ({ problem: missed, technique: getTipForProblem(missed).title }))}
+              lesson={lessonOutcome}
+              onOpenLesson={(id: string) => {
+                setLessonId(id as LessonId);
+                stopTraining();
+              }}
               onRetryMisses={() => startTraining(shuffleArray(practiceProgress?.missed ?? []))}
+              onOpenReview={() => {
+                setGameMode("practice");
+                stopTraining();
+              }}
               reviewPrompt={!authSession?.user || !review ? null : review.locked ? "locked" : "pro"}
               stoppedAt={stoppedAfterSeconds === null ? null : formatTime(stoppedAfterSeconds)}
-              runSeconds={gameMode === "practice" ? null : stoppedAfterSeconds ?? (gameMode === "timed" ? timedModeLimit : null)}
+              runSeconds={gameMode === "timed" ? stoppedAfterSeconds ?? timedModeLimit : null}
               scorePercentile={scorePercentile}
               showAuthCallout={!authSession?.user}
               trainingRunId={trainingRunIdRef.current}
@@ -2018,8 +2109,10 @@ export default function TrainingPage() {
               showLastRunPlacementCard={!!scorePercentile && gameMode === "timed" && isDefaultTimedConfig()}
               gameMode={gameMode}
               setGameMode={setGameMode}
-              selectedSkill={selectedSkill}
-              setSelectedSkill={setSelectedSkill}
+              lessonId={lessonId}
+              setLessonId={setLessonId}
+              lessons={lessons}
+              lessonsLocked={lessonsLocked}
               showAdvanced={showAdvanced}
               setShowAdvanced={setShowAdvanced}
               setCustomRangesTouched={setCustomRangesTouched}
@@ -2057,19 +2150,17 @@ export default function TrainingPage() {
               showAdvanced={showAdvanced}
               difficultyLabel={currentConfig.label}
               difficultyBadgeClassName={getDifficultyColor(difficulty)}
-              showTip={showTip}
-              setShowTip={setShowTip}
-              tipExpanded={tipExpanded}
-              setTipExpanded={setTipExpanded}
               currentTip={currentTip}
+              lessonTitle={activeLesson?.title ?? null}
+              lessonSteps={activeLesson && problem && lessonGuided ? activeLesson.steps(problem) : null}
               hasAnswered={hasAnswered}
               totalSolved={totalSolved}
               streak={streak}
               accuracy={accuracy}
               avgTimeSeconds={avgTime}
               timeLeft={timeLeft}
-              practiceTimerLimit={practiceTimerLimit}
-              practiceProgress={gameMode === "practice" ? practiceProgress : null}
+              practiceTimerLimit={gameMode === "practice" ? practiceTimerLimit : 0}
+              practiceProgress={gameMode === "timed" ? null : practiceProgress}
               practiceMissed={practiceMissed}
               onRevealAnswer={revealPracticeAnswer}
               overallTimeLeft={overallTimeLeft}
@@ -2087,7 +2178,6 @@ export default function TrainingPage() {
               inputRef={inputRef}
               onSubmit={handleSubmit}
               onStop={handleStop}
-              onSkip={handleSkipProblem}
               onNextProblem={startNewProblem}
             />
           )}

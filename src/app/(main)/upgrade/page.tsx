@@ -15,7 +15,9 @@ import { UpgradeTelemetry } from "./upgrade-telemetry";
 
 function normalizeFeature(feature?: string | string[] | null): UpgradeFeature | undefined {
   if (!feature || Array.isArray(feature)) return undefined;
-  if (feature === "analytics" || feature === "coins" || feature === "review") return feature;
+  if (feature === "analytics" || feature === "coins" || feature === "review" || feature === "lessons") {
+    return feature;
+  }
   return undefined;
 }
 
@@ -36,7 +38,8 @@ export const metadata: Metadata = {
 };
 
 const freeFeatures = [
-  "Basic training modes",
+  "Timed runs and Practice sets",
+  "The first 4 Learning lessons",
   "Track your progress",
   "Leaderboard access",
   "Multiplayer racing",
@@ -46,6 +49,7 @@ const freeFeatures = [
 const proFeatures = [
   "Everything in Free",
   "Review: your past misses come back until they stick",
+  "All 12 Learning lessons",
   "Advanced analytics & charts",
   "Weak point training",
   "Skill breakdowns & trends",

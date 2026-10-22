@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LESSON_IDS } from "./lessons";
 import { PRACTICE_SET_SIZES } from "./practice-set";
 
 export const DEFAULT_TIMED_TRAINING_SETTINGS = {
@@ -32,8 +33,8 @@ const guestTrainingSettingsSchema = z.object({
   showAdvanced: z.boolean(),
   customRangesTouched: z.boolean(),
   operationRanges: z.object({ "+": range, "-": range, "×": range, "÷": range }),
-  selectedSkill: z.enum(["11-trick", "complements-10", "square-5", "mult-4", "div-5"])
-    .nullable(),
+  // The Learning lesson last picked; optional so older settings still restore.
+  lessonId: z.enum(LESSON_IDS).optional(),
 });
 
 export type GuestTrainingSettings = z.infer<typeof guestTrainingSettingsSchema>;

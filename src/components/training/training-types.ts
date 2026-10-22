@@ -50,7 +50,37 @@ export type ReviewSummary = {
   example: { problem: Problem; misses: number } | null;
 };
 
-export type PracticeKind = "set" | "retry" | "review";
+/** "lesson" is a Learning lesson played through, the only kind that is scored for mastery. */
+export type PracticeKind = "set" | "retry" | "review" | "lesson";
+
+export type LessonProgressSummary = {
+  plays: number;
+  bestFirstTry: number;
+  bestAverageSeconds: number | null;
+  mastered: boolean;
+};
+
+/** A signed-in player's lessons, from /api/lessons/progress. */
+export type LessonsSummary = {
+  /** The Pro lessons are closed to this account. */
+  locked: boolean;
+  progress: Partial<Record<string, LessonProgressSummary>>;
+};
+
+/** How a lesson went, for the results screen. */
+export type LessonOutcome = {
+  lessonId: string;
+  title: string;
+  soloCount: number;
+  soloFirstTry: number;
+  soloAverageSeconds: number | null;
+  targetSeconds: number;
+  mastered: boolean;
+  /** Mastered for the first time on this run. */
+  newlyMastered: boolean;
+  /** The lesson after this one, if any. */
+  next: { id: string; title: string; locked: boolean } | null;
+};
 
 export interface OperationRange {
   min: number;

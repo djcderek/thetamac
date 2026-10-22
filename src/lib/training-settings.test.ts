@@ -20,7 +20,7 @@ const preferences: GuestTrainingSettings = {
     "+": { min: 3, max: 150 }, "-": { min: 3, max: 150 },
     "×": { min: 5, max: 50 }, "÷": { min: 2, max: 100 },
   },
-  selectedSkill: "div-5",
+  lessonId: "times-9",
 };
 
 test("guest preferences survive a new storage reader, including custom ranges and manual submission", () => {
@@ -39,13 +39,20 @@ test("invalid saved operations, timers, ranges and techniques are rejected", () 
   for (const patch of [
     { selectedOperations: [] }, { selectedOperations: ["+", "+"] },
     { selectedOperations: ["%"] }, { timedModeLimit: 1 },
-    { practiceTimerLimit: -1 }, { selectedSkill: "not-a-skill" },
+    { practiceTimerLimit: -1 }, { lessonId: "not-a-lesson" },
     { operationRanges: { ...preferences.operationRanges, "+": { min: -1, max: 10 } } },
     { operationRanges: { ...preferences.operationRanges, "×": { min: 1, max: 1e100 } } },
   ]) {
     const saved = JSON.stringify({ ...preferences, ...patch });
     assert.equal(readGuestTrainingSettings({ getItem: () => saved }), null);
   }
+});
+
+test("settings saved before lessons, with the old technique picker, still restore", () => {
+  const older: Partial<GuestTrainingSettings> = { ...preferences };
+  delete older.lessonId;
+  const saved = JSON.stringify({ ...older, selectedSkill: "div-5" });
+  assert.deepEqual(readGuestTrainingSettings({ getItem: () => saved }), older);
 });
 
 test("storage restrictions cannot prevent training and invalid data cannot overwrite a valid preference", () => {
