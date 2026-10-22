@@ -1994,6 +1994,17 @@ export default function TrainingPage() {
     void startTraining(shuffleArray(problems), "daily", "practice");
   };
 
+  // From the dashboard's "Start today" (/?daily=1): start the session once it has loaded.
+  const autoDailyRef = useRef(false);
+  const wantsDaily = searchParams.get("daily") === "1";
+  useEffect(() => {
+    if (!wantsDaily || autoDailyRef.current || !daily || !preferencesReady || isPlaying || isGameOver) return;
+    autoDailyRef.current = true;
+    // Drop the parameter so a reload or Back doesn't start another session.
+    window.history.replaceState(null, "", window.location.pathname);
+    if (!daily.locked) startDaily();
+  });
+
   // A daily session played to the end marks today done and shows the streak.
   useEffect(() => {
     const sections = dailySectionsRef.current;

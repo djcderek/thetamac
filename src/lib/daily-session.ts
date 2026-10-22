@@ -135,3 +135,12 @@ export function dailyBaseline(sessions: { day: number; averageSeconds: number | 
   if (earlier.length < BASELINE_SESSIONS) return null;
   return earlier.reduce((sum, session) => sum + session.averageSeconds!, 0) / earlier.length;
 }
+
+/** The latest daily session's average time against the first few, for the dashboard. */
+export function dailyTrend(sessions: { day: number; averageSeconds: number | null }[]) {
+  const timed = sessions.filter((session) => session.averageSeconds !== null).sort((x, y) => x.day - y.day);
+  const latest = timed.at(-1);
+  if (!latest) return null;
+  const baselineSeconds = dailyBaseline(timed, latest.day);
+  return baselineSeconds === null ? null : { latestSeconds: latest.averageSeconds!, baselineSeconds };
+}

@@ -12,12 +12,15 @@ import {
   buildDailyPlan,
   dailyBaseline,
   dailyStreak,
+  dailyTrend,
   lastSevenDays,
 } from "@/lib/daily-session";
 
 export const dynamic = "force-dynamic";
 
 // Enough history for a heavy player's lookback window, as in the review.
+// Sessions drawn on the dashboard's speed chart.
+const HISTORY_SHOWN = 14;
 const MAX_ATTEMPTS = 20000;
 
 async function loadDays(userId: string) {
@@ -75,6 +78,12 @@ export async function GET(request: Request) {
         weak: plan.filter((item) => item.section === "weak").length,
       },
       items: isPremium ? plan : [],
+      // Recent sessions' average time, oldest first, and the latest against the first days.
+      history: days
+        .filter((row) => row.averageSeconds !== null)
+        .slice(-HISTORY_SHOWN)
+        .map((row) => ({ day: row.day, averageSeconds: row.averageSeconds! })),
+      trend: dailyTrend(days),
     });
   } catch (error) {
     console.error("Error building daily session:", error);
