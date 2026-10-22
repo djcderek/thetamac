@@ -804,6 +804,8 @@ export default function TrainingPage() {
   const [practiceKind, setPracticeKind] = useState<PracticeKind>("set");
   // Signed-in players' past misses due for review (Pro runs them; free sees a prompt).
   const [review, setReview] = useState<ReviewSummary | null>(null);
+  // Every distinct problem missed this run, in order, for the results screen.
+  const [runMisses, setRunMisses] = useState<Problem[]>([]);
 
   // Learning mode state
   const [showTip, setShowTip] = useState(true);
@@ -1332,6 +1334,7 @@ export default function TrainingPage() {
     guestSubmittedRef.current = false;
     setScorePercentile(null);
     setStoppedAfterSeconds(null);
+    setRunMisses([]);
 
     startNewProblem();
   };
@@ -1339,6 +1342,13 @@ export default function TrainingPage() {
   // Record a problem attempt to the database
   const recordAttempt = useCallback(
     async (problem: Problem, userAnswerNum: number | null, correct: boolean, timeTaken: number) => {
+      if (!correct) {
+        setRunMisses((prev) =>
+          prev.some((p) => p.a === problem.a && p.b === problem.b && p.operation === problem.operation)
+            ? prev
+            : [...prev, problem],
+        );
+      }
       if (!authSession?.user) return;
 
       try {
@@ -1374,10 +1384,9 @@ export default function TrainingPage() {
       if (mistakeRecordedProblemRef.current === mistakeProblem) return;
       if (scoredProblemRef.current === mistakeProblem) return;
       mistakeRecordedProblemRef.current = mistakeProblem;
-      if (!authSession?.user) return;
       recordAttempt(mistakeProblem, answerNum, false, (Date.now() - startTime) / 1000);
     },
-    [authSession?.user, recordAttempt, startTime]
+    [recordAttempt, startTime]
   );
 
   const isDefaultTimedConfig = () =>
@@ -1996,7 +2005,12 @@ export default function TrainingPage() {
                   technique: getTipForProblem(missed).title,
                 })),
               } : null}
+              runMisses={runMisses.map((missed) => ({ problem: missed, technique: getTipForProblem(missed).title }))}
               onRetryMisses={() => startTraining(shuffleArray(practiceProgress?.missed ?? []))}
+              onOpenReview={() => {
+                setGameMode("practice");
+                stopTraining();
+              }}
               reviewPrompt={!authSession?.user || !review ? null : review.locked ? "locked" : "pro"}
               stoppedAt={stoppedAfterSeconds === null ? null : formatTime(stoppedAfterSeconds)}
               runSeconds={gameMode === "practice" ? null : stoppedAfterSeconds ?? (gameMode === "timed" ? timedModeLimit : null)}

@@ -17,8 +17,13 @@ export type PracticeSummary = {
   size: number;
   firstTry: number;
   seconds: number | null;
-  misses: { problem: Problem; technique: string }[];
+  misses: MissedProblem[];
 };
+
+type MissedProblem = { problem: Problem; technique: string };
+
+// A long Timed run can miss a lot; the rest are still saved.
+const MISSES_SHOWN = 8;
 
 function formatDuration(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -39,7 +44,9 @@ export function TrainingGameOver({
   onPlayAgain,
   onChangeSettings,
   practice,
+  runMisses,
   onRetryMisses,
+  onOpenReview,
   reviewPrompt,
   stoppedAt,
   runSeconds,
@@ -58,7 +65,11 @@ export function TrainingGameOver({
   onPlayAgain: () => void;
   onChangeSettings: () => void;
   practice: PracticeSummary | null;
+  /** Outside Practice: every problem missed this run. */
+  runMisses: MissedProblem[];
   onRetryMisses: () => void;
+  /** Pro outside Practice: go to Practice, where the review is. */
+  onOpenReview: () => void;
   /** Signed in: "pro" notes misses are saved for review, "locked" offers it. */
   reviewPrompt: "pro" | "locked" | null;
   /** Time into the run when the player pressed Stop (e.g. "0:42"); null when it ran its course. */
@@ -79,6 +90,9 @@ export function TrainingGameOver({
       accuracy,
     });
   }, [accuracy, showAuthCallout, totalSolved, trainingRunId]);
+
+  const misses = practice ? practice.misses : runMisses;
+  const shownMisses = misses.slice(0, MISSES_SHOWN);
 
   // Secondary stats read as receipt rows (Kurb's "Hourly rate · $10" detail list).
   const detailRows = [
@@ -132,8 +146,8 @@ export function TrainingGameOver({
           ))}
         </dl>
 
-        {/* Practice: what was missed, with the trick for each, ready to retry. */}
-        {practice && practice.misses.length > 0 && (
+        {/* What was missed, with the trick for each (in Practice, ready to retry). */}
+        {misses.length > 0 && (
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -142,10 +156,10 @@ export function TrainingGameOver({
             className="space-y-2"
           >
             <h2 id="practice-review-heading" className="px-1 text-[13px] text-muted-foreground">
-              To go over · {practice.misses.length}
+              To go over · {misses.length}
             </h2>
             <ul className="divide-y divide-border rounded-[22px] bg-secondary px-5">
-              {practice.misses.map(({ problem, technique }) => (
+              {shownMisses.map(({ problem, technique }) => (
                 <li
                   key={`${problem.a}${problem.operation}${problem.b}`}
                   className="flex items-baseline justify-between gap-4 py-3 text-[15px]"
@@ -156,10 +170,27 @@ export function TrainingGameOver({
                   <span className="min-w-0 truncate text-right text-muted-foreground">{technique}</span>
                 </li>
               ))}
+              {misses.length > shownMisses.length && (
+                <li className="py-3 text-[15px] text-muted-foreground">
+                  and {misses.length - shownMisses.length} more
+                </li>
+              )}
             </ul>
             {reviewPrompt === "pro" && (
               <p className="px-1 text-[13px] leading-5 text-muted-foreground">
                 Saved to your review. They come back in a later session until they stick.
+                {!practice && (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      onClick={onOpenReview}
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      Open review
+                    </button>
+                  </>
+                )}
               </p>
             )}
           </motion.section>
@@ -195,7 +226,7 @@ export function TrainingGameOver({
         </div>
 
         {/* Free accounts: the misses are already saved; Pro is what brings them back. */}
-        {practice && practice.misses.length > 0 && reviewPrompt === "locked" && (
+        {misses.length > 0 && reviewPrompt === "locked" && (
           <div className="flex flex-col gap-4 rounded-[22px] bg-secondary p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-[17px] font-semibold tracking-tight">Make these stick</div>
@@ -204,14 +235,14 @@ export function TrainingGameOver({
               </div>
             </div>
             <Link
-              href={getUpgradeUrl({ feature: "review", source: "practice_results" })}
+              href={getUpgradeUrl({ feature: "review", source: practice ? "practice_results" : "run_results" })}
               onClick={() =>
                 captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, {
                   feature: "review",
                   surface: "training_game_over",
                   action: "open_pricing",
                   training_run_id: trainingRunId ?? undefined,
-                  review_miss_count: practice.misses.length,
+                  review_miss_count: misses.length,
                 })
               }
               className="shrink-0"
