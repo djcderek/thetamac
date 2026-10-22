@@ -6,23 +6,18 @@ import {
   ChevronDown,
   ChevronUp,
   CornerDownLeft,
-  Copy,
-  Divide,
   Info,
-  LayoutGrid,
+  Lock,
   Play,
   Settings,
-  Shuffle,
-  Square,
   Target,
   Wand2,
-  Zap,
-  Circle,
   X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { TRAINING_SKILLS, type SkillId } from "@/lib/training-skills";
+import { getLesson, isFreeLesson, type LessonId } from "@/lib/lessons";
+import { LessonIntro, LessonList } from "@/components/training/lesson-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { closeSpring, morphContentIn, morphSpring } from "@/lib/motion";
@@ -37,6 +32,7 @@ import type {
   Difficulty,
   DifficultySettings,
   GameMode,
+  LessonsSummary,
   Operation,
   OperationRanges,
   ReviewSummary,
@@ -112,7 +108,7 @@ function modeDescription(mode: GameMode) {
     case "practice":
       return "Work through a set. Anything you miss comes back a few problems later, with the trick for it, until you get it.";
     case "learning":
-      return "Slower pace with step-by-step explanations after you answer.";
+      return "Short lessons, one trick each. See it worked through, try a few with the steps, then do it on your own.";
   }
 }
 
@@ -160,8 +156,10 @@ export function TrainingSetup({
   showLastRunPlacementCard,
   gameMode,
   setGameMode,
-  selectedSkill,
-  setSelectedSkill,
+  lessonId,
+  setLessonId,
+  lessons,
+  lessonsLocked,
   showAdvanced,
   setShowAdvanced,
   setCustomRangesTouched,
@@ -194,8 +192,10 @@ export function TrainingSetup({
   showLastRunPlacementCard: boolean;
   gameMode: GameMode;
   setGameMode: (m: GameMode) => void;
-  selectedSkill: SkillId | null;
-  setSelectedSkill: (s: SkillId | null) => void;
+  lessonId: LessonId;
+  setLessonId: (id: LessonId) => void;
+  lessons: LessonsSummary | null;
+  lessonsLocked: boolean;
   showAdvanced: boolean;
   setShowAdvanced: (v: boolean) => void;
   setCustomRangesTouched: (v: boolean) => void;
@@ -224,7 +224,13 @@ export function TrainingSetup({
   onStartReview: () => void;
   preferencesReady: boolean;
 }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpenState, setSettingsOpen] = useState(false);
+  // Lessons have no session settings: the lesson sets the problems.
+  const isLearning = gameMode === "learning";
+  const settingsOpen = settingsOpenState && !isLearning;
+  const lesson = getLesson(lessonId)!;
+  const lessonLocked = lessonsLocked && !isFreeLesson(lesson.id);
+  const introRef = useRef<HTMLDivElement>(null);
   const settingsPanelRef = useRef<HTMLElement>(null);
   const reduceMotion = useReducedMotion();
 
@@ -274,7 +280,14 @@ export function TrainingSetup({
 
             <p className="px-1 text-[15px] leading-6 text-muted-foreground">{modeDescription(gameMode)}</p>
 
+            {isLearning && (
+              <div ref={introRef} className="scroll-mt-20">
+                <LessonIntro lesson={lesson} locked={lessonLocked} progress={lessons?.progress[lesson.id]} />
+              </div>
+            )}
+
             {/* Settings summary: a white row inside the grey group, like Kurb's detail rows. */}
+            {!isLearning && (
             <div className="flex items-center justify-between gap-3 rounded-2xl bg-background py-2 pl-4 pr-2">
               <div className="min-w-0">
                 <p className="text-[13px] text-muted-foreground">Settings</p>
@@ -283,9 +296,7 @@ export function TrainingSetup({
                   {" · "}
                   {gameMode === "timed"
                     ? formatTime(timedModeLimit)
-                    : gameMode === "practice"
-                      ? `${practiceSetSize} problems${practiceTimerLimit > 0 ? ` · ${practiceTimerLimit}s each` : ""}`
-                      : "No timer"}
+                    : `${practiceSetSize} problems${practiceTimerLimit > 0 ? ` · ${practiceTimerLimit}s each` : ""}`}
                   {" · "}
                   {selectedOpsLabel}
                 </p>
@@ -329,6 +340,7 @@ export function TrainingSetup({
                 </AnimatePresence>
               </button>
             </div>
+            )}
 
             {gameMode === "practice" && review && <ReviewRow review={review} onStart={onStartReview} />}
 
@@ -370,10 +382,28 @@ export function TrainingSetup({
 
           {/* The one orange action on the page. */}
           <div className="mt-5 space-y-3">
-            <Button onClick={startTraining} disabled={!preferencesReady} variant="brand" size="lg" className="h-14 w-full text-[17px]">
-              Start
-              <Play aria-hidden="true" className="h-4 w-4 fill-current" />
-            </Button>
+            {isLearning && lessonLocked ? (
+              <Link
+                href={getUpgradeUrl({ feature: "lessons", source: "lesson_setup" })}
+                onClick={() =>
+                  captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, {
+                    feature: "lessons",
+                    surface: "lesson_setup",
+                    action: "open_pricing",
+                    lesson_id: lesson.id,
+                  })
+                }
+                className={cn(buttonVariants({ variant: "brand", size: "lg" }), "h-14 w-full text-[17px]")}
+              >
+                <Lock aria-hidden="true" className="h-4 w-4" />
+                Unlock this lesson with Pro
+              </Link>
+            ) : (
+              <Button onClick={startTraining} disabled={!preferencesReady} variant="brand" size="lg" className="h-14 w-full text-[17px]">
+                {isLearning ? "Start lesson" : "Start"}
+                <Play aria-hidden="true" className="h-4 w-4 fill-current" />
+              </Button>
+            )}
             <Link
               href="/training/weak-points"
               className="flex items-center justify-center gap-1.5 py-1 text-[15px] font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -393,70 +423,20 @@ export function TrainingSetup({
           </div>
         </section>
 
-        {/* Learning focus */}
-        {gameMode === "learning" && (
-          <section className="border-t border-border pt-5">
-            <SectionLabel>Learning focus</SectionLabel>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Pick a specific technique or do mixed practice. Tips show up before the problem;
-              after answering, you&apos;ll get a breakdown.
-            </p>
-
-            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setSelectedSkill(null)}
-                className={tileClass(selectedSkill === null, "text-left", { slidingPill: true })}
-              >
-                {selectedSkill === null && <SelectionPill group="setup-skill" />}
-                <div className="flex items-center gap-2.5">
-                  <Shuffle className="h-4 w-4 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">Mixed practice</div>
-                    <div className={cn("text-xs", selectedSkill === null ? "text-background/70" : "text-muted-foreground")}>
-                      Random problems with tips as you go
-                    </div>
-                  </div>
-                </div>
-              </button>
-
-              {TRAINING_SKILLS.map((skill) => {
-                const Icon =
-                  skill.iconName === "Zap"
-                    ? Zap
-                    : skill.iconName === "Circle"
-                      ? Circle
-                      : skill.iconName === "Box"
-                        ? Square
-                        : skill.iconName === "Copy"
-                          ? Copy
-                          : skill.iconName === "Divide"
-                            ? Divide
-                            : LayoutGrid;
-                const isSelected = selectedSkill === skill.id;
-
-                return (
-                  <button
-                    key={skill.id}
-                    type="button"
-                    onClick={() => setSelectedSkill(skill.id)}
-                    className={tileClass(isSelected, "text-left", { slidingPill: true })}
-                  >
-                    {isSelected && <SelectionPill group="setup-skill" />}
-                    <div className="flex items-center gap-2.5">
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium">{skill.name}</div>
-                        <div className={cn("truncate text-xs", isSelected ? "text-background/70" : "text-muted-foreground")}>
-                          {skill.description}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+        {isLearning && (
+          <LessonList
+            selected={lessonId}
+            onSelect={(id) => {
+              setLessonId(id);
+              // On phones the list sits below the lesson: bring the lesson back into view.
+              const intro = introRef.current;
+              if (intro && intro.getBoundingClientRect().top < 64) {
+                intro.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+              }
+            }}
+            lessons={lessons}
+            locked={lessonsLocked}
+          />
         )}
       </motion.div>
 

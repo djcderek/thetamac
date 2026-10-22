@@ -1,5 +1,4 @@
 import type { Difficulty, GameMode, Operation } from "@/components/training/training-types";
-import type { SkillId } from "@/lib/training-skills";
 
 export type TrainingPresetId =
   | "arithmetic-speed-test"
@@ -17,7 +16,6 @@ export type TrainingPreset = {
   difficulty: Difficulty;
   operations: Operation[];
   timedModeLimit: number;
-  selectedSkill?: SkillId | null;
 };
 
 const TRAINING_PRESETS: Record<TrainingPresetId, TrainingPreset> = {

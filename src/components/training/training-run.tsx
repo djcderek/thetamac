@@ -8,17 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { MetricTile, SectionLabel } from "@/components/ui/visual-system";
+import { MetricTile } from "@/components/ui/visual-system";
 import { cn } from "@/lib/utils";
 import type { GameMode, MathTip, PracticeProgress, Problem, SubmitMode } from "@/components/training/training-types";
-import {
-  ArrowRight,
-  Eye,
-  EyeOff,
-  RotateCcw,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+import type { LessonStep } from "@/lib/lessons";
+import { ArrowRight, Eye } from "lucide-react";
 
 export function TrainingRun({
   gameMode,
@@ -26,11 +20,9 @@ export function TrainingRun({
   showAdvanced,
   difficultyLabel,
   difficultyBadgeClassName,
-  showTip,
-  setShowTip,
-  tipExpanded,
-  setTipExpanded,
   currentTip,
+  lessonTitle,
+  lessonSteps,
   hasAnswered,
   totalSolved,
   streak,
@@ -56,7 +48,6 @@ export function TrainingRun({
   inputRef,
   onSubmit,
   onStop,
-  onSkip,
   onNextProblem,
 }: {
   gameMode: GameMode;
@@ -64,11 +55,10 @@ export function TrainingRun({
   showAdvanced: boolean;
   difficultyLabel: string;
   difficultyBadgeClassName: string;
-  showTip: boolean;
-  setShowTip: (v: boolean) => void;
-  tipExpanded: boolean;
-  setTipExpanded: (v: boolean) => void;
   currentTip: MathTip | null;
+  /** In a lesson: its title, and on guided problems the steps (the last result left out). */
+  lessonTitle: string | null;
+  lessonSteps: LessonStep[] | null;
   hasAnswered: boolean;
   totalSolved: number;
   streak: number;
@@ -94,14 +84,12 @@ export function TrainingRun({
   inputRef: RefObject<HTMLInputElement | null>;
   onSubmit: (e: FormEvent) => void;
   onStop: () => void;
-  onSkip: () => void;
   onNextProblem: () => void;
 }) {
   const metricClass = "pt-2 sm:pt-3 [&>div]:mt-1 [&>div]:text-xl sm:[&>div]:mt-2 sm:[&>div]:text-3xl";
-  const isPractice = gameMode === "practice";
-  const metricCount = isPractice
-    ? 3
-    : 1 + Number(gameMode !== "timed") + Number(submitMode === "manual") + Number(gameMode !== "learning");
+  // Practice and lessons run as sets: progress through the set, misses coming back.
+  const isSet = practiceProgress !== null;
+  const metricCount = isSet ? 3 : 2 + Number(submitMode === "manual");
   // Fade the problem in only when it changes. The card remounts on every answer (to replay
   // the correct/wrong feedback), so a mount animation would also replay on the old problem.
   const [problemScope, animateProblem] = useAnimate<HTMLDivElement>();
@@ -131,15 +119,15 @@ export function TrainingRun({
               {gameMode === "learning" ? "Learning" : gameMode === "timed" ? "Timed" : "Practice"}
             </span>
             {/* On phones the coming-back count replaces the difficulty, so it isn't truncated. */}
-            <span className={cn(isPractice && (practiceProgress?.waiting ?? 0) > 0 && "hidden sm:inline")}>
+            <span className={cn(isSet && (practiceProgress?.waiting ?? 0) > 0 && "hidden sm:inline")}>
               {" · "}
-              {!showAdvanced ? (
+              {lessonTitle ?? (!showAdvanced ? (
                 <span className={difficultyBadgeClassName}>{difficultyLabel}</span>
               ) : (
                 "Custom ranges"
-              )}
+              ))}
             </span>
-            {isPractice && practiceProgress && practiceProgress.waiting > 0 ? (
+            {isSet && practiceProgress && practiceProgress.waiting > 0 ? (
               <span> · {practiceProgress.waiting} coming back</span>
             ) : (
               submitMode === "auto" && <span className="hidden sm:inline"> · Auto-submit</span>
@@ -147,12 +135,7 @@ export function TrainingRun({
           </p>
 
           <div className="flex shrink-0 items-center gap-2">
-            {gameMode === "learning" ? (
-              <Button variant="ghost" size="sm" onClick={() => setShowTip(!showTip)} className="min-h-10">
-                {showTip ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                {showTip ? "Hide tips" : "Show tips"}
-              </Button>
-            ) : isPractice ? (
+            {isSet ? (
               <>
                 {practiceTimerLimit > 0 && (
                   <div
@@ -204,39 +187,12 @@ export function TrainingRun({
           </div>
         </div>
 
-        {isPractice ? (
+        {isSet ? (
           <Progress value={practiceProgress ? (practiceProgress.cleared / practiceProgress.size) * 100 : 0} className="mt-3 h-1" />
         ) : gameMode === "timed" ? (
           <Progress value={(overallTimeLeft / timedModeLimit) * 100} className="mt-3 h-1" />
         ) : null}
       </div>
-
-      {/* Technique - Before problem in Learning mode */}
-      {gameMode === "learning" && showTip && currentTip && !hasAnswered && (
-        <div className="rounded-[22px] bg-secondary p-4">
-          <button
-            onClick={() => setTipExpanded(!tipExpanded)}
-            className="flex w-full items-center justify-between gap-3 text-left"
-          >
-            <div>
-              <SectionLabel>Technique</SectionLabel>
-              <span className="mt-1 block font-medium">{currentTip.title}</span>
-            </div>
-            {tipExpanded ? (
-              <ChevronUp className="w-4 h-4 shrink-0 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
-            )}
-          </button>
-
-          {tipExpanded && (
-            <div className="mt-3 space-y-2">
-              <p className="text-sm font-medium">{currentTip.technique}</p>
-              <p className="text-sm leading-6 text-muted-foreground">{currentTip.description}</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Problem Display */}
       <motion.div
@@ -263,8 +219,10 @@ export function TrainingRun({
         <CardContent className="p-3 sm:p-12">
           {problem && (
             <div className="text-center">
-              {isPractice && practiceProgress?.isReturn && (
-                <p className="mb-3 text-[13px] font-medium text-muted-foreground sm:mb-5">Back again</p>
+              {isSet && (practiceProgress?.isReturn || lessonSteps) && (
+                <p className="mb-3 text-[13px] font-medium text-muted-foreground sm:mb-5">
+                  {practiceProgress?.isReturn ? "Back again" : "With the steps"}
+                </p>
               )}
               {/* A new problem lifts in fast enough to read straight away (this is a speed
                   drill); see the effect above. */}
@@ -275,6 +233,30 @@ export function TrainingRun({
               >
                 {problem.a} {problem.operation} {problem.b}
               </div>
+
+              {/* A guided lesson problem: the trick worked through, with the last step left
+                  for the player. */}
+              {lessonSteps && (
+                <ol
+                  aria-label="Steps"
+                  className="mx-auto mb-5 max-w-sm space-y-1.5 rounded-2xl bg-background px-4 py-3 text-left sm:mb-8"
+                >
+                  {lessonSteps.map((step, index) => (
+                    <motion.li
+                      key={`${problemKey}-${index}`}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ ...runEnter, delay: 0.05 + index * 0.07 }}
+                      className="flex items-baseline justify-between gap-3 text-[15px]"
+                    >
+                      <span className="min-w-0 text-muted-foreground">{step.label}</span>
+                      <span className="shrink-0 font-mono font-semibold tabular-nums">
+                        {step.work} = {index === lessonSteps.length - 1 ? "?" : step.result}
+                      </span>
+                    </motion.li>
+                  ))}
+                </ol>
+              )}
 
               {/* Answer and Submit stack in one column at the same width. */}
               <form onSubmit={onSubmit} className="mx-auto flex w-full max-w-[280px] flex-col gap-2">
@@ -299,7 +281,6 @@ export function TrainingRun({
                     placeholder="?"
                     className="h-16 w-full rounded-2xl bg-background text-center font-mono text-3xl font-semibold focus:placeholder:text-transparent md:text-3xl"
                     autoFocus
-                    disabled={gameMode === "learning" && hasAnswered}
                   />
                 )}
                 {submitMode === "manual" && !useCustomKeypad && (
@@ -310,7 +291,7 @@ export function TrainingRun({
               </form>
 
               {/* A miss shows the answer and how to get it; typing it moves on. */}
-              {isPractice && practiceMissed && (
+              {isSet && practiceMissed && (
                 <motion.div
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -343,59 +324,7 @@ export function TrainingRun({
       </Card>
       </motion.div>
 
-      {/* Solution Breakdown - After answering in Learning mode */}
-      {gameMode === "learning" && hasAnswered && currentTip && (
-        <Card className={isCorrect ? "ring-2 ring-success/40" : "ring-2 ring-destructive/40"}>
-          <CardContent className="p-5">
-            <div className="space-y-4">
-              {/* Result header */}
-              <div className="flex items-center gap-2.5">
-                {isCorrect ? (
-                  <>
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-2xl border-2 border-success font-mono text-sm font-semibold text-success">
-                      =
-                    </span>
-                    <span className="font-medium text-success">Correct!</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-2xl border-2 border-destructive font-mono text-sm font-semibold text-destructive">
-                      ≠
-                    </span>
-                    <span className="font-medium text-destructive">
-                      Incorrect — Answer: <span className="font-mono">{problem?.answer}</span>
-                    </span>
-                  </>
-                )}
-              </div>
-
-              {/* Step-by-step breakdown */}
-              <div className="space-y-2">
-                <SectionLabel>Step-by-step</SectionLabel>
-                <h4 className="text-sm font-medium">{currentTip.title}</h4>
-                <div className="space-y-2">
-                  {currentTip.steps.map((step, index) => (
-                    <div key={index} className="flex items-start gap-2 text-sm">
-                      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-2xl border border-border font-mono text-xs font-medium">
-                        {index + 1}
-                      </span>
-                      <span className="font-mono text-muted-foreground">{step}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Next button */}
-              <Button onClick={onNextProblem} className="w-full mt-2">
-                Next Problem
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {gameMode !== "learning" && hasAnswered && (
+      {hasAnswered && (
         <Button onClick={onNextProblem} className="w-full">
           Next Problem
           <ArrowRight className="w-4 h-4 ml-2" />
@@ -411,31 +340,23 @@ export function TrainingRun({
           metricCount === 4 ? "grid-cols-4" : metricCount === 3 ? "grid-cols-3" : "grid-cols-2"
         }`}
       >
-        {isPractice ? (
+        {isSet ? (
           <MetricTile label="First try" value={practiceProgress?.firstTry ?? 0} className={metricClass} />
         ) : (
           <MetricTile label="Solved" value={totalSolved} className={metricClass} />
         )}
 
-        {gameMode !== "timed" && <MetricTile label="Streak" value={streak} className={metricClass} />}
+        {isSet && <MetricTile label="Streak" value={streak} className={metricClass} />}
 
-        {!isPractice && submitMode === "manual" && <MetricTile label="Accuracy" value={`${accuracy}%`} className={metricClass} />}
+        {!isSet && submitMode === "manual" && <MetricTile label="Accuracy" value={`${accuracy}%`} className={metricClass} />}
 
-        {gameMode !== "learning" && (
-          <MetricTile label="Avg time" value={`${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s`} className={metricClass} />
-        )}
+        <MetricTile label="Avg time" value={`${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s`} className={metricClass} />
       </motion.div>
 
       {/* Controls */}
       <div className="flex justify-center gap-3">
-        {!hasAnswered && gameMode === "learning" && (
-          <Button variant="outline" onClick={onSkip} className="min-h-11">
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Skip
-          </Button>
-        )}
         {/* Not knowing it counts as a miss: the answer shows and the problem comes back. */}
-        {!hasAnswered && isPractice && !practiceMissed && (
+        {!hasAnswered && isSet && !practiceMissed && (
           <Button variant="outline" onClick={onRevealAnswer} className="min-h-11">
             <Eye className="w-4 h-4 mr-2" />
             Show answer
