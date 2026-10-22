@@ -60,10 +60,10 @@ export default async function InterviewMathInsightsPage() {
       />
 
       <header className="mb-10">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+        <p className="text-xs text-muted-foreground mb-2">
           Read-only Aggregate Data
         </p>
-        <h1 className="font-serif text-4xl sm:text-5xl font-normal tracking-tight mb-3">
+        <h1 className="font-semibold text-4xl sm:text-5xl tracking-tight mb-3">
           Interview Math Aggregate Insights
         </h1>
         <p className="text-lg text-muted-foreground max-w-3xl">
@@ -97,7 +97,7 @@ export default async function InterviewMathInsightsPage() {
         </div>
       </section>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">How to use these benchmarks</h2>
         <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
           <li>
@@ -161,13 +161,13 @@ export default async function InterviewMathInsightsPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             href="/"
-            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center rounded-full bg-primary h-11 px-5 text-[15px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             Start Training
           </Link>
           <Link
             href="/interview-math"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+            className="inline-flex items-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
           >
             Browse Interview Guides
           </Link>

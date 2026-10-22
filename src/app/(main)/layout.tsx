@@ -1,4 +1,4 @@
-import { Sidebar } from "@/components/sidebar";
+import { AppHeader } from "@/components/app-header";
 import { SidebarProvider } from "@/components/sidebar-provider";
 import { MainContent } from "@/components/main-content";
 import { MobileTopBar } from "@/components/mobile-top-bar";
@@ -18,9 +18,10 @@ export default function MainLayout({
           <MobileTopBar />
           <MobileNavDrawer />
 
-          {/* Main app frame: sidebar + content */}
+          {/* Desktop: top bar */}
+          <AppHeader />
+
           <div className="flex min-h-screen">
-            <Sidebar />
             <MainContent>{children}</MainContent>
           </div>
         </div>
@@ -28,7 +29,3 @@ export default function MainLayout({
     </SidebarProvider>
   );
 }
-
-
-
-

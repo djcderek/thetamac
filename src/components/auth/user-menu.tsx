@@ -33,9 +33,12 @@ import {
 
 interface UserMenuProps {
   collapsed?: boolean;
+  /** Top-bar placement: a "Sign in" pill when signed out, a bare avatar when signed in. */
+  variant?: "default" | "header";
 }
 
-export function UserMenu({ collapsed = false }: UserMenuProps) {
+export function UserMenu({ collapsed = false, variant = "default" }: UserMenuProps) {
+  const isHeader = variant === "header";
   const { data: session, status } = useSession();
   const sessionImage = session?.user?.image || undefined;
   const hasSessionUser = Boolean(session?.user);
@@ -118,6 +121,13 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
   }
 
   if (!session?.user) {
+    if (isHeader) {
+      return (
+        <Button asChild variant="outline" size="sm">
+          <Link href="/auth/signin">Sign in</Link>
+        </Button>
+      );
+    }
     return (
       <div className={collapsed ? "px-2" : "px-3"}>
         <Link href="/auth/signin">
@@ -146,9 +156,14 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className={`flex items-center gap-3 w-full rounded-md hover:bg-secondary/50 transition-colors ${
-            collapsed ? "justify-center px-2 py-2" : "px-3 py-2"
-          }`}
+          aria-label={isHeader ? "Account menu" : undefined}
+          className={
+            isHeader
+              ? "flex items-center rounded-full p-0.5 transition-colors hover:bg-secondary"
+              : `flex items-center gap-3 w-full rounded-2xl hover:bg-secondary transition-colors ${
+                  collapsed ? "justify-center px-2 py-2" : "px-3 py-2"
+                }`
+          }
         >
           <Avatar className="h-8 w-8">
             <AvatarImage src={avatarUrl || undefined} alt={session.user.name || "User"} />
@@ -156,7 +171,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
               {initials}
             </AvatarFallback>
           </Avatar>
-          {!collapsed && (
+          {!collapsed && !isHeader && (
             <div className="flex-1 text-left min-w-0">
               <p className="text-sm font-medium truncate">{session.user.name || "User"}</p>
               <p className="text-xs text-muted-foreground truncate">

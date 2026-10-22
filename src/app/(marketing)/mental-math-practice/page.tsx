@@ -68,7 +68,7 @@ export default function MentalMathPracticePage() {
         />
         <Link
           href="/arithmetic-speed-test"
-          className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+          className="inline-flex items-center justify-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
         >
           Take Speed Test
         </Link>
@@ -92,7 +92,7 @@ export default function MentalMathPracticePage() {
         </div>
       </section>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Pick a focus</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Link href="/practice/multiplication" className="text-primary hover:underline">
@@ -149,7 +149,7 @@ export default function MentalMathPracticePage() {
         </div>
         <div className="border-b border-border">
           {TRAINING_SEO_FAQ.map((item) => (
-            <details key={item.question} className="group border-t border-border">
+            <details key={item.question} className="disclosure group border-t border-border">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-medium marker:content-none">
                 {item.question}
                 <ChevronDown

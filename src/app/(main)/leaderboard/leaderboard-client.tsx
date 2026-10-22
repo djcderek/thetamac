@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { motion } from "motion/react";
+import { cn } from "@/lib/utils";
+import { settleSpring } from "@/lib/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,7 +24,7 @@ import type {
   TrainingTopScoreEntry,
   TrainingTopScoresResult,
 } from "@/lib/leaderboard";
-import { PageHeader, SectionLabel } from "@/components/ui/visual-system";
+import { PageHeader } from "@/components/ui/visual-system";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
@@ -39,7 +42,7 @@ interface LeaderboardClientProps {
 type TrainingView = "distribution" | "board" | "topScores";
 
 function formatPerformance(metric: LeaderboardEntry["performance"]): string {
-  if (metric.kind === "bestRun") return `${metric.value.toLocaleString()} solved`;
+  if (metric.kind === "bestRun") return metric.value.toLocaleString();
   if (metric.kind === "duelRecord") {
     return `${metric.wins}–${metric.losses}–${metric.draws}`;
   }
@@ -79,7 +82,14 @@ function TrendIndicator({
     );
   }
   if (trend.kind === "new") {
-    return <span className="text-xs font-medium text-brand" aria-label={`New to these standings. ${comparisonLabel}.`}>New</span>;
+    return (
+      <span
+        className="inline-flex h-6 items-center rounded-full bg-background px-2.5 text-[12px] font-medium text-muted-foreground"
+        aria-label={`New to these standings. ${comparisonLabel}.`}
+      >
+        New
+      </span>
+    );
   }
   return (
     <span
@@ -88,6 +98,44 @@ function TrendIndicator({
     >
       <Minus className="h-3.5 w-3.5" aria-hidden="true" />
     </span>
+  );
+}
+
+function ordinal(rank: number): string {
+  const tens = rank % 100;
+  if (tens >= 11 && tens <= 13) return `${rank}th`;
+  return `${rank}${{ 1: "st", 2: "nd", 3: "rd" }[rank % 10] ?? "th"}`;
+}
+
+type PlayerLike = Pick<LeaderboardEntry, "name" | "avatar" | "image" | "level" | "isYou" | "isGuest">;
+
+function PlayerAvatar({ entry, className }: { entry: PlayerLike; className?: string }) {
+  return (
+    <Avatar className={cn("h-9 w-9 shrink-0", className)}>
+      <AvatarImage src={entry.image || undefined} alt="" />
+      <AvatarFallback className="bg-background text-[13px] font-semibold text-muted-foreground">{entry.avatar}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+// Avatar, name, and level. Guests have no level (it is always 1), so theirs is left out.
+function PlayerCell({ entry, mobileExtra }: { entry: PlayerLike; mobileExtra?: ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <PlayerAvatar entry={entry} />
+      <div className="min-w-0">
+        <p className="truncate text-[15px] font-medium">
+          {entry.name}
+          {entry.isYou && <span className="ml-1 font-normal text-muted-foreground">(You)</span>}
+        </p>
+        {(!entry.isGuest || mobileExtra) && (
+          <div className="mt-0.5 flex items-center gap-2 text-[13px] text-muted-foreground">
+            {!entry.isGuest && <span>Level {entry.level}</span>}
+            {mobileExtra && <span className="sm:hidden">{mobileExtra}</span>}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -269,17 +317,15 @@ export function LeaderboardClient({
   const restOfLeaderboard = leaderboardData.slice(3);
 
   const getScoreLabel = () => {
-    if (mode === "training") return "Problems Solved";
-    const base = mode === "racing" ? "Race Rating" : "Rating";
+    if (mode === "training") return "Total solved";
+    const base = mode === "racing" ? "Race rating" : "Rating";
     switch (period) {
       case "all": return base;
-      case "weekly": return "Rating Gain";
-      case "daily": return "Rating Gain";
+      case "weekly": return "Rating gain";
+      case "daily": return "Rating gain";
       default: return "Score";
     }
   };
-
-  const getScoreUnit = () => (mode === "training" ? "solved" : "pts");
 
   const formatScoreValue = (value: number) => {
     if (mode === "training") return value.toLocaleString();
@@ -294,7 +340,7 @@ export function LeaderboardClient({
   };
 
   const getPerformanceLabel = () => {
-    if (mode === "training") return "Best Run";
+    if (mode === "training") return "Best run";
     if (mode === "duel") return "W–L–D";
     return "Wins / Races";
   };
@@ -307,101 +353,101 @@ export function LeaderboardClient({
   const formatStatValue = (value: number | null) =>
     typeof value === "number" ? value.toFixed(1) : "—";
 
+  const showDetachedUserRow = !!userRank && userRank.rank > leaderboardData.length;
+
+  // One row of the rankings table. Score and best run drop their unit (the column headers
+  // carry it), so a row doesn't read "73 solved · 73 solved".
+  const renderRankingRow = (entry: LeaderboardEntry) => (
+    <tr key={entry.id} className={cn("border-t border-border", entry.isYou && "bg-background/70")}>
+      <td className="py-3 pl-5 pr-2 text-[15px] tabular-nums text-muted-foreground">{entry.rank}</td>
+      <td className="min-w-0 px-2 py-3">
+        {/* Phones have no Change column, so the change sits under the name. */}
+        <PlayerCell
+          entry={entry}
+          mobileExtra={<TrendIndicator trend={entry.trend} comparisonLabel={trendComparisonLabel} />}
+        />
+      </td>
+      <td className="py-3 pl-2 pr-5 text-right sm:pr-2">
+        <span className="text-[15px] font-semibold tabular-nums">{formatScoreValue(entry.score)}</span>
+      </td>
+      <td className="hidden px-2 py-3 text-right text-[15px] tabular-nums text-muted-foreground sm:table-cell">
+        <span aria-label={getPerformanceDescription(entry.performance)}>{formatPerformance(entry.performance)}</span>
+      </td>
+      <td className="hidden py-3 pl-2 pr-5 text-right sm:table-cell">
+        <TrendIndicator trend={entry.trend} comparisonLabel={trendComparisonLabel} />
+      </td>
+    </tr>
+  );
+
+  const resultsKey = `${mode}-${period}-${view}-${isLoading ? "loading" : "ready"}`;
+  const [shownResultsKey, setShownResultsKey] = useState(resultsKey);
+  const [resultsChanged, setResultsChanged] = useState(false);
+  if (resultsKey !== shownResultsKey) {
+    setShownResultsKey(resultsKey);
+    setResultsChanged(true);
+  }
+
   return (
     <div className="min-h-screen">
       <PageHeader
         title="Leaderboard"
         description="Global rankings across duels, racing, and timed training using default settings."
-        action={activeUserRank ? <Badge variant="outline" className="bg-card">Your {getRankLabel()}: #{activeUserRank.rank}</Badge> : undefined}
+        action={activeUserRank ? <Badge variant="secondary">Your {getRankLabel()}: #{activeUserRank.rank}</Badge> : undefined}
       />
 
       <div className="p-4 md:p-6">
         <div className="max-w-3xl mx-auto space-y-6">
-          <section aria-label="Leaderboard controls" className="space-y-4 border-b border-border pb-5">
-            <div>
-              <div className="space-y-2">
-                <SectionLabel>Competition</SectionLabel>
-                <Tabs
-                  defaultValue={initialMode}
-                  value={mode}
-                  className="w-full sm:w-auto"
-                  onValueChange={handleModeChange}
-                >
-                  <TabsList className="grid w-full grid-cols-3 rounded-[3px] sm:w-auto">
-                    <TabsTrigger className="rounded-[2px] px-4" value="training">
-                      Timed Training
-                    </TabsTrigger>
-                    <TabsTrigger className="rounded-[2px] px-4" value="duel">
-                      Duel
-                    </TabsTrigger>
-                    <TabsTrigger className="rounded-[2px] px-4" value="racing">
-                      Racing
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                {mode === "training" && (
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    Default setup: Medium · All operations · Standard timer
-                  </p>
-                )}
-              </div>
+          <section aria-label="Leaderboard controls" className="space-y-5">
+            {/* Main choice: a segmented control. Secondary filters: chips. */}
+            <div className="space-y-2">
+              <Tabs value={mode} className="w-full" onValueChange={handleModeChange}>
+                <TabsList aria-label="Competition" className="w-full">
+                  <TabsTrigger value="training">Timed training</TabsTrigger>
+                  <TabsTrigger value="duel">Duel</TabsTrigger>
+                  <TabsTrigger value="racing">Racing</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {mode === "training" && (
+                <p className="px-1 text-[13px] text-muted-foreground">
+                  Default setup: Medium · All operations · 2:00
+                </p>
+              )}
             </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-8">
-              <div className="space-y-2">
-                <SectionLabel>Timeframe</SectionLabel>
-                {mode === "training" && view === "topScores" ? (
-                  <Badge variant="outline" className="h-8 rounded-[3px] bg-card px-3 font-normal">
-                    All time
-                  </Badge>
-                ) : (
-                  <Tabs
-                    defaultValue={initialPeriod}
-                    value={period}
-                    className="w-full sm:w-auto"
-                    onValueChange={handlePeriodChange}
-                  >
-                    <TabsList className="min-h-9 rounded-[3px] p-0.5">
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="all">
-                        All time
-                      </TabsTrigger>
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="weekly">
-                        Weekly
-                      </TabsTrigger>
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="daily">
-                        Daily
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                )}
-              </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Top scores are personal bests across all time, so the other periods don't apply. */}
+              <Tabs value={mode === "training" && view === "topScores" ? "all" : period} onValueChange={handlePeriodChange}>
+                <TabsList variant="chips" aria-label="Timeframe">
+                  <TabsTrigger value="all">All time</TabsTrigger>
+                  <TabsTrigger value="weekly" disabled={mode === "training" && view === "topScores"}>
+                    Weekly
+                  </TabsTrigger>
+                  <TabsTrigger value="daily" disabled={mode === "training" && view === "topScores"}>
+                    Daily
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
               {mode === "training" && (
-                <div className="space-y-2">
-                  <SectionLabel>View</SectionLabel>
-                  <Tabs
-                    defaultValue="distribution"
-                    value={view}
-                    className="w-full sm:w-auto"
-                    onValueChange={handleViewChange}
-                  >
-                    <TabsList className="grid min-h-9 w-full grid-cols-3 rounded-[3px] p-0.5 sm:w-auto">
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="distribution">
-                        Distribution
-                      </TabsTrigger>
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="board">
-                        Rankings
-                      </TabsTrigger>
-                      <TabsTrigger className="h-7 rounded-[2px] px-3" value="topScores">
-                        Top Scores
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
+                <Tabs value={view} onValueChange={handleViewChange}>
+                  <TabsList variant="chips" aria-label="View">
+                    <TabsTrigger value="distribution">Distribution</TabsTrigger>
+                    <TabsTrigger value="board">Rankings</TabsTrigger>
+                    <TabsTrigger value="topScores">Top scores</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               )}
             </div>
           </section>
 
+          {/* Each filter change settles the results in, instead of swapping them in place.
+              The first render stays static (an initial opacity would ship invisible). */}
+          <motion.div
+            key={resultsKey}
+            initial={resultsChanged ? { opacity: 0, y: 8 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={settleSpring}
+          >
           {isLoading && view === "board" ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -501,7 +547,7 @@ export function LeaderboardClient({
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
-                              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                              className="h-8 rounded-full bg-background px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-accent"
                               onClick={() => setShowAdvancedStats((prev) => !prev)}
                             >
                               {showAdvancedStats ? "Hide advanced stats" : "Show advanced stats"}
@@ -727,19 +773,7 @@ export function LeaderboardClient({
                               <span className="font-mono text-sm tabular-nums text-muted-foreground">{entry.rank}</span>
                             </td>
                             <td className="min-w-0 p-3 sm:p-4">
-                              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                                <Avatar className="h-8 w-8 shrink-0">
-                                  <AvatarImage src={entry.image || undefined} />
-                                  <AvatarFallback className="text-xs">{entry.avatar}</AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium">
-                                    {entry.name}
-                                    {entry.isYou && <span className="ml-1 text-muted-foreground">(You)</span>}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">Level {entry.level}</p>
-                                </div>
-                              </div>
+                              <PlayerCell entry={entry} />
                             </td>
                             <td className="p-3 text-right sm:p-4">
                               <span className="font-mono text-sm font-medium tabular-nums">
@@ -759,19 +793,7 @@ export function LeaderboardClient({
                                 <span className="font-mono text-sm tabular-nums text-muted-foreground">{topScoreUserRank.rank}</span>
                               </td>
                               <td className="min-w-0 p-3 sm:p-4">
-                                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                                  <Avatar className="h-8 w-8 shrink-0">
-                                    <AvatarImage src={topScoreUserRank.image || undefined} />
-                                    <AvatarFallback className="text-xs">{topScoreUserRank.avatar}</AvatarFallback>
-                                  </Avatar>
-                                  <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium">
-                                      {topScoreUserRank.name}
-                                      <span className="ml-1 text-muted-foreground">(You)</span>
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">Level {topScoreUserRank.level}</p>
-                                  </div>
-                                </div>
+                                <PlayerCell entry={{ ...topScoreUserRank, isYou: true }} />
                               </td>
                               <td className="p-3 text-right sm:p-4">
                                 <span className="font-mono text-sm font-medium tabular-nums">
@@ -789,195 +811,110 @@ export function LeaderboardClient({
               </Card>
             </div>
           ) : (
-            <>
-              {/* Top 3 */}
+            <div className="space-y-4">
+              {/* Top 3: equal cards, 2-1-3 on wide screens and 1-2-3 when stacked on phones. */}
               {leaderboardData.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {visualTopThree.map((entry, index) => {
-                    if (!entry) return <div key={index} className="hidden sm:block" />;
-                    
-                    const isFirst = index === 1;
-                    
+                    if (!entry) return <li key={index} aria-hidden="true" className="hidden sm:block" />;
+                    const isFirst = entry.rank === 1;
                     return (
-                      <Card 
-                        key={entry.id} 
-                        className={`text-center ${isFirst ? "border-primary/50 bg-primary/5" : ""}`}
+                      // Phones: a compact row (rank, avatar, name, score). Wider: a centered card.
+                      <li
+                        key={entry.id}
+                        className={cn(
+                          "grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 rounded-[22px] bg-secondary p-4",
+                          "sm:flex sm:flex-col sm:gap-0 sm:rounded-[26px] sm:px-4 sm:py-6 sm:text-center",
+                          isFirst && "order-first sm:order-none",
+                        )}
                       >
-                        <CardContent className="pt-6">
-                          <div className={`text-2xl font-mono mb-2 ${isFirst ? "" : "text-muted-foreground"}`}>
-                            {entry.rank}
-                          </div>
-                          <Avatar className={`${isFirst ? "h-14 w-14" : "h-12 w-12"} mx-auto mb-2`}>
-                            <AvatarImage src={entry.image || undefined} />
-                            <AvatarFallback>{entry.avatar}</AvatarFallback>
-                          </Avatar>
-                          <p className="font-medium truncate px-2">{entry.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatScoreValue(entry.score)} {getScoreUnit()}
+                        <span
+                          className={cn(
+                            "inline-flex h-7 items-center justify-self-start rounded-full px-3 text-[13px] font-semibold tabular-nums",
+                            isFirst ? "bg-brand text-white" : "bg-background text-muted-foreground",
+                          )}
+                        >
+                          {ordinal(entry.rank)}
+                        </span>
+                        <PlayerAvatar entry={entry} className="h-10 w-10 sm:mt-4 sm:h-14 sm:w-14 sm:text-base" />
+                        <div className="min-w-0 sm:mt-3 sm:max-w-full">
+                          <p className="truncate text-[15px] font-semibold">
+                            {entry.name}
+                            {entry.isYou && <span className="font-normal text-muted-foreground"> (You)</span>}
                           </p>
-                          <p
-                            className="mt-1 text-xs text-muted-foreground"
-                            aria-label={getPerformanceDescription(entry.performance)}
-                          >
-                            {getPerformanceLabel()}: {formatPerformance(entry.performance)}
+                          <p className="text-[13px] text-muted-foreground sm:hidden" aria-label={getPerformanceDescription(entry.performance)}>
+                            {getPerformanceLabel()} {formatPerformance(entry.performance)}
                           </p>
-                        </CardContent>
-                      </Card>
+                        </div>
+                        <div className="text-right sm:mt-3 sm:text-center">
+                          <p className="text-[22px] font-semibold leading-none tracking-[-0.03em] tabular-nums sm:text-[34px]">
+                            {formatScoreValue(entry.score)}
+                          </p>
+                          <p className="mt-1 text-[12px] text-muted-foreground sm:mt-1.5 sm:text-[13px]">{getScoreLabel().toLowerCase()}</p>
+                        </div>
+                        <p
+                          className="mt-4 hidden text-[13px] text-muted-foreground sm:block"
+                          aria-label={getPerformanceDescription(entry.performance)}
+                        >
+                          {getPerformanceLabel()}{" "}
+                          <span className="font-semibold tabular-nums text-foreground">{formatPerformance(entry.performance)}</span>
+                        </p>
+                      </li>
                     );
                   })}
-                </div>
+                </ol>
               )}
 
-              {/* Rankings Table */}
-              <Card>
-                <CardContent className="p-0 overflow-x-auto">
-                  {leaderboardData.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
-                      {period === "all" 
-                        ? "No data available yet." 
-                        : "No activity in this period yet."}
-                    </div>
-                  ) : (
-                    <table className="w-full table-fixed sm:table-auto">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="w-12 p-3 text-left text-xs font-medium text-muted-foreground sm:w-16 sm:p-4 sm:text-sm">Rank</th>
-                          <th className="p-3 text-left text-xs font-medium text-muted-foreground sm:p-4 sm:text-sm">Player</th>
-                          <th className="w-24 p-3 text-right text-xs font-medium text-muted-foreground sm:w-auto sm:p-4 sm:text-sm">{getScoreLabel()}</th>
-                          <th className="hidden p-4 text-right text-sm font-medium text-muted-foreground sm:table-cell">{getPerformanceLabel()}</th>
-                          <th className="hidden w-20 p-4 text-right text-sm font-medium text-muted-foreground sm:table-cell">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-help underline decoration-dotted underline-offset-4">Change</span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">{trendComparisonLabel}</TooltipContent>
-                            </Tooltip>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {restOfLeaderboard.map((entry) => (
-                          <tr
-                            key={entry.id}
-                            className={`border-b border-border last:border-0 ${
-                              entry.isYou ? "bg-secondary/50" : ""
-                            }`}
-                          >
-                            <td className="p-3 sm:p-4">
-                              <span className="font-mono text-muted-foreground">{entry.rank}</span>
-                            </td>
-                            <td className="min-w-0 p-3 sm:p-4">
-                              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                                <Avatar className="h-8 w-8 shrink-0">
-                                  <AvatarImage src={entry.image || undefined} />
-                                  <AvatarFallback className="text-xs">{entry.avatar}</AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium">
-                                    {entry.name}
-                                    {entry.isYou && <span className="text-muted-foreground ml-1">(You)</span>}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">Level {entry.level}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-3 text-right sm:p-4">
-                              <span className="font-mono text-sm tabular-nums">
-                                {formatScoreValue(entry.score)}
-                              </span>
-                              {mode === "training" && (
-                                <span className="ml-1 hidden text-[11px] text-muted-foreground md:inline">
-                                  {getScoreUnit()}
-                                </span>
-                              )}
-                              <div className="mt-1 flex items-center justify-end gap-2 sm:hidden">
-                                <span
-                                  className="text-[11px] text-muted-foreground"
-                                  aria-label={getPerformanceDescription(entry.performance)}
-                                >
-                                  {formatPerformance(entry.performance)}
-                                </span>
-                                <TrendIndicator trend={entry.trend} comparisonLabel={trendComparisonLabel} />
-                              </div>
-                            </td>
-                            <td className="hidden p-4 text-right sm:table-cell">
-                              <span
-                                className="font-mono text-sm tabular-nums"
-                                aria-label={getPerformanceDescription(entry.performance)}
-                              >
-                                {formatPerformance(entry.performance)}
-                              </span>
-                            </td>
-                            <td className="hidden p-4 text-right sm:table-cell">
-                              <TrendIndicator trend={entry.trend} comparisonLabel={trendComparisonLabel} />
-                            </td>
+              {/* Everyone after the podium, as rows on one grey grouped surface. */}
+              {leaderboardData.length === 0 ? (
+                <div className="rounded-[26px] bg-secondary p-8 text-center text-muted-foreground">
+                  {period === "all" ? "No data available yet." : "No activity in this period yet."}
+                </div>
+              ) : (restOfLeaderboard.length > 0 || showDetachedUserRow) && (
+                <div className="overflow-hidden rounded-[26px] bg-secondary">
+                  <table className="w-full table-fixed sm:table-auto">
+                    <thead>
+                      <tr className="text-[13px] text-muted-foreground">
+                        <th className="w-14 py-3.5 pl-5 pr-2 text-left font-medium sm:w-16">Rank</th>
+                        <th className="px-2 py-3.5 text-left font-medium">Player</th>
+                        <th className="w-20 whitespace-nowrap py-3.5 pl-2 pr-5 text-right font-medium sm:w-auto sm:pr-2">
+                          {mode === "training" ? (
+                            <>
+                              <span className="sm:hidden">Solved</span>
+                              <span className="hidden sm:inline">{getScoreLabel()}</span>
+                            </>
+                          ) : (
+                            getScoreLabel()
+                          )}
+                        </th>
+                        <th className="hidden px-2 py-3.5 text-right font-medium sm:table-cell">{getPerformanceLabel()}</th>
+                        <th className="hidden w-24 py-3.5 pl-2 pr-5 text-right font-medium sm:table-cell">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help underline decoration-dotted underline-offset-4">Change</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">{trendComparisonLabel}</TooltipContent>
+                          </Tooltip>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {restOfLeaderboard.map((entry) => renderRankingRow(entry))}
+                      {showDetachedUserRow && userRank && (
+                        <>
+                          <tr aria-hidden="true">
+                            <td colSpan={5} className="border-t border-border py-1.5 text-center text-xs text-muted-foreground">···</td>
                           </tr>
-                        ))}
-                        
-                        {userRank && userRank.rank > leaderboardData.length && (
-                          <>
-                            <tr>
-                              <td colSpan={5} className="p-2 text-center text-muted-foreground text-xs">...</td>
-                            </tr>
-                            <tr className="bg-secondary/50 border-t border-border">
-                              <td className="p-3 sm:p-4">
-                                <span className="font-mono text-muted-foreground">{userRank.rank}</span>
-                              </td>
-                              <td className="min-w-0 p-3 sm:p-4">
-                                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                                  <Avatar className="h-8 w-8 shrink-0">
-                                    <AvatarImage src={userRank.image || undefined} />
-                                    <AvatarFallback className="text-xs">{userRank.avatar}</AvatarFallback>
-                                  </Avatar>
-                                  <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium">
-                                      {userRank.name}
-                                      <span className="text-muted-foreground ml-1">(You)</span>
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">Level {userRank.level}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="p-3 text-right sm:p-4">
-                                <span className="font-mono text-sm tabular-nums">
-                                  {formatScoreValue(userRank.score)}
-                                </span>
-                                {mode === "training" && (
-                                  <span className="ml-1 hidden text-[11px] text-muted-foreground md:inline">
-                                    {getScoreUnit()}
-                                  </span>
-                                )}
-                                <div className="mt-1 flex items-center justify-end gap-2 sm:hidden">
-                                  <span
-                                    className="text-[11px] text-muted-foreground"
-                                    aria-label={getPerformanceDescription(userRank.performance)}
-                                  >
-                                    {formatPerformance(userRank.performance)}
-                                  </span>
-                                  <TrendIndicator trend={userRank.trend} comparisonLabel={trendComparisonLabel} />
-                                </div>
-                              </td>
-                              <td className="hidden p-4 text-right sm:table-cell">
-                                <span
-                                  className="font-mono text-sm tabular-nums"
-                                  aria-label={getPerformanceDescription(userRank.performance)}
-                                >
-                                  {formatPerformance(userRank.performance)}
-                                </span>
-                              </td>
-                              <td className="hidden p-4 text-right sm:table-cell">
-                                <TrendIndicator trend={userRank.trend} comparisonLabel={trendComparisonLabel} />
-                              </td>
-                            </tr>
-                          </>
-                        )}
-                      </tbody>
-                    </table>
-                  )}
-                </CardContent>
-              </Card>
-            </>
+                          {renderRankingRow({ ...userRank, isYou: true })}
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
+          </motion.div>
         </div>
       </div>
     </div>

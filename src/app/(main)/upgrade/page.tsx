@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Check, ArrowLeft } from "lucide-react";
 
@@ -9,7 +8,6 @@ import { getUpgradeUrl, type UpgradeFeature } from "@/lib/upgrade";
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
 import { UpgradeAuthLink } from "@/components/billing/upgrade-auth-link";
-import { AsciiMorph } from "@/components/ui/ascii-morph";
 
 import { UpgradeAutoScroll } from "./upgrade-auto-scroll";
 import { UpgradePendingRefresh } from "./upgrade-pending-refresh";
@@ -17,7 +15,7 @@ import { UpgradeTelemetry } from "./upgrade-telemetry";
 
 function normalizeFeature(feature?: string | string[] | null): UpgradeFeature | undefined {
   if (!feature || Array.isArray(feature)) return undefined;
-  if (feature === "analytics" || feature === "coins") return feature;
+  if (feature === "analytics" || feature === "coins" || feature === "review") return feature;
   return undefined;
 }
 
@@ -47,6 +45,7 @@ const freeFeatures = [
 
 const proFeatures = [
   "Everything in Free",
+  "Review: your past misses come back until they stick",
   "Advanced analytics & charts",
   "Weak point training",
   "Skill breakdowns & trends",
@@ -94,32 +93,28 @@ export default async function UpgradePage({
 
       {/* Header */}
       <div className="px-4 md:px-6 pt-12 pb-8 text-center">
-        <AsciiMorph
-          shapes={["theta", "trophy"]}
-          accent
-          className="mx-auto mb-6 w-36"
-        />
-        <h1 className="font-serif text-5xl font-normal tracking-tight text-foreground mb-4 md:text-6xl">
-          Pricing
+        <p className="text-[15px] font-medium text-muted-foreground">Pricing</p>
+        <h1 className="mx-auto mt-3 max-w-2xl text-[40px] font-semibold leading-[1.04] tracking-[-0.045em] text-balance md:text-[56px]">
+          Free to practice. <span className="text-brand">Pro</span> to go deeper.
         </h1>
-        <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Start for free and upgrade to unlock more features.
+        <p className="mx-auto mt-4 max-w-md text-[17px] leading-7 text-muted-foreground">
+          Every drill is free. Pro remembers what you miss and brings it back, plus the analytics and perks.
         </p>
       </div>
 
       {/* Plans */}
       <div className="px-4 md:px-6 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="grid items-stretch gap-10 md:grid-cols-2 md:gap-0">
-            {/* Free plan — open ruled column */}
-            <div className="flex flex-col border-t-2 border-foreground/80 pt-5 md:mr-10">
+          <div className="grid items-stretch gap-4 md:grid-cols-2">
+            {/* Free plan: outlined */}
+            <div className="flex flex-col rounded-[26px] border border-border p-7">
               <div className="flex items-baseline justify-between">
-                <h2 className="editorial-label">Free</h2>
+                <h2 className="text-[17px] font-semibold tracking-tight">Free</h2>
                 <p className="text-xs text-muted-foreground">Get started</p>
               </div>
 
               <div className="mt-5 mb-8">
-                <span className="font-mono text-5xl font-semibold tracking-tight text-foreground">$0</span>
+                <span className="text-5xl font-semibold tracking-[-0.04em] tabular-nums">$0</span>
                 <span className="text-muted-foreground ml-2">/ month</span>
               </div>
 
@@ -149,41 +144,35 @@ export default async function UpgradePage({
               </div>
             </div>
 
-            {/* Pro plan — ink plate */}
-            <div className="ink-panel relative flex flex-col rounded-[3px] p-8">
-              <div className="pointer-events-none absolute inset-0 opacity-30">
-                <div
-                  className="dot-field h-full w-full"
-                  style={{ "--dot": "color-mix(in oklab, var(--background) 35%, transparent)" } as CSSProperties}
-                />
-              </div>
+            {/* Pro plan: the grey grouped surface; orange stays on the subscribe action. */}
+            <div className="relative flex flex-col rounded-[26px] bg-secondary p-7">
               <div className="relative flex items-baseline justify-between">
-                <h2 className="editorial-label text-brand">Pro</h2>
-                <p className="text-xs text-background/70">Everything in thetamac</p>
+                <h2 className="text-[17px] font-semibold tracking-tight">Pro</h2>
+                <p className="text-xs text-muted-foreground">Everything in thetamac</p>
               </div>
 
               <div className="relative mt-5 mb-1">
-                <span className="font-mono text-5xl font-semibold tracking-tight text-brand">$0.99</span>
-                <span className="ml-2 text-background/70">/ month</span>
+                <span className="text-5xl font-semibold tracking-[-0.04em] tabular-nums">$0.99</span>
+                <span className="ml-2 text-muted-foreground">/ month</span>
               </div>
-              <p className="relative mb-6 text-xs text-background/70">or $5.99/year (save 50%)</p>
+              <p className="relative mb-6 text-xs text-muted-foreground">or $5.99/year (save 50%)</p>
 
               <ul className="relative">
                 {proFeatures.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3 border-t border-background/20 py-3">
-                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand" />
-                    <span className="text-sm text-background/85">{feature}</span>
+                  <li key={feature} className="flex items-start gap-3 border-t border-border py-3">
+                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" />
+                    <span className="text-sm text-foreground">{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              <p className="relative mt-5 font-mono text-xs text-background/70">
+              <p className="relative mt-5 font-mono text-xs text-muted-foreground">
                 {confirmingUpgrade
                   ? "Payment received. Activating Pro…"
                   : upgraded && isPremium
-                    ? "+ You're on Pro +"
+                    ? "You're on Pro"
                     : trialEligible
-                  ? "+ 7-day free trial included +"
+                  ? "7-day free trial included"
                   : needsBillingAttention
                     ? "Your subscription needs attention. Update payment in billing."
                     : "Billed today. Cancel anytime."}
@@ -201,7 +190,7 @@ export default async function UpgradePage({
                     </button>
                   </UpgradeAuthLink>
                 ) : confirmingUpgrade ? (
-                  <p role="status" className="rounded-[3px] border border-background/30 px-4 py-3 text-sm text-background/85">
+                  <p role="status" className="rounded-2xl border border-border px-4 py-3 text-sm text-foreground">
                     Confirming your subscription. This usually takes a few seconds. If Pro
                     isn&apos;t active within a minute, refresh this page or contact support.
                   </p>
@@ -235,7 +224,7 @@ export default async function UpgradePage({
                         properties: { source, feature: activeFeature },
                       }}
                       variant="outline"
-                      className="w-full rounded-full border border-background/30 bg-background px-4 py-3 font-medium text-foreground transition-colors hover:bg-brand hover:text-brand-foreground"
+                      className="w-full rounded-full bg-background px-4 py-3 font-medium text-foreground transition-colors hover:bg-accent"
                     />
                   </>
                 )}
@@ -245,7 +234,7 @@ export default async function UpgradePage({
 
           {/* FAQ */}
           <div className="mt-20 max-w-2xl mx-auto">
-            <h2 className="mb-8 text-center font-serif text-3xl font-normal tracking-tight">
+            <h2 className="font-semibold mb-8 text-center text-3xl tracking-tight">
               Frequently asked questions
             </h2>
             <dl>

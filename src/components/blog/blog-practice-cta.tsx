@@ -22,7 +22,7 @@ export function BlogPracticeCta({
   secondaryLabel?: string;
 }) {
   return (
-    <div className="my-6 rounded-[3px] border border-border bg-secondary/25 p-5">
+    <div className="my-6 rounded-2xl border border-border bg-secondary/25 p-5">
       <p className="mb-3 text-sm text-muted-foreground">{body}</p>
       <div className="flex flex-wrap gap-3">
         <TrainingCta
@@ -35,7 +35,7 @@ export function BlogPracticeCta({
         {secondaryHref && secondaryLabel ? (
           <Link
             href={secondaryHref}
-            className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/50"
+            className="inline-flex items-center justify-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold transition-colors hover:bg-secondary/50"
           >
             {secondaryLabel}
           </Link>

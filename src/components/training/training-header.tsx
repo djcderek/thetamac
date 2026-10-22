@@ -2,33 +2,35 @@
 
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
-import { AsciiMorph } from "@/components/ui/ascii-morph";
 import { cn } from "@/lib/utils";
 
+// Type-led, centered hero (after Kurb's landing): one warm headline, a short line under it,
+// and the longer explanation tucked behind a quiet disclosure. Hidden during a run so the
+// problem has the screen, but kept for screen readers.
 export function TrainingHeader({ active = false }: { active?: boolean }) {
   return (
-    <header className={cn("relative overflow-hidden border-b border-border bg-background", active && "sr-only md:not-sr-only")}>
-      <div className="bayer-fade-l pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 opacity-45 lg:block">
-        <AsciiMorph shapes={["theta"]} animate={false} className="w-56" />
-      </div>
-      <div className="relative flex min-h-32 items-center justify-between gap-6 px-5 py-6 md:px-8">
-        <div className="max-w-2xl">
-        <h1 className="font-serif text-3xl font-normal tracking-tight md:text-4xl">Mental Math Training</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Practice arithmetic speed and accuracy at your own pace.
+    <header className={cn("bg-background", active && "sr-only")}>
+      <div className="mx-auto max-w-2xl px-5 pt-12 pb-8 text-center md:pt-20 md:pb-10">
+        {/* The h1 keeps the page's search keyword; the large line is display copy. */}
+        <h1 className="text-[15px] font-medium text-muted-foreground">Mental math training</h1>
+        <p className="mt-3 text-[40px] font-semibold leading-[1.02] tracking-[-0.045em] text-balance text-foreground md:text-[60px]">
+          Two minutes. <span className="text-brand">How many</span> can you solve?
+        </p>
+        <p className="mx-auto mt-4 max-w-md text-[17px] leading-7 text-muted-foreground">
+          Timed mental math drills for interviews, school, and the fun of getting faster.
         </p>
 
-        <details className="group mt-3 max-w-2xl">
-          <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-full border border-border bg-card/85 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors marker:content-none hover:border-brand/50 hover:text-foreground">
+        <details className="disclosure group mx-auto mt-5 max-w-xl text-left">
+          <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors marker:content-none hover:text-foreground">
             About this trainer
             <ChevronDown
               aria-hidden="true"
-              className="h-3.5 w-3.5 transition-transform group-open:rotate-180"
+              className="h-3.5 w-3.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-open:rotate-180"
             />
           </summary>
 
-          <div className="mt-3 border-l-2 border-border pl-4 py-1 text-sm text-muted-foreground">
-            <h2 className="mb-1.5 font-medium text-foreground">
+          <div className="mt-3 rounded-[22px] bg-secondary px-5 py-4 text-[15px] text-muted-foreground">
+            <h2 className="mb-1.5 font-semibold text-foreground">
               Build faster, more accurate mental math
             </h2>
             <p className="leading-6">
@@ -49,7 +51,6 @@ export function TrainingHeader({ active = false }: { active?: boolean }) {
             </Link>
           </div>
         </details>
-        </div>
       </div>
     </header>
   );

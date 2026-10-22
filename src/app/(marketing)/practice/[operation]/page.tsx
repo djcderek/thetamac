@@ -192,15 +192,15 @@ export default async function OperationPracticePage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <header className="mb-10">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Focused Practice</p>
-        <h1 className="font-serif text-4xl sm:text-5xl font-normal tracking-tight mb-3">{page.h1}</h1>
+        <p className="text-xs text-muted-foreground mb-2">Focused Practice</p>
+        <h1 className="font-semibold text-4xl sm:text-5xl tracking-tight mb-3">{page.h1}</h1>
         <p className="text-lg text-muted-foreground max-w-3xl">{page.description}</p>
         <div className="mt-5">
           <TrainingCta href={ctaHref} preset={page.preset} sourcePage={path} label={`Start ${page.h1}`} />
         </div>
       </header>
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Quick Answer</h2>
         <p className="text-sm text-muted-foreground">{page.quick}</p>
       </section>

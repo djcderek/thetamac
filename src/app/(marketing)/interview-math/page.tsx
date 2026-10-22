@@ -101,7 +101,7 @@ export default function InterviewMathHubPage() {
         shapes={["theta", "times"]}
       />
 
-      <section className="mb-10 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-14">
         <h2 className="text-xl font-semibold mb-3">Start Here (10-Minute Plan)</h2>
         <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
           <li>Warm up for 2 minutes with easy mixed arithmetic.</li>
@@ -111,7 +111,7 @@ export default function InterviewMathHubPage() {
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/"
-            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center rounded-full bg-primary h-11 px-5 text-[15px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             Start Training
           </Link>
@@ -123,25 +123,25 @@ export default function InterviewMathHubPage() {
           />
           <Link
             href="/case-interview-math-practice"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+            className="inline-flex items-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
           >
             Case Math Practice
           </Link>
           <Link
             href="/arithmetic-speed-test"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+            className="inline-flex items-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
           >
             Arithmetic Speed Test
           </Link>
           <Link
             href="/interview-math/insights"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+            className="inline-flex items-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
           >
             View Aggregate Insights
           </Link>
           <Link
             href="/blog/mental-math-interview-drills"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+            className="inline-flex items-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
           >
             Read the Daily Routine Guide
           </Link>

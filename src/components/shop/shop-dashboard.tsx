@@ -227,8 +227,8 @@ export function ShopDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {shopItems.map((item) => (
                 <Card key={item.id} className="overflow-hidden">
-                  <div className="bayer-field relative flex h-32 items-center justify-center overflow-hidden border-b border-border bg-secondary/40">
-                    <span className="editorial-label absolute left-2 top-2 z-10">
+                  <div className="relative mx-3 mt-3 flex h-36 items-center justify-center overflow-hidden rounded-2xl bg-background">
+                    <span className="editorial-label absolute left-3 top-2.5 z-10">
                       {categoryLabels[item.type] ?? item.type}
                     </span>
                     <div className="absolute inset-0">
@@ -241,16 +241,16 @@ export function ShopDashboard() {
                     <div className="flex items-center justify-between">
                         <CardTitle>{item.name}</CardTitle>
                         {item.isProOnly && (
-                          <span className="rounded-[3px] bg-foreground px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-background">
-                            PRO
-                          </span>
+                          <span className="rounded-full bg-control px-2 py-0.5 text-[12px] font-semibold">Pro</span>
                         )}
                     </div>
                     <CardDescription>{item.description}</CardDescription>
                   </CardHeader>
                   <CardFooter className="flex-col items-stretch gap-2">
+                    {/* White pills: a grid of solid ink buttons read as a wall of black. */}
                     <Button
-                        className="w-full gap-2"
+                        variant="outline"
+                        className="w-full gap-2 border-transparent"
                         onClick={() => handleBuy(item.id)}
                         disabled={actionLoading === item.id || data.userCoins < item.cost}
                     >
@@ -270,7 +270,7 @@ export function ShopDashboard() {
         <TabsContent value="inventory" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
                 {/* Left: Display Room — the dark room inside the canvas is scene art */}
-                <div className="lg:col-span-2 h-full rounded-[3px] overflow-hidden border border-border">
+                <div className="lg:col-span-2 h-full rounded-2xl overflow-hidden border border-border">
                     <ThreeErrorBoundary
                         fallback={
                             <div className="flex h-full w-full items-center justify-center bg-secondary/40">
@@ -291,7 +291,7 @@ export function ShopDashboard() {
                 </div>
 
                 {/* Right: Customization Panel */}
-                <div className="lg:col-span-1 h-full flex flex-col bg-card rounded-[3px] border border-border overflow-hidden">
+                <div className="lg:col-span-1 h-full flex flex-col bg-card rounded-2xl border border-border overflow-hidden">
                     <div className="p-4 border-b border-border">
                         <SectionLabel className="mb-4 text-foreground">Customize</SectionLabel>
                         <Tabs value={garageCategory} onValueChange={setGarageCategory} className="w-full">
@@ -321,7 +321,7 @@ export function ShopDashboard() {
                                 }}
                              >
                                 <div className="flex items-center gap-3 w-full">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-[3px] bg-secondary">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary">
                                         <span className="text-xs text-muted-foreground">None</span>
                                     </div>
                                     <div className="text-left flex-1">
@@ -345,7 +345,7 @@ export function ShopDashboard() {
                                 }}
                             >
                                 <div className="flex items-center gap-3 w-full">
-                                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[3px] bg-secondary">
+                                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-secondary">
                                          <ThreeErrorBoundary>
                                            <ItemPreview3D type="base" />
                                          </ThreeErrorBoundary>
@@ -376,7 +376,7 @@ export function ShopDashboard() {
                                     disabled={actionLoading === item.id}
                                 >
                                     <div className="flex items-center gap-3 w-full">
-                                    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[3px] bg-secondary">
+                                    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-secondary">
                                         <ThreeErrorBoundary>
                                           <ItemPreview3D type={item.type as "skin" | "trail" | "vehicle" | "wheel"} assetId={item.assetId} />
                                         </ThreeErrorBoundary>

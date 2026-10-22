@@ -6,23 +6,15 @@ import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
 import { ReactNode } from "react";
 
 export function MainContent({ children }: { children: ReactNode }) {
-  const { isCollapsed, isMobile } = useSidebar();
+  const { isMobile } = useSidebar();
   const { isPinned } = useMobileTopBarPinning();
 
   return (
-    <main
-      className={cn(
-        "flex-1 transition-all duration-300",
-        // On mobile: full width with top padding for the fixed top bar
-        // On desktop: left margin for the sidebar
-        isMobile 
-          ? cn("ml-0", isPinned ? "pt-14" : "pt-0")
-          : isCollapsed
-            ? "ml-[60px]"
-            : "ml-[240px]"
-      )}
-    >
-      <div className="min-h-screen overflow-hidden bg-background/70">{children}</div>
+    // Desktop navigation is a sticky top bar, so content needs no sidebar offset. On mobile
+    // the top bar is fixed, so content is padded below it.
+    <main className={cn("min-w-0 flex-1", isMobile && isPinned ? "pt-14" : "pt-0")}>
+      {/* One centered column, aligned with the top bar's content width. */}
+      <div className="mx-auto min-h-screen w-full max-w-6xl overflow-hidden bg-background">{children}</div>
     </main>
   );
 }

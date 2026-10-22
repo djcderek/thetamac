@@ -25,7 +25,7 @@ const settingsDataSchema = z
   .object({
     autoAdvance: z.boolean().optional(),
     defaultDifficulty: z.enum(["Easy", "Medium", "Hard", "Expert"]).optional(),
-    defaultTimer: z.enum(["5s", "8s", "10s", "12s", "15s", "20s", "30s"]).optional(),
+    defaultTimer: z.enum(["off", "5s", "8s", "10s", "12s", "15s", "20s", "30s"]).optional(),
     theme: z.enum(["light", "dark", "system"]).optional(),
     colorTone: z.enum(["warm", "neutral"]).optional(),
   })
@@ -93,11 +93,11 @@ export async function GET() {
       )
         ? storedSettings!.defaultDifficulty
         : "Medium",
-      defaultTimer: ["5s", "8s", "10s", "12s", "15s", "20s", "30s"].includes(
+      defaultTimer: ["off", "5s", "8s", "10s", "12s", "15s", "20s", "30s"].includes(
         storedSettings?.defaultTimer ?? ""
       )
         ? storedSettings!.defaultTimer
-        : "10s",
+        : "off",
       theme: ["light", "dark", "system"].includes(storedSettings?.theme ?? "")
         ? storedSettings!.theme
         : "system",

@@ -5,8 +5,6 @@ import { DuelMode } from "@/components/multiplayer/duel-mode";
 import { RacingMode } from "@/components/multiplayer/racing-mode";
 import { Swords, Flag, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AsciiMorph } from "@/components/ui/ascii-morph";
-import { CornerBrackets } from "@/components/ui/corner-frame";
 
 type Mode = "duel" | "racing" | null;
 
@@ -54,8 +52,8 @@ export function MultiplayerClient() {
       <div className="max-w-5xl mx-auto">
         <div className="grid items-center gap-8 border-b border-border pb-10 pt-4 md:grid-cols-[minmax(0,1fr)_auto] md:pt-8">
           <div>
-            <p className="editorial-label text-brand">Head to head</p>
-            <h1 className="mt-2 font-serif text-4xl font-normal tracking-tight md:text-5xl">
+            <p className="editorial-label">Head to head</p>
+            <h1 className="font-semibold mt-2 text-4xl tracking-tight md:text-5xl">
               Multiplayer Arena
             </h1>
             <p className="mt-3 max-w-2xl text-muted-foreground">
@@ -63,8 +61,6 @@ export function MultiplayerClient() {
             </p>
           </div>
           <div className="relative hidden w-fit p-4 md:block">
-            <CornerBrackets size={10} />
-            <AsciiMorph shapes={["times", "trophy", "bolt"]} accent className="w-40" />
           </div>
         </div>
 
@@ -76,8 +72,8 @@ export function MultiplayerClient() {
             className="group flex h-full flex-col border-b border-border px-1 py-8 text-left transition-colors hover:bg-secondary/40 md:border-b-0 md:border-r md:pr-10"
           >
             <div className="flex items-center gap-3">
-              <Swords className="h-5 w-5 text-brand" />
-              <h2 className="font-serif text-2xl font-normal tracking-tight">Duel Mode</h2>
+              <Swords className="h-5 w-5 text-muted-foreground" />
+              <h2 className="font-semibold text-2xl tracking-tight">Duel Mode</h2>
             </div>
             <p className="mt-3 text-muted-foreground">
               Classic 1v1 competition. Solve math problems faster than your opponent to win rounds.
@@ -114,8 +110,8 @@ export function MultiplayerClient() {
             className="group flex h-full flex-col px-1 py-8 text-left transition-colors hover:bg-secondary/40 md:pl-10"
           >
             <div className="flex items-center gap-3">
-              <Flag className="h-5 w-5 text-brand" />
-              <h2 className="font-serif text-2xl font-normal tracking-tight">Racing Mode</h2>
+              <Flag className="h-5 w-5 text-muted-foreground" />
+              <h2 className="font-semibold text-2xl tracking-tight">Racing Mode</h2>
             </div>
             <p className="mt-3 text-muted-foreground">
               Race against up to 5 players. Solve to move, change lanes, and bump opponents!

@@ -2,22 +2,21 @@ import { cn } from "@/lib/utils";
 
 export type StatusKind = "connected" | "connecting" | "disconnected" | "neutral";
 
-// Connection/state readout in the editorial voice: a hard square indicator
-// (never a round dot) beside a mono uppercase label.
+// Connection/state readout as a soft status pill (Kurb's "• Needs your approval").
 export function StatusBadge({ kind, label, className }: { kind: StatusKind; label: string; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em]", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[13px] font-medium", className)}>
       <span
         aria-hidden="true"
         className={cn(
-          "h-1.5 w-1.5 shrink-0",
+          "h-1.5 w-1.5 shrink-0 rounded-full",
           kind === "connected" && "bg-success",
-          kind === "connecting" && "bg-warning [animation:ascii-blink_1.2s_steps(1)_infinite]",
+          kind === "connecting" && "bg-warning animate-pulse",
           kind === "disconnected" && "bg-destructive",
-          kind === "neutral" && "border border-muted-foreground"
+          kind === "neutral" && "bg-muted-foreground/50"
         )}
       />
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-foreground">{label}</span>
     </span>
   );
 }

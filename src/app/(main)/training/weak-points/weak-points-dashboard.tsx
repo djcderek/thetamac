@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BrandedEmptyState, MetricTile, PageHeader, SectionLabel } from "@/components/ui/visual-system";
+import { BrandedEmptyState, MetricTile, PageHeader } from "@/components/ui/visual-system";
 import {
   ArrowLeft,
   Target,
@@ -124,7 +124,7 @@ function OperationCard({ weakness }: { weakness: OperationWeakness }) {
       <CardContent className="pt-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-[3px] border border-border font-mono text-xl">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl border border-border font-mono text-xl">
               {weakness.operationSymbol}
             </div>
             <div>
@@ -320,28 +320,22 @@ export function WeakPointsDashboard() {
           <>
             {/* Training Pack CTA */}
             {hasTrainingPack && (
-              <div className="ink-panel relative overflow-hidden rounded-[3px] border p-6">
-                <div className="dot-field pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
-                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="rounded-[26px] bg-secondary p-6">
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                   <div>
-                    <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-background/60">
-                      Training pack
-                    </p>
-                    <h2 className="mt-1 font-serif text-2xl font-normal tracking-tight">Your Custom Training Pack</h2>
-                    <p className="mt-1 text-sm text-background/70">
+                    <p className="text-[13px] font-medium text-muted-foreground">Training pack</p>
+                    <h2 className="mt-1 text-2xl font-semibold tracking-tight">Your custom training pack</h2>
+                    <p className="mt-1 text-[15px] text-muted-foreground">
                       {data.trainingPack.problems.length} problems targeting your weak areas
                     </p>
-                    <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-background/60">
+                    <p className="mt-2 text-[13px] text-muted-foreground">
                       {data.trainingPack.focusAreas.join(" · ")}
                       {" · "}~{data.trainingPack.estimatedTime} min
                     </p>
                   </div>
                   <Link href={`/training/focused?pack=${trainingPackParam}`}>
-                    <Button
-                      size="lg"
-                      className="w-full bg-background text-foreground hover:bg-brand hover:text-brand-foreground md:w-auto"
-                    >
-                      <Play className="w-4 h-4 mr-2" />
+                    <Button variant="brand" size="lg" className="w-full md:w-auto">
+                      <Play aria-hidden="true" className="fill-current" />
                       Start Focused Training
                     </Button>
                   </Link>
@@ -386,13 +380,7 @@ export function WeakPointsDashboard() {
                           <p className="text-sm">{area.message}</p>
                         </div>
                         <span
-                          className={`font-mono text-[11px] font-semibold uppercase tracking-[0.14em] ${
-                            area.priority === "high"
-                              ? "text-destructive"
-                              : area.priority === "medium"
-                              ? "text-warning"
-                              : "text-muted-foreground"
-                          }`}
+                          className={`text-[13px] font-medium ${ area.priority === "high" ? "text-destructive" : area.priority === "medium" ? "text-warning" : "text-muted-foreground" }`}
                         >
                           {area.priority}
                         </span>
@@ -405,9 +393,7 @@ export function WeakPointsDashboard() {
 
             {/* Operations Breakdown */}
             <div>
-              <div className="mb-4 border-t-2 border-foreground pt-3">
-                <SectionLabel>By Operation</SectionLabel>
-              </div>
+              <h2 className="mb-3 px-1 text-[17px] font-semibold tracking-tight">By operation</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {data.operationWeaknesses.map((weakness) => (
                   <OperationCard key={weakness.operation} weakness={weakness} />
@@ -471,7 +457,7 @@ export function WeakPointsDashboard() {
             {hasTrainingPack && (
               <div className="flex justify-center pt-4">
                 <Link href={`/training/focused?pack=${trainingPackParam}`}>
-                  <Button size="lg" className="gap-2">
+                  <Button variant="secondary" size="lg" className="gap-2">
                     <Target className="w-5 h-5" />
                     Start Focused Training ({data.trainingPack.problems.length} problems)
                   </Button>

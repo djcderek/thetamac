@@ -14,8 +14,12 @@ import {
   Info,
   Zap,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useSidebar } from "@/components/sidebar-provider";
+import { drawerSpring } from "@/lib/motion";
 import { LogoMark } from "@/components/brand/logo-mark";
+
+const MotionLink = motion.create(Link);
 
 // Mirrors the desktop sidebar ordering exactly
 const primaryNavigation = [
@@ -74,17 +78,28 @@ export function MobileNavDrawer() {
   return (
     <>
       {/* Backdrop overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
-          onClick={close}
-          aria-hidden="true"
-        />
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            key="drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
+            onClick={close}
+            aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
 
       {/* Drawer */}
-      <aside
+      {/* A spring, so a quick open-close-open picks up from wherever the drawer is. */}
+      <motion.aside
         ref={drawerRef}
+        initial={false}
+        animate={{ x: isOpen ? 0 : "100%" }}
+        transition={drawerSpring}
         id="mobile-nav-drawer"
         role="dialog"
         aria-modal={isOpen}
@@ -93,15 +108,14 @@ export function MobileNavDrawer() {
         // tab order and away from screen readers.
         inert={!isOpen}
         className={cn(
-          "fixed top-0 right-0 h-full w-[min(320px,calc(100vw-3rem))] overflow-hidden bg-sidebar border-l border-sidebar-border z-50 transform transition-transform duration-300 ease-in-out md:hidden",
-          isOpen ? "translate-x-0" : "translate-x-full"
+          "fixed top-0 right-0 h-full w-[min(320px,calc(100vw-3rem))] overflow-hidden bg-background border-l border-border z-50 md:hidden",
         )}
       >
         {/* Drawer header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           <Link href="/" onClick={close} className="flex items-center gap-2">
             <LogoMark size={24} />
-            <span className="font-semibold">thetamac</span>
+            <span className="text-[17px] font-semibold tracking-[-0.03em]">thetamac</span>
           </Link>
           <button
             ref={closeButtonRef}
@@ -117,26 +131,29 @@ export function MobileNavDrawer() {
         <nav className="p-4">
           <p className="editorial-label mb-3">Play</p>
           <div className="space-y-1">
-            {primaryNavigation.map((item) => {
+            {primaryNavigation.map((item, index) => {
               const isActive =
                 item.href === "/"
                   ? pathname === "/" || pathname.startsWith("/training")
                   : pathname === item.href || pathname.startsWith(item.href + "/");
               return (
-                <Link
+                <MotionLink
                   key={item.name}
                   href={item.href}
                   onClick={close}
+                  initial={false}
+                  animate={isOpen ? { opacity: 1, x: 0 } : { opacity: 0, x: 24 }}
+                  transition={isOpen ? { ...drawerSpring, delay: 0.05 + index * 0.035 } : { duration: 0.15 }}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-full text-sm transition-colors",
+                    "flex min-h-12 items-center gap-3 px-4 py-3 rounded-2xl text-[15px] transition-colors",
                     isActive
-                      ? "bg-brand/12 text-foreground font-semibold ring-1 ring-inset ring-brand/25"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      ? "bg-secondary text-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   )}
                 >
                   <item.icon className="w-5 h-5 shrink-0" />
                   <span>{item.name}</span>
-                </Link>
+                </MotionLink>
               );
             })}
           </div>
@@ -146,28 +163,31 @@ export function MobileNavDrawer() {
         <nav className="p-4 pt-0">
           <p className="editorial-label mb-3">Explore</p>
           <div className="space-y-1">
-            {secondaryNavigation.map((item) => {
+            {secondaryNavigation.map((item, index) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
-                <Link
+                <MotionLink
                   key={item.name}
                   href={item.href}
                   onClick={close}
+                  initial={false}
+                  animate={isOpen ? { opacity: 1, x: 0 } : { opacity: 0, x: 24 }}
+                  transition={isOpen ? { ...drawerSpring, delay: 0.05 + (primaryNavigation.length + index) * 0.035 } : { duration: 0.15 }}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 px-3 py-3 rounded-full text-sm transition-colors",
+                    "flex min-h-12 items-center gap-3 px-4 py-3 rounded-2xl text-[15px] transition-colors",
                     isActive
-                      ? "bg-secondary text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      ? "bg-secondary text-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   )}
                 >
                   <item.icon className={cn("w-5 h-5 shrink-0", item.accent && "text-brand")} />
                   <span>{item.name}</span>
-                </Link>
+                </MotionLink>
               );
             })}
           </div>
         </nav>
-      </aside>
+      </motion.aside>
     </>
   );
 }

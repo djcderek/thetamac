@@ -109,7 +109,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
         >
           ← Back to Interview Math Hub
         </Link>
-        <h1 className="font-serif text-4xl sm:text-5xl font-normal tracking-tight mt-3 mb-3">
+        <h1 className="font-semibold text-4xl sm:text-5xl tracking-tight mt-3 mb-3">
           {guide.title}
         </h1>
         <p className="text-lg text-muted-foreground">{guide.description}</p>
@@ -118,7 +118,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
         ) : null}
       </header>
 
-      <section className="mb-8 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-12">
         <h2 className="text-xl font-semibold mb-2">Quick Answer</h2>
         <p className="text-sm text-muted-foreground">{guide.quickAnswer}</p>
       </section>
@@ -151,7 +151,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
       </section>
 
       {guide.workedExample ? (
-        <section className="mb-8 border-t-2 border-foreground/75 pt-5">
+        <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-2">Worked Example: {guide.workedExample.title}</h2>
           <p className="text-sm text-muted-foreground mb-4">{guide.workedExample.prompt}</p>
           <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
@@ -175,7 +175,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
         </section>
       ) : null}
 
-      <section className="mb-8 border-t-2 border-foreground/75 pt-5">
+      <section className="mb-12">
         <h2 className="text-xl font-semibold mb-2">Practice Now</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Use these drills in short sessions and track your score/accuracy trend each week.
@@ -184,14 +184,14 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
           {guide.slug === "mental-math-speed-test" ? (
             <Link
               href="/arithmetic-speed-test"
-              className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center rounded-full bg-primary h-11 px-5 text-[15px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               Take Arithmetic Speed Test
             </Link>
           ) : null}
           <Link
             href="/"
-            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            className={`inline-flex items-center rounded-full h-11 px-5 text-[15px] font-semibold transition-colors ${
               guide.slug === "mental-math-speed-test"
                 ? "border border-border hover:bg-secondary/50"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -201,7 +201,7 @@ export default async function InterviewMathGuidePage({ params }: GuidePageProps)
           </Link>
           <Link
             href="/training/focused"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary/50 transition-colors"
+            className="inline-flex items-center rounded-full border border-border h-11 px-5 text-[15px] font-semibold hover:bg-secondary/50 transition-colors"
           >
             Focused Training
           </Link>

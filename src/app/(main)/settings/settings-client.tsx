@@ -22,7 +22,7 @@ import {
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
-import { PageHeader } from "@/components/ui/visual-system";
+import { optionTileClass, PageHeader, SelectionPill } from "@/components/ui/visual-system";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile-events";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import {
@@ -41,7 +41,7 @@ interface SettingToggleProps {
 type SettingsState = {
   autoAdvance: boolean;
   defaultDifficulty: "Easy" | "Medium" | "Hard" | "Expert";
-  defaultTimer: "5s" | "8s" | "10s" | "12s" | "15s" | "20s" | "30s";
+  defaultTimer: "off" | "5s" | "8s" | "10s" | "12s" | "15s" | "20s" | "30s";
 };
 
 const DIFFICULTY_OPTIONS: SettingsState["defaultDifficulty"][] = [
@@ -51,6 +51,7 @@ const DIFFICULTY_OPTIONS: SettingsState["defaultDifficulty"][] = [
   "Expert",
 ];
 const PRACTICE_TIMER_OPTIONS: SettingsState["defaultTimer"][] = [
+  "off",
   "5s",
   "8s",
   "10s",
@@ -216,7 +217,7 @@ export function SettingsClient() {
   const [settings, setSettings] = useState<SettingsState>({
     autoAdvance: true,
     defaultDifficulty: "Medium",
-    defaultTimer: "10s"
+    defaultTimer: "off"
   });
   const settingsRef = useRef(settings);
 
@@ -602,7 +603,7 @@ export function SettingsClient() {
       />
 
       <div className="p-4 md:p-6">
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-2xl space-y-6">
           {/* Profile */}
           <Card>
             <CardHeader>
@@ -709,12 +710,9 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "light"}
                     onClick={() => updateTheme("light")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
-                      theme === "light"
-                        ? "border-foreground bg-secondary"
-                        : "border-border hover:bg-secondary/50"
-                    }`}
+                    className={optionTileClass(theme === "light", "flex flex-col items-center gap-2 p-4", { slidingPill: true })}
                   >
+                    {theme === "light" && <SelectionPill group="settings-theme" />}
                     <Sun className="w-5 h-5" />
                     <span className="text-sm font-medium">Light</span>
                   </button>
@@ -722,12 +720,9 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "dark"}
                     onClick={() => updateTheme("dark")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
-                      theme === "dark"
-                        ? "border-foreground bg-secondary"
-                        : "border-border hover:bg-secondary/50"
-                    }`}
+                    className={optionTileClass(theme === "dark", "flex flex-col items-center gap-2 p-4", { slidingPill: true })}
                   >
+                    {theme === "dark" && <SelectionPill group="settings-theme" />}
                     <Moon className="w-5 h-5" />
                     <span className="text-sm font-medium">Dark</span>
                   </button>
@@ -735,12 +730,9 @@ export function SettingsClient() {
                     type="button"
                     aria-pressed={theme === "system"}
                     onClick={() => updateTheme("system")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-[3px] border transition-colors ${
-                      theme === "system"
-                        ? "border-foreground bg-secondary"
-                        : "border-border hover:bg-secondary/50"
-                    }`}
+                    className={optionTileClass(theme === "system", "flex flex-col items-center gap-2 p-4", { slidingPill: true })}
                   >
+                    {theme === "system" && <SelectionPill group="settings-theme" />}
                     <Monitor className="w-5 h-5" />
                     <span className="text-sm font-medium">System</span>
                   </button>
@@ -758,12 +750,9 @@ export function SettingsClient() {
                       type="button"
                       aria-pressed={tone === "warm"}
                       onClick={() => updateTone("warm")}
-                      className={`flex items-center gap-3 rounded-[3px] border p-3 text-left transition-colors ${
-                        tone === "warm"
-                          ? "border-foreground bg-secondary"
-                          : "border-border hover:bg-secondary/50"
-                      }`}
+                      className={optionTileClass(tone === "warm", "flex items-center gap-3 p-3 text-left", { slidingPill: true })}
                     >
+                      {tone === "warm" && <SelectionPill group="settings-tone" />}
                       <span className="h-5 w-5 rounded-full border border-border bg-[oklch(0.92_0.045_65)]" />
                       <span className="text-sm font-medium">Warm</span>
                     </button>
@@ -771,12 +760,9 @@ export function SettingsClient() {
                       type="button"
                       aria-pressed={tone === "neutral"}
                       onClick={() => updateTone("neutral")}
-                      className={`flex items-center gap-3 rounded-[3px] border p-3 text-left transition-colors ${
-                        tone === "neutral"
-                          ? "border-foreground bg-secondary"
-                          : "border-border hover:bg-secondary/50"
-                      }`}
+                      className={optionTileClass(tone === "neutral", "flex items-center gap-3 p-3 text-left", { slidingPill: true })}
                     >
+                      {tone === "neutral" && <SelectionPill group="settings-tone" />}
                       <span className="h-5 w-5 rounded-full border border-border bg-[oklch(0.92_0.004_260)]" />
                       <span className="text-sm font-medium">Neutral</span>
                     </button>
@@ -822,14 +808,16 @@ export function SettingsClient() {
                   {DIFFICULTY_OPTIONS.map((diff) => (
                     <Button
                       key={diff}
-                      variant={settings.defaultDifficulty === diff ? "default" : "outline"}
+                      variant="secondary"
                       size="sm"
+                      className={`relative isolate capitalize ${settings.defaultDifficulty === diff ? "text-background hover:bg-control" : ""}`}
                       aria-pressed={settings.defaultDifficulty === diff}
                       onClick={() => {
                         setSettingsFeedbackSection("training");
                         updateSettings({ defaultDifficulty: diff });
                       }}
                     >
+                      {settings.defaultDifficulty === diff && <SelectionPill group="settings-difficulty" className="rounded-full" />}
                       {diff}
                     </Button>
                   ))}
@@ -838,7 +826,7 @@ export function SettingsClient() {
               <div>
                 <p id="practice-timer-label" className="text-sm font-medium mb-1 block">Practice question timer</p>
                 <p id="practice-timer-help" className="mb-2 text-xs text-muted-foreground">
-                  Time allowed for each problem in Practice mode.
+                  Time allowed for each problem in Practice mode. Off lets you take as long as you need.
                 </p>
                 <div
                   role="group"
@@ -849,14 +837,16 @@ export function SettingsClient() {
                   {PRACTICE_TIMER_OPTIONS.map((time) => (
                     <Button
                       key={time}
-                      variant={settings.defaultTimer === time ? "default" : "outline"}
+                      variant="secondary"
                       size="sm"
+                      className={`relative isolate capitalize ${settings.defaultTimer === time ? "text-background hover:bg-control" : ""}`}
                       aria-pressed={settings.defaultTimer === time}
                       onClick={() => {
                         setSettingsFeedbackSection("training");
                         updateSettings({ defaultTimer: time });
                       }}
                     >
+                      {settings.defaultTimer === time && <SelectionPill group="settings-timer" className="rounded-full" />}
                       {time}
                     </Button>
                   ))}

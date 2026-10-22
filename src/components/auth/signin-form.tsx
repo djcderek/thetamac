@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { LogoMark } from "@/components/brand/logo-mark";
-import { AsciiMorph } from "@/components/ui/ascii-morph";
 import { GoogleIcon } from "@/components/auth/google-icon";
 import { useGoogleSignIn } from "@/hooks/use-google-sign-in";
 import { useEffect } from "react";
@@ -56,18 +55,17 @@ export function SignInForm() {
   };
 
   return (
-    <Card className="ph-no-capture w-full max-w-md mx-auto">
+    <Card className="ph-no-capture mx-auto w-full max-w-sm bg-transparent">
       <CardHeader className="space-y-1 text-center">
-        <AsciiMorph shapes={["theta", "times"]} className="mx-auto mb-1 w-24" />
-        <div className="flex items-center justify-center gap-2 mb-2">
+        <div className="mb-4 flex items-center justify-center gap-2">
           <LogoMark size={32} textured={false} />
         </div>
-        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-        <CardDescription>Sign in to your thetamac account</CardDescription>
+        <CardTitle className="text-[32px] font-semibold leading-tight tracking-[-0.04em]">Welcome back</CardTitle>
+        <CardDescription className="text-[15px]">Sign in to your thetamac account</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {(error || googleSignInError) && (
-          <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-[3px]">
+          <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-2xl">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{googleSignInError || getErrorMessage(error!)}</span>
           </div>
@@ -77,6 +75,7 @@ export function SignInForm() {
         <Button
           type="button"
           variant="outline"
+          size="lg"
           className="w-full"
           onClick={() =>
             startGoogleSignIn(callbackUrl, { intent: "sign_in", surface: "sign_in" })

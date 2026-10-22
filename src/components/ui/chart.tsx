@@ -21,9 +21,9 @@ export const axisDefaults = {
 // The plate every chart tooltip prints on: ink, hard corners, no shadow.
 export function ChartTooltipFrame({ label, children }: { label?: ReactNode; children: ReactNode }) {
   return (
-    <div className="ink-panel rounded-[3px] px-3 py-2">
+    <div className="ink-panel rounded-2xl px-3 py-2">
       {label != null && (
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-background/60">{label}</p>
+        <p className="text-[12px] font-medium text-background/60">{label}</p>
       )}
       <div className="mt-0.5 space-y-0.5">{children}</div>
     </div>

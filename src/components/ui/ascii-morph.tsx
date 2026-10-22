@@ -309,29 +309,15 @@ export function AsciiMorph({
   );
 }
 
-const SPINNER_GLYPHS = ["+", "×", "÷", "="];
-
-// CSS-only loading mark: four operators take one quarter-turn each.
+// Loading mark: a calm circular spinner (Kurb uses the platform activity indicator). The
+// name is kept for existing call sites; size it with h-/w- classes.
 export function AsciiSpinner({ className }: { className?: string }) {
   return (
-    <span
-      role="status"
-      aria-label="Loading"
-      className={cn(
-        "relative inline-flex h-6 w-6 items-center justify-center font-mono text-lg text-muted-foreground",
-        className,
-      )}
-    >
-      {SPINNER_GLYPHS.map((glyph, i) => (
-        <span
-          key={glyph}
-          aria-hidden="true"
-          className={cn("absolute inset-0 flex items-center justify-center", i > 0 && "opacity-0")}
-          style={{ animation: "ascii-blink 1.6s steps(1) infinite", animationDelay: `${i * 0.4}s` }}
-        >
-          {glyph}
-        </span>
-      ))}
+    <span role="status" aria-label="Loading" className={cn("inline-flex h-6 w-6 items-center justify-center", className)}>
+      <span
+        aria-hidden="true"
+        className="block h-[70%] w-[70%] animate-spin rounded-full border-2 border-muted-foreground/25 border-t-muted-foreground"
+      />
     </span>
   );
 }

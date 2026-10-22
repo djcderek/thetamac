@@ -8,8 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { AsciiMorph } from "@/components/ui/ascii-morph";
-import { MetricTile, SectionLabel, optionTileClass } from "@/components/ui/visual-system";
+import { MetricTile, SectionLabel, SelectionPill, optionTileClass } from "@/components/ui/visual-system";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
 import { useIsMobileDevice } from "@/hooks/use-is-mobile-device";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -60,7 +59,7 @@ function FocusedHeader({ title, description }: { title: string; description?: st
           <ArrowLeft className="mr-1 h-4 w-4" />
           Back to Weak Points
         </Link>
-        <h1 className="font-serif text-3xl font-normal tracking-tight">{title}</h1>
+        <h1 className="font-semibold text-3xl tracking-tight">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
     </div>
@@ -116,9 +115,10 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [correctFlashKey, setCorrectFlashKey] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [submitMode, setSubmitMode] = useState<SubmitMode>("manual");
+  const [submitMode, setSubmitMode] = useState<SubmitMode>("auto");
 
   // Stats
   const [correctCount, setCorrectCount] = useState(0);
@@ -270,7 +270,9 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
     inputRef.current?.focus();
   };
 
-  const nextProblem = useCallback(() => {
+  // `afterCorrect` plays the green flash over the next problem (correct answers advance at once).
+  const nextProblem = useCallback((afterCorrect = false) => {
+    if (afterCorrect) setCorrectFlashKey((k) => k + 1);
     if (currentIndex < problems.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setUserAnswer("");
@@ -395,9 +397,15 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
       });
     }
 
-    setTimeout(() => {
-      nextProblem();
-    }, correct ? 200 : 600);
+    // Correct answers advance at once (the green flash plays over the next problem); a miss
+    // holds for a moment so it can be seen.
+    if (correct) {
+      nextProblem(true);
+    } else {
+      setTimeout(() => {
+        nextProblem();
+      }, 600);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -441,9 +449,8 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
       recordAttempt(currentProblem, answerNum, true, timeTaken);
 
-      setTimeout(() => {
-        nextProblem();
-      }, 200);
+      // Next tick rather than synchronously inside the effect (no perceptible wait).
+      setTimeout(() => nextProblem(true), 0);
     }
   }, [userAnswer, isPlaying, currentProblem, submitMode, isCorrect, startTime, bestStreak, recordAttempt, nextProblem]);
 
@@ -482,9 +489,8 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
         <div className="p-4 md:p-6">
           <Card className="max-w-lg mx-auto">
             <CardContent className="p-8 text-center">
-              <AsciiMorph shapes={["trophy"]} accent={accuracy >= 80} className="mx-auto mb-6 w-28" />
 
-              <h2 className="font-serif text-3xl font-normal tracking-tight mb-2">
+              <h2 className="font-semibold text-3xl tracking-tight mb-2">
                 {accuracy >= 80 ? "Great Work!" : accuracy >= 60 ? "Good Progress!" : "Keep Practicing!"}
               </h2>
               <p className="text-muted-foreground mb-6">
@@ -501,7 +507,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
               </div>
 
               {!authSession?.user && (
-                <div className="rounded-[3px] border border-border p-4 text-left mb-8">
+                <div className="rounded-2xl border border-border p-4 text-left mb-8">
                   <p className="text-sm font-semibold">Save your progress</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Sign in (or create an account) to keep track of your scores and improvement over time.
@@ -566,7 +572,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                 {/* Settings summary - clickable to expand */}
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="w-full p-3 rounded-[3px] border border-border hover:border-foreground/50 transition-colors text-left mb-6"
+                  className="w-full p-3 rounded-2xl border border-border hover:border-foreground/50 transition-colors text-left mb-6"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -586,25 +592,15 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
                 {/* Collapsible Settings Section */}
                 {showSettings && (
-                  <div className="mb-6 border-t-2 border-foreground pt-4 text-left">
+                  <div className="mb-6 rounded-[22px] bg-secondary p-5 text-left">
                     <SectionLabel className="mb-3">Submission mode</SectionLabel>
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => setSubmitMode("manual")}
-                        className={optionTileClass(submitMode === "manual", "text-center")}
-                      >
-                        <div className="flex items-center justify-center gap-2 mb-1">
-                          <CornerDownLeft className="w-4 h-4" />
-                          <span className="font-medium text-sm">Press Enter</span>
-                        </div>
-                        <span className={`text-xs block ${submitMode === "manual" ? "text-background/70" : "text-muted-foreground"}`}>
-                          Submit with Enter key
-                        </span>
-                      </button>
-                      <button
                         onClick={() => setSubmitMode("auto")}
-                        className={optionTileClass(submitMode === "auto", "text-center")}
+                        aria-pressed={submitMode === "auto"}
+                        className={optionTileClass(submitMode === "auto", "text-center", { slidingPill: true })}
                       >
+                        {submitMode === "auto" && <SelectionPill group="focused-submit-mode" />}
                         <div className="flex items-center justify-center gap-2 mb-1">
                           <Wand2 className="w-4 h-4" />
                           <span className="font-medium text-sm">Auto-submit</span>
@@ -613,12 +609,26 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                           Submit when correct
                         </span>
                       </button>
+                      <button
+                        onClick={() => setSubmitMode("manual")}
+                        aria-pressed={submitMode === "manual"}
+                        className={optionTileClass(submitMode === "manual", "text-center", { slidingPill: true })}
+                      >
+                        {submitMode === "manual" && <SelectionPill group="focused-submit-mode" />}
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <CornerDownLeft className="w-4 h-4" />
+                          <span className="font-medium text-sm">Press Enter</span>
+                        </div>
+                        <span className={`text-xs block ${submitMode === "manual" ? "text-background/70" : "text-muted-foreground"}`}>
+                          Submit with Enter key
+                        </span>
+                      </button>
                     </div>
                   </div>
                 )}
 
-                <Button onClick={startTraining} size="lg" className="w-full">
-                  <Play className="w-4 h-4 mr-2" />
+                <Button onClick={startTraining} variant="brand" size="lg" className="w-full">
+                  <Play aria-hidden="true" className="fill-current" />
                   Start Training
                 </Button>
               </CardContent>
@@ -652,24 +662,32 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
             <Progress value={progress} className="h-2" />
           </div>
 
-          {/* Problem */}
+          {/* Problem. Feedback is a ring, like the main run: the grouped surface has no border. */}
           {currentProblem && (
-            <Card className={`transition-colors ${
-              isCorrect === true ? "border-success" : isCorrect === false ? "border-destructive" : ""
+            <Card className={`relative rounded-[28px] py-6 transition-shadow sm:py-10 ${
+              isCorrect === false ? "ring-2 ring-destructive/50" : ""
             }`}>
+              {correctFlashKey > 0 && (
+                <span
+                  key={correctFlashKey}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-[28px] ring-2 ring-inset ring-success/50 animate-flash-out"
+                />
+              )}
               <CardContent className="p-6 sm:p-12">
                 <div className="text-center">
-                  <div className="text-4xl sm:text-6xl font-mono font-semibold tracking-wide mb-5 sm:mb-8">
+                  <div data-problem className="mb-5 break-words font-mono text-[44px] font-semibold leading-none tracking-[-0.04em] sm:mb-10 sm:text-[80px]">
                     {currentProblem.operandA} {operationSymbols[currentProblem.operation] || currentProblem.operation} {currentProblem.operandB}
                   </div>
 
-                  <form onSubmit={handleSubmit}>
+                  {/* Same answer well as the main run screen. */}
+                  <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-[280px] flex-col gap-2">
                     {useCustomKeypad ? (
                       <div
                         role="textbox"
                         aria-label="Answer"
                         aria-readonly="true"
-                        className={`h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto rounded-[3px] border border-input bg-background px-3 flex items-center justify-center ${
+                        className={`flex h-16 w-full items-center justify-center rounded-2xl bg-background px-3 text-center font-mono text-3xl font-semibold ${
                           answerInputDisabled ? "opacity-50" : ""
                         }`}
                       >
@@ -682,7 +700,8 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
                         value={userAnswer}
                         onChange={(e) => setUserAnswer(e.target.value.replace(/[^0-9\-]/g, ""))}
                         placeholder="?"
-                        className="h-12 sm:h-14 text-center text-xl sm:text-2xl font-mono max-w-[200px] mx-auto"
+                        aria-label="Answer"
+                        className="h-16 w-full rounded-2xl bg-background text-center font-mono text-3xl font-semibold focus:placeholder:text-transparent md:text-3xl"
                         autoFocus
                       />
                     )}
@@ -708,7 +727,7 @@ function FocusedTrainingSession({ packParam }: { packParam: string | null }) {
 
           {/* Skip button */}
           <div className="flex justify-center">
-            <Button variant="outline" onClick={nextProblem}>
+            <Button variant="outline" onClick={() => nextProblem()}>
               Skip
             </Button>
           </div>

@@ -52,7 +52,7 @@ export default function BlogIndexPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
       <header className="mb-12">
-        <h1 className="font-serif text-4xl sm:text-5xl font-normal tracking-tight mb-3">
+        <h1 className="font-semibold text-4xl sm:text-5xl tracking-tight mb-3">
           Blog
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl">
@@ -94,7 +94,7 @@ export default function BlogIndexPage() {
             <Link
               key={path.href}
               href={path.href}
-              className="rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-secondary/40"
+              className="inline-flex items-center rounded-full border border-border h-9 px-4 text-sm transition-colors hover:bg-secondary/40"
             >
               {path.label} drills
             </Link>

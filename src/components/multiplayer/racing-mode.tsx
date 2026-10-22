@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MobileNumpad } from "@/components/ui/mobile-numpad";
-import { AsciiMorph, AsciiSpinner } from "@/components/ui/ascii-morph";
+import { AsciiSpinner } from "@/components/ui/ascii-morph";
 import { MedalMark } from "@/components/ui/medal-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricTile, SectionLabel } from "@/components/ui/visual-system";
@@ -237,7 +237,7 @@ function ProblemPanel({
     <div className={`space-y-1 sm:space-y-4 ${isMobileDevice && isMobileKeypadOpen ? "pb-88" : ""}`}>
       {/* Status bar */}
       {(isStunned || isOnCooldown) && (
-        <div className={`flex items-center justify-center gap-2 p-3 rounded-[3px] border ${
+        <div className={`flex items-center justify-center gap-2 p-3 rounded-2xl border ${
           isStunned ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-warning/50 bg-warning/10 text-foreground"
         }`}>
           {isStunned ? (
@@ -309,7 +309,7 @@ function ProblemPanel({
                           e.stopPropagation();
                           openMobileKeypad("left");
                         }}
-                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-xl border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "left" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
                         aria-label="Answer (Left)"
@@ -392,7 +392,7 @@ function ProblemPanel({
                     e.stopPropagation();
                     openMobileKeypad("forward");
                   }}
-                  className={`h-7 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                  className={`h-7 sm:h-10 w-full text-center font-mono text-base sm:text-lg rounded-xl border bg-background px-3 flex items-center justify-center ${
                     mobileKeypadAction === "forward" ? "border-primary/70" : "border-input"
                   } ${problemInputsDisabled ? "opacity-50" : ""}`}
                   aria-label="Answer (Forward)"
@@ -470,7 +470,7 @@ function ProblemPanel({
                           e.stopPropagation();
                           openMobileKeypad("right");
                         }}
-                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-md border bg-background px-3 flex items-center justify-center ${
+                        className={`h-6 sm:h-9 w-full text-center font-mono rounded-xl border bg-background px-3 flex items-center justify-center ${
                           mobileKeypadAction === "right" ? "border-primary/60" : "border-input"
                         } ${problemInputsDisabled ? "opacity-50" : ""}`}
                         aria-label="Answer (Right)"
@@ -536,11 +536,11 @@ function ProblemPanel({
           <CardContent className="px-2 py-0.5 sm:p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="grid h-5 w-5 sm:h-7 sm:w-7 shrink-0 place-items-center rounded-[3px] border border-brand font-mono text-xs sm:text-sm font-semibold text-brand" aria-hidden="true">
+                <div className="grid h-5 w-5 sm:h-7 sm:w-7 shrink-0 place-items-center rounded-2xl border border-brand font-mono text-xs sm:text-sm font-semibold text-brand" aria-hidden="true">
                   +
                 </div>
                 <div>
-                  <div className="font-mono text-[10px] sm:text-xs font-semibold uppercase tracking-[0.14em] text-brand">
+                  <div className="text-[12px] sm:text-xs font-medium text-brand">
                     BOOST +3m (Harder)
                   </div>
                   <div className="text-base sm:text-2xl font-mono font-bold leading-none">
@@ -560,7 +560,7 @@ function ProblemPanel({
                       e.stopPropagation();
                       openMobileKeypad("boost");
                     }}
-                    className={`h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-md border bg-background px-3 flex items-center justify-center ${
+                    className={`h-7 sm:h-10 w-20 sm:w-24 text-center font-mono text-base sm:text-lg rounded-xl border bg-background px-3 flex items-center justify-center ${
                       mobileKeypadAction === "boost" ? "border-primary/60" : "border-input"
                     } ${problemInputsDisabled ? "opacity-50" : ""}`}
                     aria-label="Answer (Boost)"
@@ -649,26 +649,24 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
     <div className="space-y-6">
       {/* Winner banner */}
       {isWinner ? (
-        <div className="ink-panel relative overflow-hidden rounded-[3px] border p-6 text-center">
+        <div className="ink-panel relative overflow-hidden rounded-2xl border p-6 text-center">
           <div className="dot-field pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
           <div className="relative">
-            <AsciiMorph shapes={["trophy"]} accent className="mx-auto mb-4 w-28" />
-            <h2 className="mb-1 font-serif text-3xl font-normal tracking-tight">Victory</h2>
+            <h2 className="font-semibold mb-1 text-3xl tracking-tight">Victory</h2>
             {showRating ? (
               <div className="mt-2 font-mono text-xl font-semibold tabular-nums text-brand">
                 {myRatingChange >= 0 ? "+" : ""}{myRatingChange} rating
               </div>
             ) : (
-              <div className="mt-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-background/60">
+              <div className="mt-2 text-[13px] font-medium text-background/60">
                 Unrated race
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="rounded-[3px] border border-border border-t-2 border-t-foreground p-6 text-center">
-          <AsciiMorph shapes={["trophy"]} animate={false} className="mx-auto mb-4 w-24 opacity-60" />
-          <h2 className="mb-1 font-serif text-3xl font-normal tracking-tight">
+        <div className="rounded-2xl border border-border border-t-2 border-t-foreground p-6 text-center">
+          <h2 className="font-semibold mb-1 text-3xl tracking-tight">
             {`${getOrdinal(myResult?.position || 0)} Place`}
           </h2>
           {showRating ? (
@@ -697,7 +695,7 @@ function ResultsScreen({ results, myRatingChange, myPlayerId, onPlayAgain, onLea
               return (
                 <div
                   key={result.playerId}
-                  className={`flex items-center gap-4 p-3 rounded-[3px] ${
+                  className={`flex items-center gap-4 p-3 rounded-2xl ${
                     isMe ? "border-2 border-foreground bg-secondary/40" : "bg-secondary/30"
                   }`}
                 >
@@ -1004,7 +1002,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
               {/* Show finished state or problem panel */}
               <div className={hasFinished ? "mt-6" : "relative z-10 -mt-10 sm:mt-6"}>
                 {hasFinished ? (
-                  <Card className="border-success">
+                  <Card className="ring-2 ring-success/40">
                     <CardContent className="p-8 text-center">
                       <MedalMark rank={race.myFinishPosition ?? 0} size="lg" className="mx-auto mb-4" />
                       <h2 className="text-2xl font-bold mb-2">
@@ -1113,7 +1111,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                 {linkCopied ? <Check className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
                 {linkCopied ? "Copied!" : "Copy Link"}
               </Button>
-              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="text-[13px] font-medium text-muted-foreground">
                 {privateRoom.room?.players.length ?? 0} / 8 Players
               </span>
             </div>
@@ -1195,7 +1193,6 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
         </div>
         <div className="p-4 md:p-6">
           <div className="max-w-md mx-auto text-center py-20">
-            <AsciiMorph shapes={["bolt"]} animate={false} className="mx-auto mb-4 w-32 opacity-60" />
             <div className="mb-4 flex items-center justify-center gap-2">
               <AsciiSpinner className="h-4 w-4 text-sm" />
               <SectionLabel>Searching for racers</SectionLabel>
@@ -1230,7 +1227,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               {isGuest && (
                 <>
-                  <span className="max-w-[160px] truncate font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <span className="max-w-[160px] truncate text-[13px] font-medium text-muted-foreground">
                     {playerName} · Guest · Unrated
                   </span>
                   <Link href={`/auth/signin?callbackUrl=${encodeURIComponent("/multiplayer")}`}>
@@ -1253,7 +1250,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
         <div className="max-w-3xl mx-auto space-y-6">
           {/* Error message */}
           {error && (
-            <div className="p-4 bg-destructive/10 border border-destructive/50 rounded-[3px] text-destructive text-sm">
+            <div className="p-4 bg-destructive/10 border border-destructive/50 rounded-2xl text-destructive text-sm">
               {error}
             </div>
           )}
@@ -1262,7 +1259,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[3px] border-2 border-foreground font-mono text-2xl" aria-hidden="true">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border-2 border-foreground font-mono text-2xl" aria-hidden="true">
                   +
                 </div>
                 <div className="flex-1 text-center sm:text-left">
@@ -1288,7 +1285,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-2xl text-muted-foreground" aria-hidden="true">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-border font-mono text-2xl text-muted-foreground" aria-hidden="true">
                   ÷
                 </div>
                 <div className="flex-1 w-full">
@@ -1343,7 +1340,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="flex items-start gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl border border-border font-mono text-sm font-semibold">
                     <span>1</span>
                   </div>
                 <div>
@@ -1354,7 +1351,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                 </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl border border-border font-mono text-sm font-semibold">
                     <span>2</span>
                   </div>
                   <div>
@@ -1365,7 +1362,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl border border-border font-mono text-sm font-semibold">
                     <span>3</span>
                   </div>
                   <div>
@@ -1376,7 +1373,7 @@ export function RacingMode({ initialPrivateRoomCode }: { initialPrivateRoomCode?
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border font-mono text-sm font-semibold">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl border border-border font-mono text-sm font-semibold">
                     <span>4</span>
                   </div>
                 <div>

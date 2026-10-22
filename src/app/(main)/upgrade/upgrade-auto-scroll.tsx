@@ -2,8 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-
-type UpgradeFeature = "analytics" | "coins";
+import type { UpgradeFeature } from "@/lib/upgrade";
 
 export function UpgradeAutoScroll({
   feature,

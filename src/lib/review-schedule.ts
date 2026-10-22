@@ -1,0 +1,127 @@
+import type { Operation, Problem } from "@/components/training/training-types";
+
+/** Misses older than this drop out of review. */
+export const REVIEW_LOOKBACK_DAYS = 60;
+/**
+ * A right answer only counts toward clearing a miss this long after it: a separate sitting,
+ * not the same set's return or an immediate retry with the answer still in mind.
+ */
+const RECALL_GAP_MS = 6 * 60 * 60 * 1000;
+/** After a problem is answered right in a later sitting, it is checked once more this much later. */
+export const REVIEW_CHECK_DAYS = 3;
+/** Most problems in one review set. */
+export const REVIEW_SET_MAX = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const ANSWERS: Record<string, (a: number, b: number) => number> = {
+  "+": (a, b) => a + b,
+  "-": (a, b) => a - b,
+  "×": (a, b) => a * b,
+  "÷": (a, b) => a / b,
+};
+
+export type ReviewAttempt = {
+  operandA: number;
+  operandB: number;
+  operation: string;
+  isCorrect: boolean;
+  createdAt: Date;
+};
+
+export type ReviewItem = {
+  problem: Problem;
+  misses: number;
+  lastMissedAt: Date;
+  /** When the problem is (or was) next due. */
+  dueAt: Date;
+};
+
+export type ReviewSchedule = {
+  /** Due now: most-missed first, then most recently missed. */
+  due: ReviewItem[];
+  /** Answered right since the miss, waiting for the later check, soonest first. */
+  waiting: ReviewItem[];
+};
+
+// 7 × 8 and 8 × 7 are the same fact, as in Weak Points.
+function factKey(a: number, b: number, operation: string) {
+  if (operation === "+" || operation === "×") {
+    const [low, high] = a <= b ? [a, b] : [b, a];
+    return `${low}${operation}${high}`;
+  }
+  return `${a}${operation}${b}`;
+}
+
+type Track = {
+  latest: ReviewAttempt;
+  misses: number;
+  lastMiss: ReviewAttempt;
+  /** missed: due now. checking: answered right in a later sitting, due again at dueAt. */
+  stage: "missed" | "checking" | "cleared";
+  dueAt: Date;
+};
+
+/**
+ * Works out which past misses are due for review. A miss is due straight away. Answering it
+ * right in a later sitting (RECALL_GAP_MS after the miss) moves it to a check
+ * REVIEW_CHECK_DAYS later, and answering it right at or after that clears it. Missing it
+ * again at any point puts it back to due.
+ */
+export function buildReviewSchedule(attempts: ReviewAttempt[], now: Date): ReviewSchedule {
+  const sorted = [...attempts].sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime());
+  const tracks = new Map<string, Track>();
+
+  for (const attempt of sorted) {
+    // Only problems the trainer can ask again: a known operation with a whole-number answer.
+    const answer = ANSWERS[attempt.operation]?.(attempt.operandA, attempt.operandB);
+    if (answer === undefined || !Number.isInteger(answer)) continue;
+    const key = factKey(attempt.operandA, attempt.operandB, attempt.operation);
+    const track = tracks.get(key);
+
+    if (!attempt.isCorrect) {
+      tracks.set(key, {
+        latest: attempt,
+        misses: (track?.misses ?? 0) + 1,
+        lastMiss: attempt,
+        stage: "missed",
+        dueAt: attempt.createdAt,
+      });
+      continue;
+    }
+    // A right answer only matters for a problem that has been missed.
+    if (!track) continue;
+    track.latest = attempt;
+    const sinceMiss = attempt.createdAt.getTime() - track.lastMiss.createdAt.getTime();
+    if (track.stage === "missed" && sinceMiss >= RECALL_GAP_MS) {
+      track.stage = "checking";
+      track.dueAt = new Date(attempt.createdAt.getTime() + REVIEW_CHECK_DAYS * DAY_MS);
+    } else if (track.stage === "checking" && attempt.createdAt >= track.dueAt) {
+      track.stage = "cleared";
+    }
+  }
+
+  const due: ReviewItem[] = [];
+  const waiting: ReviewItem[] = [];
+  for (const track of tracks.values()) {
+    if (track.stage === "cleared") continue;
+    const { latest } = track;
+    const item: ReviewItem = {
+      // The way round it was last asked.
+      problem: {
+        a: latest.operandA,
+        b: latest.operandB,
+        operation: latest.operation as Operation,
+        answer: ANSWERS[latest.operation](latest.operandA, latest.operandB),
+      },
+      misses: track.misses,
+      lastMissedAt: track.lastMiss.createdAt,
+      dueAt: track.dueAt,
+    };
+    if (track.stage === "missed" || track.dueAt <= now) due.push(item);
+    else waiting.push(item);
+  }
+
+  due.sort((x, y) => y.misses - x.misses || y.lastMissedAt.getTime() - x.lastMissedAt.getTime());
+  waiting.sort((x, y) => x.dueAt.getTime() - y.dueAt.getTime());
+  return { due, waiting };
+}

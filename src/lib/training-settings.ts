@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRACTICE_SET_SIZES } from "./practice-set";
 
 export const DEFAULT_TIMED_TRAINING_SETTINGS = {
   gameMode: "timed",
@@ -8,7 +9,8 @@ export const DEFAULT_TIMED_TRAINING_SETTINGS = {
 
 export const GUEST_TRAINING_SETTINGS_KEY = "thetamac-guest-training-settings-v1";
 export const TIMED_MODE_LIMITS = [60, 120, 180, 300];
-export const PRACTICE_TIMER_OPTIONS = [5, 8, 10, 12, 15, 20, 30];
+// 0 turns the Practice question timer off (the default).
+export const PRACTICE_TIMER_OPTIONS = [0, 5, 8, 10, 12, 15, 20, 30];
 
 const operation = z.enum(["+", "-", "×", "÷"]);
 const range = z.object({
@@ -23,6 +25,9 @@ const guestTrainingSettingsSchema = z.object({
     .refine((values) => new Set(values).size === values.length),
   timedModeLimit: z.number().refine((value) => TIMED_MODE_LIMITS.includes(value)),
   practiceTimerLimit: z.number().refine((value) => PRACTICE_TIMER_OPTIONS.includes(value)),
+  // Optional so settings saved before Practice sets existed still restore.
+  practiceSetSize: z.number().refine((value) => (PRACTICE_SET_SIZES as readonly number[]).includes(value))
+    .optional(),
   submitMode: z.enum(["manual", "auto"]),
   showAdvanced: z.boolean(),
   customRangesTouched: z.boolean(),

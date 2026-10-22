@@ -7,15 +7,15 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-background/65">
-      {/* Header */}
-      <header className="sticky top-0 z-40 px-3 pt-3">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 rounded-full border border-border bg-card/90 px-3 backdrop-blur-xl sm:px-5">
-          <Link href="/" className="flex min-w-0 items-center gap-2 font-semibold">
-            <LogoMark size={26} />
-            <span className="tracking-[-0.03em]">thetamac</span>
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header: the same full-width bar as the app, after Kurb's site header. */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
+          <Link href="/" className="flex min-w-0 items-center gap-2">
+            <LogoMark size={26} textured={false} />
+            <span className="text-[17px] font-semibold tracking-[-0.03em]">thetamac</span>
           </Link>
-          <nav className="flex shrink-0 items-center gap-3 text-sm sm:gap-4">
+          <nav className="flex shrink-0 items-center gap-4 text-[15px] font-medium sm:gap-7">
             <Link
               href="/about"
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -36,7 +36,7 @@ export default function MarketingLayout({
             </Link>
             <Link
               href="/"
-              className="hidden rounded-full bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-brand hover:text-brand-foreground sm:inline-flex"
+              className="hidden rounded-full border border-border px-4 py-2 text-foreground transition-colors hover:bg-secondary sm:inline-flex"
             >
               Start Training
             </Link>
@@ -48,7 +48,7 @@ export default function MarketingLayout({
       <main className="flex-1">{children}</main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card/70 py-10">
+      <footer className="border-t border-border py-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} thetamac</p>
           <nav className="flex flex-wrap justify-center gap-x-4 gap-y-2">
