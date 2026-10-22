@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { MetricTile, SectionLabel } from "@/components/ui/visual-system";
 import { cn } from "@/lib/utils";
-import type { GameMode, MathTip, Problem, SubmitMode } from "@/components/training/training-types";
+import type { GameMode, MathTip, PracticeProgress, Problem, SubmitMode } from "@/components/training/training-types";
 import {
   ArrowRight,
   Eye,
@@ -38,6 +38,9 @@ export function TrainingRun({
   avgTimeSeconds,
   timeLeft,
   practiceTimerLimit,
+  practiceProgress,
+  practiceMissed,
+  onRevealAnswer,
   overallTimeLeft,
   timedModeLimit,
   formatTime,
@@ -73,6 +76,9 @@ export function TrainingRun({
   avgTimeSeconds: number;
   timeLeft: number;
   practiceTimerLimit: number;
+  practiceProgress: PracticeProgress | null;
+  practiceMissed: boolean;
+  onRevealAnswer: () => void;
   overallTimeLeft: number;
   timedModeLimit: number;
   formatTime: (seconds: number) => string;
@@ -92,7 +98,10 @@ export function TrainingRun({
   onNextProblem: () => void;
 }) {
   const metricClass = "pt-2 sm:pt-3 [&>div]:mt-1 [&>div]:text-xl sm:[&>div]:mt-2 sm:[&>div]:text-3xl";
-  const metricCount = 1 + Number(gameMode !== "timed") + Number(submitMode === "manual") + Number(gameMode !== "learning");
+  const isPractice = gameMode === "practice";
+  const metricCount = isPractice
+    ? 3
+    : 1 + Number(gameMode !== "timed") + Number(submitMode === "manual") + Number(gameMode !== "learning");
   // Fade the problem in only when it changes. The card remounts on every answer (to replay
   // the correct/wrong feedback), so a mount animation would also replay on the old problem.
   const [problemScope, animateProblem] = useAnimate<HTMLDivElement>();
@@ -121,13 +130,20 @@ export function TrainingRun({
             <span className="font-semibold text-foreground">
               {gameMode === "learning" ? "Learning" : gameMode === "timed" ? "Timed" : "Practice"}
             </span>
-            {" · "}
-            {!showAdvanced ? (
-              <span className={difficultyBadgeClassName}>{difficultyLabel}</span>
+            {/* On phones the coming-back count replaces the difficulty, so it isn't truncated. */}
+            <span className={cn(isPractice && (practiceProgress?.waiting ?? 0) > 0 && "hidden sm:inline")}>
+              {" · "}
+              {!showAdvanced ? (
+                <span className={difficultyBadgeClassName}>{difficultyLabel}</span>
+              ) : (
+                "Custom ranges"
+              )}
+            </span>
+            {isPractice && practiceProgress && practiceProgress.waiting > 0 ? (
+              <span> · {practiceProgress.waiting} coming back</span>
             ) : (
-              "Custom ranges"
+              submitMode === "auto" && <span className="hidden sm:inline"> · Auto-submit</span>
             )}
-            {submitMode === "auto" && <span className="hidden sm:inline"> · Auto-submit</span>}
           </p>
 
           <div className="flex shrink-0 items-center gap-2">
@@ -136,16 +152,40 @@ export function TrainingRun({
                 {showTip ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
                 {showTip ? "Hide tips" : "Show tips"}
               </Button>
+            ) : isPractice ? (
+              <>
+                {practiceTimerLimit > 0 && (
+                  <div
+                    role="timer"
+                    aria-label="Time left for this problem"
+                    className={cn(
+                      "min-w-[3.5rem] rounded-full bg-secondary px-3 py-1.5 text-center text-[19px] font-semibold tabular-nums tracking-tight",
+                      !practiceMissed && timeLeft <= 3 && "bg-destructive/10 text-destructive",
+                    )}
+                  >
+                    {practiceMissed ? "–" : `${timeLeft}s`}
+                  </div>
+                )}
+                {practiceProgress && (
+                  <div
+                    aria-label={`${practiceProgress.cleared} of ${practiceProgress.size} done`}
+                    className="rounded-full bg-secondary px-4 py-1.5 text-center text-[19px] font-semibold tabular-nums tracking-tight"
+                  >
+                    {practiceProgress.cleared}
+                    <span className="text-muted-foreground">/{practiceProgress.size}</span>
+                  </div>
+                )}
+              </>
             ) : (
               <div
                 role="timer"
                 aria-label="Time left"
                 className={cn(
                   "min-w-[4.5rem] rounded-full bg-secondary px-4 py-1.5 text-center text-[19px] font-semibold tabular-nums tracking-tight",
-                  gameMode === "timed" && overallTimeLeft <= 10 && "bg-destructive/10 text-destructive",
+                  overallTimeLeft <= 10 && "bg-destructive/10 text-destructive",
                 )}
               >
-                {gameMode === "practice" ? `${timeLeft}s` : formatTime(overallTimeLeft)}
+                {formatTime(overallTimeLeft)}
               </div>
             )}
             {/* Stop fills with ink on hover (it ends the run) and its square tightens on press. */}
@@ -164,8 +204,8 @@ export function TrainingRun({
           </div>
         </div>
 
-        {gameMode === "practice" ? (
-          <Progress value={(timeLeft / practiceTimerLimit) * 100} className="mt-3 h-1" />
+        {isPractice ? (
+          <Progress value={practiceProgress ? (practiceProgress.cleared / practiceProgress.size) * 100 : 0} className="mt-3 h-1" />
         ) : gameMode === "timed" ? (
           <Progress value={(overallTimeLeft / timedModeLimit) * 100} className="mt-3 h-1" />
         ) : null}
@@ -223,6 +263,9 @@ export function TrainingRun({
         <CardContent className="p-3 sm:p-12">
           {problem && (
             <div className="text-center">
+              {isPractice && practiceProgress?.isReturn && (
+                <p className="mb-3 text-[13px] font-medium text-muted-foreground sm:mb-5">Back again</p>
+              )}
               {/* A new problem lifts in fast enough to read straight away (this is a speed
                   drill); see the effect above. */}
               <div
@@ -266,10 +309,33 @@ export function TrainingRun({
                 )}
               </form>
 
-              {isCorrect === false && gameMode === "practice" && (
-                <p className="text-sm text-muted-foreground mt-4">
-                  Answer: <span className="font-mono font-medium text-foreground">{problem.answer}</span>
-                </p>
+              {/* A miss shows the answer and how to get it; typing it moves on. */}
+              {isPractice && practiceMissed && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={runEnter}
+                  className="mx-auto mt-4 max-w-sm rounded-2xl bg-background px-4 py-3 text-left sm:mt-6"
+                >
+                  <p className="text-[15px]">
+                    Answer <span className="font-mono font-semibold">{problem.answer}</span>
+                    <span className="text-muted-foreground"> · type it to continue</span>
+                  </p>
+                  {currentTip && (
+                    <>
+                      <p className="mt-1.5 text-sm leading-5 text-muted-foreground">
+                        <span className="font-medium text-foreground">{currentTip.title}.</span> {currentTip.technique}
+                      </p>
+                      {currentTip.steps.length > 1 && (
+                        <ol className="mt-2 space-y-1 font-mono text-[13px] leading-5 text-muted-foreground">
+                          {currentTip.steps.map((step, index) => (
+                            <li key={index}>{step}</li>
+                          ))}
+                        </ol>
+                      )}
+                    </>
+                  )}
+                </motion.div>
               )}
             </div>
           )}
@@ -345,11 +411,15 @@ export function TrainingRun({
           metricCount === 4 ? "grid-cols-4" : metricCount === 3 ? "grid-cols-3" : "grid-cols-2"
         }`}
       >
-        <MetricTile label="Solved" value={totalSolved} className={metricClass} />
+        {isPractice ? (
+          <MetricTile label="First try" value={practiceProgress?.firstTry ?? 0} className={metricClass} />
+        ) : (
+          <MetricTile label="Solved" value={totalSolved} className={metricClass} />
+        )}
 
         {gameMode !== "timed" && <MetricTile label="Streak" value={streak} className={metricClass} />}
 
-        {submitMode === "manual" && <MetricTile label="Accuracy" value={`${accuracy}%`} className={metricClass} />}
+        {!isPractice && submitMode === "manual" && <MetricTile label="Accuracy" value={`${accuracy}%`} className={metricClass} />}
 
         {gameMode !== "learning" && (
           <MetricTile label="Avg time" value={`${avgTimeSeconds > 0 ? avgTimeSeconds.toFixed(1) : "0"}s`} className={metricClass} />
@@ -358,10 +428,17 @@ export function TrainingRun({
 
       {/* Controls */}
       <div className="flex justify-center gap-3">
-        {!hasAnswered && gameMode !== "timed" && (
+        {!hasAnswered && gameMode === "learning" && (
           <Button variant="outline" onClick={onSkip} className="min-h-11">
             <RotateCcw className="w-4 h-4 mr-2" />
             Skip
+          </Button>
+        )}
+        {/* Not knowing it counts as a miss: the answer shows and the problem comes back. */}
+        {!hasAnswered && isPractice && !practiceMissed && (
+          <Button variant="outline" onClick={onRevealAnswer} className="min-h-11">
+            <Eye className="w-4 h-4 mr-2" />
+            Show answer
           </Button>
         )}
       </div>

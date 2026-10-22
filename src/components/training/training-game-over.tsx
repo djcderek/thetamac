@@ -6,7 +6,21 @@ import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { animate, motion, useReducedMotion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
-import type { DifficultySettings, ScoreDistribution } from "@/components/training/training-types";
+import type { DifficultySettings, Problem, ScoreDistribution } from "@/components/training/training-types";
+
+/** A Practice set's results: how many were right first time, and what to go over. */
+export type PracticeSummary = {
+  /** False when the player stopped before the set was done. */
+  complete: boolean;
+  size: number;
+  firstTry: number;
+  seconds: number | null;
+  misses: { problem: Problem; technique: string }[];
+};
+
+function formatDuration(seconds: number) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
@@ -22,6 +36,8 @@ export function TrainingGameOver({
   showBestStreakCard,
   onPlayAgain,
   onChangeSettings,
+  practice,
+  onRetryMisses,
   stoppedAt,
   runSeconds,
   scorePercentile,
@@ -38,6 +54,8 @@ export function TrainingGameOver({
   showBestStreakCard: boolean;
   onPlayAgain: () => void;
   onChangeSettings: () => void;
+  practice: PracticeSummary | null;
+  onRetryMisses: () => void;
   /** Time into the run when the player pressed Stop (e.g. "0:42"); null when it ran its course. */
   stoppedAt: string | null;
   /** How long the run lasted, for the pace row; null when there was no overall clock. */
@@ -59,6 +77,7 @@ export function TrainingGameOver({
 
   // Secondary stats read as receipt rows (Kurb's "Hourly rate · $10" detail list).
   const detailRows = [
+    practice?.seconds != null ? { label: "Time", value: formatDuration(practice.seconds) } : null,
     showAccuracyCard ? { label: "Accuracy", value: `${accuracy}%` } : null,
     runSeconds !== null && runSeconds >= 5
       ? { label: "Pace", value: `${Math.round((totalSolved / runSeconds) * 60)} per minute` }
@@ -78,13 +97,15 @@ export function TrainingGameOver({
       <div className="space-y-6">
         <div className="text-center">
           <p className="text-[15px] font-medium text-muted-foreground">
-            {stoppedAt ? `Stopped after ${stoppedAt}` : "Time\u2019s up"}
+            {stoppedAt ? `Stopped after ${stoppedAt}` : practice ? "Set complete" : "Time\u2019s up"}
           </p>
           <p className="mt-2 text-[88px] font-semibold leading-none tracking-[-0.05em] tabular-nums sm:text-[112px]">
-            <CountUp value={totalSolved} />
+            <CountUp value={practice ? practice.firstTry : totalSolved} />
           </p>
           <p className="mt-2 text-[17px] text-muted-foreground">
-            {totalSolved === 1 ? "problem solved" : "problems solved"}
+            {practice
+              ? practice.complete ? `of ${practice.size} right first time` : "right first time"
+              : totalSolved === 1 ? "problem solved" : "problems solved"}
           </p>
         </div>
 
@@ -103,14 +124,61 @@ export function TrainingGameOver({
           ))}
         </dl>
 
+        {/* Practice: what was missed, with the trick for each, ready to retry. */}
+        {practice && practice.misses.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...settleSpring, delay: 0.08 + detailRows.length * 0.05 }}
+            aria-labelledby="practice-review-heading"
+            className="space-y-2"
+          >
+            <h2 id="practice-review-heading" className="px-1 text-[13px] text-muted-foreground">
+              To go over · {practice.misses.length}
+            </h2>
+            <ul className="divide-y divide-border rounded-[22px] bg-secondary px-5">
+              {practice.misses.map(({ problem, technique }) => (
+                <li
+                  key={`${problem.a}${problem.operation}${problem.b}`}
+                  className="flex items-baseline justify-between gap-4 py-3 text-[15px]"
+                >
+                  <span className="shrink-0 font-mono font-semibold tabular-nums">
+                    {problem.a} {problem.operation} {problem.b} = {problem.answer}
+                  </span>
+                  <span className="min-w-0 truncate text-right text-muted-foreground">{technique}</span>
+                </li>
+              ))}
+            </ul>
+          </motion.section>
+        )}
+
         <div className="space-y-2">
-          <Button variant="brand" size="lg" onClick={onPlayAgain} className="h-14 w-full text-[17px]">
-            <RotateCcw aria-hidden="true" />
-            Play again
-          </Button>
-          <Button variant="secondary" size="lg" onClick={onChangeSettings} className="w-full">
-            Change settings
-          </Button>
+          {practice && practice.misses.length > 0 ? (
+            <>
+              <Button variant="brand" size="lg" onClick={onRetryMisses} className="h-14 w-full text-[17px]">
+                <RotateCcw aria-hidden="true" />
+                Retry {practice.misses.length === 1 ? "this one" : `these ${practice.misses.length}`}
+              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="secondary" size="lg" onClick={onPlayAgain} className="w-full">
+                  New set
+                </Button>
+                <Button variant="secondary" size="lg" onClick={onChangeSettings} className="w-full">
+                  Change settings
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Button variant="brand" size="lg" onClick={onPlayAgain} className="h-14 w-full text-[17px]">
+                <RotateCcw aria-hidden="true" />
+                {practice ? "New set" : "Play again"}
+              </Button>
+              <Button variant="secondary" size="lg" onClick={onChangeSettings} className="w-full">
+                Change settings
+              </Button>
+            </>
+          )}
         </div>
 
         {scorePercentile && (

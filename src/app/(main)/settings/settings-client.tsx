@@ -41,7 +41,7 @@ interface SettingToggleProps {
 type SettingsState = {
   autoAdvance: boolean;
   defaultDifficulty: "Easy" | "Medium" | "Hard" | "Expert";
-  defaultTimer: "5s" | "8s" | "10s" | "12s" | "15s" | "20s" | "30s";
+  defaultTimer: "off" | "5s" | "8s" | "10s" | "12s" | "15s" | "20s" | "30s";
 };
 
 const DIFFICULTY_OPTIONS: SettingsState["defaultDifficulty"][] = [
@@ -51,6 +51,7 @@ const DIFFICULTY_OPTIONS: SettingsState["defaultDifficulty"][] = [
   "Expert",
 ];
 const PRACTICE_TIMER_OPTIONS: SettingsState["defaultTimer"][] = [
+  "off",
   "5s",
   "8s",
   "10s",
@@ -216,7 +217,7 @@ export function SettingsClient() {
   const [settings, setSettings] = useState<SettingsState>({
     autoAdvance: true,
     defaultDifficulty: "Medium",
-    defaultTimer: "10s"
+    defaultTimer: "off"
   });
   const settingsRef = useRef(settings);
 
@@ -825,7 +826,7 @@ export function SettingsClient() {
               <div>
                 <p id="practice-timer-label" className="text-sm font-medium mb-1 block">Practice question timer</p>
                 <p id="practice-timer-help" className="mb-2 text-xs text-muted-foreground">
-                  Time allowed for each problem in Practice mode.
+                  Time allowed for each problem in Practice mode. Off lets you take as long as you need.
                 </p>
                 <div
                   role="group"

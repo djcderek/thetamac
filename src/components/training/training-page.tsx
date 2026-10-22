@@ -17,6 +17,14 @@ import {
   type GuestTrainingSettings,
 } from "@/lib/training-settings";
 import { getTrainingPreset } from "@/lib/training-presets";
+import {
+  DEFAULT_PRACTICE_SET_SIZE,
+  PRACTICE_SET_SIZES,
+  createPracticeSet,
+  drawPracticeProblem,
+  resolvePracticeProblem,
+  type PracticeSetState,
+} from "@/lib/practice-set";
 import { ANALYTICS_EVENTS, type AnalyticsProperties } from "@/lib/analytics";
 import {
   captureAnalyticsEvent,
@@ -31,6 +39,7 @@ import type {
   MathTip,
   Operation,
   OperationRanges,
+  PracticeProgress,
   Problem,
   ScoreBucket,
   ScoreDistribution,
@@ -111,6 +120,18 @@ function getPresetRanges(difficulty: Difficulty): OperationRanges {
 
 const timedModeLimits = TIMED_MODE_LIMITS;
 const practiceTimerOptions = PRACTICE_TIMER_OPTIONS;
+const practiceSetSizes = [...PRACTICE_SET_SIZES];
+
+function getPracticeProgress(state: PracticeSetState): PracticeProgress {
+  return {
+    size: state.size,
+    cleared: state.cleared,
+    firstTry: state.firstTry,
+    waiting: state.waiting.length,
+    isReturn: (state.current?.returns ?? 0) > 0,
+    missed: state.missed,
+  };
+}
 
 // ============================================
 // MENTAL MATH TIPS SYSTEM
@@ -721,7 +742,9 @@ export default function TrainingPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [gameMode, setGameMode] = useState<GameMode>("timed");
   const [timedModeLimit, setTimedModeLimit] = useState(120);
-  const [practiceTimerLimit, setPracticeTimerLimit] = useState(10);
+  // 0 is off: Practice is about getting problems right, so it has no clock unless asked for.
+  const [practiceTimerLimit, setPracticeTimerLimit] = useState(0);
+  const [practiceSetSize, setPracticeSetSize] = useState(DEFAULT_PRACTICE_SET_SIZE);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [returningAccount, setReturningAccount] = useState(false);
@@ -765,6 +788,17 @@ export default function TrainingPage() {
   // Latest session ID for the unmount/pagehide save, which runs outside render.
   const sessionIdRef = useRef<string | null>(null);
   const [scorePercentile, setScorePercentile] = useState<ScoreDistribution | null>(null);
+
+  // Practice set state. The set lives in a ref so answer handlers always see the latest
+  // draw; the progress copy is what renders.
+  const practiceSetRef = useRef<PracticeSetState | null>(null);
+  const [practiceProgress, setPracticeProgress] = useState<PracticeProgress | null>(null);
+  // The problem on screen has been missed (wrong answer, time out or Show answer): its answer
+  // and technique show, and it comes back later in the set.
+  const practiceMissedRef = useRef<Problem | null>(null);
+  const [practiceMissed, setPracticeMissed] = useState(false);
+  // How long a Practice set took, for the results screen.
+  const [practiceSeconds, setPracticeSeconds] = useState<number | null>(null);
 
   // Learning mode state
   const [showTip, setShowTip] = useState(true);
@@ -815,6 +849,7 @@ export default function TrainingPage() {
       setSelectedOperations(saved.selectedOperations);
       setTimedModeLimit(saved.timedModeLimit);
       setPracticeTimerLimit(saved.practiceTimerLimit);
+      setPracticeSetSize(saved.practiceSetSize ?? DEFAULT_PRACTICE_SET_SIZE);
       setSubmitMode(saved.submitMode);
       setShowAdvanced(saved.showAdvanced);
       setCustomRangesTouched(saved.customRangesTouched);
@@ -842,13 +877,13 @@ export default function TrainingPage() {
     try {
       writeGuestTrainingSettings(window.localStorage, {
         gameMode, difficulty, selectedOperations, timedModeLimit, practiceTimerLimit,
-        submitMode, showAdvanced, customRangesTouched, operationRanges, selectedSkill,
+        practiceSetSize, submitMode, showAdvanced, customRangesTouched, operationRanges, selectedSkill,
       });
     } catch {
       // Training still works when browser storage is unavailable.
     }
   }, [preferencesReady, authStatus, gameMode, difficulty, selectedOperations,
-    timedModeLimit, practiceTimerLimit, submitMode, showAdvanced,
+    timedModeLimit, practiceTimerLimit, practiceSetSize, submitMode, showAdvanced,
     customRangesTouched, operationRanges, selectedSkill]);
 
   // Desktop: start each run and its results at the top. The hero collapses when a run starts,
@@ -901,7 +936,8 @@ export default function TrainingPage() {
 
           // Presets intentionally override difficulty and timer defaults.
           if (!activePreset && !restoredGuestSettingsRef.current && data.settings?.defaultTimer) {
-            const timerValue = parseInt(data.settings.defaultTimer.replace("s", ""));
+            const timerValue =
+              data.settings.defaultTimer === "off" ? 0 : parseInt(data.settings.defaultTimer.replace("s", ""));
             if (!isNaN(timerValue) && practiceTimerOptions.includes(timerValue)) {
               setPracticeTimerLimit(timerValue);
             }
@@ -978,13 +1014,34 @@ export default function TrainingPage() {
       }
     }
 
-    const nextOperation = getNextOperation();
-    const newProblem = generateProblem(nextOperation, difficulty, showAdvanced, operationRanges);
+    let newProblem: Problem;
+    if (gameMode === "practice" && practiceSetRef.current) {
+      const drawn = drawPracticeProblem(practiceSetRef.current, () =>
+        generateProblem(getNextOperation(), difficulty, showAdvanced, operationRanges),
+      );
+      practiceMissedRef.current = null;
+      setPracticeMissed(false);
+      if (!drawn) {
+        // Every problem in the set is done: show the results (the game-over effect saves it).
+        setPracticeSeconds(Math.round((Date.now() - sessionStartTimeRef.current) / 1000));
+        setIsPlaying(false);
+        setProblem(null);
+        setHasAnswered(false);
+        setIsGameOver(true);
+        return;
+      }
+      practiceSetRef.current = drawn.state;
+      setPracticeProgress(getPracticeProgress(drawn.state));
+      // A fresh object even for a problem coming back: the scoring guards compare by identity.
+      newProblem = { ...drawn.card.problem };
+    } else {
+      newProblem = generateProblem(getNextOperation(), difficulty, showAdvanced, operationRanges);
+    }
     setProblem(newProblem);
     setUserAnswer("");
     setIsCorrect(null);
     setHasAnswered(false);
-    if (gameMode === "practice") {
+    if (gameMode === "practice" && practiceTimerLimit > 0) {
       questionDeadlineRef.current = Date.now() + practiceTimerLimit * 1000;
       setTimeLeft(practiceTimerLimit);
     }
@@ -1046,6 +1103,7 @@ export default function TrainingPage() {
     operations: selectedOperations,
     timed_mode_limit: timedModeLimit,
     practice_timer_limit: practiceTimerLimit,
+    practice_set_size: gameMode === "practice" ? practiceSetSize : undefined,
     auto_advance: autoAdvance,
     submit_mode: submitMode,
     show_advanced: showAdvanced,
@@ -1059,6 +1117,7 @@ export default function TrainingPage() {
     selectedOperations,
     timedModeLimit,
     practiceTimerLimit,
+    practiceSetSize,
     autoAdvance,
     submitMode,
     showAdvanced,
@@ -1144,7 +1203,8 @@ export default function TrainingPage() {
     );
   }, [getTrainingTelemetryProperties]);
 
-  const startTraining = async () => {
+  // `retryProblems` starts a Practice set made of an earlier set's misses.
+  const startTraining = async (retryProblems?: Problem[]) => {
     if (!preferencesReady) return;
     if (!authSession?.user) {
       await ensureGuestCookie();
@@ -1187,6 +1247,7 @@ export default function TrainingPage() {
     const startProperties = {
       ...getTrainingTelemetryProperties(),
       training_run_id: trainingRunId,
+      practice_retry: retryProblems ? true : undefined,
     };
     trainingTelemetryRef.current = startProperties;
     registerAnalyticsSessionProperties({
@@ -1200,6 +1261,10 @@ export default function TrainingPage() {
       timedDeadlineRef.current = Date.now() + timedModeLimit * 1000;
       setOverallTimeLeft(timedModeLimit);
     }
+    practiceSetRef.current =
+      gameMode === "practice" ? createPracticeSet(practiceSetSize, retryProblems ?? []) : null;
+    setPracticeProgress(practiceSetRef.current ? getPracticeProgress(practiceSetRef.current) : null);
+    setPracticeSeconds(null);
 
     // Create session in database if user is logged in. Clear the previous run's ID first:
     // "Play again" during a slow save left it set, so the new run's first answers were
@@ -1328,7 +1393,7 @@ export default function TrainingPage() {
     bestStreak: number,
     avgTimeVal: number,
     outcome: "completed" | "abandoned" = "completed",
-    endReason: "timer_finished" | "manual_stop" | "error" = "timer_finished"
+    endReason: "timer_finished" | "set_finished" | "manual_stop" | "error" = "timer_finished"
   ) => {
     if (!completionTrackedRef.current) {
       completionTrackedRef.current = true;
@@ -1470,7 +1535,9 @@ export default function TrainingPage() {
       void stopTraining();
       return;
     }
-    setStoppedAfterSeconds(Math.round((Date.now() - sessionStartTimeRef.current) / 1000));
+    const elapsed = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
+    setStoppedAfterSeconds(elapsed);
+    if (gameMode === "practice") setPracticeSeconds(elapsed);
     setIsPlaying(false);
     setProblem(null);
     setHasAnswered(false);
@@ -1507,6 +1574,72 @@ export default function TrainingPage() {
     setHasAnswered(false);
   };
 
+  // Practice: a miss shows the answer and its technique, and the player types the answer to
+  // move on. The problem is recorded once as wrong and comes back later in the set.
+  const missPracticeProblem = useCallback(
+    (missedProblem: Problem, answerNum: number | null, timeTaken: number) => {
+      if (scoredProblemRef.current === missedProblem) return;
+      setUserAnswer("");
+      setIsCorrect(false);
+      setFeedbackKey((k) => k + 1);
+      // Shake, then settle: the revealed answer carries the miss from here.
+      setTimeout(() => setIsCorrect((current) => (current === false ? null : current)), 400);
+      if (practiceMissedRef.current === missedProblem) return;
+      practiceMissedRef.current = missedProblem;
+      setPracticeMissed(true);
+      setStreak(0);
+      recordAttempt(missedProblem, answerNum, false, timeTaken);
+    },
+    [recordAttempt]
+  );
+
+  const completePracticeProblem = useCallback(
+    (doneProblem: Problem, timeTaken: number) => {
+      const state = practiceSetRef.current;
+      if (!state || scoredProblemRef.current === doneProblem) return;
+      scoredProblemRef.current = doneProblem;
+      const missed = practiceMissedRef.current === doneProblem;
+      practiceSetRef.current = resolvePracticeProblem(state, missed);
+      setPracticeProgress(getPracticeProgress(practiceSetRef.current));
+      setTotalSolved((prev) => prev + 1);
+
+      // Typing the answer after it was shown clears the problem for now, but only a clean
+      // answer counts as correct (or reaches Weak Points as one).
+      if (!missed) {
+        recordAttempt(doneProblem, doneProblem.answer, true, timeTaken);
+        setTotalCorrect((prev) => prev + 1);
+        setStreak((prev) => {
+          const newStreak = prev + 1;
+          if (newStreak > bestStreakRef.current) {
+            bestStreakRef.current = newStreak;
+          }
+          return newStreak;
+        });
+        setTimes((prev) => {
+          const newTimes = [...prev, timeTaken];
+          setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
+          return newTimes;
+        });
+      }
+
+      if (missed || autoAdvance) {
+        setCorrectFlashKey((k) => k + 1);
+        startNewProblem();
+      } else {
+        setIsCorrect(true);
+        setFeedbackKey((k) => k + 1);
+        setHasAnswered(true);
+      }
+    },
+    [autoAdvance, recordAttempt, startNewProblem]
+  );
+
+  const revealPracticeAnswer = () => {
+    if (!problem || !isPlaying || hasAnswered) return;
+    missPracticeProblem(problem, null, (Date.now() - startTime) / 1000);
+    inputRef.current?.focus();
+  };
+
   const submitCurrentAnswer = () => {
     if (!problem || !isPlaying || hasAnswered) return;
 
@@ -1514,6 +1647,13 @@ export default function TrainingPage() {
     if (isNaN(answerNum)) return;
     const correct = answerNum === problem.answer;
     trackFirstAnswer();
+
+    if (gameMode === "practice") {
+      const timeTaken = (Date.now() - startTime) / 1000;
+      if (correct) completePracticeProblem(problem, timeTaken);
+      else missPracticeProblem(problem, answerNum, timeTaken);
+      return;
+    }
 
     // In auto-submit mode, correct answers are handled by the effect
     // Incorrect answers just clear the input (no tracking)
@@ -1600,40 +1740,6 @@ export default function TrainingPage() {
         setUserAnswer("");
         setTimeout(() => setIsCorrect(null), 300);
       }
-    } else {
-      // Practice mode: original behavior
-      setIsCorrect(correct);
-      setFeedbackKey((k) => k + 1);
-      setTotalSolved((prev) => prev + 1);
-
-      // Record attempt to database
-      recordAttempt(problem, answerNum, correct, timeTaken);
-
-      if (correct) {
-        setTotalCorrect((prev) => prev + 1);
-        setStreak((prev) => {
-          const newStreak = prev + 1;
-          if (newStreak > bestStreakRef.current) {
-            bestStreakRef.current = newStreak;
-          }
-          return newStreak;
-        });
-        setTimes((prev) => {
-          const newTimes = [...prev, timeTaken];
-          setAvgTime(newTimes.reduce((a, b) => a + b, 0) / newTimes.length);
-          return newTimes;
-        });
-      } else {
-        setStreak(0);
-      }
-
-      if (autoAdvance) {
-        setTimeout(() => {
-          startNewProblem();
-        }, 600);
-      } else {
-        setHasAnswered(true);
-      }
     }
   };
 
@@ -1642,9 +1748,11 @@ export default function TrainingPage() {
     submitCurrentAnswer();
   };
 
-  // Practice mode per-question timer
+  // Practice mode per-question timer (when on). Running out counts as a miss: the answer
+  // shows and the clock stops until the player types it.
   useEffect(() => {
-    if (!isPlaying || gameMode !== "practice" || hasAnswered || !problem) return;
+    if (!isPlaying || gameMode !== "practice" || practiceTimerLimit === 0) return;
+    if (hasAnswered || practiceMissed || !problem) return;
 
     const tick = () => {
       const remaining = Math.ceil((questionDeadlineRef.current - Date.now()) / 1000);
@@ -1654,29 +1762,12 @@ export default function TrainingPage() {
       }
       window.clearInterval(timer);
       setTimeLeft(0);
-      // The answer landed just before the timeout; don't also count it as wrong.
-      if (scoredProblemRef.current === problem) return;
-      scoredProblemRef.current = problem;
-      setIsCorrect(false);
-      setStreak(0);
-      setTotalSolved((p) => p + 1);
-
-      // Record timeout as incorrect attempt, unless a wrong entry was already recorded
-      if (mistakeRecordedProblemRef.current !== problem) {
-        recordAttempt(problem, null, false, practiceTimerLimit);
-      }
-
-      if (autoAdvance) {
-        setTimeout(() => startNewProblem(), 600);
-      } else {
-        setHasAnswered(true);
-      }
+      missPracticeProblem(problem, null, practiceTimerLimit);
     };
 
     const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying, gameMode, startNewProblem, problem, autoAdvance, hasAnswered]);
+  }, [isPlaying, gameMode, practiceTimerLimit, problem, hasAnswered, practiceMissed, missPracticeProblem]);
 
   // Timed mode overall timer
   useEffect(() => {
@@ -1708,7 +1799,7 @@ export default function TrainingPage() {
         bestStreakRef.current,
         avgTime,
         stopped ? "abandoned" : "completed",
-        stopped ? "manual_stop" : "timer_finished",
+        stopped ? "manual_stop" : gameMode === "practice" ? "set_finished" : "timer_finished",
       );
     } else if (isGameOver && activeRunRef.current && !completionTrackedRef.current) {
       completionTrackedRef.current = true;
@@ -1731,6 +1822,17 @@ export default function TrainingPage() {
     if (scoredProblemRef.current === problem) return;
 
     const answerNum = parseInt(userAnswer);
+    if (gameMode === "practice") {
+      const timeTaken = (Date.now() - startTime) / 1000;
+      if (!isNaN(answerNum) && answerNum === problem.answer) {
+        trackFirstAnswer();
+        completePracticeProblem(problem, timeTaken);
+      } else if (!isNaN(answerNum) && userAnswer.length >= String(problem.answer).length) {
+        trackFirstAnswer();
+        missPracticeProblem(problem, answerNum, timeTaken);
+      }
+      return;
+    }
     if (!isNaN(answerNum) && answerNum === problem.answer) {
       // Correct answer typed - auto submit
       scoredProblemRef.current = problem;
@@ -1773,6 +1875,8 @@ export default function TrainingPage() {
     }
   }, [
     recordAutoSubmitMistake,
+    completePracticeProblem,
+    missPracticeProblem,
     userAnswer,
     problem,
     isPlaying,
@@ -1845,12 +1949,23 @@ export default function TrainingPage() {
               accuracy={accuracy}
               avgTimeSeconds={avgTime}
               bestStreak={bestStreakRef.current}
-              showAccuracyCard={submitMode === "manual"}
+              showAccuracyCard={submitMode === "manual" && gameMode !== "practice"}
               showBestStreakCard={gameMode !== "timed"}
-              onPlayAgain={startTraining}
+              onPlayAgain={() => startTraining()}
               onChangeSettings={stopTraining}
+              practice={gameMode === "practice" && practiceProgress ? {
+                complete: stoppedAfterSeconds === null,
+                size: practiceProgress.size,
+                firstTry: practiceProgress.firstTry,
+                seconds: practiceSeconds,
+                misses: practiceProgress.missed.map((missed) => ({
+                  problem: missed,
+                  technique: getTipForProblem(missed).title,
+                })),
+              } : null}
+              onRetryMisses={() => startTraining(shuffleArray(practiceProgress?.missed ?? []))}
               stoppedAt={stoppedAfterSeconds === null ? null : formatTime(stoppedAfterSeconds)}
-              runSeconds={stoppedAfterSeconds ?? (gameMode === "timed" ? timedModeLimit : null)}
+              runSeconds={gameMode === "practice" ? null : stoppedAfterSeconds ?? (gameMode === "timed" ? timedModeLimit : null)}
               scorePercentile={scorePercentile}
               showAuthCallout={!authSession?.user}
               trainingRunId={trainingRunIdRef.current}
@@ -1888,10 +2003,13 @@ export default function TrainingPage() {
               practiceTimerOptions={practiceTimerOptions}
               practiceTimerLimit={practiceTimerLimit}
               setPracticeTimerLimit={setPracticeTimerLimit}
+              practiceSetSizes={practiceSetSizes}
+              practiceSetSize={practiceSetSize}
+              setPracticeSetSize={setPracticeSetSize}
               submitMode={submitMode}
               setSubmitMode={setSubmitMode}
               formatTime={formatTime}
-              startTraining={startTraining}
+              startTraining={() => startTraining()}
               preferencesReady={preferencesReady}
             />
             </motion.div>
@@ -1915,6 +2033,9 @@ export default function TrainingPage() {
               avgTimeSeconds={avgTime}
               timeLeft={timeLeft}
               practiceTimerLimit={practiceTimerLimit}
+              practiceProgress={gameMode === "practice" ? practiceProgress : null}
+              practiceMissed={practiceMissed}
+              onRevealAnswer={revealPracticeAnswer}
               overallTimeLeft={overallTimeLeft}
               timedModeLimit={timedModeLimit}
               formatTime={formatTime}

@@ -26,6 +26,18 @@ export interface Problem {
   answer: number;
 }
 
+/** What the run and results screens show of a Practice set. */
+export type PracticeProgress = {
+  size: number;
+  cleared: number;
+  firstTry: number;
+  /** Missed problems still to come back. */
+  waiting: number;
+  /** The current problem is one coming back after a miss. */
+  isReturn: boolean;
+  missed: Problem[];
+};
+
 export interface OperationRange {
   min: number;
   max: number;

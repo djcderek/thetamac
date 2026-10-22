@@ -47,7 +47,7 @@ function modeDescription(mode: GameMode) {
     case "timed":
       return "Go for volume. Your best single session counts for leaderboards (default settings).";
     case "practice":
-      return "Per-question timer. Great for building consistency without the session pressure.";
+      return "Work through a set. Anything you miss comes back a few problems later, with the trick for it, until you get it.";
     case "learning":
       return "Slower pace with step-by-step explanations after you answer.";
   }
@@ -116,6 +116,9 @@ export function TrainingSetup({
   practiceTimerOptions,
   practiceTimerLimit,
   setPracticeTimerLimit,
+  practiceSetSizes,
+  practiceSetSize,
+  setPracticeSetSize,
   submitMode,
   setSubmitMode,
   formatTime,
@@ -145,6 +148,9 @@ export function TrainingSetup({
   practiceTimerOptions: number[];
   practiceTimerLimit: number;
   setPracticeTimerLimit: (t: number) => void;
+  practiceSetSizes: number[];
+  practiceSetSize: number;
+  setPracticeSetSize: (size: number) => void;
   submitMode: SubmitMode;
   setSubmitMode: (m: SubmitMode) => void;
   formatTime: (seconds: number) => string;
@@ -211,7 +217,7 @@ export function TrainingSetup({
                   {gameMode === "timed"
                     ? formatTime(timedModeLimit)
                     : gameMode === "practice"
-                      ? `${practiceTimerLimit}s per problem`
+                      ? `${practiceSetSize} problems${practiceTimerLimit > 0 ? ` · ${practiceTimerLimit}s each` : ""}`
                       : "No timer"}
                   {" · "}
                   {selectedOpsLabel}
@@ -509,8 +515,28 @@ export function TrainingSetup({
 
             {gameMode === "practice" && (
               <div className="space-y-2 border-t border-border pt-5">
+                <div className="text-sm font-medium">Problems per set</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {practiceSetSizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setPracticeSetSize(size)}
+                      aria-pressed={practiceSetSize === size}
+                      className={tileClass(practiceSetSize === size, "py-2 text-center text-sm tabular-nums", { slidingPill: true })}
+                    >
+                      {practiceSetSize === size && <SelectionPill group="setup-set-length" />}
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {gameMode === "practice" && (
+              <div className="space-y-2 border-t border-border pt-5">
                 <div className="text-sm font-medium">Time per question</div>
-                <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
                   {practiceTimerOptions.map((time) => (
                     <button
                       key={time}
@@ -520,7 +546,7 @@ export function TrainingSetup({
                       className={tileClass(practiceTimerLimit === time, "py-2 text-center font-mono text-sm", { slidingPill: true })}
                     >
                       {practiceTimerLimit === time && <SelectionPill group="setup-question-timer" />}
-                      {time}s
+                      {time === 0 ? "Off" : `${time}s`}
                     </button>
                   ))}
                 </div>
