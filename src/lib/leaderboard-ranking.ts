@@ -17,13 +17,18 @@ export interface RankedItem {
   tieBreakers: number[];
 }
 
-export interface TrainingRun {
+export interface TrainingTotals {
   userId: string;
-  correctAnswers: number;
+  /** Correct answers over every run in the window. */
+  total: number;
+  bestRun: number;
   bestStreak: number;
 }
 
-export interface TimedTrainingScore extends TrainingRun {
+export interface TimedTrainingScore {
+  userId: string;
+  correctAnswers: number;
+  bestStreak: number;
   achievedAt: Date;
 }
 
@@ -115,19 +120,11 @@ export function isInComparisonPeriod(
   );
 }
 
-export function aggregateTrainingRuns(runs: TrainingRun[]): RankedItem[] {
-  const stats = new Map<string, { score: number; bestRun: number; bestStreak: number }>();
-  for (const run of runs) {
-    const current = stats.get(run.userId) ?? { score: 0, bestRun: 0, bestStreak: 0 };
-    current.score += Math.max(0, run.correctAnswers);
-    current.bestRun = Math.max(current.bestRun, Math.max(0, run.correctAnswers));
-    current.bestStreak = Math.max(current.bestStreak, Math.max(0, run.bestStreak));
-    stats.set(run.userId, current);
-  }
-
-  return Array.from(stats, ([userId, value]) => ({
-    userId,
-    score: value.score,
+/** Per-player totals (summed in the database) as leaderboard rows. */
+export function rankTrainingTotals(totals: TrainingTotals[]): RankedItem[] {
+  return totals.map((value) => ({
+    userId: value.userId,
+    score: value.total,
     performance: { kind: "bestRun" as const, value: value.bestRun },
     tieBreakers: [value.bestRun, value.bestStreak],
   }));

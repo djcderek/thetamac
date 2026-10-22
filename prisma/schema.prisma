@@ -216,6 +216,9 @@ model TrainingSession {
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   attempts        ProblemAttempt[]
 
+  // A player's sessions (dashboard, streaks) and the leaderboard's daily and weekly windows.
+  @@index([userId, createdAt])
+  @@index([completedAt])
   @@map("training_sessions")
 }
 

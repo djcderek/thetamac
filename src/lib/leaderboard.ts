@@ -1,19 +1,26 @@
 import { db } from "@/lib/db";
-import { standardTimedSessionWhere } from "@/lib/standard-timed-sessions";
 import { isDeletedUserId } from "@/lib/deleted-user";
 import { getCached } from "@/lib/server-cache";
 import { leaderboardInitials } from "@/lib/leaderboard-initials";
 import {
+  loadGuestNames,
+  loadPersonalBests,
+  loadTrainingTotals,
+  type RunWindow,
+} from "@/lib/leaderboard-queries";
+import {
+  DAY_MS,
   aggregateDuelResults,
   aggregateRaceResults,
-  aggregateTrainingRuns,
   calculateRankTrends,
+  getCurrentPeriodStart,
   getPersonalBestTrainingScores,
   getQueryStart,
   getTrendComparisonLabel,
   isGuestLeaderboardId,
   isInComparisonPeriod,
   isInCurrentPeriod,
+  rankTrainingTotals,
   sortRankedItems,
   type PerformanceMetric,
   type RankedItem,
@@ -23,7 +30,8 @@ import {
 export type Period = "all" | "weekly" | "daily";
 export type Mode = "duel" | "racing" | "training";
 
-const MAX_LEGACY_GUEST_SCORE_PER_RUN = 500;
+// A guest whose unverified runs in the window add up to more correct answers than this
+// loses those runs: they are left over from before guest scores were signed.
 const LEGACY_GUEST_OUTLIER_BY_PERIOD: Record<Period, number> = {
   all: 5000,
   weekly: 1500,
@@ -77,66 +85,10 @@ type UserProfile = {
 
 type GuestMeta = {
   name: string;
-  verified: boolean;
-};
-
-type GuestScore = {
-  guestId: string;
-  displayName: string;
-  identityVerified: boolean;
-  totalProblems: number;
-  correctAnswers: number;
-  bestStreak: number;
-  createdAt: Date;
 };
 
 function getLevel(totalProblems?: number | null) {
   return Math.floor((totalProblems ?? 0) / 50) + 1;
-}
-
-function isImplausibleLegacyGuestRun(score: GuestScore): boolean {
-  if (score.identityVerified) return false;
-  if (score.totalProblems < 0 || score.correctAnswers < 0) return true;
-  if (score.totalProblems > MAX_LEGACY_GUEST_SCORE_PER_RUN) return true;
-  if (score.correctAnswers > MAX_LEGACY_GUEST_SCORE_PER_RUN) return true;
-  return score.correctAnswers > score.totalProblems;
-}
-
-function filterGuestRuns(
-  scores: GuestScore[],
-  period: Period
-): GuestScore[] {
-  const plausible = scores.filter(
-    (score) => isGuestLeaderboardId(score.guestId) && !isImplausibleLegacyGuestRun(score)
-  );
-  const unverifiedTotals = new Map<string, number>();
-  for (const score of plausible) {
-    if (!score.identityVerified) {
-      unverifiedTotals.set(
-        score.guestId,
-        (unverifiedTotals.get(score.guestId) ?? 0) + score.correctAnswers
-      );
-    }
-  }
-  const threshold = LEGACY_GUEST_OUTLIER_BY_PERIOD[period];
-  return plausible.filter(
-    (score) =>
-      score.identityVerified || (unverifiedTotals.get(score.guestId) ?? 0) <= threshold
-  );
-}
-
-function buildGuestMeta(scores: GuestScore[]): Map<string, GuestMeta> {
-  const result = new Map<string, GuestMeta>();
-  for (const score of [...scores].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
-    const current = result.get(score.guestId);
-    if (!current || score.identityVerified || !current.verified) {
-      result.set(score.guestId, {
-        name: score.displayName || current?.name || "Guest",
-        verified: Boolean(current?.verified || score.identityVerified),
-      });
-    }
-  }
-  return result;
 }
 
 function createEntry(
@@ -191,9 +143,10 @@ function createTopScoreEntry(
   };
 }
 
-// Standings are recomputed from full table scans, so they are cached briefly and shared by
-// every viewer; only the per-viewer parts (your rank, profiles) are computed per request.
+// Standings total every run in the window, so they are cached briefly and shared by every
+// viewer; only the per-viewer parts (your rank, profiles) are computed per request.
 const STANDINGS_TTL_SECONDS = 30;
+const TOP_ENTRIES = 50;
 
 type Standings = {
   current: RankedItem[];
@@ -247,7 +200,7 @@ async function finalizeLeaderboard(
   const userIndex = currentUserId
     ? rankedCurrent.findIndex((entry) => entry.userId === currentUserId)
     : -1;
-  const topEntries = rankedCurrent.slice(0, 50);
+  const topEntries = rankedCurrent.slice(0, TOP_ENTRIES);
   const userIds = new Set(
     topEntries.filter((entry) => !guests.has(entry.userId)).map((entry) => entry.userId)
   );
@@ -390,79 +343,32 @@ async function buildTrainingLeaderboard(
 
 async function loadTrainingStandings(period: Period): Promise<Standings> {
   const now = new Date();
-  const queryStart = getQueryStart(period, now);
-  const [sessions, guestScores] = await Promise.all([
-    db.trainingSession.findMany({
-      where: {
-        ...standardTimedSessionWhere,
-        completedAt: { not: null, ...(queryStart ? { gte: queryStart } : {}) },
-      },
-      select: {
-        userId: true,
-        correctAnswers: true,
-        bestStreak: true,
-        completedAt: true,
-      },
-    }),
-    db.guestTrainingScore.findMany({
-      where: queryStart ? { createdAt: { gte: queryStart } } : undefined,
-      select: {
-        guestId: true,
-        displayName: true,
-        identityVerified: true,
-        totalProblems: true,
-        correctAnswers: true,
-        bestStreak: true,
-        createdAt: true,
-      },
-    }),
+  const guestLimit = LEGACY_GUEST_OUTLIER_BY_PERIOD[period];
+  // The same windows as isInCurrentPeriod and isInComparisonPeriod.
+  const currentStart = getCurrentPeriodStart(period, now);
+  const currentWindow: RunWindow = { from: currentStart, until: now };
+  const comparisonWindow: RunWindow =
+    period === "all"
+      ? { before: new Date(now.getTime() - 7 * DAY_MS) }
+      : { from: getQueryStart(period, now), before: currentStart! };
+
+  const [current, comparison] = await Promise.all([
+    loadTrainingTotals(currentWindow, guestLimit),
+    loadTrainingTotals(comparisonWindow, guestLimit),
   ]);
+  const currentItems = rankTrainingTotals(current);
 
-  const sessionRuns = sessions.map((session) => ({
-    userId: session.userId,
-    correctAnswers: session.correctAnswers ?? 0,
-    bestStreak: session.bestStreak ?? 0,
-    occurredAt: session.completedAt!,
-  }));
-  const currentGuestScores = filterGuestRuns(
-    guestScores.filter((score) => isInCurrentPeriod(score.createdAt, period, now)),
-    period
-  );
-  const comparisonGuestScores = filterGuestRuns(
-    guestScores.filter((score) => isInComparisonPeriod(score.createdAt, period, now)),
-    period
-  );
-  const mapGuestRun = (score: GuestScore) => ({
-    userId: score.guestId,
-    correctAnswers: score.correctAnswers,
-    bestStreak: score.bestStreak,
-  });
-
-  const currentRuns = [
-    ...sessionRuns
-      .filter((run) => isInCurrentPeriod(run.occurredAt, period, now))
-      .map((run) => ({
-        userId: run.userId,
-        correctAnswers: run.correctAnswers,
-        bestStreak: run.bestStreak,
-      })),
-    ...currentGuestScores.map(mapGuestRun),
-  ];
-  const comparisonRuns = [
-    ...sessionRuns
-      .filter((run) => isInComparisonPeriod(run.occurredAt, period, now))
-      .map((run) => ({
-        userId: run.userId,
-        correctAnswers: run.correctAnswers,
-        bestStreak: run.bestStreak,
-      })),
-    ...comparisonGuestScores.map(mapGuestRun),
-  ];
+  // Names only for the guests who will be shown, in the order finalizeLeaderboard ranks.
+  const shownGuests = sortRankedItems(currentItems.filter((item) => !isDeletedUserId(item.userId)))
+    .slice(0, TOP_ENTRIES)
+    .map((item) => item.userId)
+    .filter(isGuestLeaderboardId);
+  const names = await loadGuestNames(shownGuests, currentWindow, guestLimit);
 
   return {
-    current: aggregateTrainingRuns(currentRuns),
-    comparison: aggregateTrainingRuns(comparisonRuns),
-    guests: Array.from(buildGuestMeta(currentGuestScores)),
+    current: currentItems,
+    comparison: rankTrainingTotals(comparison),
+    guests: shownGuests.map((id) => [id, { name: names.get(id) ?? "Guest" }]),
   };
 }
 
@@ -472,50 +378,24 @@ type TopScoreStandings = {
 };
 
 async function loadTrainingTopScoreStandings(): Promise<TopScoreStandings> {
-  const [sessions, guestScores] = await Promise.all([
-    db.trainingSession.findMany({
-      where: {
-        ...standardTimedSessionWhere,
-        completedAt: { not: null },
-      },
-      select: {
-        userId: true,
-        correctAnswers: true,
-        bestStreak: true,
-        completedAt: true,
-      },
-    }),
-    db.guestTrainingScore.findMany({
-      select: {
-        guestId: true,
-        displayName: true,
-        identityVerified: true,
-        totalProblems: true,
-        correctAnswers: true,
-        bestStreak: true,
-        createdAt: true,
-      },
-    }),
-  ]);
-
-  const validGuestScores = filterGuestRuns(guestScores, "all");
-  const rankedScores = getPersonalBestTrainingScores([
-    ...sessions.map((session) => ({
-      userId: session.userId,
-      correctAnswers: session.correctAnswers ?? 0,
-      bestStreak: session.bestStreak ?? 0,
-      achievedAt: session.completedAt!,
-    })),
-    ...validGuestScores.map((score) => ({
-      userId: score.guestId,
-      correctAnswers: score.correctAnswers,
-      bestStreak: score.bestStreak,
-      achievedAt: score.createdAt,
-    })),
-  ]);
+  const guestLimit = LEGACY_GUEST_OUTLIER_BY_PERIOD.all;
+  const bests = await loadPersonalBests(guestLimit);
+  const rankedScores = getPersonalBestTrainingScores(
+    bests.map((best) => ({
+      userId: best.userId,
+      correctAnswers: best.score,
+      bestStreak: best.bestStreak,
+      achievedAt: best.achievedAt,
+    }))
+  );
+  const shownGuests = rankedScores
+    .slice(0, TOP_ENTRIES)
+    .map((score) => score.userId)
+    .filter(isGuestLeaderboardId);
+  const names = await loadGuestNames(shownGuests, {}, guestLimit);
   return {
     ranked: rankedScores.map(({ userId, score }) => ({ userId, score })),
-    guests: Array.from(buildGuestMeta(validGuestScores)),
+    guests: shownGuests.map((id) => [id, { name: names.get(id) ?? "Guest" }]),
   };
 }
 
@@ -532,7 +412,7 @@ export async function getTrainingTopScores(
   const userIndex = currentUserId
     ? rankedScores.findIndex((score) => score.userId === currentUserId)
     : -1;
-  const topScores = rankedScores.slice(0, 50);
+  const topScores = rankedScores.slice(0, TOP_ENTRIES);
   const userIds = new Set(
     topScores.filter((score) => !guests.has(score.userId)).map((score) => score.userId)
   );
