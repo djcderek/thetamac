@@ -4,6 +4,7 @@ import {
   FREE_QUANT_LESSON_IDS,
   QUANT_LESSONS,
   QUANT_LESSON_IDS,
+  QUANT_PUZZLES,
   QUANT_SET_SIZE,
   QUANT_SOLO,
   QUANT_TOPICS,
@@ -203,5 +204,31 @@ test("a practice set spreads across question types", () => {
     const problems = createQuantLessonProblems(lesson, seeded(5));
     const types = new Set(problems.map((p) => p.family));
     assert.ok(types.size >= Math.min(lesson.families.length, QUANT_SET_SIZE) - 1, `${lesson.id}: ${types.size} types in a set`);
+  }
+});
+
+test("puzzles read cleanly, have unique ids, a figure, and working that ends on the answer", () => {
+  const ids = QUANT_PUZZLES.map((p) => p.id);
+  assert.equal(new Set(ids).size, ids.length, "duplicate puzzle ids");
+  assert.ok(QUANT_PUZZLES.length >= 20, `${QUANT_PUZZLES.length} puzzles`);
+  for (const puzzle of QUANT_PUZZLES) {
+    const { problem } = puzzle;
+    const label = `puzzle ${puzzle.id}`;
+    assert.match(puzzle.id, /^[a-z0-9-]+$/, label);
+    assert.ok(puzzle.title.length > 0 && puzzle.title.length <= 48, label);
+    assert.ok(QUANT_LESSON_IDS.includes(puzzle.lesson), label);
+    assert.ok(problem.prompt.endsWith("?"), label);
+    assert.ok(!/undefined|NaN|Infinity|\[object/.test(problem.prompt + JSON.stringify(problem.steps)), label);
+    assert.equal(problem.steps.at(-1)!.result, formatResult(problem.answer, problem.kind), label);
+    assert.ok(isRightAnswer(formatResult(problem.answer, problem.kind), problem.answer, problem.kind), label);
+    const rounded = formatAnswer(problem.answer, problem.kind).split(/[≈=]/).at(-1)!.trim();
+    assert.ok(isRightAnswer(rounded, problem.answer, problem.kind), `${label}: ${rounded}`);
+    for (const step of problem.steps) {
+      assert.ok(step.icon, `${label}: step "${step.label}" has no icon`);
+      assert.ok(step.explain && step.explain.length <= 170, `${label}: step "${step.label}" explain`);
+    }
+    const visuals = [problem.visual, ...problem.steps.map((s) => s.visual)].filter((v): v is QuantVisual => !!v);
+    assert.ok(visuals.length > 0, `${label}: no figure`);
+    for (const visual of visuals) checkVisual(visual, label);
   }
 });

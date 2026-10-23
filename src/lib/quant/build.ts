@@ -18,6 +18,20 @@ export type QuantStep = {
 
 export type QuantDifficulty = "Easy" | "Medium" | "Hard";
 
+/**
+ * A classic one-off puzzle: a fixed question with a worked solution, filed under the lesson
+ * whose method solves it.
+ */
+export type QuantPuzzle = {
+  /** Unique across the course; also its URL slug. */
+  id: string;
+  lesson: QuantLessonId;
+  /** The puzzle's usual name, e.g. "The Monty Hall problem". */
+  title: string;
+  difficulty: QuantDifficulty;
+  problem: QuantProblem;
+};
+
 export type QuantProblem = {
   /** Identifies the problem, so a set never repeats one. */
   key: string;

@@ -39,7 +39,7 @@ export function SlotsFigure({ visual }: { visual: Slots }) {
       <svg
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`${visual.slots.map((s) => `${s.value} ${s.label}`).join(` ${visual.op === "×" ? "times" : "plus"} `)}${
+        aria-label={`${visual.slots.map((s) => `${s.value} ${s.label}`).join(visual.op === "×" ? " times " : visual.op === "+" ? " plus " : ", ")}${
           visual.result ? ` equals ${visual.result}` : ""
         }`}
         style={svgStyle}
@@ -75,7 +75,7 @@ export function SlotsFigure({ visual }: { visual: Slots }) {
               <text x={box.x + box.w / 2} y={boxH + 18} textAnchor="middle" fontSize={12} fill="var(--muted-foreground)">
                 {box.label}
               </text>
-              {i < placed.length - 1 && (
+              {visual.op && i < placed.length - 1 && (
                 <text
                   x={box.x + box.w + gap / 2}
                   y={2 + boxH / 2}

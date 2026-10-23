@@ -50,8 +50,8 @@ export type QuantVisual =
       highlight: ("a" | "b" | "both" | "outside")[];
       caption?: string;
     }
-  /** Boxes for choices made in steps: "5 shirts × 3 trousers × 2 shoes". */
-  | { type: "slots"; slots: { label: string; value: string; tone?: Tone }[]; op: "×" | "+"; result?: string; caption?: string }
+  /** Boxes for choices made in steps: "5 shirts × 3 trousers × 2 shoes"; op "" is a plain row of boxes. */
+  | { type: "slots"; slots: { label: string; value: string; tone?: Tone }[]; op: "×" | "+" | ""; result?: string; caption?: string }
   /** Identical items split by dividers: ★★|★|★★★. */
   | { type: "stars-bars"; stars: number; bars: number; caption?: string }
   /** A grid walk from bottom-left to top-right, `across` steps right and `up` steps up. */

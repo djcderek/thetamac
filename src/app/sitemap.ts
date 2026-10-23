@@ -157,7 +157,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.65,
   }));
 
-  const quantRoutes: MetadataRoute.Sitemap = QUANT_LESSON_IDS.map((lesson) => ({
+  const quantRoutes: MetadataRoute.Sitemap = ["puzzles", ...QUANT_LESSON_IDS].map((lesson) => ({
     url: `${siteUrl}/quant/${lesson}`,
     lastModified: getRouteLastModified("/quant"),
     changeFrequency: "monthly",

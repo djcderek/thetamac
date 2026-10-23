@@ -1,5 +1,5 @@
 import { QUANT_LESSON_IDS, type QuantLessonId } from "./ids";
-import type { QuantFamily, QuantLessonDef, QuantProblem, Random } from "./build";
+import type { QuantFamily, QuantLessonDef, QuantProblem, QuantPuzzle, Random } from "./build";
 import { COUNTING_LESSONS } from "./units/counting";
 import { BASICS_LESSONS } from "./units/basics";
 import { CONDITIONAL_LESSONS } from "./units/conditional";
@@ -8,9 +8,11 @@ import { DISTRIBUTIONS_LESSONS } from "./units/distributions";
 import { BETTING_LESSONS } from "./units/betting";
 import { STATES_LESSONS } from "./units/markov";
 import { CONTINUOUS_LESSONS } from "./units/continuous";
+import { CLASSIC_A_PUZZLES } from "./puzzles/classic-a";
+import { CLASSIC_B_PUZZLES } from "./puzzles/classic-b";
 
 export { QUANT_LESSON_IDS, type QuantLessonId };
-export type { QuantFamily, QuantProblem, QuantStep } from "./build";
+export type { QuantFamily, QuantProblem, QuantPuzzle, QuantStep } from "./build";
 
 /**
  * The quant course: probability and expected value, the way trading interviews ask it. Units
@@ -60,9 +62,15 @@ export const QUANT_TOPICS: QuantUnit[] = UNITS.map((unit, index) => ({
 
 export type QuantLesson = QuantLessonDef & {
   topic: QuantTopic;
+  /** Classic one-off puzzles that this lesson's method solves. */
+  puzzles: QuantPuzzle[];
   /** A question from any of the lesson's types, chosen at random. */
   generate: (random: Random) => QuantProblem;
 };
+
+/** Every puzzle, in course order of their lessons, easier first within a lesson. */
+const DIFFICULTY_ORDER = { Easy: 0, Medium: 1, Hard: 2 } as const;
+const ALL_PUZZLES: QuantPuzzle[] = [...CLASSIC_A_PUZZLES, ...CLASSIC_B_PUZZLES];
 
 /** A question of one type, tagged with that type. */
 export function generateFromFamily(family: QuantFamily, random: Random): QuantProblem {
@@ -73,9 +81,18 @@ export const QUANT_LESSONS: QuantLesson[] = UNITS.flatMap((unit) =>
   unit.lessons.map((lesson) => ({
     ...lesson,
     topic: unit.id,
+    puzzles: ALL_PUZZLES.filter((puzzle) => puzzle.lesson === lesson.id).sort(
+      (a, b) => DIFFICULTY_ORDER[a.difficulty] - DIFFICULTY_ORDER[b.difficulty],
+    ),
     generate: (random: Random) => generateFromFamily(lesson.families[Math.floor(random() * lesson.families.length)], random),
   })),
 );
+
+export const QUANT_PUZZLES: QuantPuzzle[] = QUANT_LESSONS.flatMap((lesson) => lesson.puzzles);
+
+export function getQuantPuzzle(id: string): QuantPuzzle | null {
+  return QUANT_PUZZLES.find((puzzle) => puzzle.id === id) ?? null;
+}
 
 /** The Foundations units are free; everything after them is Pro. */
 export const FREE_QUANT_LESSON_IDS: readonly QuantLessonId[] = QUANT_LESSONS.filter(

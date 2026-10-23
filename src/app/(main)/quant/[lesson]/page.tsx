@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { QUANT_LESSON_IDS, getQuantLesson, type QuantLessonId } from "@/lib/quant/lessons";
 import { QuantWorkspace } from "@/components/quant/quant-workspace";
@@ -22,6 +23,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 export default async function QuantLessonPage({ params }: { params: Params }) {
   const lesson = getQuantLesson((await params).lesson);
   if (!lesson) notFound();
-  // Keyed by lesson, so moving to the next lesson starts it fresh.
-  return <QuantWorkspace key={lesson.id} lessonId={lesson.id as QuantLessonId} />;
+  return (
+    // The workspace reads ?puzzle= in the browser, so the page itself stays static.
+    <Suspense>
+      {/* Keyed by lesson, so moving to the next lesson starts it fresh. */}
+      <QuantWorkspace key={lesson.id} lessonId={lesson.id as QuantLessonId} />
+    </Suspense>
+  );
 }

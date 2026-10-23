@@ -4,14 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { motion } from "motion/react";
-import { Check, CircleDashed, Lock, Search } from "lucide-react";
+import { Check, ChevronRight, CircleDashed, Lock, Puzzle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { snapSpring } from "@/lib/motion";
 import { buttonVariants } from "@/components/ui/button";
 import { getUpgradeUrl } from "@/lib/upgrade";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
-import { QUANT_LESSONS, QUANT_TOPICS, isFreeQuantLesson, type QuantLesson, type QuantTopic } from "@/lib/quant/lessons";
+import { QUANT_LESSONS, QUANT_PUZZLES, QUANT_TOPICS, isFreeQuantLesson, type QuantLesson, type QuantTopic } from "@/lib/quant/lessons";
 import type { QuantDifficulty } from "@/lib/quant/build";
 import type { LessonsSummary } from "@/components/training/training-types";
 import { DifficultyLabel } from "@/components/quant/difficulty";
@@ -242,6 +242,11 @@ export function QuantList() {
         <p className="mt-3 text-[17px] leading-7 text-muted-foreground">
           A step-by-step course in the probability and expected value asked in quant interviews.
         </p>
+        <Link href="/quant/puzzles" className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "mt-5")}>
+          <Puzzle aria-hidden="true" />
+          {QUANT_PUZZLES.length} classic puzzles
+          <ChevronRight aria-hidden="true" />
+        </Link>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
