@@ -59,13 +59,18 @@ export function QuantLessonList({
         const masteredCount = inTopic.filter((lesson) => lessons?.progress[lesson.id]?.mastered).length;
         return (
           <section key={topic.id} aria-labelledby={`quant-topic-${topic.id}`}>
-            <div className="mb-3 flex items-baseline justify-between gap-4 px-1">
-              <h2 id={`quant-topic-${topic.id}`} className="text-[22px] font-semibold tracking-[-0.02em]">
-                {topic.title}
-              </h2>
-              <span className="text-[15px] tabular-nums text-muted-foreground">
-                {masteredCount > 0 ? `${masteredCount} of ${inTopic.length} mastered` : `${inTopic.length} lessons`}
-              </span>
+            <div className="mb-3 px-1">
+              <div className="flex items-baseline justify-between gap-4">
+                <h2 id={`quant-topic-${topic.id}`} className="text-[22px] font-semibold tracking-[-0.02em]">
+                  {topic.title}
+                </h2>
+                {masteredCount > 0 && (
+                  <span className="text-[15px] tabular-nums text-muted-foreground">
+                    {masteredCount} of {inTopic.length} mastered
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-[15px] leading-6 text-muted-foreground">{topic.blurb}</p>
             </div>
             <ul className="overflow-hidden rounded-[22px] bg-secondary">
               {inTopic.map((lesson, index) => {
@@ -80,11 +85,14 @@ export function QuantLessonList({
                     >
                       <span
                         className={cn(
-                          "flex min-h-[60px] flex-1 items-center gap-3 py-3 pr-4",
+                          "flex min-h-[68px] flex-1 items-center gap-3 py-3.5 pr-4",
                           index > 0 && "border-t border-border/70",
                         )}
                       >
-                        <span className="min-w-0 flex-1 text-[17px] font-medium">{lesson.title}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[17px] font-medium leading-6">{lesson.title}</span>
+                          <span className="block text-[15px] leading-5 text-muted-foreground">{lesson.benefit}</span>
+                        </span>
                         {progress?.mastered ? (
                           <span className="flex items-center gap-1 text-[15px] font-medium text-success">
                             <Check aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />

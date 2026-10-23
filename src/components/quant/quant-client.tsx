@@ -337,7 +337,7 @@ export function QuantClient() {
           <header className="mb-10 px-1">
             <h1 className="text-[34px] font-semibold leading-[1.05] tracking-[-0.035em] md:text-[44px]">Quant</h1>
             <p className="mt-3 text-[17px] leading-7 text-muted-foreground">
-              Probability, expected value and bet sizing, one idea at a time.
+              The probability and expected value questions trading interviews ask, one idea at a time.
             </p>
           </header>
           <QuantLessonList
@@ -352,7 +352,7 @@ export function QuantClient() {
                     "quant_list",
                     undefined,
                     "Get Pro for all 13",
-                    "font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground",
+                    "whitespace-nowrap font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground",
                   )}
                 </p>
               )

@@ -29,8 +29,6 @@ function sample(lessonId: string, count = 300) {
   return [lesson.example, ...Array.from({ length: count }, () => lesson.generate(random))];
 }
 
-const close = (a: number, b: number, label: string) => assert.ok(Math.abs(a - b) < 1e-9, `${label}: ${a} vs ${b}`);
-
 /** All sequences of `length` picks from `values` (with repeats). */
 function sequences<T>(values: T[], length: number): T[][] {
   if (length === 0) return [[]];
@@ -290,4 +288,11 @@ test("mastery needs four of the five solo problems right first time, within the 
   assert.ok(!isQuantLessonMastered(lesson, { soloCount: QUANT_SOLO, soloFirstTry: 3, soloAverageSeconds: 1 }));
   assert.ok(!isQuantLessonMastered(lesson, { soloCount: QUANT_SOLO, soloFirstTry: 5, soloAverageSeconds: at + 1 }));
   assert.ok(!isQuantLessonMastered(lesson, { soloCount: 3, soloFirstTry: 3, soloAverageSeconds: 1 }));
+});
+
+test("every lesson says what it's for in one short line", () => {
+  for (const lesson of QUANT_LESSONS) {
+    assert.ok(lesson.benefit.length > 0 && lesson.benefit.length <= 44, `${lesson.id}: "${lesson.benefit}"`);
+    assert.ok(!lesson.benefit.endsWith("."), `${lesson.id}: a list line, not a sentence`);
+  }
 });

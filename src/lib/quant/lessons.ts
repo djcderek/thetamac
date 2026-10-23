@@ -29,9 +29,9 @@ export const QUANT_MASTERY_FIRST_TRY = QUANT_SOLO - 1;
 export type QuantTopic = "probability" | "expected-value" | "betting";
 
 export const QUANT_TOPICS: { id: QuantTopic; title: string; blurb: string }[] = [
-  { id: "probability", title: "Probability", blurb: "Dice, cards and coins: count it, flip it, chain it." },
-  { id: "expected-value", title: "Expected value", blurb: "What a game is worth, and how to play it." },
-  { id: "betting", title: "Betting maths", blurb: "Odds, pot odds, house edge and bet sizing." },
+  { id: "probability", title: "Probability", blurb: "The dice, card and coin questions every trading interview opens with." },
+  { id: "expected-value", title: "Expected value", blurb: "Price a game, then play it the best way." },
+  { id: "betting", title: "Betting maths", blurb: "Spot a good bet, and size it." },
 ];
 
 /** One line of working: "Pot after your call: 60 + 20 + 20 = 100". */
@@ -69,7 +69,10 @@ export type QuantLessonId = (typeof QUANT_LESSON_IDS)[number];
 export type QuantLesson = {
   id: QuantLessonId;
   topic: QuantTopic;
+  /** The name interviewers and textbooks use, so players recognise what they're learning. */
   title: string;
+  /** What it lets the player do, short enough for one line of a phone list. */
+  benefit: string;
   /** The idea in one sentence. */
   idea: string;
   /** Average seconds per solo problem to master it. */
@@ -681,7 +684,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "count-outcomes",
     topic: "probability",
-    title: "Count the ways",
+    title: "Counting outcomes",
+    benefit: "Answer any card, dice or coin question",
     idea: "When every outcome is equally likely, the chance is the ways it can happen over all the ways.",
     targetSeconds: 15,
     example: countOutcomes({ type: "card", event: "heart-or-king" }),
@@ -696,7 +700,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "two-dice",
     topic: "probability",
-    title: "Two dice",
+    title: "Two-dice totals",
+    benefit: "Know the chance of any sum on sight",
     idea: "Two dice make 36 equally likely pairs. Count the pairs that give the total.",
     targetSeconds: 20,
     example: twoDice({ type: "exactly", total: 9 }),
@@ -710,7 +715,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "at-least-one",
     topic: "probability",
-    title: "At least one",
+    title: "The complement rule",
+    benefit: "Solve “at least one” in a single step",
     idea: "The chance of at least one is 1 minus the chance of none.",
     targetSeconds: 30,
     example: atLeastOne({ type: "sixes", rolls: 3 }),
@@ -725,7 +731,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "in-a-row",
     topic: "probability",
-    title: "One after another",
+    title: "Draws in a row",
+    benefit: "Chain chances across several draws",
     idea: "For draws in a row, multiply the chances, shrinking what's left after each draw.",
     targetSeconds: 30,
     example: inARow({ type: "bag", red: 5, blue: 3, draws: 2 }),
@@ -738,7 +745,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "picture-the-crowd",
     topic: "probability",
-    title: "Picture the crowd",
+    title: "Bayes’ theorem",
+    benefit: "Crack the “given that” question",
     idea: "For “given that” questions, count everyone who fits the clue, then the share who fit the question too.",
     targetSeconds: 40,
     example: pictureTheCrowd({ type: "coins", fair: 1, rigged: 1, flips: 1 }),
@@ -756,7 +764,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "weigh-the-payouts",
     topic: "expected-value",
-    title: "Weigh the payouts",
+    title: "Pricing a game",
+    benefit: "Work out what any game is worth",
     idea: "A game's expected value is each payout times its chance, added up.",
     targetSeconds: 30,
     example: weighThePayouts({ type: "game", six: 12, five: 6, cost: 2 }),
@@ -768,7 +777,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "add-the-averages",
     topic: "expected-value",
-    title: "Add the averages",
+    title: "Linearity of expectation",
+    benefit: "The shortcut behind the hardest EV puzzles",
     idea: "The expected total is the sum of each part's expected value, even when the parts depend on each other.",
     targetSeconds: 25,
     example: addTheAverages({ type: "aces", cards: 5 }),
@@ -784,7 +794,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "reroll-or-keep",
     topic: "expected-value",
-    title: "Reroll or keep",
+    title: "Optimal stopping",
+    benefit: "Know when to reroll, and what it’s worth",
     idea: "Keep a roll only if it beats what rolling again is worth on average.",
     targetSeconds: 45,
     example: rerollOrKeep({ sides: 6, rerolls: 1 }),
@@ -796,7 +807,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "wait-for-it",
     topic: "expected-value",
-    title: "Wait for it",
+    title: "Expected waiting time",
+    benefit: "How many tries until it happens",
     idea: "If each try works with chance p, you need 1 ÷ p tries on average.",
     targetSeconds: 20,
     example: waitForIt({ event: "five-six" }),
@@ -805,7 +817,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "odds-to-chance",
     topic: "betting",
-    title: "Odds to chance",
+    title: "Implied probability",
+    benefit: "Turn any odds or price into a chance",
     idea: "Odds are a chance in disguise: “a to b against” means b wins in every a + b.",
     targetSeconds: 20,
     example: oddsToChance({ type: "against", against: 3, for: 1 }),
@@ -823,6 +836,7 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "pot-odds",
     topic: "betting",
     title: "Pot odds",
+    benefit: "Know when a call makes money",
     idea: "A call breaks even when your chance of winning equals your call over the pot after you call.",
     targetSeconds: 25,
     example: potOdds({ pot: 60, bet: 20 }),
@@ -832,6 +846,7 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "house-edge",
     topic: "betting",
     title: "House edge",
+    benefit: "Work out what a casino bet costs you",
     idea: "The house edge is what each $1 bet loses on average: losses times their chance, minus wins times theirs.",
     targetSeconds: 30,
     example: houseEdge({ type: "roulette", wheel: 38, bet: "straight" }),
@@ -843,7 +858,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "kelly",
     topic: "betting",
-    title: "Size the bet",
+    title: "The Kelly criterion",
+    benefit: "Size bets to grow your bankroll fastest",
     idea: "The Kelly rule stakes your win chance minus (lose chance ÷ payout): bigger edge, bigger bet.",
     targetSeconds: 30,
     example: kelly({ winPercent: 60, pays: 1 }),

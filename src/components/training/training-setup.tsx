@@ -456,7 +456,7 @@ export function TrainingSetup({
           >
             <span className="min-w-0">
               <span className="block text-[15px] font-medium">Quant lessons</span>
-              <span className="block text-[13px] text-muted-foreground">Probability, expected value and betting maths</span>
+              <span className="block text-[13px] text-muted-foreground">Bayes, expected value, pot odds and Kelly, for quant interviews</span>
             </span>
             <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
           </Link>
