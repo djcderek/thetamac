@@ -2,7 +2,7 @@
 
 import type { FormEvent, RefObject } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, Check, Eye } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { runEnter } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,6 @@ export function QuantRun({
   phase,
   wrongTries,
   feedbackKey,
-  firstTry,
   input,
   setInput,
   inputRef,
@@ -57,7 +56,6 @@ export function QuantRun({
   wrongTries: number;
   /** Changes on every wrong submit, to replay the shake. */
   feedbackKey: number;
-  firstTry: number;
   input: string;
   setInput: (value: string) => void;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -78,17 +76,13 @@ export function QuantRun({
     >
       <div>
         <div className="flex items-center justify-between gap-3">
-          <p className="min-w-0 truncate text-[15px] text-muted-foreground">
-            <span className="font-semibold text-foreground">Quant</span> · {lesson.title}
+          <p className="min-w-0 truncate text-[15px]">
+            <span className="font-semibold">{lesson.title}</span>
+            <span aria-label={`Problem ${index + 1} of ${total}`} className="ml-2 tabular-nums text-muted-foreground">
+              {index + 1} of {total}
+            </span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
-            <div
-              aria-label={`Problem ${index + 1} of ${total}`}
-              className="rounded-full bg-secondary px-4 py-1.5 text-center text-[19px] font-semibold tabular-nums tracking-tight"
-            >
-              {index + 1}
-              <span className="text-muted-foreground">/{total}</span>
-            </div>
             <Button
               variant="secondary"
               size="sm"
@@ -115,13 +109,12 @@ export function QuantRun({
         )}
       >
         <motion.div key={problem.key} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={runEnter}>
-          {guided && <p className="mb-3 text-[13px] font-medium text-muted-foreground">With the working</p>}
           <p data-problem className="text-[19px] leading-8 sm:text-[22px] sm:leading-9">
             {problem.prompt}
           </p>
 
           {guided && (
-            <ol aria-label="Working" className="mt-4 space-y-2 rounded-2xl bg-background px-4 py-3">
+            <ol aria-label="Working" className="mt-5 space-y-2.5 border-t border-border/70 pt-4">
               {problem.steps.map((step, i) => (
                 <motion.li
                   key={`${problem.key}-${i}`}
@@ -139,7 +132,7 @@ export function QuantRun({
         <form onSubmit={onSubmit} className="mx-auto mt-6 flex w-full max-w-sm flex-col gap-2">
           <div className="relative">
             {problem.kind === "dollars" && (
-              <span aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono text-2xl text-muted-foreground">
+              <span aria-hidden="true" className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground">
                 $
               </span>
             )}
@@ -156,12 +149,12 @@ export function QuantRun({
               onChange={(e) => setInput(e.target.value)}
               placeholder={PLACEHOLDERS[problem.kind]}
               className={cn(
-                "h-16 w-full rounded-2xl bg-background px-10 text-center font-mono text-2xl font-semibold outline-none transition-shadow placeholder:text-[15px] placeholder:font-normal placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-60",
+                "h-16 w-full rounded-2xl bg-background px-10 text-center text-2xl font-semibold tabular-nums outline-none transition-shadow placeholder:text-[15px] placeholder:font-normal placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-60",
               )}
               autoFocus
             />
             {problem.kind === "percent" && (
-              <span aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 font-mono text-2xl text-muted-foreground">
+              <span aria-hidden="true" className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground">
                 %
               </span>
             )}
@@ -176,7 +169,7 @@ export function QuantRun({
                     setInput(input + key);
                     inputRef.current?.focus();
                   }}
-                  className="min-h-11 flex-1 rounded-full bg-control font-mono text-lg font-semibold transition-colors hover:bg-control-hover active:scale-95"
+                  className="min-h-11 flex-1 rounded-full bg-control text-lg font-semibold transition-colors hover:bg-control-hover active:scale-95"
                   aria-label={key === "/" ? "Fraction bar" : key === "%" ? "Percent" : key === "−" ? "Minus" : "Decimal point"}
                 >
                   {key}
@@ -208,10 +201,10 @@ export function QuantRun({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={runEnter}
-            className="mt-5 rounded-2xl bg-background px-4 py-3"
+            className="mt-6 border-t border-border/70 pt-4"
           >
             <p className="text-[15px]">
-              Answer <span className="font-mono font-semibold tabular-nums">{formatAnswer(problem.answer, problem.kind)}</span>
+              Answer <span className="font-semibold tabular-nums">{formatAnswer(problem.answer, problem.kind)}</span>
             </p>
             {!guided && (
               <ol aria-label="Working" className="mt-2 space-y-2">
@@ -226,19 +219,15 @@ export function QuantRun({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[15px] text-muted-foreground tabular-nums">
-          <span className="font-semibold text-foreground">{firstTry}</span> right first time
-        </p>
+      <div className="flex justify-center">
         {phase === "missed" ? (
-          <Button onClick={onContinue} autoFocus className="min-h-11">
+          <Button onClick={onContinue} autoFocus size="lg" className="w-full sm:w-auto sm:px-9">
             Continue
             <ArrowRight aria-hidden="true" className="h-4 w-4" />
           </Button>
         ) : (
           phase === "answering" && (
-            <Button variant="outline" onClick={onReveal} className="min-h-11">
-              <Eye aria-hidden="true" className="h-4 w-4" />
+            <Button variant="ghost" onClick={onReveal} className="text-muted-foreground hover:text-foreground">
               Show answer
             </Button>
           )

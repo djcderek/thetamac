@@ -1,15 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { AnimatePresence, motion } from "motion/react";
-import { Lock, Play } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { settleSpring } from "@/lib/motion";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/visual-system";
 import { getUpgradeUrl } from "@/lib/upgrade";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
@@ -27,7 +26,7 @@ import {
 } from "@/lib/quant/lessons";
 import { isRightAnswer } from "@/lib/quant/rational";
 import type { LessonsSummary } from "@/components/training/training-types";
-import { QuantIntro, QuantLessonList } from "@/components/quant/quant-picker";
+import { QuantLessonDetail, QuantLessonList } from "@/components/quant/quant-picker";
 import { QuantRun, type QuantPhase } from "@/components/quant/quant-run";
 import { QuantResult, type QuantOutcome } from "@/components/quant/quant-result";
 
@@ -43,7 +42,6 @@ type Run = {
   phase: QuantPhase;
   wrongTries: number;
   feedbackKey: number;
-  firstTry: number;
   soloFirstTry: number;
   soloTimes: number[];
   misses: QuantProblem[];
@@ -52,24 +50,25 @@ type Run = {
 export function QuantClient() {
   const { data: authSession, status: authStatus } = useSession();
   const searchParams = useSearchParams();
-  const [selected, setSelected] = useState<QuantLessonId>(() => {
-    const fromUrl = getQuantLesson(searchParams.get("lesson") ?? "");
-    return fromUrl?.id ?? QUANT_LESSONS[0].id;
-  });
+  const reduceMotion = useReducedMotion();
+  // The open lesson lives in the URL (?lesson=), so links, reloads and the back button all work.
+  const openLesson = getQuantLesson(searchParams.get("lesson") ?? "") ?? null;
   const [lessons, setLessons] = useState<LessonsSummary | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [outcome, setOutcome] = useState<QuantOutcome | null>(null);
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const introRef = useRef<HTMLDivElement>(null);
+  // The list comes back scrolled where it was left (by our arrow or the browser's back); other screens open at the top.
+  const listScroll = useRef(0);
+  const showingList = useRef(false);
+  const pushedDetail = useRef(false);
   const shownAtRef = useRef(0);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const signedIn = authStatus === "authenticated";
   // Pro lessons are open to Pro accounts (the session's plan until progress arrives).
   const locked = lessons ? lessons.locked : !authSession?.user?.isPremium;
-  const lesson = getQuantLesson(selected)!;
-  const lessonLocked = locked && !isFreeQuantLesson(lesson.id);
+  const isLocked = (id: QuantLessonId) => locked && !isFreeQuantLesson(id);
 
   const loadProgress = useCallback(() => {
     fetch("/api/lessons/progress", { cache: "no-store" })
@@ -86,19 +85,29 @@ export function QuantClient() {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
   }, []);
 
+  useEffect(() => {
+    showingList.current = !run && !outcome && !openLesson;
+  });
+
   const select = (id: QuantLessonId) => {
-    setSelected(id);
-    // The lesson is linkable, so a shared or returning link opens on it.
-    window.history.replaceState(null, "", `/quant?lesson=${id}`);
-    // On phones the intro is above the list: bring it into view.
-    if (window.matchMedia("(max-width: 1023px)").matches) {
-      introRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    listScroll.current = window.scrollY;
+    pushedDetail.current = true;
+    window.history.pushState(null, "", `/quant?lesson=${id}`);
+  };
+
+  const showList = () => {
+    // Undo our own push so the back button doesn't return to the lesson; a deep link just swaps the URL.
+    if (pushedDetail.current) {
+      pushedDetail.current = false;
+      window.history.back();
+    } else {
+      window.history.replaceState(null, "", "/quant");
     }
   };
 
-  const start = (target: QuantLesson = lesson) => {
+  const start = (target: QuantLesson) => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    setSelected(target.id);
+    if (target.id !== openLesson?.id) window.history.replaceState(null, "", `/quant?lesson=${target.id}`);
     setOutcome(null);
     setInput("");
     setRun({
@@ -108,13 +117,11 @@ export function QuantClient() {
       phase: "answering",
       wrongTries: 0,
       feedbackKey: 0,
-      firstTry: 0,
       soloFirstTry: 0,
       soloTimes: [],
       misses: [],
     });
     shownAtRef.current = performance.now();
-    window.scrollTo({ top: 0 });
     captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonStarted, { lesson_id: target.id, topic: target.topic, signed_in: signedIn });
   };
 
@@ -142,7 +149,6 @@ export function QuantClient() {
         guest: !signedIn,
       });
       setRun(null);
-      window.scrollTo({ top: 0 });
       captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonCompleted, {
         lesson_id: done.lesson.id,
         topic: done.lesson.topic,
@@ -186,7 +192,6 @@ export function QuantClient() {
     const next: Run = {
       ...current,
       phase: "right",
-      firstTry: current.firstTry + (clean ? 1 : 0),
       soloFirstTry: current.soloFirstTry + (clean && solo ? 1 : 0),
       soloTimes: clean && solo ? [...current.soloTimes, seconds] : current.soloTimes,
       misses: clean ? current.misses : [...current.misses, current.problems[current.index]],
@@ -230,8 +235,41 @@ export function QuantClient() {
     setRun(null);
   };
 
+  // List and lesson slide like pages: a lesson comes in from the right and goes back the way it came.
+  const page = (direction: 1 | -1) => ({
+    initial: reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24 * direction },
+    animate: { opacity: 1, x: 0 },
+    exit: reduceMotion
+      ? { opacity: 0, transition: { duration: 0.12 } }
+      : { opacity: 0, x: 16 * direction, transition: { duration: 0.14, ease: [0.4, 0, 1, 1] as const } },
+    transition: settleSpring,
+  });
+
+  const upgradeLink = (surface: string, lessonId: string | undefined, children: ReactNode, className: string) => (
+    <Link
+      href={getUpgradeUrl({ feature: "quant", source: surface })}
+      onClick={() =>
+        captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, {
+          feature: "quant",
+          surface,
+          action: "open_pricing",
+          ...(lessonId ? { lesson_id: lessonId } : {}),
+        })
+      }
+      className={className}
+    >
+      {children}
+    </Link>
+  );
+
+  const primary = cn(buttonVariants({ variant: "brand", size: "lg" }), "w-full shrink-0 sm:w-auto sm:px-9");
+
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="wait" initial={false} onExitComplete={() => {
+        // The arriving screen mounts after this; scroll once it has height.
+        const top = showingList.current ? listScroll.current : 0;
+        requestAnimationFrame(() => window.scrollTo({ top }));
+      }}>
       {run ? (
         <QuantRun
           key="run"
@@ -243,7 +281,6 @@ export function QuantClient() {
           phase={run.phase}
           wrongTries={run.wrongTries}
           feedbackKey={run.feedbackKey}
-          firstTry={run.firstTry}
           input={input}
           setInput={changeInput}
           inputRef={inputRef}
@@ -258,56 +295,69 @@ export function QuantClient() {
           outcome={outcome}
           onNext={() => outcome.next && start(getQuantLesson(outcome.next.id)!)}
           onAgain={() => start(getQuantLesson(outcome.lessonId)!)}
-          onAllLessons={() => setOutcome(null)}
+          onAllLessons={() => {
+            listScroll.current = 0;
+            pushedDetail.current = false;
+            window.history.replaceState(null, "", "/quant");
+            setOutcome(null);
+          }}
         />
-      ) : (
-        <motion.div
-          key="pick"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4, transition: { duration: 0.12 } }}
-          transition={settleSpring}
-          className="pb-16"
-        >
-          <PageHeader
-            eyebrow="Quant"
-            title="Probability and expected value"
-            description="The maths trading interviews and card rooms ask about: chances, what a game is worth, and how much to bet. Each lesson works one idea through, then hands it to you."
-          />
-          <div className="grid gap-8 px-4 md:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
-            <div ref={introRef} className="scroll-mt-20 space-y-4 lg:sticky lg:top-24">
-              <div className="space-y-4 rounded-[26px] bg-secondary p-4 sm:p-5">
-                <QuantIntro lesson={lesson} locked={lessonLocked} progress={lessons?.progress[lesson.id]} />
-                {lessonLocked ? (
-                  <Link
-                    href={getUpgradeUrl({ feature: "quant", source: "quant_lesson" })}
-                    onClick={() =>
-                      captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, {
-                        feature: "quant",
-                        surface: "quant_intro",
-                        action: "open_pricing",
-                        lesson_id: lesson.id,
-                      })
-                    }
-                    className={cn(buttonVariants({ variant: "brand", size: "lg" }), "h-14 w-full text-[17px]")}
-                  >
+      ) : openLesson ? (
+        <motion.div key={`lesson-${openLesson.id}`} {...page(1)} className="mx-auto max-w-2xl px-4 pt-6 pb-16 md:px-6 md:pt-10">
+          <QuantLessonDetail
+            lesson={openLesson}
+            progress={lessons?.progress[openLesson.id]}
+            onBack={showList}
+            action={
+              isLocked(openLesson.id) ? (
+                upgradeLink(
+                  "quant_lesson",
+                  openLesson.id,
+                  <>
                     <Lock aria-hidden="true" className="h-4 w-4" />
-                    Unlock this lesson with Pro
-                  </Link>
-                ) : (
-                  <Button onClick={() => start()} variant="brand" size="lg" className="h-14 w-full text-[17px]">
-                    Start lesson
-                    <Play aria-hidden="true" className="h-4 w-4 fill-current" />
-                  </Button>
-                )}
-              </div>
-              <p className="px-1 text-[13px] leading-5 text-muted-foreground">
-                {QUANT_GUIDED} problems with the working, then {QUANT_SOLO} on your own. Type answers as a fraction, a
-                decimal or a percentage; decimals count to three figures.
-              </p>
-            </div>
-            <QuantLessonList selected={selected} onSelect={select} lessons={lessons} locked={locked} />
-          </div>
+                    Unlock with Pro
+                  </>,
+                  primary,
+                )
+              ) : (
+                <Button onClick={() => start(openLesson)} variant="brand" size="lg" className={primary}>
+                  Start lesson
+                </Button>
+              )
+            }
+            note={
+              isLocked(openLesson.id)
+                ? "The first lesson in each topic is free. Pro opens all 13."
+                : `${QUANT_GUIDED} with the working, then ${QUANT_SOLO} on your own. Fractions, decimals and percentages all count.`
+            }
+          />
+        </motion.div>
+      ) : (
+        <motion.div key="list" {...page(-1)} className="mx-auto max-w-2xl px-4 pt-10 pb-16 md:px-6 md:pt-14">
+          <header className="mb-10 px-1">
+            <h1 className="text-[34px] font-semibold leading-[1.05] tracking-[-0.035em] md:text-[44px]">Quant</h1>
+            <p className="mt-3 text-[17px] leading-7 text-muted-foreground">
+              Probability, expected value and bet sizing, one idea at a time.
+            </p>
+          </header>
+          <QuantLessonList
+            onSelect={select}
+            lessons={lessons}
+            locked={locked}
+            footer={
+              locked && (
+                <p className="px-1 text-[15px] leading-6 text-muted-foreground">
+                  The first lesson in each topic is free.{" "}
+                  {upgradeLink(
+                    "quant_list",
+                    undefined,
+                    "Get Pro for all 13",
+                    "font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground",
+                  )}
+                </p>
+              )
+            }
+          />
         </motion.div>
       )}
     </AnimatePresence>

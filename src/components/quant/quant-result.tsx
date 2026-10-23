@@ -160,12 +160,12 @@ export function QuantResult({
             {outcome.misses.map((problem) => (
               <li key={problem.key} className="rounded-[22px] bg-secondary p-4">
                 <p className="text-[15px] leading-6">{problem.prompt}</p>
-                <div className="mt-3 space-y-2 rounded-2xl bg-background px-4 py-3">
+                <div className="mt-3 space-y-2.5 border-t border-border/70 pt-3">
                   {problem.steps.map((step, i) => (
                     <StepRow key={i} {...step} last={i === problem.steps.length - 1} />
                   ))}
                   <p className="pt-1 text-[15px] font-semibold">
-                    Answer <span className="font-mono tabular-nums">{formatAnswer(problem.answer, problem.kind)}</span>
+                    Answer <span className="tabular-nums">{formatAnswer(problem.answer, problem.kind)}</span>
                   </p>
                 </div>
               </li>
