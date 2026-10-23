@@ -29,7 +29,7 @@ function weighThePayouts(
     };
     return problem(
       `face-${sides}`,
-      `You roll a fair ${sides}-sided die and are paid the number rolled, in dollars. What's the game worth on average?`,
+      `You roll a fair ${sides}-sided die and are paid the number rolled, in dollars. What’s the game worth on average?`,
       q(sides + 1, 2),
       "dollars",
       [
@@ -63,7 +63,7 @@ function weighThePayouts(
     ]);
   return problem(
     `game-${six}-${five}-${cost}`,
-    `Roll a die: a six wins $${six}, a five wins $${five}, anything else loses $${cost}. What's one roll worth to you on average?`,
+    `Roll a die: a six wins $${six}, a five wins $${five}, anything else loses $${cost}. What’s one roll worth to you on average?`,
     ev,
     "dollars",
     [
@@ -120,7 +120,7 @@ function twoDiceAverage(params: { type: "sum" | "product"; sides: number }) {
   };
   return problem(
     `${type}-${sides}`,
-    `You roll two fair ${sides}-sided dice. What's the ${type === "sum" ? "total" : "product of the two numbers"} on average?`,
+    `You roll two fair ${sides}-sided dice. What’s the ${type === "sum" ? "total" : "product of the two numbers"} on average?`,
     type === "sum" ? add(one, one) : mul(one, one),
     "number",
     [
@@ -169,16 +169,16 @@ function flipUntilTails(params: { headsN: number; headsD: number; pay: number })
   };
   return problem(
     `tails-${params.headsN}-${params.headsD}-${params.pay}`,
-    `You flip ${fair ? "a fair coin" : `a coin that lands heads with chance ${formatFraction(heads)}`} until it lands tails, and win $${params.pay} for each head before that. What's the game worth on average?`,
+    `You flip ${fair ? "a fair coin" : `a coin that lands heads with chance ${formatFraction(heads)}`} until it lands tails, and win $${params.pay} for each head before that. What’s the game worth on average?`,
     mul(perHead, q(params.pay)),
     "dollars",
     [
       {
-        label: "Average heads before tails: heads ÷ tails chance",
+        label: "Average heads before the first tail",
         work: `${formatFraction(heads)} ÷ ${formatFraction(tails)}`,
         result: formatResult(perHead, "number"),
         icon: "divide",
-        explain: `Each flip ends the game with chance ${formatFraction(tails)}. On average you get heads ÷ tails chance heads before that happens.`,
+        explain: `Each flip is heads with chance ${formatFraction(heads)} and tails with chance ${formatFraction(tails)}. The average number of heads before the first tail is the first chance divided by the second.`,
         visual: run,
       },
       {
@@ -194,7 +194,7 @@ function flipUntilTails(params: { headsN: number; headsD: number; pay: number })
   );
 }
 
-/** A card game's fair price: what it pays on average. */
+/** A card game’s fair price: what it pays on average. */
 function cardPrice(params: { ace: number; face: number }) {
   const { ace, face } = params;
   const aces = cardsWhere((c) => c.rank === 1);
@@ -208,7 +208,7 @@ function cardPrice(params: { ace: number; face: number }) {
   });
   return problem(
     `price-${ace}-${face}`,
-    `You draw one card from a shuffled deck. An ace pays $${ace}, a face card (J, Q or K) pays $${face}, and anything else pays nothing. What's a fair price to play?`,
+    `You draw one card from a shuffled deck. An ace pays $${ace}, a face card (J, Q or K) pays $${face}, and anything else pays nothing. What’s a fair price to play?`,
     q(4 * ace + 12 * face, 52),
     "dollars",
     [
@@ -261,7 +261,7 @@ function cappedDoubling(params: { cap: number }) {
   };
   return problem(
     `capped-${cap}`,
-    `You flip a fair coin until it lands tails. If that takes n flips, counting the tails, you win $2ⁿ, but never more than $${cap}. What's the game worth on average?`,
+    `You flip a fair coin until it lands tails. If that takes n flips, counting the tails, you win $2ⁿ, but never more than $${cap}. What’s the game worth on average?`,
     answer,
     "dollars",
     [
@@ -309,7 +309,7 @@ function openBoxes(params: { boxes: number; prize: number; ask: "boxes" | "price
       work: `(1 + 2 + … + ${n}) ÷ ${n} = (${n} + 1) ÷ 2`,
       result: formatResult(average, "number"),
       icon: "divide",
-      explain: `The prize is equally likely to be in the 1st, 2nd, … or ${n}th box you open, and you stop there. So you open the middle position on average.`,
+      explain: `The prize is equally likely to be in the 1st, 2nd, … or ${n}th box you open, and you stop there. So on average you open (${n} + 1) ÷ 2 boxes.`,
       visual: figure,
     },
   ];
@@ -335,14 +335,14 @@ function openBoxes(params: { boxes: number; prize: number; ask: "boxes" | "price
   );
 }
 
-/** What it's worth to know the outcome before choosing. */
+/** What it’s worth to know the outcome before choosing. */
 function valueOfInformation(params: { type: "box"; high: number; low: number; sure: number } | { type: "doors"; doors: number; prize: number }) {
   if (params.type === "doors") {
     const { doors, prize } = params;
     const blind = q(prize, doors);
     return problem(
       `doors-${doors}-${prize}`,
-      `On a game show, $${prize} is behind one of ${doors} doors and the rest are empty. You pick one door and win what's behind it. How much would goggles that let you see through the doors first be worth to you?`,
+      `On a game show, $${prize} is behind one of ${doors} doors and the rest are empty. You pick one door and win what’s behind it. How much would goggles that let you see through the doors first be worth to you?`,
       sub(q(prize), blind),
       "dollars",
       [
@@ -442,7 +442,7 @@ function addTheAverages(
       };
       return problem(
         `total-${params.dice}`,
-        `You roll ${params.dice} fair dice. What's the expected total?`,
+        `You roll ${params.dice} fair dice. What’s the expected total?`,
         q(7 * params.dice, 2),
         "number",
         [
@@ -645,7 +645,7 @@ function distinctPicks(params: { type: "elevator" | "faces"; options: number; tr
     mul(q(n), hit),
     "number",
     [
-      // Exact fractions, so each line's arithmetic matches the answer.
+      // Exact fractions, so each line’s arithmetic matches the answer.
       {
         label: `A given ${one} is never ${picked}`,
         work: `(${n - 1}/${n})${sup(k)}`,
@@ -843,7 +843,7 @@ function variance(
       };
       return problem(
         `die-${n}`,
-        `You roll a fair ${n}-sided die once. What's the variance of the number rolled?`,
+        `You roll a fair ${n}-sided die once. What’s the variance of the number rolled?`,
         result,
         "number",
         [
@@ -898,7 +898,7 @@ function variance(
       };
       return problem(
         `dice-sum-${params.dice}`,
-        `You roll ${params.dice} fair dice. What's the variance of the total?`,
+        `You roll ${params.dice} fair dice. What’s the variance of the total?`,
         mul(q(params.dice), one),
         "number",
         [
@@ -929,8 +929,8 @@ function variance(
       return problem(
         `heads-${params.flips}-${params.headsN}-${params.headsD}`,
         fair
-          ? `You flip a fair coin ${params.flips} times. What's the variance of the number of heads?`
-          : `A coin lands heads with chance ${formatFraction(p)}. You flip it ${params.flips} times. What's the variance of the number of heads?`,
+          ? `You flip a fair coin ${params.flips} times. What’s the variance of the number of heads?`
+          : `A coin lands heads with chance ${formatFraction(p)}. You flip it ${params.flips} times. What’s the variance of the number of heads?`,
         mul(q(params.flips), one),
         "number",
         [
@@ -958,7 +958,7 @@ function variance(
       const n = params.flips;
       return problem(
         `heads-sd-${n}`,
-        `You flip a fair coin ${n} times. What's the standard deviation of the number of heads?`,
+        `You flip a fair coin ${n} times. What’s the standard deviation of the number of heads?`,
         q(Math.sqrt(n) / 2),
         "number",
         [
@@ -1005,7 +1005,7 @@ function variance(
       });
       return problem(
         `bet-${win}-${lose}-${params.chanceN}-${params.chanceD}`,
-        `A bet wins $${win} with chance ${formatFraction(p)} and loses $${lose} otherwise. What's the variance of what you make, in squared dollars?`,
+        `A bet wins $${win} with chance ${formatFraction(p)} and loses $${lose} otherwise. What’s the variance of what you make, in squared dollars?`,
         sub(squares, mul(mean, mean)),
         "number",
         [
@@ -1063,7 +1063,7 @@ function withoutReplacement(params: { pool: string; draws: number }) {
       : { type: "marbles", groups: [{ count: K, tone: "hit", label: "Red" }, { count: N - K, tone: "alt", label: "Blue" }] };
   return problem(
     `without-${pool.id}-${n}`,
-    `${pool.setup(n)}. What's the variance of the number of ${pool.one}?`,
+    `${pool.setup(n)}. What’s the variance of the number of ${pool.one}?`,
     mul(withRep, correction),
     "number",
     [
@@ -1101,8 +1101,8 @@ function sdOfTotal(params: { kind: string; parts: number; sd: number }) {
   const root = Math.sqrt(n);
   const prompt =
     kind.id === "days"
-      ? `${kind.each} has a standard deviation of $${sd}, and days don’t affect each other. What's the standard deviation of the total profit over ${n} days, in dollars?`
-      : `${kind.each} has a standard deviation of ${sd}, independently of the others. What's the standard deviation of ${kind.what} across ${n} ${kind.many}?`;
+      ? `${kind.each} has a standard deviation of $${sd}, and days don’t affect each other. What’s the standard deviation of the total profit over ${n} days, in dollars?`
+      : `${kind.each} has a standard deviation of ${sd}, independently of the others. What’s the standard deviation of ${kind.what} across ${n} ${kind.many}?`;
   return problem(
     `sd-total-${kind.id}-${n}-${sd}`,
     prompt,
@@ -1142,14 +1142,96 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
   {
     id: "expected-value",
     title: "Expected value",
-    benefit: "Find the average result of a game",
-    idea: "Multiply each result by its chance and add them up. That’s what the game pays on average, and a fair price to play it.",
+    benefit: "Work out what a bet is worth",
+    summary: "The average result per play: multiply each result by its chance and add. It’s also the fair price of a game.",
     difficulty: "Easy",
-    intro:
-      "If you played a game many times, each result would come up in proportion to its chance. Multiplying each result by its chance and adding them gives what you’d make per game on average. That average is also the fair price to play.",
-    formula: "Expected value = sum of (each result × its chance)",
-    cues: ["The question asks what a game is “worth” or a “fair price”", "It asks for an average or expected amount"],
-    mistake: "Leaving out the losing results, or adding the payouts without multiplying each by its chance.",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "A raffle sells 100 tickets at $2 each. One ticket wins $100, two tickets win $25 each, and the other 97 win nothing.",
+          "What is one ticket worth?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What’s a ticket worth?",
+        choices: ["$1.50", "$1.25", "−$0.50", "$2"],
+        answer: 0,
+        explain:
+          "It’s worth $1.50. If you got $1.25, you counted the $25 prize once instead of twice. −$0.50 is what you make after paying for the ticket, which is a different question.",
+      },
+      {
+        type: "story",
+        heading: "Count it out",
+        beats: [
+          {
+            text: "Buy all 100 tickets and you collect every prize: $100 + $25 + $25 = $150.",
+            visual: {
+              type: "slots",
+              slots: [
+                { label: "First prize", value: "$100", tone: "win" },
+                { label: "Second", value: "$25", tone: "win" },
+                { label: "Third", value: "$25", tone: "win" },
+              ],
+              op: "+",
+              result: "$150",
+            },
+          },
+          {
+            text: "Spread over 100 tickets, that’s $1.50 a ticket. Ticket by ticket: a 1/100 chance of $100 is worth $1, and a 2/100 chance of $25 is worth $0.50.",
+            visual: {
+              type: "slots",
+              slots: [
+                { label: "$100 × 1/100", value: "$1", tone: "win" },
+                { label: "$25 × 2/100", value: "$0.50", tone: "win" },
+                { label: "$0 × 97/100", value: "$0", tone: "muted" },
+              ],
+              op: "+",
+              result: "$1.50",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "What the number means",
+        body: [
+          "$1.50 is the ticket’s expected value: the average amount per ticket over many tickets. Each result turns up in proportion to its chance, so you multiply each result by its chance and add.",
+          "No single ticket pays $1.50. It pays $100, $25 or nothing. The expected value describes the long run, and it’s the fair price: the price at which neither the buyer nor the seller gains on average. At $2, the seller keeps 50 cents a ticket.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "E[X] = x₁ × P(x₁) + x₂ × P(x₂) + …",
+        note: "X is the amount a ticket pays and E[X] is its expected value: $100 × 1/100 + $25 × 2/100 + $0 × 97/100 = $1.50. Losses go in as negative amounts.",
+      },
+      {
+        type: "check",
+        prompt: "A bet pays $10 with chance 1/4 and loses $4 otherwise. What’s it worth on average?",
+        choices: ["−$0.50", "$2.50", "$1.50", "$3"],
+        answer: 0,
+        explain:
+          "The win adds $10 × 1/4 = $2.50 and the loss adds −$4 × 3/4 = −$3. Together that’s −$0.50, so the bet loses 50 cents a time on average. Leaving out the loss gives $2.50.",
+      },
+      {
+        type: "example",
+        lead: "The example is a die game with two prizes, and a loss on the other four faces.",
+      },
+      {
+        type: "trap",
+        body: "Leaving a result out. A loss is a result too: it goes in as a negative amount times its chance. Forget the four losing faces in the example and the game looks worth $3 a roll instead of $1.67.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question asks what a game is worth, or what a fair price to play would be",
+          "It asks for an average amount, an average wait or an average number of tries",
+          "You must choose between a sure amount and a gamble, and want the better one on average",
+        ],
+      },
+    ],
     targetSeconds: 30,
     example: weighThePayouts({ type: "game", six: 12, five: 6, cost: 2 }),
     families: [
@@ -1195,7 +1277,7 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
         title: "What it’s worth to know first",
         generate: (random) => {
           if (random() < 0.35) return valueOfInformation({ type: "doors", doors: int(random, 2, 6), prize: pick(random, [100, 600, 1000, 10000]) });
-          // A sure amount between the box's two values, so looking changes the choice.
+          // A sure amount between the box’s two values, so looking changes the choice.
           const high = pick(random, [40, 60, 80, 100, 120]);
           const low = pick(random, [0, 10, 20]);
           const sure = pick(random, [25, 30, 35, 45, 50, 55].filter((x) => x > low && x < high && x * 2 !== high + low));
@@ -1208,16 +1290,112 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
     id: "linearity",
     title: "Linearity of expectation",
     benefit: "Find an average by adding simple parts",
-    idea: "The average of a total is the averages of its parts added up, even when the parts affect each other. Split a count into yes-or-no pieces and add their chances.",
+    summary: "The average of a sum is the sum of the averages, even when the parts depend on each other. Split a count into yes-or-no pieces and add their chances.",
     difficulty: "Medium",
-    intro:
-      "To find the average of a count, split it into yes-or-no pieces: is this card an ace, does the elevator stop at this floor. A yes-or-no piece averages its own chance, and averages simply add, even when the pieces depend on each other. So you never need the full distribution.",
-    formula: "Average total = sum of the parts’ averages; a yes-or-no part averages its chance",
-    cues: [
-      "The question asks “how many … do you expect”",
-      "The parts depend on each other, so listing every outcome would be hard",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "40 people at a party each drop their hat in a pile. The hats are shuffled and handed back at random, one each.",
+          "On average, how many people get their own hat back?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "How many get their own hat, on average?",
+        choices: ["1/40", "1", "4", "20"],
+        answer: 1,
+        explain:
+          "It’s exactly 1. It would also be 1 with 10 people or with a million. The working below shows why, without listing a single arrangement of hats.",
+      },
+      {
+        type: "story",
+        heading: "One person at a time",
+        beats: [
+          {
+            text: "Ask person 1 whether they got their own hat. They get one of 40 hats at random, so the chance is 1/40.",
+            visual: {
+              type: "slots",
+              slots: [
+                { label: "Person 1", value: "1/40", tone: "hit" },
+                { label: "Person 2", value: "?" },
+                { label: "Person 3", value: "?" },
+                { label: "…", value: "…" },
+                { label: "Person 40", value: "?" },
+              ],
+              op: "+",
+            },
+          },
+          {
+            text: "The same goes for every person. Each one gets a random hat, so each has a 1/40 chance of their own.",
+            visual: {
+              type: "slots",
+              slots: [
+                { label: "Person 1", value: "1/40", tone: "hit" },
+                { label: "Person 2", value: "1/40", tone: "hit" },
+                { label: "Person 3", value: "1/40", tone: "hit" },
+                { label: "…", value: "…" },
+                { label: "Person 40", value: "1/40", tone: "hit" },
+              ],
+              op: "+",
+            },
+          },
+          {
+            text: "The expected number of matches is the sum of those chances: 40 × 1/40 = 1.",
+            visual: {
+              type: "slots",
+              slots: [
+                { label: "Person 1", value: "1/40", tone: "hit" },
+                { label: "Person 2", value: "1/40", tone: "hit" },
+                { label: "Person 3", value: "1/40", tone: "hit" },
+                { label: "…", value: "…" },
+                { label: "Person 40", value: "1/40", tone: "hit" },
+              ],
+              op: "+",
+              result: "1",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why you can add",
+        body: [
+          "The number of matches is a sum of yes-or-no pieces, one per person: 1 if they get their own hat and 0 if not. A piece like that averages exactly its chance of being 1.",
+          "Linearity of expectation says the average of a sum is the sum of the averages. It holds even when the pieces depend on each other. If person 1 gets their own hat, person 2’s chance rises to 1/39. That changes how matches cluster together, but not their average.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "E[X₁ + X₂ + … + Xₙ] = E[X₁] + E[X₂] + … + E[Xₙ]",
+        note: "When each Xᵢ is 1 for yes and 0 for no, E[Xᵢ] is the chance of yes. For the hats there are 40 pieces, each with chance 1/40, so the total is 1.",
+      },
+      {
+        type: "check",
+        prompt: "You flip a coin 10 times. How many times do you expect heads followed straight away by tails?",
+        choices: ["2.25", "2.5", "5", "1"],
+        answer: 0,
+        explain:
+          "A pair can start at flips 1 and 2, 2 and 3, and so on up to 9 and 10: 9 places. Each is heads then tails with chance 1/4, so the expected count is 9 × 1/4 = 2.25. Counting 10 places gives the tempting 2.5.",
+      },
+      {
+        type: "example",
+        lead: "In the example the yes-or-no question for each dealt card is “is it an ace?”",
+      },
+      {
+        type: "trap",
+        body: "Thinking the pieces must be independent. Linearity works for any pieces. People who doubt it try to list every way to hand out 40 hats, which can’t be done by hand. Independence matters in the next lesson, for adding variances, but not here.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question asks how many of something you expect: matches, runs, pairs or empty boxes",
+          "Listing every outcome would take forever, but each small piece has an easy chance",
+          "The pieces affect each other, which would make the full distribution hard to find",
+        ],
+      },
     ],
-    mistake: "Thinking you can’t add averages when the parts affect each other. You can: it always works.",
     targetSeconds: 30,
     example: addTheAverages({ type: "aces", cards: 5 }),
     families: [
@@ -1256,13 +1434,117 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
     id: "variance",
     title: "Variance and standard deviation",
     benefit: "Measure how spread out results are",
-    idea: "Variance is the average of the squares minus the square of the average. For independent parts, variances add. The standard deviation is the square root of the variance.",
+    summary: "How spread out results are: variance is the average squared distance from the mean, and its square root is the standard deviation.",
     difficulty: "Medium",
-    intro:
-      "Variance measures how far results land from the average, by averaging the squared distances. The quick way to work it out is the average of the squares minus the square of the average. Parts that don’t affect each other add their variances, and the square root, the standard deviation, is back in the original units.",
-    formula: "Variance = average of the squares − (the average)²; SD = √variance",
-    cues: ["The question asks for a variance or standard deviation", "It asks how spread out or how risky a result is"],
-    mistake: "Adding the standard deviations of independent parts. Add their variances, then take the square root.",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "Two games each pay $10 on average. Game A always pays exactly $10. Game B flips a coin: heads pays $20 and tails pays nothing.",
+          "Their expected values are the same, so expected value can’t tell them apart. Variance measures the difference: how far results land from the average.",
+        ],
+      },
+      {
+        type: "story",
+        heading: "Measure the spread",
+        beats: [
+          {
+            text: "Game B pays $0 or $20, each with chance 1/2. Its average is $10.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 20,
+              ticks: [0, 10, 20],
+              shade: [],
+              points: [
+                { at: 0, label: "Tails", tone: "hit" },
+                { at: 10, label: "Average", tone: "known" },
+                { at: 20, label: "Heads", tone: "hit" },
+              ],
+            },
+          },
+          {
+            text: "Each result is $10 from the average. Variance squares those distances and averages them: (10² + 10²) ÷ 2 = 100.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 20,
+              ticks: [0, 10, 20],
+              shade: [
+                { from: 0, to: 10, tone: "alt", text: "10" },
+                { from: 10, to: 20, tone: "alt", text: "10" },
+              ],
+              points: [
+                { at: 0, label: "Tails", tone: "hit" },
+                { at: 10, label: "Average", tone: "known" },
+                { at: 20, label: "Heads", tone: "hit" },
+              ],
+            },
+          },
+          {
+            text: "Squaring leaves the answer in squared dollars. Its square root, the standard deviation, is back in dollars: √100 = $10. Game A never moves from $10, so its variance is 0.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 20,
+              ticks: [0, 10, 20],
+              shade: [{ from: 0, to: 20, tone: "alt", text: "$10 either side" }],
+              points: [
+                { at: 0, label: "Tails", tone: "hit" },
+                { at: 10, label: "Average", tone: "known" },
+                { at: 20, label: "Heads", tone: "hit" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Game C pays $0 with chance 3/4 and $40 with chance 1/4. Its average is also $10. What’s its variance?",
+        choices: ["300", "100", "400", "30"],
+        answer: 0,
+        explain:
+          "$0 is 10 from the average and $40 is 30 away. Average the squared distances by their chances: 3/4 × 10² + 1/4 × 30² = 75 + 225 = 300. Same average as game B, three times the variance.",
+      },
+      {
+        type: "text",
+        heading: "A faster way to work it out",
+        body: [
+          "Finding every distance gets slow. The same number comes from the average of the squares minus the square of the average. For game B the squares are 0 and 400, which average 200, and 200 − 10² = 100.",
+          "When two results don’t affect each other, their variances add. Play game B twice and the total has variance 100 + 100 = 200, so its standard deviation is √200 ≈ $14.14.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Var(X) = E[X²] − (E[X])², and SD(X) = √Var(X)",
+        note: "For independent X and Y, Var(X + Y) = Var(X) + Var(Y). Add the variances first, then take the square root to get the standard deviation of the total.",
+      },
+      {
+        type: "check",
+        prompt: "You flip a fair coin 100 times. What’s the standard deviation of the number of heads?",
+        choices: ["5", "25", "50", "10"],
+        answer: 0,
+        explain:
+          "One flip counts 1 for heads and 0 for tails: its average is 1/2 and its average square is 1/2, so its variance is 1/2 − 1/4 = 1/4. The 100 flips are independent, so the variances add to 25, and the standard deviation is √25 = 5.",
+      },
+      {
+        type: "example",
+        lead: "The example works out the variance of one roll of a die with the faster method.",
+      },
+      {
+        type: "trap",
+        body: "Adding standard deviations. Two independent plays of game B, each with a standard deviation of $10, don’t give $20 for the total. Add the variances, 100 + 100 = 200, then take the square root: about $14.14.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question asks for a variance or a standard deviation",
+          "It asks how risky a bet is, or how far a total usually lands from its average",
+          "You need the spread of a total of many independent pieces, like flips or rolls",
+        ],
+      },
+    ],
     targetSeconds: 45,
     example: variance({ type: "die", sides: 6 }),
     families: [

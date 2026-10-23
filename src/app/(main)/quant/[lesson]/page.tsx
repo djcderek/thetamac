@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!lesson) return {};
   return {
     title: `${lesson.title}: Quant Interview Practice`,
-    description: `${lesson.benefit}. ${lesson.idea}`,
+    description: lesson.summary,
     alternates: { canonical: `/quant/${lesson.id}` },
   };
 }

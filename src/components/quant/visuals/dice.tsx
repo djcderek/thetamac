@@ -122,7 +122,12 @@ export function DiceGridFigure({ visual }: { visual: DiceGrid }) {
               rx={6}
               fill={TONE_FILL[toneAt(a, b)]}
               {...knownStroke(toneAt(a, b))}
-              style={FADE}
+              // Cells pop in and recolour along the diagonals, so a change reads as a sweep.
+              className="quant-pop"
+              style={{
+                transition: `fill 300ms ease ${(a + b) * 18}ms, stroke-opacity 300ms ease ${(a + b) * 18}ms`,
+                animationDelay: `${(a + b) * 14}ms`,
+              }}
             />
           )),
         )}

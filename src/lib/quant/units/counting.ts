@@ -722,7 +722,7 @@ function combinations(params: CombinationsParams): QuantProblem {
 
 // ─── Inclusion–exclusion ───────────────────────────────────────────────────────────────
 
-/** Two overlapping groups; counts are per region, and labels carry each group's total. */
+/** Two overlapping groups; counts are per region, and labels carry each group’s total. */
 function venn(
   a: { label: string; total: number },
   b: { label: string; total: number },
@@ -731,12 +731,15 @@ function venn(
   highlight: ("a" | "b" | "both" | "outside")[],
   caption?: string,
 ): QuantVisual {
+  // With nothing highlighted it's the question's own figure, so it can't show the counts.
+  const blank = highlight.length === 0;
+  const show = (n: number) => (blank ? "?" : String(n));
   return {
     type: "venn",
-    a: { label: `${a.label} (${a.total})`, count: String(a.total - both) },
-    b: { label: `${b.label} (${b.total})`, count: String(b.total - both) },
-    both: String(both),
-    ...(outside !== null ? { outside: String(outside) } : {}),
+    a: { label: blank ? a.label : `${a.label} (${a.total})`, count: show(a.total - both) },
+    b: { label: blank ? b.label : `${b.label} (${b.total})`, count: show(b.total - both) },
+    both: show(both),
+    ...(outside !== null ? { outside: show(outside) } : {}),
     highlight,
     ...(caption ? { caption } : {}),
   };
@@ -935,7 +938,7 @@ function inclusionExclusion(params: InclusionParams): QuantProblem {
             label: `${event.both}, counted twice`,
             work: `${event.bothCount}`,
             icon: "filter",
-            explain: `${event.both} are in both counts, so they have been counted twice.`,
+            explain: `${event.both} are in both counts, so each of them was counted twice.`,
             visual: overlapCards(event.id),
           },
           {
@@ -1257,8 +1260,8 @@ function arrangements(params: ArrangeParams): QuantProblem {
             result: commas(around),
             icon: mirror ? "divide" : "target",
             explain: mirror
-              ? "Fix one person and order the rest: (k − 1)!. A seating and its mirror image give the same neighbours, so halve it."
-              : "Fix one person’s seat so turning the table doesn’t count, then order the rest: (k − 1)!.",
+              ? `Fix one person’s seat and order the other ${seats - 1} around them. A seating and its mirror image give everyone the same neighbours, so halve it.`
+              : `Fix one person’s seat so turning the table doesn’t make a new seating, then order the other ${seats - 1} around them.`,
           },
           {
             label: "Multiply",
@@ -1294,7 +1297,7 @@ function arrangements(params: ArrangeParams): QuantProblem {
             work: `C(${students - 2}, ${half})`,
             result: commas(left),
             icon: "count",
-            explain: `Pick which ${half} of the other ${students - 2} stand on the left. Their order is then fixed: tallest nearest the middle. The rest go right.`,
+            explain: `Pick which ${half} of the other ${students - 2} go on the left. Their order is then fixed, tallest nearest the middle, and the rest go on the right in the same way.`,
           },
           {
             label: "Multiply",
@@ -1531,7 +1534,7 @@ function groups(params: GroupParams): QuantProblem {
             label: "Share the rest with dividers",
             work: `C(${left} + ${children - 1}, ${children - 1})`,
             icon: "count",
-            explain: `Line up the ${left} sweets with ${children - 1} dividers; choosing where the dividers go fixes each child’s share.`,
+            explain: `Line up the ${left} sweets with ${children - 1} ${children - 1 === 1 ? "divider" : "dividers"}. Choosing where ${children - 1 === 1 ? "it goes" : "they go"} fixes each child’s share.`,
             visual: { type: "stars-bars", stars: Math.max(1, left), bars: children - 1, caption: `${left} sweets and ${children - 1} dividers` },
           },
         ],
@@ -1580,14 +1583,14 @@ function moreInclusion(params: MoreInclusionParams): QuantProblem {
             icon: (t.j % 2 ? "subtract" : "add") as "subtract" | "add",
             explain:
               t.j === 1
-                ? `Pick a ${c.option} to leave empty; everyone uses the other ${options - 1}. Results missing two get taken off twice this way.`
+                ? `Pick a ${c.option} to leave empty, and every choice falls in the other ${options - 1}.${options > 2 ? ` A result missing two ${c.options} is taken off twice this way.` : ""}`
                 : `Results missing ${t.j} ${c.options} were ${t.j % 2 ? "added back too often" : "taken off too often"}, so ${t.j % 2 ? "take them off" : "add them back"} once.`,
           })),
           {
             label: `Every ${c.option} used`,
             work: terms.map((t, i) => (i === 0 ? commas(t.value) : `${t.j % 2 ? "−" : "+"} ${commas(t.value)}`)).join(" "),
             icon: "check",
-            explain: "Start from all results, take off those missing one, add back those missing two, and so on.",
+            explain: options > 2 ? `Start from all results, take off those missing a ${c.option}, add back those missing two, and so on.` : `Every result either uses both ${c.options} or misses one, so take those off.`,
             visual: {
               type: "bars",
               bars: terms.map((t) => ({ label: t.j === 0 ? "All" : `Miss ${t.j}`, value: t.value, tone: (t.j % 2 ? "lose" : "win") as Tone, text: commas(t.value) })),
@@ -1610,6 +1613,7 @@ function moreInclusion(params: MoreInclusionParams): QuantProblem {
           ? `You roll ${parts} fair ${high}-sided dice, one after another. In how many of the possible results do they add up to ${total}?`
           : `A code is ${parts} digits, each from ${low} to ${high}. How many codes have digits that add up to ${total}?`;
       const name = context === "dice" ? "die" : "digit";
+      const plural = context === "dice" ? "dice" : "digits";
       return problem(
         `capped-${context}-${parts}-${low}-${high}-${total}`,
         prompt,
@@ -1632,21 +1636,21 @@ function moreInclusion(params: MoreInclusionParams): QuantProblem {
             work: `C(${shifted} + ${parts - 1}, ${parts - 1})`,
             result: commas(terms[0].value),
             icon: "count",
-            explain: `Share ${shifted} among ${parts} ${name}s with dividers, as if there were no top limit.`,
-            visual: { type: "stars-bars", stars: Math.max(1, Math.min(20, shifted)), bars: parts - 1, caption: `${shifted} to share among ${parts} ${name}s` },
+            explain: `Share ${shifted} among the ${parts} ${plural} with dividers, as if there were no top limit.`,
+            visual: { type: "stars-bars", stars: Math.max(1, Math.min(20, shifted)), bars: parts - 1, caption: `${shifted} to share among ${parts} ${plural}` },
           },
           ...terms.slice(1).map((t) => ({
-            label: `${t.j % 2 ? "Take off" : "Add back"} results with ${t.j} ${name}${t.j > 1 ? "s" : ""} over the top`,
+            label: `${t.j % 2 ? "Take off" : "Add back"} results with ${t.j} ${t.j > 1 ? plural : name} over the top`,
             work: `C(${parts}, ${t.j}) × C(${shifted - t.j * width} + ${parts - 1}, ${parts - 1})`,
             result: commas(t.value),
             icon: (t.j % 2 ? "subtract" : "add") as "subtract" | "add",
-            explain: `Pick ${t.j === 1 ? "a" : t.j} ${name}${t.j > 1 ? "s" : ""} to go over ${high - low}: give ${t.j === 1 ? "it" : "each"} ${width} first, then share the rest freely.`,
+            explain: `Pick ${t.j === 1 ? "a" : t.j} ${t.j > 1 ? plural : name} to go over ${high - low}: give ${t.j === 1 ? "it" : "each"} ${width} first, then share the rest freely.`,
           })),
           {
             label: "Results within the limits",
             work: terms.map((t, i) => (i === 0 ? commas(t.value) : `${t.j % 2 ? "−" : "+"} ${commas(t.value)}`)).join(" "),
             icon: "check",
-            explain: "All results without the cap, minus those breaking it, with any over-correction added back.",
+            explain: terms.length > 2 ? "Start from all the results, take off those with one over the top, and add back those with two, which were taken off twice." : "All the results, minus those with one over the top.",
           },
         ],
         params,
@@ -1700,17 +1704,105 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
     id: "multiplying-choices",
     title: "Multiplying choices",
     benefit: "Count outcomes of choices made in steps",
-    idea: "When you make one choice after another, multiply the number of options at each step. An option like “no dessert” counts as one more choice.",
+    summary: "How to count everything you can make by choosing one thing after another: multiply the number of options at each step.",
     difficulty: "Easy",
-    intro:
-      "Picture the choices as a tree. With 5 shirts there are 5 branches, and each one splits again for every pair of trousers, so the branches multiply. That’s true whatever you pick first, as long as each step has the same number of options.",
-    formula: "Ways = options at step 1 × options at step 2 × …",
-    cues: [
-      "Something is built in steps: a shirt, then trousers, then shoes",
-      "Each spot is filled separately, like the digits of a PIN",
-      "The question asks “how many different” outfits, codes or sequences",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "A café’s lunch deal is one of 4 sandwiches, one of 3 drinks, and either a cookie or an apple. How many different lunches can you order?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "How many different lunches?",
+        choices: ["9", "14", "24", "36"],
+        answer: 2,
+        explain: "It’s 4 × 3 × 2 = 24. The answer 9 adds the options, 4 + 3 + 2, which counts items on the menu rather than lunches.",
+      },
+      {
+        type: "story",
+        heading: "Build the lunch one step at a time",
+        beats: [
+          {
+            text: "Start with the sandwich. There are 4 to choose from.",
+            visual: {
+              type: "tree",
+              root: {
+                label: "Lunch",
+                children: [
+                  { label: "Ham", tone: "hit" },
+                  { label: "Egg", tone: "hit" },
+                  { label: "Tuna", tone: "hit" },
+                  { label: "Brie", tone: "hit" },
+                ],
+              },
+            },
+          },
+          {
+            text: "Any sandwich can go with any of the 3 drinks, so each branch splits into 3. That makes 4 × 3 = 12 sandwich and drink pairs.",
+            visual: {
+              type: "tree",
+              root: {
+                label: "Lunch",
+                children: ["Ham", "Egg", "Tuna", "Brie"].map((label) => ({
+                  label,
+                  children: ["Tea", "Juice", "Water"].map((drink) => ({ label: drink, tone: "hit" as Tone })),
+                })),
+              },
+            },
+          },
+          {
+            text: "Each of those 12 pairs splits again, cookie or apple. That gives 12 × 2 = 24 lunches.",
+            visual: {
+              type: "slots",
+              op: "×",
+              slots: [
+                { label: "Sandwich", value: "4", tone: "hit" },
+                { label: "Drink", value: "3", tone: "hit" },
+                { label: "Side", value: "2", tone: "hit" },
+              ],
+              result: "24",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why you multiply",
+        body: [
+          "Every sandwich pairs with every drink, so the pairs come in 4 groups of 3, which is 4 × 3. Every pair then pairs with every side, which doubles the count.",
+          "This only works if each step has the same number of options whatever you chose before. If the egg sandwich came without a side, you’d have to count it separately.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Ways = (options at step 1) × (options at step 2) × …",
+        note: "For the lunch: 4 × 3 × 2 = 24. Leaving something out counts as an option. If the side were cookie, apple or none, that step would have 3 options and there’d be 4 × 3 × 3 = 36 lunches.",
+      },
+      {
+        type: "check",
+        prompt: "A PIN has 4 digits, each from 0 to 9, and digits can repeat. How many PINs are there?",
+        choices: ["40", "5,040", "9,999", "10,000"],
+        answer: 3,
+        explain:
+          "Each of the 4 digits has 10 options, so 10 × 10 × 10 × 10 = 10,000. The answer 5,040 is 10 × 9 × 8 × 7, which would be right if no digit could be used twice. That case is the next lesson.",
+      },
+      { type: "example", lead: "The same count for outfits: a shirt, then trousers, then shoes." },
+      {
+        type: "trap",
+        body: "Adding instead of multiplying. 4 + 3 + 2 = 9 is how many items are on the menu. A lunch is one of each, and every sandwich can go with every drink and every side.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "Something is built in stages, like an outfit, a meal or a password",
+          "Each position is filled on its own, like the digits of a PIN or a number plate",
+          "You’re asked how many sequences of rolls, flips or answers are possible",
+        ],
+      },
     ],
-    mistake: "Adding the options (5 + 3 + 2) instead of multiplying them. Adding counts one choice; multiplying counts whole combinations.",
     targetSeconds: 20,
     example: multiplyingChoices({ type: "outfits", shirts: 5, trousers: 3, shoes: 2 }),
     families: [
@@ -1755,17 +1847,100 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
     id: "permutations",
     title: "Permutations",
     benefit: "Count arrangements when order matters",
-    idea: "Arranging n different things gives n × (n − 1) × … × 1 ways, written n!. To fill only some spots, stop when they’re full. If some things are the same, divide by the ways to shuffle each repeat.",
+    summary: "How to count orderings: lining people up, filling ranked places, and arranging letters when some of them repeat.",
     difficulty: "Easy",
-    intro:
-      "An arrangement is choices in steps where each pick uses something up. The first spot has n options, the next has one fewer, and so on. That’s multiplying choices again, with a shrinking count each time.",
-    formula: "Arrangements of n things = n × (n − 1) × … × 1 = n!",
-    cues: [
-      "Order matters: first, second and third are different",
-      "Nothing can be used twice, like runners or digits that can’t repeat",
-      "The question asks how many ways to arrange, line up or seat",
+    parts: [
+      {
+        type: "text",
+        body: ["Five friends line up for a photo. How many different orders can they stand in?"],
+      },
+      {
+        type: "check",
+        prompt: "How many orders?",
+        choices: ["15", "25", "120", "3,125"],
+        answer: 2,
+        explain:
+          "It’s 5 × 4 × 3 × 2 × 1 = 120. The answer 3,125 is 5 × 5 × 5 × 5 × 5, which would let the same friend stand in more than one spot.",
+      },
+      {
+        type: "story",
+        heading: "Fill the spots from left to right",
+        beats: [
+          {
+            text: "The leftmost spot can go to any of the 5 friends.",
+            visual: { type: "slots", op: "×", slots: [{ label: "1st", value: "5", tone: "hit" }] },
+          },
+          {
+            text: "Whoever stands there can’t stand anywhere else, so the second spot has 4 options.",
+            visual: {
+              type: "slots",
+              op: "×",
+              slots: [
+                { label: "1st", value: "5", tone: "hit" },
+                { label: "2nd", value: "4", tone: "hit" },
+              ],
+            },
+          },
+          {
+            text: "Then 3 for the third spot, 2 for the fourth, and the last friend takes the last spot. That’s 120 orders.",
+            visual: {
+              type: "slots",
+              op: "×",
+              slots: [
+                { label: "1st", value: "5", tone: "hit" },
+                { label: "2nd", value: "4", tone: "hit" },
+                { label: "3rd", value: "3", tone: "hit" },
+                { label: "4th", value: "2", tone: "hit" },
+                { label: "5th", value: "1", tone: "hit" },
+              ],
+              result: "120",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why the options shrink",
+        body: [
+          "This is the multiplying rule from the last lesson with one change: each pick uses someone up, so every step has one fewer option. An ordering of things is called a permutation.",
+          "The product 5 × 4 × 3 × 2 × 1 is written 5! and read “5 factorial”. If only some spots are filled, stop when they’re full. Choosing a president, a secretary and a treasurer from 10 people gives 10 × 9 × 8 = 720.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "n different things in a row: n! = n × (n − 1) × … × 1",
+        note: "Filling only k of the spots: n × (n − 1) × … for k terms. Five friends in five spots: 5! = 120. Five friends and a bench with room for 2: 5 × 4 = 20.",
+      },
+      {
+        type: "text",
+        heading: "When some things are the same",
+        body: [
+          "Swapping two identical things doesn’t make a new order. If the two O’s in BOOK were different letters, there’d be 4! = 24 arrangements. They’re the same, so each word was counted twice, and there are 24 ÷ 2 = 12.",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "How many different arrangements are there of the letters in LEVEL?",
+        choices: ["20", "30", "60", "120"],
+        answer: 1,
+        explain:
+          "Told apart, the 5 letters have 5! = 120 orders. Swapping the two L’s or the two E’s gives the same word, so divide by 2 × 2: 120 ÷ 4 = 30. The answer 60 only allows for one of the repeated letters.",
+      },
+      { type: "example", lead: "When only the top places matter, stop once they’re filled. Here 8 runners race for 3 medals." },
+      {
+        type: "trap",
+        body: "Using 5 × 5 × 5 × 5 × 5 as if a friend could stand in two spots at once. Once someone is placed, they’re out of the running for the other spots, so each step has one fewer option.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "Order matters: first, second and third place are different results",
+          "Each thing can be used once, like people in seats or runners on a podium",
+          "You’re asked how many ways to line up, seat or rank, or how many words some letters make",
+        ],
+      },
     ],
-    mistake: "Forgetting that each pick leaves one fewer option, and using n × n × n as if things could repeat.",
     targetSeconds: 30,
     example: permutations({ type: "podium", runners: 8, places: 3 }),
     families: [
@@ -1810,17 +1985,100 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
     id: "combinations",
     title: "Combinations",
     benefit: "Count groups when order doesn’t matter",
-    idea: "To choose k things from n when order doesn’t matter, count the ordered picks, then divide by k! to remove the orders. This is C(n, k), said “n choose k”.",
+    summary: "How to count groups where order doesn’t matter: count the ordered picks, then divide by the number of orders of each group.",
     difficulty: "Medium",
-    intro:
-      "Picking books A, B, C is the same set as C, B, A. If you count ordered picks, every set shows up once for each of its k! orders. Dividing by k! leaves each set counted once.",
-    formula: "C(n, k) = n × (n − 1) × … (k terms) ÷ k!",
-    cues: [
-      "A group, team, hand or set, where the order of picking doesn’t matter",
-      "“How many ways to choose” some of a larger group",
-      "Routes on a grid, or identical items shared out",
+    parts: [
+      {
+        type: "text",
+        body: ["A club of 6 members sends 2 of them to a conference. How many different pairs could it send?"],
+      },
+      {
+        type: "check",
+        prompt: "How many pairs?",
+        choices: ["12", "15", "30", "36"],
+        answer: 1,
+        explain: "It’s 15. The answer 30 is 6 × 5, which counts each pair twice: once with each member picked first.",
+      },
+      {
+        type: "story",
+        heading: "Count ordered picks, then remove the orders",
+        beats: [
+          {
+            text: "Count as if order mattered. The first pick can be any of the 6 members and the second any of the other 5, giving 30 ordered picks.",
+            visual: {
+              type: "slots",
+              op: "×",
+              slots: [
+                { label: "1st pick", value: "6", tone: "hit" },
+                { label: "2nd pick", value: "5", tone: "hit" },
+              ],
+              result: "30",
+            },
+          },
+          {
+            text: "Ana then Ben is the same pair as Ben then Ana. Every pair appears twice in those 30.",
+            visual: {
+              type: "slots",
+              op: "",
+              slots: [
+                { label: "1st", value: "Ana", tone: "hit" },
+                { label: "2nd", value: "Ben", tone: "hit" },
+                { label: "1st", value: "Ben", tone: "alt" },
+                { label: "2nd", value: "Ana", tone: "alt" },
+              ],
+              caption: "One pair, counted twice",
+            },
+          },
+          {
+            text: "Divide by the 2 orders each pair comes in: 30 ÷ 2 = 15 pairs.",
+            visual: {
+              type: "slots",
+              op: "",
+              slots: [
+                { label: "Ordered picks", value: "30", tone: "muted" },
+                { label: "Orders of a pair", value: "÷ 2", tone: "known" },
+              ],
+              result: "15",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why you divide by k!",
+        body: [
+          "A group of 3 can be picked in 3! = 6 orders, so counting ordered picks counts each group of 3 six times. In general a group of k can be ordered k! ways, and dividing by k! leaves each group counted once.",
+          "The number of ways to choose k things from n is written C(n, k) and read “n choose k”. A group chosen this way, with no order, is called a combination.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "C(n, k) = n × (n − 1) × … (k terms) ÷ k!",
+        note: "For the club: C(6, 2) = 6 × 5 ÷ 2! = 15. Sending 3 of the 6 would be 6 × 5 × 4 ÷ 3! = 20.",
+      },
+      {
+        type: "check",
+        prompt: "The club now sends 4 of its 6 members. How many groups of 4 could it send?",
+        choices: ["15", "24", "30", "360"],
+        answer: 0,
+        explain:
+          "Picking 4 to go is the same as picking 2 to stay home, so C(6, 4) = C(6, 2) = 15. The long way gives the same: 6 × 5 × 4 × 3 ÷ 4! = 360 ÷ 24 = 15.",
+      },
+      { type: "example", lead: "The same count for packing 3 books out of 10, where each set can be packed in 3! = 6 orders." },
+      {
+        type: "trap",
+        body: "Stopping at the ordered count. 6 × 5 = 30 treats Ana then Ben and Ben then Ana as different pairs. If the question is about a group, a team or a hand of cards, divide by the orders.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "You pick a group, team, committee or hand of cards, and the order of picking doesn’t matter",
+          "The question asks how many ways to choose some things from a larger set",
+          "You count paths on a grid, where a path is a choice of which steps go up",
+        ],
+      },
     ],
-    mistake: "Not dividing by k!, which counts the same group several times, once for each order it could be picked in.",
     targetSeconds: 40,
     example: combinations({ type: "choose", from: 10, pick: 3 }),
     families: [
@@ -1891,17 +2149,80 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
     id: "inclusion-exclusion",
     title: "Inclusion–exclusion",
     benefit: "Count things that fall in either group",
-    idea: "To count things in A or B, add the count of A and the count of B, then take away the ones in both, since they were counted twice.",
+    summary: "How to count things in either of two overlapping groups without counting the overlap twice, and how the rule extends to three groups.",
     difficulty: "Medium",
-    intro:
-      "When two groups overlap, adding their sizes counts the shared part twice. Taking the overlap off once fixes it. For three groups, the triple overlap gets added, taken off and needs adding back once.",
-    formula: "Count of A or B = count of A + count of B − count of both",
-    cues: [
-      "The question says “or”, “at least one of” or “neither”",
-      "Two groups share members, like students who play both sports",
-      "Numbers divisible by one value or another",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "In a class of 30 students, 18 play football, 12 play tennis and 5 play both. How many students play at least one of the two?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "How many play at least one sport?",
+        choices: ["20", "25", "30", "35"],
+        answer: 1,
+        explain: "It’s 25. Adding 18 + 12 = 30 counts the 5 who play both sports twice, once in each group. Take them off once and you get 25.",
+      },
+      {
+        type: "story",
+        heading: "Count each circle, then fix the overlap",
+        beats: [
+          {
+            text: "18 students play football. That circle includes the 5 who also play tennis.",
+            visual: venn({ label: "Football", total: 18 }, { label: "Tennis", total: 12 }, 5, 5, ["a", "both"]),
+          },
+          {
+            text: "12 play tennis, and that circle includes the same 5.",
+            visual: venn({ label: "Football", total: 18 }, { label: "Tennis", total: 12 }, 5, 5, ["b", "both"]),
+          },
+          {
+            text: "Adding 18 + 12 = 30 counts those 5 students twice, once in each circle.",
+            visual: venn({ label: "Football", total: 18 }, { label: "Tennis", total: 12 }, 5, 5, ["both"]),
+          },
+          {
+            text: "Take them off once: 30 − 5 = 25 students play at least one sport. The other 5 play neither.",
+            visual: venn({ label: "Football", total: 18 }, { label: "Tennis", total: 12 }, 5, 5, ["a", "b", "both"], "25 play at least one"),
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why it works",
+        body: [
+          "A student in the overlap sits inside both circles, so adding the circles counts them twice. Taking the overlap off once leaves everyone counted exactly once. The name describes the steps: include both groups, then exclude what you counted twice.",
+          "With three groups, add all three, take off each of the three overlaps between two groups, then add back anyone in all three. They were added three times and taken off three times, so they need adding back once.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Count of A or B = count of A + count of B − count of both",
+        note: "For the class: 18 + 12 − 5 = 25. For three groups: A + B + C − (A and B) − (A and C) − (B and C) + (all three).",
+      },
+      {
+        type: "check",
+        prompt: "Of 40 people, 20 drink tea, 15 drink coffee and 10 drink neither. How many drink both?",
+        choices: ["0", "5", "10", "15"],
+        answer: 1,
+        explain:
+          "The rule works backwards too. 30 people drink at least one, so 20 + 15 − both = 30, which makes both = 5.",
+      },
+      { type: "example", lead: "The same count with numbers. Here the two groups are the multiples of 2 and the multiples of 3 up to 100." },
+      {
+        type: "trap",
+        body: "Adding the two groups and stopping. 18 + 12 = 30 would mean every student in the class plays a sport, but the 5 who play both were counted twice.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question says “or”, “at least one of” or “neither”",
+          "Two groups share members, like students who play both sports",
+          "You count numbers divisible by one value or another",
+        ],
+      },
     ],
-    mistake: "Adding the two groups and forgetting to take off the ones in both, so the overlap is counted twice.",
     targetSeconds: 40,
     example: inclusionExclusion({ type: "divisible", upTo: 100, a: 2, b: 3, ask: "either" }),
     families: [

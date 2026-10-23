@@ -61,6 +61,26 @@ export type QuantFamily = {
   generate: (random: Random) => QuantProblem;
 };
 
+/**
+ * One section of a lesson. A lesson reads top to bottom, one section at a time, like a short
+ * textbook section broken into screens: a concrete problem, the working, the rule, a check.
+ */
+export type LessonPart =
+  /** Paragraphs of explanation, with an optional figure under them. */
+  | { type: "text"; heading?: string; body: string[]; visual?: QuantVisual }
+  /** An explanation told in beats over one figure that changes with each beat. */
+  | { type: "story"; heading?: string; beats: { text: string; visual: QuantVisual }[] }
+  /** The rule, written as a formula, with a line or two on reading it. */
+  | { type: "rule"; rule: string; note?: string }
+  /** A quick multiple-choice question; the reader picks before moving on. */
+  | { type: "check"; prompt: string; visual?: QuantVisual; choices: string[]; answer: number; explain: string }
+  /** The lesson's worked example, stepped through. `lead` introduces it. */
+  | { type: "example"; lead?: string }
+  /** A short list, e.g. the signs in a question that this is the tool. */
+  | { type: "list"; heading: string; items: string[] }
+  /** The mistake people most often make, and how to avoid it. */
+  | { type: "trap"; body: string };
+
 /** A lesson as a unit defines it; the course adds its unit. */
 export type QuantLessonDef = {
   id: QuantLessonId;
@@ -68,17 +88,11 @@ export type QuantLessonDef = {
   title: string;
   /** What the player learns to do, short enough for one line of a phone list. */
   benefit: string;
-  /** The method in a sentence or two. */
-  idea: string;
+  /** One or two sentences for search results and link previews. */
+  summary: string;
   difficulty: QuantDifficulty;
-  /** Why the method works, in two or three plain sentences. */
-  intro: string;
-  /** The rule as one line, e.g. "Chance = outcomes you want ÷ all outcomes". */
-  formula: string;
-  /** Signs in a question that this is the tool to use, e.g. "The question says “at least one”". */
-  cues: string[];
-  /** The mistake people most often make with it. */
-  mistake: string;
+  /** The lesson itself, in reading order. Exactly one part is the worked example. */
+  parts: LessonPart[];
   /** Average seconds per solo problem to master it. */
   targetSeconds: number;
   example: QuantProblem;

@@ -101,14 +101,91 @@ test("every lesson says what it's for in one short line", () => {
   }
 });
 
-test("every lesson teaches: difficulty, why it works, the rule, cues and the common mistake", () => {
+test("every lesson teaches: a problem first, the rule, checks, the worked example and the usual mistake", () => {
   for (const lesson of QUANT_LESSONS) {
-    assert.ok(["Easy", "Medium", "Hard"].includes(lesson.difficulty), lesson.id);
-    assert.ok(lesson.intro.length >= 60 && lesson.intro.length <= 420, `${lesson.id} intro: ${lesson.intro.length}`);
-    assert.ok(lesson.formula.length > 0 && lesson.formula.length <= 90, `${lesson.id} formula: ${lesson.formula}`);
-    assert.ok(lesson.cues.length >= 2 && lesson.cues.length <= 3, `${lesson.id} cues`);
-    for (const cue of lesson.cues) assert.ok(cue.length <= 90, `${lesson.id} cue: ${cue}`);
-    assert.ok(lesson.mistake.length > 0 && lesson.mistake.length <= 170, `${lesson.id} mistake: ${lesson.mistake}`);
+    const id = lesson.id;
+    const count = (type: string) => lesson.parts.filter((part) => part.type === type).length;
+    assert.ok(["Easy", "Medium", "Hard"].includes(lesson.difficulty), id);
+    assert.ok(lesson.summary.length >= 40 && lesson.summary.length <= 200, `${id} summary: ${lesson.summary.length}`);
+    assert.equal(lesson.parts[0].type, "text", `${id} opens with a problem`);
+    assert.equal(count("example"), 1, `${id} example`);
+    assert.ok(count("rule") >= 1, `${id} rule`);
+    assert.ok(count("check") >= 2, `${id} checks`);
+    assert.equal(count("trap"), 1, `${id} trap`);
+    for (const part of lesson.parts) {
+      if (part.type === "check") {
+        assert.ok(part.choices.length >= 2 && part.choices.length <= 4, `${id} check choices: ${part.prompt}`);
+        assert.equal(new Set(part.choices).size, part.choices.length, `${id} choices repeat: ${part.prompt}`);
+        assert.ok(Number.isInteger(part.answer) && part.answer >= 0 && part.answer < part.choices.length, `${id} answer: ${part.prompt}`);
+        assert.ok(part.explain.length > 0, `${id} explain: ${part.prompt}`);
+        for (const choice of part.choices) assert.ok(choice.length <= 60, `${id} long choice: ${choice}`);
+      }
+      if (part.type === "story") assert.ok(part.beats.length >= 2, `${id} story beats`);
+      if (part.type === "text") for (const paragraph of part.body) assert.ok(paragraph.length <= 340, `${id} long paragraph: ${paragraph}`);
+      if (part.type === "rule") assert.ok(part.rule.length <= 90, `${id} rule: ${part.rule}`);
+      if (part.type === "list") assert.ok(part.items.length >= 2 && part.items.length <= 4, `${id} list`);
+    }
+  }
+});
+
+/** Every piece of a lesson's copy, for the style checks. */
+function lessonCopy(lesson: (typeof QUANT_LESSONS)[number]): string[] {
+  return [
+    lesson.title,
+    lesson.benefit,
+    lesson.summary,
+    ...lesson.parts.flatMap((part) => {
+      switch (part.type) {
+        case "text":
+          return [part.heading ?? "", ...part.body];
+        case "story":
+          return [part.heading ?? "", ...part.beats.map((beat) => beat.text)];
+        case "rule":
+          return [part.rule, part.note ?? ""];
+        case "check":
+          return [part.prompt, ...part.choices, part.explain];
+        case "example":
+          return [part.lead ?? ""];
+        case "list":
+          return [part.heading, ...part.items];
+        case "trap":
+          return [part.body];
+      }
+    }),
+  ];
+}
+
+// Phrases that make writing sound generated or padded rather than taught.
+const BANNED = [
+  "—",
+  "Let’s",
+  "Let's",
+  "delve",
+  "dive",
+  "crucial",
+  "key insight",
+  "powerful",
+  "In this lesson",
+  "simply",
+  "unlock",
+  "Picture ",
+  "Imagine ",
+  "Think of it as",
+  "It’s important",
+  "Here’s the",
+  "the trick",
+  "not just",
+  "game-changer",
+  "journey",
+  "seamless",
+];
+
+test("lesson copy avoids filler and stock phrases", () => {
+  for (const lesson of QUANT_LESSONS) {
+    for (const text of lessonCopy(lesson)) {
+      for (const phrase of BANNED) assert.ok(!text.includes(phrase), `${lesson.id}: "${phrase}" in "${text}"`);
+      assert.ok(!/\.\./.test(text) && !/ {2}/.test(text), `${lesson.id}: stray punctuation in "${text}"`);
+    }
   }
 });
 
@@ -169,6 +246,15 @@ function checkVisual(visual: QuantVisual, label: string) {
       break;
   }
 }
+
+test("lesson figures are drawable", () => {
+  for (const lesson of QUANT_LESSONS) {
+    for (const part of lesson.parts) {
+      if ((part.type === "text" || part.type === "check") && part.visual) checkVisual(part.visual, `${lesson.id} ${part.type}`);
+      if (part.type === "story") for (const beat of part.beats) checkVisual(beat.visual, `${lesson.id} story`);
+    }
+  }
+});
 
 test("every walkthrough step says what it does, and every problem has a figure", () => {
   for (const lesson of QUANT_LESSONS) {

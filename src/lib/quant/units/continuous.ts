@@ -4,7 +4,7 @@ import type { QuantVisual, Tone } from "../visual";
 
 type Band = { from: number; to: number; tone: Tone; text?: string };
 
-/** A number line over a range, with what's asked shaded. */
+/** A number line over a range, with what’s asked shaded. */
 function line(low: number, high: number, shade: Band[], caption: string, extra: Partial<Extract<QuantVisual, { type: "number-line" }>> = {}): QuantVisual {
   return { type: "number-line", min: low, max: high, ticks: [low, high], shade, caption, ...extra };
 }
@@ -26,7 +26,7 @@ function uniformNumber(params: UniformParams): QuantProblem {
       const { low, high, from, to } = params;
       return problem(
         `between-${low}-${high}-${from}-${to}`,
-        `${picked(low, high)} What's the chance it's between ${from} and ${to}?`,
+        `${picked(low, high)} What’s the chance it’s between ${from} and ${to}?`,
         q(to - from, high - low),
         "probability",
         [
@@ -61,7 +61,7 @@ function uniformNumber(params: UniformParams): QuantProblem {
       const { low, high, from } = params;
       return problem(
         `above-${low}-${high}-${from}`,
-        `${picked(low, high)} What's the chance it's more than ${from}?`,
+        `${picked(low, high)} What’s the chance it’s more than ${from}?`,
         q(high - from, high - low),
         "probability",
         [
@@ -96,7 +96,7 @@ function uniformNumber(params: UniformParams): QuantProblem {
       const { high, from } = params;
       return problem(
         `wait-${high}-${from}`,
-        `A bus comes at a random time in the next ${high} minutes, every moment equally likely. What's the chance you wait more than ${from} minutes?`,
+        `A bus comes at a random time in the next ${high} minutes, every moment equally likely. What’s the chance you wait more than ${from} minutes?`,
         q(high - from, high),
         "probability",
         [
@@ -123,7 +123,7 @@ function uniformNumber(params: UniformParams): QuantProblem {
       const { low, high } = params;
       return problem(
         `average-${low}-${high}`,
-        `${picked(low, high)} What's its average?`,
+        `${picked(low, high)} What’s its average?`,
         q(low + high, 2),
         "number",
         [
@@ -145,7 +145,7 @@ function uniformNumber(params: UniformParams): QuantProblem {
       const { low, high, from } = params;
       return problem(
         `average-above-${low}-${high}-${from}`,
-        `${picked(low, high)} You're told it's more than ${from}. What's its average now?`,
+        `${picked(low, high)} You’re told it’s more than ${from}. What’s its average now?`,
         q(from + high, 2),
         "number",
         [
@@ -177,7 +177,7 @@ function uniformNumber(params: UniformParams): QuantProblem {
       const length = high - low;
       return problem(
         `variance-${low}-${high}`,
-        `${picked(low, high)} What's its variance?`,
+        `${picked(low, high)} What’s its variance?`,
         q(length * length, 12),
         "number",
         [
@@ -248,8 +248,8 @@ function areaProblem(params: AreaParams): QuantProblem {
     const miss = q(gap * gap, window * window);
     const prompt =
       params.type === "meet"
-        ? `Two friends each arrive at a random time ${window === 60 ? "within the same hour" : "within the same half hour"}. Whoever comes first waits ${wait} minutes, then leaves. What's the chance they meet?`
-        : `Two points are dropped at random on a ${window} cm stick. What's the chance they're less than ${wait} cm apart?`;
+        ? `Two friends each arrive at a random time ${window === 60 ? "within the same hour" : "within the same half hour"}. Whoever comes first waits ${wait} minutes, then leaves. What’s the chance they meet?`
+        : `Two points are dropped at random on a ${window} cm stick. What’s the chance they’re less than ${wait} cm apart?`;
     const apart = params.type === "meet" ? `${wait} min` : `${wait} cm`;
     const d = wait / window;
     const axis = params.type === "meet" ? { xLabel: "First friend arrives", yLabel: "Second friend arrives", max: `${window} min` } : { xLabel: "First point", yLabel: "Second point", max: `${window} cm` };
@@ -307,7 +307,7 @@ function areaProblem(params: AreaParams): QuantProblem {
     const t = q(params.tN, params.tD);
     const tText = formatFraction(t);
     const key = `sum-${params.tN}-${params.tD}`;
-    const prompt = `${picked} What's the chance their sum is less than ${tText}?`;
+    const prompt = `${picked} What’s the chance their sum is less than ${tText}?`;
     if (params.tN <= params.tD) {
       const tv = params.tN / params.tD;
       return problem(
@@ -387,7 +387,7 @@ function areaProblem(params: AreaParams): QuantProblem {
   };
   return problem(
     `ratio-${params.kN}-${params.kD}`,
-    `${picked} What's the chance the first is more than ${multiple(k)} times the second?`,
+    `${picked} What’s the chance the first is more than ${multiple(k)} times the second?`,
     div(height, q(2)),
     "probability",
     [
@@ -438,7 +438,7 @@ function highestOrLowest(params: { type: "highest" | "lowest"; dice: number; sid
   };
   return problem(
     `${type}-${dice}-${sides}`,
-    `You roll ${dice === 2 ? "two" : "three"} fair ${sides}-sided dice. What's the ${type} roll on average?`,
+    `You roll ${dice === 2 ? "two" : "three"} fair ${sides}-sided dice. What’s the ${type} roll on average?`,
     q(sum, total),
     "number",
     [
@@ -493,7 +493,7 @@ function uniformExtreme(params: { type: "max" | "min"; n: number; scale: 1 | 60 
   const answer = q(gaps * scale, n + 1);
   const prompt =
     scale === 1
-      ? `You pick ${COUNT_WORDS[n]} random numbers between 0 and 1. What's the ${type === "max" ? "largest" : "smallest"} one on average?`
+      ? `You pick ${COUNT_WORDS[n]} random numbers between 0 and 1. What’s the ${type === "max" ? "largest" : "smallest"} one on average?`
       : `${COUNT_WORDS[n][0].toUpperCase()}${COUNT_WORDS[n].slice(1)} people each arrive at a random time in the same hour. On average, how many minutes after the hour does the ${type === "max" ? "last" : "first"} one arrive?`;
   const spots = Array.from({ length: n }, (_, i) => ((i + 1) * scale) / (n + 1));
   const asked = type === "max" ? n - 1 : 0;
@@ -545,8 +545,8 @@ function allBelow(params: { n: number; xN: number; xD: number; side: "below" | "
   return problem(
     `all-${side}-${n}-${params.xN}-${params.xD}`,
     side === "below"
-      ? `You pick ${COUNT_WORDS[n]} random numbers between 0 and 1. What's the chance the largest is less than ${xText}?`
-      : `You pick ${COUNT_WORDS[n]} random numbers between 0 and 1. What's the chance the smallest is more than ${xText}?`,
+      ? `You pick ${COUNT_WORDS[n]} random numbers between 0 and 1. What’s the chance the largest is less than ${xText}?`
+      : `You pick ${COUNT_WORDS[n]} random numbers between 0 and 1. What’s the chance the smallest is more than ${xText}?`,
     pow(each, n),
     "probability",
     [
@@ -568,7 +568,7 @@ function allBelow(params: { n: number; xN: number; xD: number; side: "below" | "
         ),
       },
       {
-        label: `All ${n} must be`,
+        label: n === 2 ? "Both must be" : `All ${n} must be`,
         work: `(${formatFraction(each)})${sup(n)}`,
         icon: "multiply",
         explain: `The numbers are picked independently, so multiply the chance for each of the ${n}.`,
@@ -610,7 +610,7 @@ function brokenStick(params: StickParams): QuantProblem {
       const short = q(L, 4);
       return problem(
         `stick-${params.type}-${L}`,
-        `${intro} What's the average length of the ${params.type === "short" ? "shorter" : "longer"} piece, in cm?`,
+        `${intro} What’s the average length of the ${params.type === "short" ? "shorter" : "longer"} piece, in cm?`,
         params.type === "short" ? short : sub(q(L), short),
         "number",
         [
@@ -641,7 +641,7 @@ function brokenStick(params: StickParams): QuantProblem {
       const x = params.under;
       return problem(
         `stick-under-${L}-${x}`,
-        `${intro} What's the chance the shorter piece is less than ${x} cm long?`,
+        `${intro} What’s the chance the shorter piece is less than ${x} cm long?`,
         q(2 * x, L),
         "probability",
         [
@@ -664,7 +664,7 @@ function brokenStick(params: StickParams): QuantProblem {
             label: "Chance",
             work: `${2 * x} ÷ ${L}`,
             icon: "divide",
-            explain: "Every break point is equally likely, so the chance is the orange length out of the whole stick.",
+            explain: "Every break point is equally likely, so the chance is the shaded length out of the whole stick.",
           },
         ],
         params,
@@ -676,7 +676,7 @@ function brokenStick(params: StickParams): QuantProblem {
       const cut = q(L, k + 1);
       return problem(
         `stick-ratio-${L}-${k}`,
-        `${intro} What's the chance the longer piece is more than ${k} times as long as the shorter one?`,
+        `${intro} What’s the chance the longer piece is more than ${k} times as long as the shorter one?`,
         q(2, k + 1),
         "probability",
         [
@@ -728,7 +728,7 @@ function targetRing(params: { r1: number; r2: number; r3: number; ring: "inner" 
   });
   return problem(
     `ring-${r1}-${r2}-${r3}-${ring}`,
-    `A target has a bullseye of radius ${r1} inch${r1 === 1 ? "" : "es"}, a middle ring out to ${r2} inches and an outer ring out to ${r3} inches. An arrow lands at a random point on the target, every point equally likely. What's the chance it lands in ${names[index]}?`,
+    `A target has a bullseye of radius ${r1} inch${r1 === 1 ? "" : "es"}, a middle ring out to ${r2} inches and an outer ring out to ${r3} inches. An arrow lands at a random point on the target, every point equally likely. What’s the chance it lands in ${names[index]}?`,
     q(areas[index], r3 * r3),
     "probability",
     [
@@ -783,7 +783,7 @@ function ratioRange(params: { mN: number; mD: number; MN: number; MD: number }):
       : `a ÷ b < ${show(k)} means b > a ÷ ${show(k)}. Only a thin triangle below that line is left out, area 1 ÷ (2 × ${show(k)}).`;
   return problem(
     `ratio-range-${params.mN}-${params.mD}-${params.MN}-${params.MD}`,
-    `Two numbers a and b are picked at random between 0 and 1, every value equally likely. What's the chance a ÷ b is between ${show(m)} and ${show(M)}?`,
+    `Two numbers a and b are picked at random between 0 and 1, every value equally likely. What’s the chance a ÷ b is between ${show(m)} and ${show(M)}?`,
     answer,
     "probability",
     [
@@ -829,8 +829,8 @@ function halfCircle(params: { n: number; ask: "half" | "centre" }): QuantProblem
   const inHalf = q(n, 2 ** (n - 1));
   const prompt =
     ask === "half"
-      ? `${COUNT_WORDS[n][0].toUpperCase()}${COUNT_WORDS[n].slice(1)} points are placed at random on a circle. What's the chance all of them lie within some half of the circle?`
-      : `A round table gets ${COUNT_WORDS[n]} legs, each placed at a random point on its edge. It stands only if its centre is inside the shape the legs make. What's the chance it stands?`;
+      ? `${COUNT_WORDS[n][0].toUpperCase()}${COUNT_WORDS[n].slice(1)} points are placed at random on a circle. What’s the chance all of them lie within some half of the circle?`
+      : `A round table gets ${COUNT_WORDS[n]} legs, each placed at a random point on its edge. It stands only if its centre is inside the shape the legs make. What’s the chance it stands?`;
   const others = range(1, n - 1).map((i) => (i * 180) / n);
   const halfLine: QuantVisual = {
     type: "number-line",
@@ -888,7 +888,7 @@ function medianThree(params: { length: number; x: number; side: "above" | "below
   const counts = [pow(notEach, 3), mul(q(3), mul(each, mul(notEach, notEach))), two, three];
   return problem(
     `median-${L}-${x}-${side}`,
-    `Three numbers are picked at random between 0 and ${L}, every value equally likely. What's the chance the middle one is ${word} than ${x}?`,
+    `Three numbers are picked at random between 0 and ${L}, every value equally likely. What’s the chance the middle one is ${word} than ${x}?`,
     add(two, three),
     "probability",
     [
@@ -924,16 +924,109 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
     id: "uniform",
     title: "Uniform random numbers",
     benefit: "Work with a random number in a range",
-    idea: "Every value in the range is equally likely, so a chance is the length you want ÷ the whole length. The average is the midpoint, and the variance is length² ÷ 12.",
+    summary: "A number picked evenly from a range: a chance is a share of the length, the average is the midpoint, and the variance is length² ÷ 12.",
     difficulty: "Easy",
-    intro:
-      "A uniform number is like a dart that’s equally likely to land anywhere along a line. Equal stretches of the line get equal chances, so a chance is just a share of the length. Being told it landed in some part leaves a smaller line where it’s still even.",
-    formula: "Chance = length you want ÷ whole length; average = (low + high) ÷ 2",
-    cues: [
-      "A number or time is picked at random in a range, every value equally likely",
-      "The question asks a chance, an average or a spread for that one number",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "A bus comes every 12 minutes. You turn up at the stop at a random moment, not knowing the timetable. What’s the chance you wait more than 9 minutes?",
+          "Your wait could be anything from 0 to 12 minutes, and no part of that range is more likely than another. A random number like this is called uniform.",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance you wait exactly 6 minutes, to the split second?",
+        choices: ["0", "1/12", "1/6", "1/2"],
+        answer: 0,
+        explain:
+          "There are infinitely many possible waits between 0 and 12, so any single one has chance 0. Only stretches of time have a chance above 0, which is why uniform questions ask about ranges.",
+      },
+      {
+        type: "story",
+        heading: "Measure the stretch",
+        beats: [
+          {
+            text: "Your wait lands somewhere on this line, from 0 to 12 minutes. Stretches of the same length are equally likely.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 12,
+              ticks: [0, 3, 6, 9, 12],
+              shade: [{ from: 0, to: 12, tone: "known" }],
+              caption: "Minutes you wait",
+            },
+          },
+          {
+            text: "Waiting more than 9 minutes means landing between 9 and 12. That stretch is 3 minutes long.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 12,
+              ticks: [0, 3, 6, 9, 12],
+              shade: [
+                { from: 0, to: 9, tone: "known" },
+                { from: 9, to: 12, tone: "hit", text: "3 min" },
+              ],
+              caption: "Minutes you wait",
+            },
+          },
+          {
+            text: "It’s 3 minutes out of 12, so the chance is 3 ÷ 12 = 1/4. Any 3-minute stretch would give the same answer, wherever it sits.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 12,
+              ticks: [0, 3, 6, 9, 12],
+              shade: [
+                { from: 0, to: 9, tone: "known" },
+                { from: 9, to: 12, tone: "hit", text: "1/4" },
+              ],
+              caption: "Minutes you wait",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Averages and spread",
+        body: [
+          "The average of a uniform number is the midpoint of its range. Your average wait is 6 minutes.",
+          "If you learn something about the number, the range shrinks and the number is still uniform on what’s left. Told you’ve already waited 9 minutes, your total wait is now uniform from 9 to 12, with average 10.5.",
+          "The variance, the average squared distance from the mean, is the length squared over 12. For the bus that’s 12² ÷ 12 = 12.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(c < X < d) = (d − c) ÷ (b − a); average = (a + b) ÷ 2",
+        note: "X is uniform from a to b. For the bus, a = 0 and b = 12, so P(wait > 9) = (12 − 9) ÷ 12 = 1/4 and the average wait is (0 + 12) ÷ 2 = 6 minutes.",
+      },
+      {
+        type: "check",
+        prompt: "A number is uniform between 5 and 25. What’s the chance it’s below 10?",
+        choices: ["1/4", "2/5", "1/2", "1/5"],
+        answer: 0,
+        explain:
+          "The stretch from 5 to 10 is 5 long and the whole range is 20 long, so the chance is 5 ÷ 20 = 1/4. 2/5 comes from dividing 10 by 25, as if the range started at 0.",
+      },
+      {
+        type: "example",
+        lead: "A stretch in the middle of the range works the same way. Only its length matters.",
+      },
+      {
+        type: "trap",
+        body: "Dividing by the top of the range when it doesn’t start at 0. A number between 5 and 25 has a range 20 long, so divide lengths by 20, not 25.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "A time or number is picked at random in a range, with no part more likely",
+          "The question says someone arrives at a random time or a stick breaks at a random point",
+          "It asks for a chance, an average or a variance of that one number",
+        ],
+      },
     ],
-    mistake: "Dividing by the top of the range when it doesn’t start at 0. Divide by the range’s length: high − low.",
     targetSeconds: 25,
     example: uniformNumber({ type: "between", low: 0, high: 20, from: 3, to: 11 }),
     families: [
@@ -959,16 +1052,101 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
     id: "area",
     title: "Probability as area",
     benefit: "Solve two-number questions with a square",
-    idea: "Picture the two random numbers as a point in a square. The chance is the share of the square where the condition holds, often 1 minus a triangle or two.",
+    summary: "Two random numbers as one point in a square: a chance becomes a share of the square’s area, usually a triangle or strip cut off by a line.",
     difficulty: "Medium",
-    intro:
-      "Two random numbers make one random point in a square: the first number across, the second up. Every spot in the square is equally likely, so a chance is the share of the square’s area where the condition holds. Lines like x + y = 1 or y = x cut the square into triangles, whose areas are easy.",
-    formula: "Chance = area where it happens ÷ area of the square",
-    cues: [
-      "Two times or numbers are each picked at random in a range",
-      "The question compares them: their gap, their sum, or one being bigger",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You pick two numbers, each uniform between 0 and 1 and independent of each other. What’s the chance their sum is less than 1?",
+          "One uniform number lives on a line, and a chance is a share of its length. Two of them live in a square, and a chance is a share of its area.",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance the sum is under 1?",
+        choices: ["1/2", "1/4", "1/3", "3/4"],
+        answer: 0,
+        explain: "It’s 1/2. The square below shows why: one straight line cuts it into two equal halves.",
+      },
+      {
+        type: "story",
+        heading: "Draw the square",
+        beats: [
+          {
+            text: "Plot the pair as a point: the first number across, the second up. Every point in the square is equally likely.",
+            visual: {
+              type: "square",
+              xLabel: "First number",
+              yLabel: "Second number",
+              max: "1",
+              regions: [{ points: [[0, 0], [1, 0], [1, 1], [0, 1]], tone: "known" }],
+              caption: "Each point is one pair of numbers",
+            },
+          },
+          {
+            text: "Pairs that add up to exactly 1 lie on the diagonal from the top left to the bottom right. Below it, the sum is less than 1.",
+            visual: {
+              type: "square",
+              xLabel: "First number",
+              yLabel: "Second number",
+              max: "1",
+              regions: [{ points: [[0, 0], [1, 0], [0, 1]], tone: "hit", text: "sum < 1" }],
+              caption: "Each point is one pair of numbers",
+            },
+          },
+          {
+            text: "That triangle is half the square, so the chance is 1/2.",
+            visual: {
+              type: "square",
+              xLabel: "First number",
+              yLabel: "Second number",
+              max: "1",
+              regions: [{ points: [[0, 0], [1, 0], [0, 1]], tone: "hit", text: "1/2" }],
+              caption: "Each point is one pair of numbers",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why area works",
+        body: [
+          "Two independent uniform numbers make a point that’s equally likely to be anywhere in the square. So the chance of a condition is the share of the square where it holds.",
+          "Most questions draw one or two lines: x + y = 1 for a sum, y = x for which number is bigger, or y = x ± 0.25 for a gap. The pieces they cut off are triangles and strips, and a triangle’s area is half its base times its height.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Chance = area where it happens ÷ area of the square",
+        note: "With numbers from 0 to 1 the square has area 1, so the chance is the area itself. For a sum below 1, that’s the triangle under x + y = 1, with area ½ × 1 × 1 = 1/2.",
+      },
+      {
+        type: "check",
+        prompt: "Same two numbers. What’s the chance their sum is less than 1/2?",
+        choices: ["1/8", "1/4", "1/2", "1/16"],
+        answer: 0,
+        explain:
+          "The region is the triangle under x + y = 1/2, with both short sides 1/2 long. Its area is ½ × ½ × ½ = 1/8. Moving the line from 1 to 1/2 halves the triangle in both directions, so its area is a quarter of 1/2, not half of it.",
+      },
+      {
+        type: "example",
+        lead: "Meeting problems are the classic case. Two arrival times are close enough when the point lands in a band along the diagonal y = x.",
+      },
+      {
+        type: "trap",
+        body: "Treating the gap between two random times as one uniform number. Small gaps are more likely than large ones: lots of pairs are close together, and pairs far apart only fill the two corners of the square.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "Two times or numbers are each picked at random in a range",
+          "The question compares them: their gap, their sum, their ratio or which is bigger",
+          "Someone waits a fixed time for someone else who arrives at random",
+        ],
+      },
     ],
-    mistake: "Working with the gap as if it were one uniform number. Small gaps are more likely than big ones, which the square shows.",
     targetSeconds: 45,
     example: areaProblem({ type: "meet", window: 60, wait: 15 }),
     families: [
@@ -1024,16 +1202,114 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
     id: "highest-lowest",
     title: "Highest and lowest values",
     benefit: "Find the average max or min of a sample",
-    idea: "For dice, count the ways the highest roll is each value, then average. For n random numbers in a range, they split it into n + 1 equal gaps on average, so the highest sits n gaps up and the lowest 1 gap up.",
+    summary: "The largest or smallest of several dice or random numbers: count “all at most k”, take away “all at most k − 1”, and use equal gaps for averages.",
     difficulty: "Hard",
-    intro:
-      "The highest of several rolls is hard to count directly, but “every roll is k or less” is easy: k ways per die, multiplied. The highest is exactly k when everything is at most k but not everything is at most k − 1. For random numbers, the n points cut the range into n + 1 gaps that are equal on average.",
-    formula: "Ways the highest is k = kⁿ − (k − 1)ⁿ; average max of n uniforms = n ÷ (n + 1)",
-    cues: [
-      "The question asks for the largest, smallest, first or last of several results",
-      "You need the chance every result is below or above some value",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You roll three dice and look at the highest number showing. What’s the chance it’s exactly 4?",
+          "Counting this head-on is messy. The 4 could be on one die, two or all three, with the others anywhere below it. It’s easier to start from the rolls where every die is at most 4.",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance all three dice show 4 or less?",
+        choices: ["(4/6)³ = 8/27", "4/6 = 2/3", "3 × 4/6", "(1/6)³ = 1/216"],
+        answer: 0,
+        explain:
+          "Each die shows 4 or less with chance 4/6, and the dice don’t affect each other, so multiply: (2/3)³ = 8/27. That’s the chance the highest is 4 or less.",
+      },
+      {
+        type: "story",
+        heading: "Take one count from another",
+        beats: [
+          {
+            text: "“Every die is at most 4” covers 4 × 4 × 4 = 64 of the 216 rolls.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1", value: 1, tone: "muted" },
+                { label: "2", value: 8, tone: "muted" },
+                { label: "3", value: 27, tone: "muted" },
+                { label: "4", value: 64, tone: "hit", text: "64" },
+                { label: "5", value: 125, tone: "muted" },
+                { label: "6", value: 216, tone: "muted" },
+              ],
+              caption: "Rolls of three dice where every die is at most k",
+            },
+          },
+          {
+            text: "“Every die is at most 3” covers 3 × 3 × 3 = 27 rolls. Those are inside the 64, and in each of them the highest is 3 or less.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1", value: 1, tone: "muted" },
+                { label: "2", value: 8, tone: "muted" },
+                { label: "3", value: 27, tone: "alt", text: "27" },
+                { label: "4", value: 64, tone: "hit", text: "64" },
+                { label: "5", value: 125, tone: "muted" },
+                { label: "6", value: 216, tone: "muted" },
+              ],
+              caption: "Rolls of three dice where every die is at most k",
+            },
+          },
+          {
+            text: "Take them away. The 64 − 27 = 37 rolls left are the ones whose highest is exactly 4, so the chance is 37/216, about 17%.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1", value: 1, tone: "muted" },
+                { label: "2", value: 7, tone: "muted" },
+                { label: "3", value: 19, tone: "muted" },
+                { label: "4", value: 37, tone: "hit", text: "37" },
+                { label: "5", value: 61, tone: "muted" },
+                { label: "6", value: 91, tone: "muted" },
+              ],
+              caption: "Rolls of three dice where the highest is exactly k",
+            },
+          },
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(highest = k) = (kⁿ − (k − 1)ⁿ) ÷ sⁿ",
+        note: "This is for n dice with s sides each. For three dice and k = 4, it’s (64 − 27) ÷ 216 = 37/216. For the lowest, count the rolls where every die is at least k instead.",
+      },
+      {
+        type: "text",
+        heading: "Random numbers in a range",
+        body: [
+          "The same idea works for uniform numbers. For n numbers between 0 and 1, the largest is below x only if every one of them is, which has chance xⁿ.",
+          "For averages there’s a shortcut. n random points cut the range into n + 1 gaps, and on average the gaps are equal. So the largest sits n gaps up, at n ÷ (n + 1), and the smallest sits one gap up, at 1 ÷ (n + 1).",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Four numbers are picked uniformly between 0 and 60. What’s the average of the smallest?",
+        choices: ["12", "15", "30", "48"],
+        answer: 0,
+        explain:
+          "Four points cut the range into five gaps of 12 on average, and the smallest sits one gap up. 15 divides by the number of points instead of the number of gaps. 48 is the average of the largest.",
+      },
+      {
+        type: "example",
+        lead: "To find the average of the highest of two dice, find the chance of each value with the count above, then weight each value by its chance.",
+      },
+      {
+        type: "trap",
+        body: "Assuming the highest of two dice averages 3.5, like one die. Keeping the higher roll pulls the average up to 161/36, about 4.47. The lowest is pulled down by the same amount, to about 2.53.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question asks for the largest, smallest, first or last of several results",
+          "“Every result is below x” is easier to count than “the largest is x”",
+          "Several times, prices or points are picked at random in a range",
+        ],
+      },
     ],
-    mistake: "Thinking the highest of two dice averages 3.5 like one die. Taking the higher one pulls the average up, to about 4.47.",
     targetSeconds: 60,
     example: highestOrLowest({ type: "highest", dice: 2, sides: 6 }),
     families: [

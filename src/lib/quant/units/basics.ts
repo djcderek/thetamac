@@ -67,7 +67,7 @@ function countOutcomes(params: { type: "die"; sides: number; atLeast: number } |
     const ways = sides - atLeast + 1;
     return problem(
       `die-${sides}-${atLeast}`,
-      `You roll a fair ${sides}-sided die. What's the chance of rolling ${atLeast} or higher?`,
+      `You roll a fair ${sides}-sided die. What’s the chance of rolling ${atLeast} or higher?`,
       q(ways, sides),
       "probability",
       [
@@ -94,7 +94,7 @@ function countOutcomes(params: { type: "die"; sides: number; atLeast: number } |
   const ways = DECK.filter(event.test).length;
   return problem(
     `card-${event.id}`,
-    `You draw one card from a shuffled 52-card deck. What's the chance it's ${event.label}?`,
+    `You draw one card from a shuffled 52-card deck. What’s the chance it’s ${event.label}?`,
     q(ways, 52),
     "probability",
     [
@@ -125,7 +125,7 @@ function countOutcomes(params: { type: "die"; sides: number; atLeast: number } |
   );
 }
 
-/** Card events made of two groups, so the figure can colour the second group's extra cards. */
+/** Card events made of two groups, so the figure can colour the second group’s extra cards. */
 const CARD_PARTS: Record<string, { first: (card: Card) => boolean }> = {
   "heart-or-king": { first: (c) => c.suit === "hearts" },
   "spade-or-ace": { first: (c) => c.suit === "spades" },
@@ -138,7 +138,7 @@ function twoDice(params: { type: "exactly" | "at-least" | "double"; total: numbe
   if (type === "double") {
     return problem(
       "double",
-      "You roll two fair dice. What's the chance they show the same number?",
+      "You roll two fair dice. What’s the chance they show the same number?",
       q(6, 36),
       "probability",
       [
@@ -172,7 +172,7 @@ function twoDice(params: { type: "exactly" | "at-least" | "double"; total: numbe
       : totals.map((t) => `${waysToTotal(t)} (${t})`).join(" + ");
   return problem(
     `${type}-${total}`,
-    `You roll two fair dice. What's the chance the total is ${type === "exactly" ? total : `${total} or more`}?`,
+    `You roll two fair dice. What’s the chance the total is ${type === "exactly" ? total : `${total} or more`}?`,
     q(ways, 36),
     "probability",
     [
@@ -219,7 +219,7 @@ function atLeastOne(
       const targetFaces = params.type === "sixes" ? [6] : [1, 2];
       return problem(
         `${params.type}-${rolls}`,
-        `You roll a fair die ${timesWord(rolls)}. What's the chance of at least one roll showing ${target}?`,
+        `You roll a fair die ${timesWord(rolls)}. What’s the chance of at least one roll showing ${target}?`,
         sub(q(1), none),
         "probability",
         [
@@ -262,7 +262,7 @@ function atLeastOne(
       const none = pow(q(1, 2), flips);
       return problem(
         `heads-${flips}`,
-        `You flip a fair coin ${flips} times. What's the chance of at least one head?`,
+        `You flip a fair coin ${flips} times. What’s the chance of at least one head?`,
         sub(q(1), none),
         "probability",
         [
@@ -295,7 +295,7 @@ function atLeastOne(
       }
       return problem(
         `ace-${cards}`,
-        `You deal ${cards} cards from a shuffled deck. What's the chance at least one is an ace?`,
+        `You deal ${cards} cards from a shuffled deck. What’s the chance at least one is an ace?`,
         sub(q(1), none),
         "probability",
         [
@@ -344,7 +344,7 @@ function inARow(params: { type: "bag"; red: number; blue: number; draws: number 
     }
     return problem(
       `bag-${red}-${blue}-${draws}`,
-      `A bag has ${red} red and ${blue} blue marbles. You take out ${numberWord(draws)} without putting any back. What's the chance they're ${draws === 2 ? "both" : "all"} red?`,
+      `A bag has ${red} red and ${blue} blue marbles. You take out ${numberWord(draws)} without putting any back. What’s the chance they’re ${draws === 2 ? "both" : "all"} red?`,
       chance,
       "probability",
       [
@@ -387,7 +387,7 @@ function inARow(params: { type: "bag"; red: number; blue: number; draws: number 
   const chance = mul(q(event.count, 52), q(event.count - 1, 51));
   return problem(
     `cards-${event.id}`,
-    `You deal two cards from a shuffled deck. What's the chance both are ${event.label}?`,
+    `You deal two cards from a shuffled deck. What’s the chance both are ${event.label}?`,
     chance,
     "probability",
     [
@@ -441,7 +441,7 @@ function compareRolls(params: { type: "compare"; sides: number; ask: "less" | "a
     const ways = (all - sides) / 2;
     return problem(
       `compare-less-${sides}`,
-      `You roll a fair ${sides}-sided die twice. What's the chance the first roll is lower than the second?`,
+      `You roll a fair ${sides}-sided die twice. What’s the chance the first roll is lower than the second?`,
       q(ways, all),
       "probability",
       [
@@ -482,7 +482,7 @@ function compareRolls(params: { type: "compare"; sides: number; ask: "less" | "a
   const ways = 2 * (sides - gap);
   return problem(
     `compare-apart-${sides}-${gap}`,
-    `You roll a fair ${sides}-sided die twice. What's the chance the two rolls differ by exactly ${gap}?`,
+    `You roll a fair ${sides}-sided die twice. What’s the chance the two rolls differ by exactly ${gap}?`,
     q(ways, all),
     "probability",
     [
@@ -560,7 +560,7 @@ function orEvents(params: OrParams): QuantProblem {
     const either = event.aCount + event.bCount - event.bothCount;
     return problem(
       `cards-${event.id}`,
-      `You draw one card from a shuffled 52-card deck. What's the chance it's ${event.a} or ${event.b}?`,
+      `You draw one card from a shuffled 52-card deck. What’s the chance it’s ${event.a} or ${event.b}?`,
       q(either, 52),
       "probability",
       [
@@ -606,7 +606,7 @@ function orEvents(params: OrParams): QuantProblem {
     const both = countPairs((x, y) => event.testA(x, y) && event.testB(x, y));
     return problem(
       `dice-${event.id}`,
-      `You roll two fair dice. What's the chance ${event.a}, or ${event.b}?`,
+      `You roll two fair dice. What’s the chance ${event.a}, or ${event.b}?`,
       q(a + b - both, 36),
       "probability",
       [
@@ -652,7 +652,7 @@ function orEvents(params: OrParams): QuantProblem {
   const both = mul(pa, pb);
   return problem(
     `independent-${pair.id}-${aPercent}-${bPercent}`,
-    `The chance ${pair.a} is ${aPercent}%, and the chance ${pair.b} is ${bPercent}%. They don’t affect each other. What's the chance at least one of them happens?`,
+    `The chance ${pair.a} is ${aPercent}%, and the chance ${pair.b} is ${bPercent}%. They don’t affect each other. What’s the chance at least one of them happens?`,
     sub(add(pa, pb), both),
     "percent",
     [
@@ -704,7 +704,7 @@ function allIndependent(params: { type: "independent"; pair: string; aPercent: n
   const { aPercent, bPercent } = params;
   return problem(
     `independent-${pair.id}-${aPercent}-${bPercent}`,
-    `The chance ${pair.a} is ${aPercent}%, and the chance ${pair.b} is ${bPercent}%. They don’t affect each other. What's the chance both happen?`,
+    `The chance ${pair.a} is ${aPercent}%, and the chance ${pair.b} is ${bPercent}%. They don’t affect each other. What’s the chance both happen?`,
     mul(q(aPercent, 100), q(bPercent, 100)),
     "percent",
     [
@@ -733,7 +733,7 @@ function handsAndTeams(params: HandsAndTeamsParams): QuantProblem {
     const all = choose(52, cards);
     return problem(
       `hearts-${cards}-${hearts}`,
-      `You're dealt ${cards} cards from a shuffled deck. What's the chance exactly ${hearts} ${hearts === 1 ? "is a heart" : "are hearts"}?`,
+      `You’re dealt ${cards} cards from a shuffled deck. What’s the chance exactly ${hearts} ${hearts === 1 ? "is a heart" : "are hearts"}?`,
       q(good, all),
       // Hand counts reduce to unwieldy fractions (9139/33320), so these ask for a percentage.
       "percent",
@@ -775,7 +775,7 @@ function handsAndTeams(params: HandsAndTeamsParams): QuantProblem {
   const all = choose(men + women, size);
   return problem(
     `team-${men}-${women}-${size}-${picked}`,
-    `A team of ${size} is picked at random from ${men} men and ${women} women. What's the chance it has exactly ${picked} ${picked === 1 ? "woman" : "women"}?`,
+    `A team of ${size} is picked at random from ${men} men and ${women} women. What’s the chance it has exactly ${picked} ${picked === 1 ? "woman" : "women"}?`,
     q(good, all),
     "probability",
     [
@@ -855,7 +855,7 @@ function moreLikely(params: MoreLikelyParams): QuantProblem {
       const all = sides ** rolls;
       return problem(
         `increasing-${sides}-${rolls}`,
-        `You roll a fair ${sides}-sided die ${timesWord(rolls)}. What's the chance each roll is higher than the one before?`,
+        `You roll a fair ${sides}-sided die ${timesWord(rolls)}. What’s the chance each roll is higher than the one before?`,
         q(ways, all),
         "probability",
         [
@@ -888,7 +888,7 @@ function moreLikely(params: MoreLikelyParams): QuantProblem {
       const all = big * small;
       return problem(
         `bigger-${big}-${small}`,
-        `Ann rolls a fair ${big}-sided die and Ben rolls a fair ${small}-sided die. Ann wins if her number is higher; Ben wins ties. What's the chance Ann wins?`,
+        `Ann rolls a fair ${big}-sided die and Ben rolls a fair ${small}-sided die. Ann wins if her number is higher; Ben wins ties. What’s the chance Ann wins?`,
         q(wins, all),
         "probability",
         [
@@ -925,7 +925,7 @@ function moreLikely(params: MoreLikelyParams): QuantProblem {
       const all = choose(52, 5);
       return problem(
         `poker-${params.hand}`,
-        `You're dealt 5 cards from a shuffled deck. What's the chance of ${hand.name}?`,
+        `You’re dealt 5 cards from a shuffled deck. What’s the chance of ${hand.name}?`,
         q(hand.ways, all),
         "percent",
         [
@@ -954,7 +954,7 @@ function moreLikely(params: MoreLikelyParams): QuantProblem {
       const group = order.cards.length + 1;
       return problem(
         `order-${params.order}`,
-        `You shuffle a standard deck and turn the cards over one at a time. What's the chance ${order.text} ${order.cards.length === 1 ? "comes" : order.text.startsWith("all") || order.text.startsWith("both") ? "come" : "all come"} before ${order.targetText}?`,
+        `You shuffle a standard deck and turn the cards over one at a time. What’s the chance ${order.text} ${order.cards.length === 1 ? "comes" : order.text.startsWith("all") || order.text.startsWith("both") ? "come" : "all come"} before ${order.targetText}?`,
         q(1, group),
         "probability",
         [
@@ -990,8 +990,8 @@ function moreLikely(params: MoreLikelyParams): QuantProblem {
       return problem(
         `exact-${sides}-${rolls}`,
         sides === 2
-          ? `You flip a fair coin ${rolls} times. What's the chance of exactly ${each} heads and ${each} tails?`
-          : `You ${sides === 3 ? "spin" : "roll"} a ${thing} ${rolls} times. What's the chance each of the ${sides} results comes up exactly ${timesWord(each)}?`,
+          ? `You flip a fair coin ${rolls} times. What’s the chance of exactly ${each} heads and ${each} tails?`
+          : `You ${sides === 3 ? "spin" : "roll"} a ${thing} ${rolls} times. What’s the chance each of the ${sides} results comes up exactly ${timesWord(each)}?`,
         q(orders, all),
         "probability",
         [
@@ -1038,8 +1038,8 @@ function moreComplements(params: MoreComplementParams): QuantProblem {
     return problem(
       `yours-${params.things}-${people}`,
       params.things === "dice"
-        ? `You roll a die and get a 6. Then you roll ${people} more dice. What's the chance at least one of them is also a 6?`
-        : `${thing.prompt(people)}. What's the chance at least one of them shares your ${thing.one}?`,
+        ? `You roll a die and get a 6. Then you roll ${people} more dice. What’s the chance at least one of them is also a 6?`
+        : `${thing.prompt(people)}. What’s the chance at least one of them shares your ${thing.one}?`,
       sub(q(1), none),
       "probability",
       [
@@ -1088,7 +1088,7 @@ function moreComplements(params: MoreComplementParams): QuantProblem {
   }
   return problem(
     `shared-${params.things}-${people}-${ask}`,
-    `${thing.prompt(people)}. What's the chance ${ask === "share" ? `at least two ${params.things === "dice" ? "show the same number" : `share a ${thing.one}`}` : `they're all different`}?`,
+    `${thing.prompt(people)}. What’s the chance ${ask === "share" ? `at least two ${params.things === "dice" ? "show the same number" : `share a ${thing.one}`}` : `they’re all different`}?`,
     ask === "share" ? sub(q(1), different) : different,
     "probability",
     steps,
@@ -1099,9 +1099,9 @@ function moreComplements(params: MoreComplementParams): QuantProblem {
 const product = (values: number[]) => values.reduce((acc, v) => acc * v, 1);
 
 const THREE_EVENTS = [
-  { id: "friends", text: (a: number, b: number, c: number) => `You text three friends. They reply with chances ${a}%, ${b}% and ${c}%, independently. What's the chance at least one replies?`, what: "No one replies" },
-  { id: "alarms", text: (a: number, b: number, c: number) => `You set three alarms. They go off with chances ${a}%, ${b}% and ${c}%, independently. What's the chance at least one goes off?`, what: "None go off" },
-  { id: "shots", text: (a: number, b: number, c: number) => `Three players each take one shot. They score with chances ${a}%, ${b}% and ${c}%, independently. What's the chance at least one scores?`, what: "Nobody scores" },
+  { id: "friends", text: (a: number, b: number, c: number) => `You text three friends. They reply with chances ${a}%, ${b}% and ${c}%, independently. What’s the chance at least one replies?`, what: "No one replies" },
+  { id: "alarms", text: (a: number, b: number, c: number) => `You set three alarms. They go off with chances ${a}%, ${b}% and ${c}%, independently. What’s the chance at least one goes off?`, what: "None go off" },
+  { id: "shots", text: (a: number, b: number, c: number) => `Three players each take one shot. They score with chances ${a}%, ${b}% and ${c}%, independently. What’s the chance at least one scores?`, what: "Nobody scores" },
 ];
 
 function threeIndependent(params: { type: "three"; event: string; a: number; b: number; c: number }): QuantProblem {
@@ -1119,7 +1119,7 @@ function threeIndependent(params: { type: "three"; event: string; a: number; b: 
         work: `${100 - a}% × ${100 - b}% × ${100 - c}%`,
         result: formatPercent(none),
         icon: "multiply",
-        explain: "Counting the overlaps of three events is messy. It’s simpler to find the chance none happen: multiply each miss chance.",
+        explain: "With three events, adding and taking off overlaps needs seven terms. The complement needs one: multiply the three chances of missing.",
         visual: { type: "slots", slots: [100 - a, 100 - b, 100 - c].map((m, i) => ({ label: `Miss ${i + 1}`, value: percentText(m), tone: "alt" as Tone })), op: "×", result: formatPercent(none) },
       },
       { label: "At least one", work: `100% − ${formatPercent(none)}`, icon: "subtract", explain: "Either none happen or at least one does, so take the none chance from 100%." },
@@ -1129,9 +1129,9 @@ function threeIndependent(params: { type: "three"; event: string; a: number; b: 
 }
 
 const TRIES = [
-  { id: "free-throws", text: (n: number, p: number) => `A player makes each free throw with chance ${p}%, independently. What's the chance they make all ${n} of their next ${n}?`, one: "Each throw" },
-  { id: "flights", text: (n: number, p: number) => `Each of ${n} connecting flights is on time with chance ${p}%, independently. What's the chance all ${n} are on time?`, one: "Each flight" },
-  { id: "parts", text: (n: number, p: number) => `A machine has ${n} parts, and each works with chance ${p}%, independently. It runs only if every part works. What's the chance it runs?`, one: "Each part" },
+  { id: "free-throws", text: (n: number, p: number) => `A player makes each free throw with chance ${p}%, independently. What’s the chance they make all ${n} of their next ${n}?`, one: "Each throw" },
+  { id: "flights", text: (n: number, p: number) => `Each of ${n} connecting flights is on time with chance ${p}%, independently. What’s the chance all ${n} are on time?`, one: "Each flight" },
+  { id: "parts", text: (n: number, p: number) => `A machine has ${n} parts, and each works with chance ${p}%, independently. It runs only if every part works. What’s the chance it runs?`, one: "Each part" },
 ];
 
 function allTries(params: { type: "all-tries"; context: string; tries: number; percent: number }): QuantProblem {
@@ -1151,10 +1151,10 @@ function allTries(params: { type: "all-tries"; context: string; tries: number; p
         explain: "Every one of them has to succeed, and they don’t affect each other.",
       },
       {
-        label: `All ${tries} succeed`,
+        label: tries === 2 ? "Both succeed" : `All ${tries} succeed`,
         work: `(${percent}%)${sup(tries)}`,
         icon: "multiply",
-        explain: `Multiply the chance once for each of the ${tries}: a share of a share of a share.`,
+        explain: `Multiply the chance once for each of the ${tries}, since each success has to follow all the ones before it.`,
         visual: { type: "slots", slots: Array.from({ length: tries }, (_, i) => ({ label: `${i + 1}`, value: percentText(percent), tone: "hit" as Tone })), op: "×" },
       },
     ],
@@ -1176,13 +1176,13 @@ function threeCards(params: { type: "three-cards"; event: string }): QuantProble
   const chance = factors.reduce((acc, f) => mul(acc, f), q(1));
   return problem(
     `three-cards-${params.event}`,
-    `You deal three cards from a shuffled deck. What's the chance all three are ${event.text}?`,
+    `You deal three cards from a shuffled deck. What’s the chance all three are ${event.text}?`,
     chance,
     "probability",
     [
       ...[0, 1, 2].map((i) => ({
         label: ["First card", "Second card", "Third card"][i],
-        work: `${event.count - i} of the ${52 - i} left`,
+        work: i === 0 ? `${event.count} of 52` : `${event.count - i} of the ${52 - i} left`,
         result: `${event.count - i}/${52 - i}`,
         icon: (i === 0 ? "count" : "repeat") as "count" | "repeat",
         explain: i === 0 ? `${event.count} of the 52 cards are ${event.text}.` : "One matching card is gone and not put back, so there’s one fewer of them and one fewer card.",
@@ -1204,17 +1204,78 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
     id: "equally-likely",
     title: "Equally likely outcomes",
     benefit: "Find a chance by counting outcomes",
-    idea: "If every outcome is equally likely, the chance is the outcomes you want divided by all the outcomes. When there are too many to list, count both with combinations.",
+    summary: "How to find a chance by counting: the outcomes you want divided by all the outcomes, when every outcome is equally likely.",
     difficulty: "Easy",
-    intro:
-      "When no outcome is more likely than another, each one carries the same share of the chance. So the chance of an event is just the share of outcomes where it happens. The hard part is counting both lists carefully.",
-    formula: "Chance = outcomes you want ÷ all outcomes",
-    cues: [
-      "Fair dice, shuffled cards, or a random pick where every result is equally likely",
-      "You can list or count every possible outcome",
-      "Two dice: count pairs, where 3+6 and 6+3 are different",
+    parts: [
+      {
+        type: "text",
+        body: ["You roll two fair dice. What’s the chance the total is 7?"],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance of a 7?",
+        choices: ["1/12", "1/11", "1/6", "7/36"],
+        answer: 2,
+        explain:
+          "It’s 6/36 = 1/6. The answer 1/11 treats the 11 totals from 2 to 12 as equally likely, but a 7 can be rolled six ways and a 2 only one way.",
+      },
+      {
+        type: "story",
+        heading: "Count the pairs",
+        beats: [
+          {
+            text: "Paint one die red and the other blue. Each has 6 faces, so the pair can land 6 × 6 = 36 ways, and every way is equally likely.",
+            visual: diceGrid(6, [], "Rows: red die. Columns: blue die."),
+          },
+          {
+            text: "Mark the rolls that total 7: 1 and 6, 2 and 5, 3 and 4, and each of those the other way round. That’s 6 of the 36.",
+            visual: diceGrid(6, [{ test: (a, b) => a + b === 7, tone: "hit" }]),
+          },
+          {
+            text: "Each roll has chance 1/36, so a total of 7 has chance 6/36 = 1/6. A total of 2 needs both dice to show 1. That’s a single roll, with chance 1/36.",
+            visual: diceGrid(6, [
+              { test: (a, b) => a + b === 7, tone: "hit" },
+              { test: (a, b) => a + b === 2, tone: "alt" },
+            ]),
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why it works",
+        body: [
+          "An event is any set of outcomes you care about, such as “the total is 7”. When every outcome is equally likely, each carries the same share of the chance, so an event’s chance is its share of the outcomes.",
+          "The outcomes really do have to be equally likely. The 11 totals aren’t, which is why you count the 36 ordered pairs instead.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(event) = outcomes in the event ÷ all outcomes",
+        note: "For a total of 7: 6 outcomes in the event out of 36, so P(total is 7) = 6/36 = 1/6. P(…) is shorthand for “the chance of”.",
+      },
+      {
+        type: "check",
+        prompt: "Two dice again. What’s the chance the red die shows a higher number than the blue one?",
+        choices: ["1/3", "5/12", "1/2", "7/12"],
+        answer: 1,
+        explain:
+          "6 of the 36 rolls are doubles. The other 30 split evenly between red higher and blue higher, so the chance is 15/36 = 5/12. The answer 1/2 forgets the doubles, where neither die is higher.",
+      },
+      { type: "example", lead: "With one card from a shuffled deck, the 52 cards are the equally likely outcomes. Here you count the cards that are a heart or a king." },
+      {
+        type: "trap",
+        body: "Counting outcomes that aren’t equally likely. Two dice give 11 possible totals, but a 7 is six times as likely as a 2, so 1/11 is wrong. Count the 36 ordered pairs instead.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The setup is fair: dice, coins, a shuffled deck or a random pick from a list",
+          "You can list or count every outcome, and each is as likely as any other",
+          "Two dice are rolled, where you count the 36 ordered pairs rather than the totals",
+        ],
+      },
     ],
-    mistake: "Counting outcomes that aren’t equally likely, like the totals 2 to 12 on two dice, instead of the 36 pairs of rolls.",
     targetSeconds: 30,
     example: countOutcomes({ type: "card", event: "heart-or-king" }),
     families: [
@@ -1291,17 +1352,92 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
     id: "complements",
     title: "Complements",
     benefit: "Use 1 minus the chance it doesn’t happen",
-    idea: "The chance something happens is 1 minus the chance it doesn’t. It’s the quick way to find “at least one”.",
+    summary: "How to find the chance of “at least one” by working out the chance of none and taking it away from 1.",
     difficulty: "Easy",
-    intro:
-      "Every outcome either has the event or doesn’t, so the two chances add up to 1. “At least one six” covers many cases, but “no six” is only one: miss every time. Work out the simple side and take it from 1.",
-    formula: "Chance it happens = 1 − chance it doesn’t",
-    cues: [
-      "The question says “at least one”",
-      "Counting the ways it happens means many cases, but it fails in only one way",
-      "Repeated tries: rolls, flips or cards dealt",
+    parts: [
+      {
+        type: "text",
+        body: ["You roll a fair die 4 times. What’s the chance of at least one six?"],
+      },
+      {
+        type: "check",
+        prompt: "Which is closest?",
+        choices: ["1/6", "About 48%", "About 52%", "2/3"],
+        answer: 2,
+        explain:
+          "It’s about 52%. The answer 2/3 adds 1/6 four times, which counts rolls with two or more sixes more than once. Carry on to six rolls and the sum reaches 1, a certain six, which can’t be right.",
+      },
+      {
+        type: "story",
+        heading: "Count the rolls with no six",
+        beats: [
+          {
+            text: "“At least one six” covers many cases: a six on the first roll, on the third, on two of the rolls, and so on. Its opposite, no six at all, is one case. On a single roll it means one of these 5 faces.",
+            visual: { type: "die-faces", sides: 6, marks: [{ faces: [1, 2, 3, 4, 5], tone: "known" }], caption: "The 5 faces that aren’t a six" },
+          },
+          {
+            text: "By the multiplying rule, 4 rolls have 6 × 6 × 6 × 6 = 1,296 possible sequences. Of those, 5 × 5 × 5 × 5 = 625 have no six, a chance of 625/1296, about 48%.",
+            visual: {
+              type: "slots",
+              op: "×",
+              slots: [
+                { label: "Roll 1", value: "5", tone: "known" },
+                { label: "Roll 2", value: "5", tone: "known" },
+                { label: "Roll 3", value: "5", tone: "known" },
+                { label: "Roll 4", value: "5", tone: "known" },
+              ],
+              result: "625",
+              caption: "Sequences with no six, out of 1,296",
+            },
+          },
+          {
+            text: "Every sequence has either no six or at least one, so the two chances add up to 1. The chance of at least one six is 1 − 625/1296 = 671/1296, about 52%.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "No six", value: 625, tone: "known", text: "48%" },
+                { label: "At least one six", value: 671, tone: "hit", text: "52%" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why it works",
+        body: [
+          "The complement of an event is everything outside it: the complement of “at least one six” is “no six”. An event and its complement share out all the outcomes between them, so their chances add up to 1.",
+          "When an event can happen in many ways but fails in only one, work out the chance it fails and take that from 1.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(event) = 1 − P(not the event)",
+        note: "For four rolls: P(at least one six) = 1 − P(no six) = 1 − (5/6)⁴ ≈ 0.52.",
+      },
+      {
+        type: "check",
+        prompt: "Three people each pick a whole number from 1 to 10 at random. What’s the chance at least two of them pick the same number?",
+        choices: ["27%", "28%", "30%", "72%"],
+        answer: 1,
+        explain:
+          "The complement is “all three different”: 10 × 9 × 8 = 720 of the 10 × 10 × 10 = 1,000 possible picks, or 72%. So the chance of a match is 1 − 0.72 = 28%. This is the birthday problem with 10 days instead of 365.",
+      },
+      { type: "example", lead: "The same working for three rolls instead of four." },
+      {
+        type: "trap",
+        body: "Adding the chance for each try. 1/6 + 1/6 + 1/6 + 1/6 = 2/3 counts rolls with two or more sixes more than once, and with seven rolls the sum would go over 1.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question says “at least one”",
+          "The event happens in many ways but fails in only one, like missing on every try",
+          "You’re asked whether any two of several random picks match",
+        ],
+      },
     ],
-    mistake: "Adding the chance for each try, like 1/6 + 1/6 + 1/6 for three rolls. That counts overlaps twice and can go over 1.",
     targetSeconds: 30,
     example: atLeastOne({ type: "sixes", rolls: 3 }),
     families: [
@@ -1337,17 +1473,86 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
     id: "or-events",
     title: "“Or” events",
     benefit: "Add chances without double counting",
-    idea: "The chance of A or B is the chance of A plus the chance of B, minus the chance of both. If A and B can’t both happen, just add.",
+    summary: "How to find the chance that one thing or another happens: add the two chances and take off the chance of both once.",
     difficulty: "Medium",
-    intro:
-      "Adding the chance of A and the chance of B counts the outcomes where both happen twice. Taking the “both” chance off once leaves every outcome counted once. If A and B can never happen together, there’s nothing to take off.",
-    formula: "P(A or B) = P(A) + P(B) − P(A and B)",
-    cues: [
-      "The question says “or” or “at least one of”",
-      "Two conditions that can both be true, like a spade that’s also a face card",
-      "Two separate events with given chances",
+    parts: [
+      {
+        type: "text",
+        body: ["You roll two fair dice, one red and one blue. What’s the chance you roll a double, or the red die shows a 6?"],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance of a double or a red 6?",
+        choices: ["1/36", "1/6", "11/36", "1/3"],
+        answer: 2,
+        explain: "It’s 11/36. There are 6 doubles and 6 rolls with a red 6, but double six is in both lists. That leaves 6 + 6 − 1 = 11 rolls. The answer 1/3 is 12/36, which counts double six twice.",
+      },
+      {
+        type: "story",
+        heading: "Mark both events on the grid",
+        beats: [
+          {
+            text: "Mark the 6 doubles.",
+            visual: diceGrid(6, [{ test: (a, b) => a === b, tone: "hit" }], "Rows: red die. Columns: blue die."),
+          },
+          {
+            text: "Now mark the 6 rolls where the red die shows a 6. One of them, double six, is already marked.",
+            visual: diceGrid(6, [
+              { test: (a, b) => a === b, tone: "hit" },
+              { test: (a) => a === 6, tone: "alt" },
+              { test: (a, b) => a === 6 && b === 6, tone: "both" },
+            ]),
+          },
+          {
+            text: "Count the marked cells: 6 + 6 − 1 = 11 of the 36. The chance is 11/36.",
+            visual: diceGrid(
+              6,
+              [
+                { test: (a, b) => a === b, tone: "hit" },
+                { test: (a) => a === 6, tone: "alt" },
+                { test: (a, b) => a === 6 && b === 6, tone: "both" },
+              ],
+              "11 of 36 rolls",
+            ),
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why it works",
+        body: [
+          "This is inclusion–exclusion from the counting unit, written with chances instead of counts. Dividing each count by 36 gives P(double) = 6/36, P(red 6) = 6/36 and P(both) = 1/36.",
+          "Some pairs of events can’t happen together, like a total of 2 and a total of 12. Such events are called mutually exclusive. There’s no overlap to take off, so their chances add.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(A or B) = P(A) + P(B) − P(A and B)",
+        note: "For the dice: 6/36 + 6/36 − 1/36 = 11/36. If A and B can’t both happen, P(A and B) = 0 and the chances add.",
+      },
+      {
+        type: "check",
+        prompt: "You draw one card from a shuffled deck. What’s the chance it’s red or a king?",
+        choices: ["2/13", "1/2", "15/26", "7/13"],
+        answer: 3,
+        explain:
+          "26 red cards plus 4 kings counts the king of hearts and the king of diamonds twice. 26 + 4 − 2 = 28 cards, and 28/52 = 7/13. The answer 15/26 is 30/52, which forgets the overlap.",
+      },
+      { type: "example", lead: "With one card the overlap is the cards that meet both conditions. Here those are the spade face cards." },
+      {
+        type: "trap",
+        body: "Adding the two chances when the events overlap. 6/36 + 6/36 = 12/36 counts double six twice. Before adding, ask whether one roll or one card can meet both conditions.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question says “or” or “at least one of” two named things",
+          "One draw can meet both conditions, like a red king",
+          "Two events can’t both happen, like a total of 2 and a total of 12, so their chances add",
+        ],
+      },
     ],
-    mistake: "Just adding the two chances when they can both happen, so the overlap is counted twice.",
     targetSeconds: 30,
     example: orEvents({ type: "cards", event: "spade-face" }),
     families: [
@@ -1382,17 +1587,94 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
     id: "and-events",
     title: "“And” events",
     benefit: "Multiply chances when all must happen",
-    idea: "For several things to all happen, multiply their chances. Without replacement, each draw has fewer left to pick from.",
+    summary: "How to find the chance that several things all happen: multiply each chance, given the ones that came before it.",
     difficulty: "Medium",
-    intro:
-      "If the first thing happens in 5 of 8 cases, the second has to happen inside those 5. So you take a share of a share, which is multiplying. Without replacement, the second share changes because the first draw is gone.",
-    formula: "P(A and B) = P(A) × P(B, given A happened)",
-    cues: [
-      "The question says “both”, “all” or “and”",
-      "Draws one after another, with or without putting things back",
-      "Separate events that don’t affect each other",
+    parts: [
+      {
+        type: "text",
+        body: ["A drawer holds 6 black socks and 4 white socks. You pull out two in the dark. What’s the chance both are black?"],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance both are black?",
+        choices: ["1/3", "9/25", "1/2", "3/5"],
+        answer: 0,
+        explain: "It’s 6/10 × 5/9 = 1/3. The answer 9/25 is 6/10 × 6/10, which would be right only if you put the first sock back before taking the second.",
+      },
+      {
+        type: "story",
+        heading: "One sock at a time",
+        beats: [
+          {
+            text: "6 of the 10 socks are black, so the first sock is black with chance 6/10.",
+            visual: {
+              type: "marbles",
+              groups: [
+                { count: 6, tone: "hit", label: "Black" },
+                { count: 4, tone: "alt", label: "White" },
+              ],
+            },
+          },
+          {
+            text: "Suppose it was. The drawer now holds 5 black socks out of 9, so the second is black with chance 5/9.",
+            visual: {
+              type: "marbles",
+              groups: [
+                { count: 6, tone: "hit", label: "Black" },
+                { count: 4, tone: "alt", label: "White" },
+              ],
+              taken: ["hit"],
+            },
+          },
+          {
+            text: "Both are black in 5/9 of the 6/10 of cases where the first one is. A fraction of a fraction is a product: 6/10 × 5/9 = 1/3.",
+            visual: {
+              type: "marbles",
+              groups: [
+                { count: 6, tone: "hit", label: "Black" },
+                { count: 4, tone: "alt", label: "White" },
+              ],
+              taken: ["hit", "hit"],
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why it works",
+        body: [
+          "You can check it by counting. There are 10 × 9 = 90 ways to pull two socks in order, and 6 × 5 = 30 of them give two blacks. That’s 30/90 = 1/3 again.",
+          "The 5/9 is a conditional chance: the chance the second sock is black, given the first was. When one result doesn’t change the other, as with a coin flip and a die roll, the events are called independent and you multiply their plain chances.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(A and B) = P(A) × P(B given A)",
+        note: "For the socks: P(first black) × P(second black given the first was) = 6/10 × 5/9 = 1/3. With replacement, or for independent events, P(B given A) is the same as P(B).",
+      },
+      {
+        type: "check",
+        prompt: "From the same drawer of 6 black and 4 white socks, you pull out three. What’s the chance all three are black?",
+        choices: ["1/6", "1/5", "27/125", "1/3"],
+        answer: 0,
+        explain:
+          "Each black sock you take leaves one fewer black and one fewer sock: 6/10 × 5/9 × 4/8 = 1/6. The answer 27/125 is (6/10)³, which assumes you put each sock back.",
+      },
+      { type: "example", lead: "The same working with marbles: 5 red and 3 blue in a bag, two drawn without putting any back." },
+      {
+        type: "trap",
+        body: "Using the same chance for every draw. Without putting things back, the second draw has one fewer to pick from: 6/10 × 5/9, not 6/10 × 6/10.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question says “both”, “all” or “every”",
+          "Draws happen one after another, with or without putting things back",
+          "Separate events don’t affect each other, like a coin flip and a die roll",
+        ],
+      },
     ],
-    mistake: "Forgetting that a draw without replacement changes what’s left, and using 5/8 × 5/8 instead of 5/8 × 4/7.",
     targetSeconds: 30,
     example: inARow({ type: "bag", red: 5, blue: 3, draws: 2 }),
     families: [

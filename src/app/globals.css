@@ -400,3 +400,20 @@ h1, h2, h3, .font-serif {
     transform: none;
   }
 }
+
+/* Quant figures: pieces pop in one after another when a figure first appears. Uses the
+   separate `scale` property so it composes with a piece's own transform. */
+@keyframes quant-pop {
+  from { opacity: 0; scale: 0.5; }
+  to { opacity: 1; scale: 1; }
+}
+
+.quant-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: quant-pop 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quant-pop { animation: none; }
+}

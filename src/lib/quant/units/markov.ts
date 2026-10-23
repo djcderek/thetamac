@@ -24,7 +24,7 @@ const COLLECTIONS: { id: string; sides: number; prompt: string; unit: string }[]
     id: "coin",
     sides: 2,
     unit: "side",
-    prompt: "You flip a fair coin until you've seen both heads and tails. How many flips do you expect it to take?",
+    prompt: "You flip a fair coin until you’ve seen both heads and tails. How many flips do you expect it to take?",
   },
   ...[3, 4, 6, 8, 10, 12].map((sides) => ({
     id: `die-${sides}`,
@@ -36,7 +36,7 @@ const COLLECTIONS: { id: string; sides: number; prompt: string; unit: string }[]
     id: "suits",
     sides: 4,
     unit: "suit",
-    prompt: "You draw a card, note its suit, and put it back, until you've seen all four suits. How many draws do you expect it to take?",
+    prompt: "You draw a card, note its suit, and put it back, until you’ve seen all four suits. How many draws do you expect it to take?",
   },
   ...[3, 4, 5, 6].map((sides) => ({
     id: `prizes-${sides}`,
@@ -49,7 +49,7 @@ const COLLECTIONS: { id: string; sides: number; prompt: string; unit: string }[]
     sides: 7,
     unit: "day",
     prompt:
-      "Each person you meet is equally likely to be born on any day of the week. How many people do you expect to meet before you've met someone born on every day?",
+      "Each person you meet is equally likely to be born on any day of the week. How many people do you expect to meet before you’ve met someone born on every day?",
   },
 ];
 
@@ -103,7 +103,7 @@ function collectThemAll(params: { collection: string }): QuantProblem {
         label: `Add the waits for k = 0 to ${n - 1}`,
         work: `${n} × (${harmonic})`,
         icon: "add",
-        explain: "The total wait is the waits for each stage added together.",
+        explain: "The total wait is the stage waits added up, and the average of a sum is the sum of the averages.",
         visual: waits,
       },
     ],
@@ -114,7 +114,7 @@ function collectThemAll(params: { collection: string }): QuantProblem {
 
 // ─── Patterns in a row ───────────────────────────────────────────────────────────────────
 
-/** Lengths k where the pattern's first k symbols match its last k (the whole pattern counts). */
+/** Lengths k where the pattern’s first k symbols match its last k (the whole pattern counts). */
 export function patternOverlaps(pattern: string[]) {
   return Array.from({ length: pattern.length }, (_, i) => i + 1).filter((k) =>
     pattern.slice(0, k).every((symbol, i) => symbol === pattern[pattern.length - k + i]),
@@ -146,7 +146,7 @@ function patternWait(params: PatternParams): QuantProblem {
     edges: range(1, symbols.length).map((k) => ({ from: `s${k - 1}`, to: `s${k}`, label: `${symbols[k - 1]} · ${chanceText(symbols[k - 1])}` })),
     caption: `Each state is how much of the pattern your last ${flipWord}s match. Orange ones are pieces where the start matches the end.`,
   });
-  const piecesExplain = `The pattern can restart inside itself. Look for each piece that is both how the pattern starts and how it ends; the whole pattern always counts.`;
+  const piecesExplain = `Find each piece that is both how the pattern starts and how it ends. These are the places a new copy can begin inside the last one. The whole pattern always counts.`;
 
   if (params.type === "biased") {
     const heads = q(params.headsN, params.headsD);
@@ -321,7 +321,7 @@ function randomWalk(params: WalkParams): QuantProblem {
   const win = q(params.winN, params.winD);
   const fair = win.n * 2 === win.d;
   const chanceText = fair ? "fair coin flips" : `bets that each win with chance ${formatFraction(win)}`;
-  const prompt = `You have $${start} and bet $1 at a time on ${chanceText}. You stop when you reach $${target} or go broke. What's the chance you ${ask === "reach" ? `reach $${target}` : "go broke"}?`;
+  const prompt = `You have $${start} and bet $1 at a time on ${chanceText}. You stop when you reach $${target} or go broke. What’s the chance you ${ask === "reach" ? `reach $${target}` : "go broke"}?`;
   const lose = sub(q(1), win);
   const amounts: QuantVisual = {
     type: "states",
@@ -369,7 +369,7 @@ function randomWalk(params: WalkParams): QuantProblem {
       work: `(r${sup(start)} − 1) ÷ (r${sup(target)} − 1)`,
       result: formatFraction(reach),
       icon: "target",
-      explain: `Raise r to your starting amount and to the target, take 1 off each, and divide. This comes from solving the chance from every amount at once.`,
+      explain: `Raise r to your starting amount and to the target, take 1 off each, and divide. It comes from linking the chance at each amount to the amounts either side.`,
     });
   }
   if (ask === "broke") {
@@ -436,8 +436,8 @@ function optimalStopping(params: StoppingParams): QuantProblem {
   const keptAverage = q(keepFrom + sides, 2);
   const prompt =
     rerolls === 1
-      ? `Roll a fair ${sides}-sided die and be paid the result in dollars. After the first roll you may roll once more, but then you must keep the second. Playing well, what's the game worth?`
-      : `Roll a fair ${sides}-sided die and be paid the result in dollars. You may reroll up to twice, keeping the last roll. Playing well, what's the game worth?`;
+      ? `Roll a fair ${sides}-sided die and be paid the result in dollars. After the first roll you may roll once more, but then you must keep the second. Playing well, what’s the game worth?`
+      : `Roll a fair ${sides}-sided die and be paid the result in dollars. You may reroll up to twice, keeping the last roll. Playing well, what’s the game worth?`;
   const faces = (keep: boolean, caption: string): QuantVisual => ({
     type: "bars",
     bars: range(1, sides).map((face) => ({
@@ -460,7 +460,7 @@ function optimalStopping(params: StoppingParams): QuantProblem {
         icon: "idea",
         explain:
           rerolls === 1
-            ? "Start from the end. If you roll again you must keep it, so rolling again is worth an average roll."
+            ? "Start from the end. A second roll must be kept, so rolling again is worth an average roll."
             : "Start from the end. After your first reroll, you’re playing the one-reroll game, so going on is worth what that game is worth.",
         visual: faces(false, `Each face pays its number. Going on is worth ${formatDollars(fresh)} on average.`),
       },
@@ -475,7 +475,7 @@ function optimalStopping(params: StoppingParams): QuantProblem {
         label: "The game is worth",
         work: `${frac(keepCount, sides)} × ${formatResult(keptAverage, "number")} + ${frac(sides - keepCount, sides)} × ${formatResult(fresh, "number")}`,
         icon: "add",
-        explain: "Split by what the first roll does: keep it (average of the kept faces) or go on (what going on is worth), each times its chance.",
+        explain: "Weight each branch by its chance. Keeping pays the average of the kept faces, and rolling again pays what going on is worth.",
         visual: {
           type: "tree",
           root: {
@@ -503,8 +503,8 @@ function redrawGame(params: { type: "uniform"; redraws: number; scale: 1 | 100 }
   const show = (x: Rational) => (money ? formatDollars(mul(x, q(100))) : formatDecimal(x, 4));
   const again = redraws === 1 ? "once" : "up to twice";
   const prompt = money
-    ? `You're paid a random amount between $0 and $100, every amount equally likely. After seeing it you may redraw ${again}, but you must keep the last draw. Playing well, what's the game worth?`
-    : `A computer picks a random number between 0 and 1, and you score that number. After seeing it you may ask for a new number ${again}, but you must keep the last one. Playing well, what's your average score?`;
+    ? `You’re paid a random amount between $0 and $100, every amount equally likely. After seeing it you may redraw ${again}, but you must keep the last draw. Playing well, what’s the game worth?`
+    : `A computer picks a random number between 0 and 1, and you score that number. After seeing it you may ask for a new number ${again}, but you must keep the last one. Playing well, what’s your average score?`;
   const at = (x: Rational) => value(x) * scale;
   const line = (shade: { from: number; to: number; tone: "hit" | "muted"; text?: string }[], caption: string): QuantVisual => ({
     type: "number-line",
@@ -549,7 +549,7 @@ function redrawGame(params: { type: "uniform"; redraws: number; scale: 1 | 100 }
         label: money ? "The game is worth" : "Your average score",
         work: `${formatFraction(keepShare)} × ${show(keptAverage)} + ${formatFraction(fresh)} × ${show(fresh)}`,
         icon: "add",
-        explain: "Split by what the first draw does: keep it (its average in the keep stretch) or go on (what going on is worth), each times its chance.",
+        explain: "Weight each branch by its chance. Keeping pays the average of the kept stretch, and drawing again pays what going on is worth.",
       },
     ],
     params,
@@ -780,7 +780,7 @@ function evenFlips(params: { headsN: number; headsD: number; ask: "even" | "odd"
   }
   return problem(
     `even-flips-${params.headsN}-${params.headsD}-${ask}`,
-    `You flip ${coinText} until two flips in a row are the same. What's the chance it takes an ${ask} number of flips?`,
+    `You flip ${coinText} until two flips in a row are the same. What’s the chance it takes an ${ask} number of flips?`,
     answer,
     "probability",
     steps,
@@ -818,7 +818,7 @@ function deuce(params: { pN: number; pD: number; ask: "win" | "points" }): Quant
   };
   const prompt =
     params.ask === "win"
-      ? `A tennis game reaches deuce: from here, whoever first leads by two points wins. Ana wins each point with chance ${pText}. What's the chance she wins the game?`
+      ? `A tennis game reaches deuce: from here, whoever first leads by two points wins. Ana wins each point with chance ${pText}. What’s the chance she wins the game?`
       : `A tennis game reaches deuce: from here, whoever first leads by two points wins. Ana wins each point with chance ${pText}. How many more points do you expect them to play?`;
   const pairStep = {
     label: "Next two points: Ana wins both / her opponent wins both",
@@ -956,7 +956,7 @@ function diceTokens(params: { tokens: number; aTotal: number; bTotal: number; di
         };
   return problem(
     `tokens-${dice}-${aTotal}-${bTotal}-${tokens}`,
-    `Two players each start with ${tokens} tokens and roll ${diceWord} again and again. A total of ${aTotal} means B gives A a token; a total of ${bTotal} means A gives B a token; anything else, nothing happens. They play until one player has all the tokens. What's the chance A ends up with all of them?`,
+    `Two players each start with ${tokens} tokens and roll ${diceWord} again and again. A total of ${aTotal} means B gives A a token; a total of ${bTotal} means A gives B a token; anything else, nothing happens. They play until one player has all the tokens. What’s the chance A ends up with all of them?`,
     answer,
     "probability",
     [
@@ -1004,7 +1004,7 @@ function bustGame(params: BustParams): QuantProblem {
     gain = q(n + 2, 2);
     bustText = "a 1";
     key = `pig-${n}`;
-    prompt = `You roll a fair ${n}-sided die again and again, adding each roll to your score. If you ever roll a 1, your score drops to 0 and the game ends. You can stop whenever you like and keep your score. Playing for the highest average score, what's the lowest score at which you should stop?`;
+    prompt = `You roll a fair ${n}-sided die again and again, adding each roll to your score. If you ever roll a 1, your score drops to 0 and the game ends. You can stop whenever you like and keep your score. Playing for the highest average score, what’s the lowest score at which you should stop?`;
     figure = { type: "die-faces", sides: n, marks: [{ faces: range(2, n), tone: "win" }, { faces: [1], tone: "lose" }], caption: `A 1 loses everything; anything else adds to your score.` };
   } else {
     const n = params.type === "doubles" ? params.sides : 6;
@@ -1020,7 +1020,7 @@ function bustGame(params: BustParams): QuantProblem {
     gain = q(sum, cells.length);
     bustText = params.type === "doubles" ? "a double" : `a total of ${params.total}`;
     key = params.type === "doubles" ? `bust-doubles-${n}` : `bust-total-${params.total}`;
-    prompt = `You roll two fair ${n}-sided dice again and again, adding their total to your score each time. If they ever show ${bustText}, your score drops to 0 and the game ends. You can stop whenever you like and keep your score. Playing for the highest average score, what's the lowest score at which you should stop?`;
+    prompt = `You roll two fair ${n}-sided dice again and again, adding their total to your score each time. If they ever show ${bustText}, your score drops to 0 and the game ends. You can stop whenever you like and keep your score. Playing for the highest average score, what’s the lowest score at which you should stop?`;
     figure = { type: "dice-grid", sides: n, marks: [{ cells, tone: "win" }, { cells: busts, tone: "lose" }], caption: `Red rolls lose everything; green ones add their total.` };
   }
   const keep = sub(q(1), bust);
@@ -1091,8 +1091,8 @@ function paidReroll(params: { sides: number; costN: number; costD: number; ask: 
   const costText = formatDollars(cost);
   const prompt =
     ask === "value"
-      ? `Roll a fair ${sides}-sided die and be paid its number in dollars. You may reroll as many times as you like, but each reroll costs ${costText}. Playing well, what's the game worth?`
-      : `Roll a fair ${sides}-sided die and be paid its number in dollars. You may reroll as many times as you like, but each reroll costs ${costText}. Playing well, what's the lowest roll you should keep?`;
+      ? `Roll a fair ${sides}-sided die and be paid its number in dollars. You may reroll as many times as you like, but each reroll costs ${costText}. Playing well, what’s the game worth?`
+      : `Roll a fair ${sides}-sided die and be paid its number in dollars. You may reroll as many times as you like, but each reroll costs ${costText}. Playing well, what’s the lowest roll you should keep?`;
   const shown = options.filter((o) => value(o.value) > 0);
   return problem(
     `paid-${sides}-${params.costN}-${params.costD}-${ask}`,
@@ -1149,16 +1149,120 @@ export const STATES_LESSONS: QuantLessonDef[] = [
     id: "coupon-collector",
     title: "Collecting every type",
     benefit: "Find how long until you’ve seen them all",
-    idea: "Once you’ve seen k of the n types, a new one turns up with chance (n − k) ÷ n, so it takes n ÷ (n − k) tries on average. Add these waits up.",
+    summary: "How long it takes on average to see every face of a die or collect every toy in a set, found by splitting the wait into stages.",
     difficulty: "Medium",
-    intro:
-      "Split the wait into stages: waiting for the 1st new type, then the 2nd, and so on. Each stage is a simple wait for one thing with a fixed chance, so it takes 1 ÷ that chance tries. The early stages are quick; the last few are slow, because almost every try shows something you’ve already seen.",
-    formula: "Average tries = n × (1 + 1/2 + 1/3 + … + 1/n)",
-    cues: [
-      "The question asks how long until you’ve seen every face, toy or type",
-      "Each try gives one of n equally likely types, with repeats allowed",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "Each box of a cereal holds one of 4 toys, and every toy is equally likely. You keep buying boxes until you own all 4.",
+          "How many boxes do you expect to open?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "How many boxes, on average?",
+        choices: ["4", "About 6", "About 8.3", "16"],
+        answer: 2,
+        explain:
+          "About 8.3 boxes. 4 would only be enough if you never got a repeat, and repeats get more common as your set fills up. The last toy alone takes 4 boxes on average.",
+      },
+      {
+        type: "story",
+        heading: "One stage per new toy",
+        beats: [
+          {
+            text: "The first box always gives you a toy you don’t have. That stage takes 1 box.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1st toy", value: 1, tone: "hit", text: "1" },
+                { label: "2nd", value: 4 / 3, tone: "muted" },
+                { label: "3rd", value: 2, tone: "muted" },
+                { label: "4th", value: 4, tone: "muted" },
+              ],
+              caption: "Average boxes to find each new toy",
+            },
+          },
+          {
+            text: "With 1 toy in hand, 3 of the 4 are new, so each box gives a new one with chance 3/4. A wait for something with chance p takes 1 ÷ p tries on average, so this stage takes 4/3 boxes.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1st toy", value: 1, tone: "hit", text: "1" },
+                { label: "2nd", value: 4 / 3, tone: "hit", text: "4/3" },
+                { label: "3rd", value: 2, tone: "muted" },
+                { label: "4th", value: 4, tone: "muted" },
+              ],
+              caption: "Average boxes to find each new toy",
+            },
+          },
+          {
+            text: "With 2 in hand, the chance of a new toy is 2/4, so 2 boxes on average.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1st toy", value: 1, tone: "hit", text: "1" },
+                { label: "2nd", value: 4 / 3, tone: "hit", text: "4/3" },
+                { label: "3rd", value: 2, tone: "hit", text: "2" },
+                { label: "4th", value: 4, tone: "muted" },
+              ],
+              caption: "Average boxes to find each new toy",
+            },
+          },
+          {
+            text: "For the last toy the chance is 1/4, so 4 boxes. Add the four stages: 1 + 4/3 + 2 + 4 = 25/3, about 8.3 boxes.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1st toy", value: 1, tone: "hit", text: "1" },
+                { label: "2nd", value: 4 / 3, tone: "hit", text: "4/3" },
+                { label: "3rd", value: 2, tone: "hit", text: "2" },
+                { label: "4th", value: 4, tone: "hit", text: "4" },
+              ],
+              caption: "Average boxes to find each new toy",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why the stages add",
+        body: [
+          "Within a stage, every box has the same chance of giving a new toy, so each stage is a plain wait with average 1 ÷ chance. The total wait is the sum of the stages, and the average of a sum is the sum of the averages.",
+          "The stages get slower as the set fills. With n types the last one alone takes n tries, and the total grows a little faster than n: about 14.7 rolls to see every face of a die, and about 236 draws, with replacement, to see every card in a deck.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Average tries = n × (1 + 1/2 + 1/3 + … + 1/n)",
+        note: "For 4 toys: 4 × (1 + 1/2 + 1/3 + 1/4) = 4 × 25/12 = 25/3. Each term is one stage read backwards: 4 × 1 is the last toy, and 4 × 1/4 is the first.",
+      },
+      {
+        type: "check",
+        prompt: "How many boxes do you expect to open to get 2 different toys out of the 4?",
+        choices: ["2", "About 2.3", "6", "About 8.3"],
+        answer: 1,
+        explain: "Only the first two stages happen: 1 box for the first toy and 4/3 for the second, 7/3 ≈ 2.3 in all. The slow last stages are what make a full set take so long.",
+      },
+      {
+        type: "example",
+        lead: "The same stages for every face of a six-sided die.",
+      },
+      {
+        type: "trap",
+        body: "Answering n. Seeing all 6 faces of a die in 6 rolls means no repeats at all, which happens only 6!/6⁶ ≈ 1.5% of the time. The average is 14.7 rolls.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "You keep drawing until you’ve seen every face, toy, suit or type",
+          "Each draw is equally likely to be any type, and repeats are allowed",
+          "You’re asked how long until you’ve seen k different types out of n",
+        ],
+      },
     ],
-    mistake: "Answering n tries. You only need n tries if you never see a repeat; repeats make the real wait much longer.",
     targetSeconds: 45,
     example: collectThemAll({ collection: "die-6" }),
     families: [
@@ -1191,16 +1295,84 @@ export const STATES_LESSONS: QuantLessonDef[] = [
     id: "patterns",
     title: "Patterns in a row",
     benefit: "Find the wait for a run like HTH",
-    idea: "Find every piece where the pattern’s start matches its end, including the whole pattern. The average wait is 1 ÷ the chance of each piece, added up. For a fair coin, a piece of length k adds 2ᵏ.",
+    summary: "Why a fair coin takes 10 flips on average to show H T H but only 8 to show H H T, and a rule for the wait for any pattern.",
     difficulty: "Hard",
-    intro:
-      "Every 3-flip run has the same chance, 1/8, at any spot. But a pattern that overlaps itself, like H T H, comes in clumps: one H T H can share its last H with the next. Clumps leave longer gaps between them, so the wait for the first one is longer. Each overlap adds to the wait.",
-    formula: "Average wait = sum of 1 ÷ P(piece) for each piece that is both start and end",
-    cues: [
-      "You flip or roll until a run of results comes up in a row",
-      "Two patterns of the same length are compared, like HTH and HHT",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You flip a fair coin until you see heads, tails, heads in a row. A friend flips another coin until they see heads, heads, tails.",
+          "Each run of three flips has the same chance, 1/8. Who should expect to wait longer?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Pick one.",
+        choices: ["You, waiting for H T H", "Your friend, waiting for H H T", "Neither, both wait 8 flips"],
+        answer: 0,
+        explain:
+          "H T H takes 10 flips on average and H H T takes 8. A 1/8 chance at each spot is why 8 sounds right, but that only holds for a pattern that can’t overlap itself.",
+      },
+      {
+        type: "story",
+        heading: "What a wrong flip costs",
+        beats: [
+          {
+            text: "Suppose you’ve flipped H T and need one more H.",
+            visual: { type: "coins", flips: ["H", "T", "?"], tones: ["hit", "hit", "muted"], caption: "Two flips into H T H" },
+          },
+          {
+            text: "If the next flip is T instead, you have H T T. No part of that is a start of H T H, so you’re back to nothing.",
+            visual: { type: "coins", flips: ["H", "T", "T"], tones: ["muted", "muted", "muted"], caption: "A miss throws away both flips" },
+          },
+          {
+            text: "Your friend has flipped H H and needs a T. If the next flip is H instead, the last two flips are still H H, so they’re one flip away again.",
+            visual: { type: "coins", flips: ["H", "H", "H"], tones: ["muted", "hit", "hit"], caption: "A miss on H H T keeps the progress" },
+          },
+          {
+            text: "A wrong flip can cost you two flips of progress, and it never costs your friend more than one. That is the whole gap between 10 and 8.",
+            visual: { type: "coins", flips: ["H", "T", "H"], tones: ["hit", "hit", "hit"], caption: "H T H, 10 flips on average" },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "A rule for any pattern",
+        body: [
+          "Find each piece of the pattern that is both how it starts and how it ends. For H T H those pieces are H and the whole H T H. For H H T, only the whole pattern counts.",
+          "With a fair coin, each piece of length k adds 2ᵏ flips to the wait. So H T H takes 2 + 8 = 10, H H T takes 8, and H H H, which overlaps itself at every length, takes 2 + 4 + 8 = 14.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Average wait = sum of 1 ÷ P(piece) over pieces that start and end it",
+        note: "For H T H the pieces are H, with chance 1/2, and H T H, with chance 1/8: 2 + 8 = 10. On a die a piece of length k has chance 1/6ᵏ, so waiting for 6 6 takes 6 + 36 = 42 rolls.",
+      },
+      {
+        type: "check",
+        prompt: "How many flips of a fair coin do you expect until H H H?",
+        choices: ["8", "14", "10", "6"],
+        answer: 1,
+        explain: "H, H H and H H H all both start and end H H H, so the wait is 2 + 4 + 8 = 14 flips.",
+      },
+      {
+        type: "example",
+        lead: "Here is H T H worked through with its pieces.",
+      },
+      {
+        type: "trap",
+        body: "Saying every three-flip pattern takes 8 flips. That’s true only for patterns with no overlap, like H H T or H T T. Check for pieces that both start and end the pattern before you use 2³.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "You flip or roll until a particular run appears",
+          "Two patterns of the same length are compared, like H T H against H H T",
+          "You need k successes in a row, which overlaps itself at every length",
+        ],
+      },
     ],
-    mistake: "Thinking every 3-flip pattern takes 8 flips. Only patterns with no overlap, like H H T, take 8; H T H takes 10 and H H H takes 14.",
     targetSeconds: 45,
     example: patternWait({ type: "coin", pattern: "H T H" }),
     families: [
@@ -1236,16 +1408,114 @@ export const STATES_LESSONS: QuantLessonDef[] = [
     id: "random-walks",
     title: "Random walks",
     benefit: "Find the chance and time to hit a target",
-    idea: "With fair bets, the chance of reaching the target is start ÷ target, and the average number of bets is start × (target − start). With unfair bets, let r = lose chance ÷ win chance: starting with $a and aiming for $N, the chance is (rᵃ − 1) ÷ (rᴺ − 1).",
+    summary: "The gambler’s ruin: the chance of reaching a target before going broke, and how many bets it takes, for fair and unfair bets.",
     difficulty: "Hard",
-    intro:
-      "In a fair game your money stays the same on average, even at the end. The game ends at $0 or the target, so the chance of reaching the target has to make the average ending amount equal what you started with. Unfair bets drag you towards one end, and r measures how hard.",
-    formula: "Fair: P(reach N from a) = a ÷ N, average bets = a × (N − a)",
-    cues: [
-      "You bet $1 at a time and stop at a target or at $0",
-      "A token steps left or right until it hits one of two ends",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You have $3 and bet $1 at a time on flips of a fair coin. You stop when you reach $5 or lose everything.",
+          "What’s the chance you reach $5?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance you reach $5?",
+        choices: ["50%", "60%", "40%", "75%"],
+        answer: 1,
+        explain:
+          "It’s 3/5, or 60%. You need a net 2 wins to reach $5 but a net 3 losses to go broke, so the target is the nearer end.",
+      },
+      {
+        type: "story",
+        heading: "The average can’t move",
+        beats: [
+          {
+            text: "Each flip moves your money up or down $1, and the game ends at $0 or $5. A sequence of steps like this is called a random walk.",
+            visual: {
+              type: "states",
+              nodes: [
+                { id: "0", label: "$0", tone: "hit" },
+                { id: "1", label: "$1" },
+                { id: "2", label: "$2" },
+                { id: "3", label: "$3", tone: "known" },
+                { id: "4", label: "$4" },
+                { id: "5", label: "$5", tone: "hit" },
+              ],
+              edges: [
+                { from: "3", to: "4", label: "win 1/2" },
+                { from: "3", to: "2", label: "lose 1/2" },
+              ],
+              caption: "You start at $3; the game stops at either orange end",
+            },
+          },
+          {
+            text: "A fair bet doesn’t change your money on average. Neither does a string of fair bets, so your average amount when the game stops is still $3.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 5,
+              ticks: [0, 1, 2, 3, 4, 5],
+              shade: [],
+              points: [{ at: 3, label: "Average at the end: $3", tone: "known" }],
+              caption: "The average stays where you started",
+            },
+          },
+          {
+            text: "The game stops with $5 or $0. If p is the chance of $5, the average final amount is 5p. Setting 5p = 3 gives p = 3/5.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 5,
+              ticks: [0, 1, 2, 3, 4, 5],
+              shade: [],
+              points: [
+                { at: 0, label: "$0: chance 2/5", tone: "lose" },
+                { at: 5, label: "$5: chance 3/5", tone: "win" },
+              ],
+              caption: "3/5 × $5 + 2/5 × $0 = $3",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "When the bets aren’t fair",
+        body: [
+          "If each bet wins with chance 2/5, the walk drifts down and 3 ÷ 5 is too high. Let r = lose chance ÷ win chance, here 3/2. Starting with $a and aiming for $N, the chance of reaching N is (rᵃ − 1) ÷ (rᴺ − 1).",
+          "From $3 aiming for $5, that’s (1.5³ − 1) ÷ (1.5⁵ − 1) ≈ 36%, down from 60%. For fair bets you can also find how long the game lasts: a × (N − a) bets on average, so 3 × 2 = 6 here.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Fair bets: P(reach N from a) = a ÷ N, average bets = a × (N − a)",
+        note: "From $3 with a $5 target: 3 ÷ 5 = 60% to reach it, and 3 × 2 = 6 bets on average. For unfair bets, use (rᵃ − 1) ÷ (rᴺ − 1) with r = lose chance ÷ win chance.",
+      },
+      {
+        type: "check",
+        prompt: "A token starts at 0 and steps left or right with equal chance each turn. How many turns do you expect until it reaches +4 or −2?",
+        choices: ["8", "6", "16", "4"],
+        answer: 0,
+        explain: "It’s a fair walk with 4 steps to one end and 2 to the other, so the average is 4 × 2 = 8 turns. It’s the same game as starting with $2 and aiming for $6.",
+      },
+      {
+        type: "example",
+        lead: "Unfair bets: you start with $3, aim for $6, and each bet wins with chance 2/5.",
+      },
+      {
+        type: "trap",
+        body: "Using a ÷ N when the bets aren’t fair. With a 2/5 chance per bet, starting at $3 and aiming for $6 succeeds only about 23% of the time, well below the 50% that 3 ÷ 6 suggests.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "You bet a fixed amount each round and stop at a target or at zero",
+          "A token moves left or right until it hits one of two ends",
+          "A game can return to the same score again and again, like deuce in tennis",
+        ],
+      },
     ],
-    mistake: "Using a ÷ N when the bets aren’t fair. Even a small edge against you makes the target much less likely than a ÷ N.",
     targetSeconds: 60,
     example: randomWalk({ start: 3, target: 6, winN: 2, winD: 5, ask: "reach" }),
     families: [
@@ -1262,7 +1532,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         id: "unfair-chance",
         title: "Unfair bets: reach the target or go broke",
         generate: (random) =>
-          // Redraw the rare long shots (under 1% or over 99%), which don't type cleanly.
+          // Redraw the rare long shots (under 1% or over 99%), which don’t type cleanly.
           withinTypingRange(() => {
             const [winN, winD] = pick(random, UNFAIR_ODDS);
             const target = int(random, 4, 8);
@@ -1317,16 +1587,89 @@ export const STATES_LESSONS: QuantLessonDef[] = [
     id: "optimal-stopping",
     title: "Optimal stopping",
     benefit: "Decide when to stop and when to go on",
-    idea: "Work back from the last turn. Keep a result if it beats what going on is worth on average; otherwise go on.",
+    summary: "How to play reroll and stop-or-continue games well by working back from the last turn, and how to find what those games are worth.",
     difficulty: "Hard",
-    intro:
-      "On the last turn you have no choice, so that turn is worth an average result. Knowing that, the turn before has a clear rule: keep anything better than the average of going on, and go on otherwise. Work backwards one turn at a time until you reach the first.",
-    formula: "Value = P(keep) × average kept result + P(go on) × value of going on",
-    cues: [
-      "You may reroll, redraw or stop, and must keep the last result",
-      "The question asks what the game is worth if you play well",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You roll a fair die and are paid its value in dollars. If you don’t like the roll, you may roll once more, but then you must keep the second roll.",
+          "Which first rolls should you keep, and what is the game worth?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Which first rolls should you keep?",
+        choices: ["4, 5 or 6", "5 or 6", "Only a 6", "3 or more"],
+        answer: 0,
+        explain: "A second roll is worth $3.50 on average. Keep any first roll that beats that, which means a 4, 5 or 6, and roll again on a 1, 2 or 3.",
+      },
+      {
+        type: "story",
+        heading: "Start from the end",
+        beats: [
+          {
+            text: "If you roll again, you’re stuck with whatever comes up. A fresh roll averages (1 + 2 + 3 + 4 + 5 + 6) ÷ 6 = $3.50.",
+            visual: { type: "die-faces", sides: 6, marks: [], caption: "A fresh roll is worth $3.50" },
+          },
+          {
+            text: "So on the first roll, keep anything worth more than $3.50: a 4, 5 or 6. Reroll the rest.",
+            visual: { type: "die-faces", sides: 6, marks: [{ faces: [4, 5, 6], tone: "hit" }, { faces: [1, 2, 3], tone: "muted" }], caption: "Keep 4, 5 or 6" },
+          },
+          {
+            text: "Half the time you keep, and the kept rolls average $5. The other half you reroll, which is worth $3.50. The game is worth 1/2 × $5 + 1/2 × $3.50 = $4.25.",
+            visual: {
+              type: "tree",
+              root: {
+                label: "First roll",
+                children: [
+                  { label: "Keep: $5", edge: "1/2", tone: "hit" },
+                  { label: "Reroll: $3.50", edge: "1/2", tone: "muted" },
+                ],
+              },
+              caption: "Each branch’s value times its chance",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Work backwards",
+        body: [
+          "You can put a value on the last decision first, because after it there are no choices left. Once you know what going on is worth, each earlier decision is a comparison: keep what’s in front of you if it beats that number. This method is called backward induction.",
+          "With two rerolls, the one-reroll game becomes what rerolling is worth: $4.25. So on the first roll you keep only a 5 or 6, and the game is worth 1/3 × $5.50 + 2/3 × $4.25 ≈ $4.67.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Value = P(keep) × average kept + P(go on) × value of going on",
+        note: "For one reroll: you keep half the time, the kept rolls average $5, and going on is worth $3.50. 1/2 × $5 + 1/2 × $3.50 = $4.25.",
+      },
+      {
+        type: "check",
+        prompt: "A computer picks a random number between 0 and 1, and you score that number. You may ask for one new number, but then you must keep it. Above what value should you keep the first number?",
+        choices: ["1/2", "3/4", "5/8", "1/3"],
+        answer: 0,
+        explain: "A new number is worth 1/2 on average, so keep anything above 1/2. The game itself is worth 5/8: half the time you keep a number that averages 3/4, and half the time you take a new one worth 1/2.",
+      },
+      {
+        type: "example",
+        lead: "Here is the one-reroll die game as a full solution you can step through.",
+      },
+      {
+        type: "trap",
+        body: "Keeping anything above the middle of the die, 3.5, however many turns are left. The cutoff is what going on is worth, and it rises with each extra turn: keep 4 or more with one reroll left, but only 5 or more with two.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "You may reroll, redraw or stop, and must keep the final result",
+          "You’re asked what a game is worth if you play it well",
+          "Each extra roll risks losing everything you’ve built up, and you choose when to stop",
+        ],
+      },
     ],
-    mistake: "Keeping anything above the middle face. The cutoff is what going on is worth, which rises when you have more turns left.",
     targetSeconds: 45,
     example: optimalStopping({ type: "die", sides: 6, rerolls: 1 }),
     families: [

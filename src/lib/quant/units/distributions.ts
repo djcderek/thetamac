@@ -33,7 +33,7 @@ const TRIALS: {
     noun: "flips",
     minTries: 3,
     maxTries: 8,
-    prompt: (n, count, k) => `You flip a fair coin ${n} times. What's the chance of ${count} ${k === 1 ? "head" : "heads"}?`,
+    prompt: (n, count, k) => `You flip a fair coin ${n} times. What’s the chance of ${count} ${k === 1 ? "head" : "heads"}?`,
   },
   {
     id: "sixes",
@@ -42,7 +42,7 @@ const TRIALS: {
     noun: "rolls",
     minTries: 2,
     maxTries: 5,
-    prompt: (n, count, k) => `You roll a fair die ${n} times. What's the chance of ${count} ${k === 1 ? "six" : "sixes"}?`,
+    prompt: (n, count, k) => `You roll a fair die ${n} times. What’s the chance of ${count} ${k === 1 ? "six" : "sixes"}?`,
   },
   {
     id: "sunny",
@@ -52,7 +52,7 @@ const TRIALS: {
     minTries: 3,
     maxTries: 5,
     prompt: (n, count) =>
-      `Each day at a beach town is sunny with chance 80%, independently. What's the chance ${count} of the next ${n} days are sunny?`,
+      `Each day at a beach town is sunny with chance 80%, independently. What’s the chance ${count} of the next ${n} days are sunny?`,
   },
   {
     id: "free-throws",
@@ -61,7 +61,7 @@ const TRIALS: {
     noun: "shots",
     minTries: 3,
     maxTries: 5,
-    prompt: (n, count) => `A player makes each free throw with chance 70%. Taking ${n} shots, what's the chance they make ${count}?`,
+    prompt: (n, count) => `A player makes each free throw with chance 70%. Taking ${n} shots, what’s the chance they make ${count}?`,
   },
   {
     id: "guessing",
@@ -71,7 +71,7 @@ const TRIALS: {
     minTries: 3,
     maxTries: 6,
     prompt: (n, count) =>
-      `A quiz has ${n} questions, each with 4 choices. If you guess every answer, what's the chance you get ${count} right?`,
+      `A quiz has ${n} questions, each with 4 choices. If you guess every answer, what’s the chance you get ${count} right?`,
   },
   {
     id: "biased-coin",
@@ -81,7 +81,7 @@ const TRIALS: {
     minTries: 3,
     maxTries: 6,
     prompt: (n, count, k) =>
-      `A coin lands heads with chance 2/3. Flipping it ${n} times, what's the chance of ${count} ${k === 1 ? "head" : "heads"}?`,
+      `A coin lands heads with chance 2/3. Flipping it ${n} times, what’s the chance of ${count} ${k === 1 ? "head" : "heads"}?`,
   },
 ];
 
@@ -191,7 +191,7 @@ function binomial(params: { trial: string; tries: number; successes: number; ask
         explain:
           j === n
             ? `All ${n} succeed: there’s only one order, so multiply ${formatFraction(p)} by itself ${n} times.`
-            : `The ways to pick which ${j} of the ${n} succeed, times the chance of one such order.`,
+            : `C(${n}, ${j}) counts which ${j} of the ${n} succeed, and each of those orders has the same chance.`,
         visual: distributionBars(n, p, [j], trial.noun),
       })),
       {
@@ -232,8 +232,8 @@ function oddHeads(params: { type: "odd"; flips: number; headsN: number; headsD: 
   return problem(
     `odd-${n}-${params.headsN}-${params.headsD}`,
     fair
-      ? `You flip a fair coin ${n} times. What's the chance of an odd number of heads?`
-      : `A coin lands heads with chance ${formatFraction(p)}. You flip it ${n} times. What's the chance of an odd number of heads?`,
+      ? `You flip a fair coin ${n} times. What’s the chance of an odd number of heads?`
+      : `A coin lands heads with chance ${formatFraction(p)}. You flip it ${n} times. What’s the chance of an odd number of heads?`,
     div(sub(q(1), diff), q(2)),
     "probability",
     fair
@@ -260,7 +260,7 @@ function oddHeads(params: { type: "odd"; flips: number; headsN: number; headsD: 
             work: `(1 − 2 × ${formatFraction(p)})${sup(n)} = (${formatFraction(r)})${sup(n)}`,
             result: formatFraction(diff),
             icon: "idea",
-            explain: "Multiply out ((1 − p) − p)ⁿ: outcomes with an even number of heads count plus, odd ones count minus. So it’s P(even) − P(odd).",
+            explain: "Expand ((1 − p) − p)ⁿ like (a + b)ⁿ. Outcomes with an even number of heads add their chance and odd ones take it away, giving P(even) − P(odd).",
           },
           {
             label: "An odd number of heads",
@@ -289,7 +289,7 @@ function equalGroups(params: { type: "groups"; first: number; last: number }): Q
   };
   return problem(
     `groups-${a}-${b}`,
-    `You flip a fair coin ${n} times. What's the chance the number of heads in the first ${a} flips equals the number in the ${b === 1 ? "last flip" : `last ${b}`}?`,
+    `You flip a fair coin ${n} times. What’s the chance the number of heads in the first ${a} flips equals the number in the ${b === 1 ? "last flip" : `last ${b}`}?`,
     q(total, 2 ** n),
     "probability",
     [
@@ -338,7 +338,7 @@ function majorityVote(params: { type: "vote"; jury: "coin" | "three"; percent: n
     const coinAgrees = div(oneRight, q(2));
     return problem(
       `vote-coin-${percent}`,
-      `A jury of three decides by majority. Two jurors each reach the right verdict with chance ${pct}, independently, and the third flips a coin. What's the chance the jury gets it right?`,
+      `A jury of three decides by majority. Two jurors each reach the right verdict with chance ${pct}, independently, and the third flips a coin. What’s the chance the jury gets it right?`,
       add(both, coinAgrees),
       "percent",
       [
@@ -397,7 +397,7 @@ function majorityVote(params: { type: "vote"; jury: "coin" | "three"; percent: n
   const two = mul(q(3), mul(pow(p, 2), miss));
   return problem(
     `vote-three-${percent}`,
-    `A jury of three decides by majority. Each juror reaches the right verdict with chance ${pct}, independently. What's the chance the jury gets it right?`,
+    `A jury of three decides by majority. Each juror reaches the right verdict with chance ${pct}, independently. What’s the chance the jury gets it right?`,
     add(all, two),
     "percent",
     [
@@ -469,7 +469,7 @@ const HITS: {
     tryWord: "roll",
     tries: "rolls",
     hit: "six",
-    untilCount: (k) => `You roll a fair die until you've rolled ${k} sixes`,
+    untilCount: (k) => `You roll a fair die until you’ve rolled ${k} sixes`,
     untilFirst: "You roll a fair die until you roll a six",
   },
   {
@@ -487,7 +487,7 @@ const HITS: {
     tryWord: "shot",
     tries: "shots",
     hit: "make",
-    untilCount: (k) => `A player makes each free throw with chance 3/4 and shoots until they've made ${k}`,
+    untilCount: (k) => `A player makes each free throw with chance 3/4 and shoots until they’ve made ${k}`,
     untilFirst: "A player makes each free throw with chance 3/4 and shoots until they make one",
   },
 ];
@@ -640,7 +640,7 @@ function geometric(params: GeometricParams): QuantProblem {
       });
       return problem(
         `first-on-${hit.id}-${on}`,
-        `${hit.untilFirst}. What's the chance the first ${hit.hit} comes on the ${ORDINALS[on]} ${hit.tryWord}?`,
+        `${hit.untilFirst}. What’s the chance the first ${hit.hit} comes on the ${ORDINALS[on]} ${hit.tryWord}?`,
         mul(pow(miss, on - 1), chance),
         "probability",
         [
@@ -673,8 +673,8 @@ function geometric(params: GeometricParams): QuantProblem {
       return problem(
         `both-${params.headsN}-${params.headsD}`,
         fair
-          ? "You flip a fair coin until you've seen both heads and tails. How many flips do you expect it to take?"
-          : `A coin lands heads with chance ${formatFraction(heads)}. You flip it until you've seen both heads and tails. How many flips do you expect it to take?`,
+          ? "You flip a fair coin until you’ve seen both heads and tails. How many flips do you expect it to take?"
+          : `A coin lands heads with chance ${formatFraction(heads)}. You flip it until you’ve seen both heads and tails. How many flips do you expect it to take?`,
         add(q(1), afterFirst),
         "number",
         [
@@ -726,7 +726,7 @@ function geometric(params: GeometricParams): QuantProblem {
     }
     case "roll-total": {
       const { sides, target, last } = params;
-      // Average rolls × average roll (Wald's identity); drop the final roll if it isn't counted.
+      // Average rolls × average roll (Wald’s identity); drop the final roll if it isn’t counted.
       const averageRoll = q(sides + 1, 2);
       const withLast = mul(q(sides), averageRoll);
       const answer = last === "with" ? withLast : sub(withLast, q(target));
@@ -816,7 +816,7 @@ const KTH: {
     chance: [1, 2],
     one: "Flip",
     hit: "head",
-    prompt: (k, n) => `You flip a fair coin until you have ${k} heads. What's the chance the ${ORDINAL[k]} head comes on flip ${n}?`,
+    prompt: (k, n) => `You flip a fair coin until you have ${k} heads. What’s the chance the ${ORDINAL[k]} head comes on flip ${n}?`,
   },
   {
     id: "fish",
@@ -824,14 +824,14 @@ const KTH: {
     one: "Fish",
     hit: "catch",
     prompt: (k, n) =>
-      `A bear catches each fish that swims past with chance 1/2, and leaves once it has caught ${k}. What's the chance its ${ORDINAL[k]} catch is the ${ORDINAL[n]} fish?`,
+      `A bear catches each fish that swims past with chance 1/2, and leaves once it has caught ${k}. What’s the chance its ${ORDINAL[k]} catch is the ${ORDINAL[n]} fish?`,
   },
   {
     id: "die",
     chance: [1, 6],
     one: "Roll",
     hit: "six",
-    prompt: (k, n) => `You roll a fair die until you've rolled ${k} sixes. What's the chance the ${ORDINAL[k]} six comes on roll ${n}?`,
+    prompt: (k, n) => `You roll a fair die until you’ve rolled ${k} sixes. What’s the chance the ${ORDINAL[k]} six comes on roll ${n}?`,
   },
   {
     id: "free-throws",
@@ -839,7 +839,7 @@ const KTH: {
     one: "Shot",
     hit: "make",
     prompt: (k, n) =>
-      `A player makes each free throw with chance 3/4 and stops after making ${k}. What's the chance the ${ORDINAL[k]} make comes on shot ${n}?`,
+      `A player makes each free throw with chance 3/4 and stops after making ${k}. What’s the chance the ${ORDINAL[k]} make comes on shot ${n}?`,
   },
 ];
 
@@ -878,14 +878,14 @@ function kthOnN(params: { type: "kth"; setting: string; k: number; n: number }):
         work: `C(${n - 1}, ${k - 1})`,
         result: `${ways}`,
         icon: "count",
-        explain: `Any ${k - 1} of the first ${n - 1} tries can hold the earlier successes.`,
+        explain: `The earlier ${k - 1 === 1 ? "success" : `${k - 1} successes`} can be on any ${k - 1} of the first ${n - 1} tries.`,
       },
       {
         label: "Chance of one such order",
         work: timesTerms(power(p, k), power(miss, n - k)),
         result: formatFraction(oneOrder),
         icon: "multiply",
-        explain: `The tries don’t affect each other: ${formatFraction(p)} for each of the ${k} successes and ${formatFraction(miss)} for each of the ${n - k} misses.`,
+        explain: `The tries don’t affect each other: ${formatFraction(p)} for each success and ${formatFraction(miss)} for each miss.`,
         visual: order,
       },
       {
@@ -900,7 +900,7 @@ function kthOnN(params: { type: "kth"; setting: string; k: number; n: number }):
   );
 }
 
-/** Faces you're told never came up before the 6. */
+/** Faces you’re told never came up before the 6. */
 const FORBIDDEN: { id: string; faces: number[]; text: string }[] = [
   { id: "no-5", faces: [5], text: "you never rolled a 5" },
   { id: "no-1", faces: [1], text: "you never rolled a 1" },
@@ -919,7 +919,7 @@ function waitGiven(params: { type: "given"; forbidden: string }): QuantProblem {
   const listed = rule.faces.join(", ");
   return problem(
     `given-${rule.id}`,
-    `You roll a fair die until you get a 6. You're told ${rule.text}. On average, how many rolls did it take, counting the 6?`,
+    `You roll a fair die until you get a 6. You’re told ${rule.text}. On average, how many rolls did it take, counting the 6?`,
     div(q(1), chance),
     "number",
     [
@@ -931,7 +931,7 @@ function waitGiven(params: { type: "given"; forbidden: string }): QuantProblem {
         explain: "Only the 6 and the faces you’re told never came up matter. Any other face just means roll again.",
       },
       {
-        label: "Being told it was the 6 doesn’t change the wait",
+        label: "Knowing it ended on the 6 changes nothing",
         work: `the first of these ${stopping} faces comes just as fast, whichever it is`,
         result: "",
         icon: "idea",
@@ -978,7 +978,7 @@ function multipleOf(params: { type: "multiple"; sides: number; m: number }): Qua
         work: `${good} of the ${sides} faces`,
         result: `1/${m}`,
         icon: "count",
-        explain: `Whatever the total so far, exactly ${good} of the ${sides} faces bring it to a multiple of ${m}. So every roll does it with chance 1/${m}.`,
+        explain: `Whatever the total so far, exactly ${good} of the ${sides} faces ${good === 1 ? "brings" : "bring"} it to a multiple of ${m}. So every roll does it with chance 1/${m}.`,
         visual: {
           type: "die-faces",
           sides,
@@ -1127,7 +1127,7 @@ const SCALES: {
   show: (x: number) => string;
   /** "what share of people are". */
   share: string;
-  /** "a person's height", for "given" questions. */
+  /** "a person’s height", for "given" questions. */
   one: string;
   above: string;
   below: string;
@@ -1139,7 +1139,7 @@ const SCALES: {
     sd: 7,
     show: (x) => `${x} cm`,
     share: "what share of people are",
-    one: "a person's height",
+    one: "a person’s height",
     above: "taller than",
     below: "shorter than",
   },
@@ -1156,12 +1156,12 @@ const SCALES: {
   },
   {
     id: "returns",
-    setup: "A stock's daily return is normal with mean 0% and standard deviation 2%.",
+    setup: "A stock’s daily return is normal with mean 0% and standard deviation 2%.",
     mean: 0,
     sd: 2,
     show: (x) => `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(x)}%`,
     share: "what share of days are",
-    one: "a day's return",
+    one: "a day’s return",
     above: "above",
     below: "below",
   },
@@ -1185,7 +1185,7 @@ const edge = (z: number) => Math.max(-3, Math.min(3, z));
 
 type Band = [number, number];
 
-/** A bell curve with bands shaded, ticks at the mean and each whole SD in the question's units. */
+/** A bell curve with bands shaded, ticks at the mean and each whole SD in the question’s units. */
 function bellCurve(
   scale: (typeof SCALES)[number],
   layers: { bands: Band[]; tone: "hit" | "known"; text?: (band: Band) => string }[],
@@ -1233,7 +1233,7 @@ function sideStep(lo: number, hi: number, scale: (typeof SCALES)[number]) {
       work: `(100% − ${w(inner)}) ÷ 2`,
       result: share,
       icon: "split" as const,
-      explain: `${w(inner)} of values are within ${sd(inner)} of the mean. The rest are outside, split evenly between the two tails, so take half.`,
+      explain: `${w(inner)} of values are within ${sd(inner)} of the mean. The rest are outside, split evenly between the two sides, so take half.`,
       visual,
     };
   }
@@ -1327,7 +1327,7 @@ function normal(params: NormalParams): QuantProblem {
   const asked = { bands: REGION_BANDS[event], tone: "hit" as const, text: bandShare };
   return problem(
     `given-${scale.id}-${condition}-${event}`,
-    `${scale.setup} ${RULE}: ${scale.one} is ${describe(condition)}. What's the chance it's ${describe(event)}?`,
+    `${scale.setup} ${RULE}: ${scale.one} is ${describe(condition)}. What’s the chance it’s ${describe(event)}?`,
     div(both, given),
     "percent",
     [
@@ -1340,7 +1340,7 @@ function normal(params: NormalParams): QuantProblem {
         visual: bellCurve(scale, [known], "What you’re told"),
       },
       {
-        label: "Chance of what you're asked",
+        label: "Chance of what you’re asked",
         work: describe(event).replace(/ \(.*\)$/, ""),
         result: formatPercent(both),
         icon: "target",
@@ -1348,7 +1348,7 @@ function normal(params: NormalParams): QuantProblem {
         visual: bellCurve(scale, [known, asked], "What you’re asked, inside what you’re told"),
       },
       {
-        label: "Share of the first that's also the second",
+        label: "Share of the first that’s also the second",
         work: `${formatPercent(both)} ÷ ${formatPercent(given)}`,
         icon: "divide",
         explain: "Given what you know, the chance is the asked share as a fraction of the known share.",
@@ -1373,7 +1373,7 @@ function regionBand(region: Region): Band {
   return region.startsWith("above") ? [k, OPEN] : region.startsWith("below") ? [-OPEN, -k] : [-k, k];
 }
 
-/** The rule's last step for a region: one side via sideStep, or "within k" read straight off the rule. */
+/** The rule’s last step for a region: one side via sideStep, or "within k" read straight off the rule. */
 function ruleStep(region: Region, scale: (typeof SCALES)[number]) {
   const [lo, hi] = regionBand(region);
   if (region.startsWith("within")) {
@@ -1389,7 +1389,7 @@ function ruleStep(region: Region, scale: (typeof SCALES)[number]) {
   return sideStep(lo, hi, scale);
 }
 
-/** The question's words for a region, given how to show a value and the verbs for each side. */
+/** The question’s words for a region, given how to show a value and the verbs for each side. */
 function regionWords(region: Region, at: (z: number) => string, words: { above: string; below: string; within: string }) {
   const k = Number(region.split("-")[1]);
   if (region.startsWith("above")) return `${words.above} ${at(k)}`;
@@ -1397,7 +1397,7 @@ function regionWords(region: Region, at: (z: number) => string, words: { above: 
   return `${words.within} ${at(-k)} and ${at(k)}`;
 }
 
-/** Threshold values for the region, in the question's units, so tests can work the z-scores out again. */
+/** Threshold values for the region, in the question’s units, so tests can work the z-scores out again. */
 function regionValues(region: Region, mean: number, sd: number) {
   const k = Number(region.split("-")[1]);
   if (region.startsWith("above")) return { x1: mean + k * sd, x2: "none" };
@@ -1424,8 +1424,8 @@ const SYMMETRY: {
       id: `ratio-${k}-${sx}-${sy}`,
       prompt:
         sx === sy
-          ? `X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What's the chance Y > ${k}X?`
-          : `X and Y are independent normal random numbers with mean 0. X has standard deviation ${sx} and Y has standard deviation ${sy}. What's the chance Y > ${k}X?`,
+          ? `X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What’s the chance Y > ${k}X?`
+          : `X and Y are independent normal random numbers with mean 0. X has standard deviation ${sx} and Y has standard deviation ${sy}. What’s the chance Y > ${k}X?`,
       answer: [1, 2] as [number, number],
       move: "both" as const,
       claim: `Y > ${k}X`,
@@ -1434,7 +1434,7 @@ const SYMMETRY: {
   ),
   {
     id: "sum",
-    prompt: "X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What's the chance X + Y > 0?",
+    prompt: "X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What’s the chance X + Y > 0?",
     answer: [1, 2],
     move: "both",
     claim: "X + Y > 0",
@@ -1442,7 +1442,7 @@ const SYMMETRY: {
   },
   {
     id: "same-sign",
-    prompt: "X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What's the chance X and Y have the same sign?",
+    prompt: "X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What’s the chance X and Y have the same sign?",
     answer: [1, 2],
     move: "one",
     claim: "same sign",
@@ -1450,7 +1450,7 @@ const SYMMETRY: {
   },
   {
     id: "further",
-    prompt: "X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What's the chance Y is further from 0 than X is?",
+    prompt: "X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What’s the chance Y is further from 0 than X is?",
     answer: [1, 2],
     move: "swap",
     claim: "Y further from 0",
@@ -1458,14 +1458,14 @@ const SYMMETRY: {
   },
   {
     id: "both-positive",
-    prompt: "X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What's the chance both are positive?",
+    prompt: "X and Y are independent normal random numbers, each with mean 0 and standard deviation 1. What’s the chance both are positive?",
     answer: [1, 4],
     move: "product",
     count: 2,
   },
   {
     id: "three-positive",
-    prompt: "X, Y and Z are independent normal random numbers, each with mean 0 and standard deviation 1. What's the chance all three are positive?",
+    prompt: "X, Y and Z are independent normal random numbers, each with mean 0 and standard deviation 1. What’s the chance all three are positive?",
     answer: [1, 8],
     move: "product",
     count: 3,
@@ -1650,7 +1650,7 @@ const AVERAGE_SETTINGS: {
   {
     id: "trades",
     mean: 20,
-    setup: (sd, n) => `A trader's profit per trade is normal with mean $20 and standard deviation $${sd}, independently. They make ${n} trades a day.`,
+    setup: (sd, n) => `A trader’s profit per trade is normal with mean $20 and standard deviation $${sd}, independently. They make ${n} trades a day.`,
     show: (x) => (x < 0 ? `−$${-x}` : `$${x}`),
     share: "on what share of days is the average profit per trade",
     words: { above: "above", below: "below", within: "between" },
@@ -1723,17 +1723,126 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
     id: "binomial",
     title: "Binomial distribution",
     benefit: "Find the chance of k wins in n tries",
-    idea: "The chance of exactly k successes in n tries is C(n, k) × pᵏ × (1 − p)ⁿ⁻ᵏ: the ways to pick which tries succeed, times the chance of one such order. For “at least”, add up the exact chances.",
+    summary: "The chance of exactly k successes in n independent tries: count the orders with C(n, k), then multiply by the chance of one order.",
     difficulty: "Medium",
-    intro:
-      "Each try has the same chance p and doesn’t affect the others. One particular order of k successes and n − k misses has chance pᵏ × (1 − p)ⁿ⁻ᵏ, and every order has that same chance. So count the orders with C(n, k) and multiply.",
-    formula: "P(exactly k) = C(n, k) × pᵏ × (1 − p)ⁿ⁻ᵏ",
-    cues: [
-      "A fixed number of tries, each with the same chance",
-      "It asks for exactly k or at least k successes",
-      "The tries don’t affect each other",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You roll a die 4 times. What’s the chance you get exactly two sixes?",
+          "Start smaller. Before counting every way it can happen, work out the chance of one particular way: six, six, then two rolls that aren’t sixes.",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance of exactly this sequence: six, six, not six, not six?",
+        choices: ["(1/6)² × (5/6)²", "2 × 1/6", "(1/6)²", "6 × (1/6)²"],
+        answer: 0,
+        explain:
+          "The rolls don’t affect each other, so multiply: 1/6 for each six and 5/6 for each roll that isn’t one. That’s 25/1296, about 1.9%. (1/6)² leaves out the two rolls that must miss.",
+      },
+      {
+        type: "story",
+        heading: "From one order to all of them",
+        beats: [
+          {
+            text: "Six, six, other, other has chance 1/6 × 1/6 × 5/6 × 5/6 = 25/1296.",
+            visual: {
+              type: "slots",
+              slots: [
+                { label: "Six", value: "1/6", tone: "hit" },
+                { label: "Six", value: "1/6", tone: "hit" },
+                { label: "Not six", value: "5/6" },
+                { label: "Not six", value: "5/6" },
+              ],
+              op: "×",
+              result: "25/1296",
+            },
+          },
+          {
+            text: "Six, other, six, other uses the same four numbers in a different order, so it has the same chance. Every order with two sixes does.",
+            visual: {
+              type: "slots",
+              slots: [
+                { label: "Six", value: "1/6", tone: "hit" },
+                { label: "Not six", value: "5/6" },
+                { label: "Six", value: "1/6", tone: "hit" },
+                { label: "Not six", value: "5/6" },
+              ],
+              op: "×",
+              result: "25/1296",
+            },
+          },
+          {
+            text: "The two sixes can be on any 2 of the 4 rolls. There are C(4, 2) = 6 ways to choose which.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1, 2", value: 1, tone: "hit" },
+                { label: "1, 3", value: 1, tone: "hit" },
+                { label: "1, 4", value: 1, tone: "hit" },
+                { label: "2, 3", value: 1, tone: "hit" },
+                { label: "2, 4", value: 1, tone: "hit" },
+                { label: "3, 4", value: 1, tone: "hit" },
+              ],
+              caption: "Which two rolls are the sixes. Each order has chance 25/1296",
+            },
+          },
+          {
+            text: "The six orders can’t happen together, so add them: 6 × 25/1296 = 25/216, about 11.6%.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "0", value: 0.4823, tone: "muted" },
+                { label: "1", value: 0.3858, tone: "muted" },
+                { label: "2", value: 0.1157, tone: "hit", text: "11.6%" },
+                { label: "3", value: 0.0154, tone: "muted" },
+                { label: "4", value: 0.0008, tone: "muted" },
+              ],
+              caption: "Chance of each number of sixes in 4 rolls",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why it works",
+        body: [
+          "Every roll has the same chance of a six, and no roll changes the next. So any order with k sixes and n − k other numbers has the same chance, pᵏ × (1 − p)ⁿ⁻ᵏ, and you only have to count the orders.",
+          "The number of successes in n tries like this has a binomial distribution. n is the number of tries and p is the chance of success on each one.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(exactly k) = C(n, k) × pᵏ × (1 − p)ⁿ⁻ᵏ",
+        note: "For two sixes in four rolls, n = 4, k = 2 and p = 1/6. C(4, 2) = 6 counts the orders, and (1/6)² × (5/6)² is the chance of each. For “at least k”, add the exact chances for k, k + 1 and so on up to n.",
+      },
+      {
+        type: "check",
+        prompt: "Same 4 rolls. What’s the chance of at least one six?",
+        choices: ["1 − (5/6)⁴ ≈ 52%", "4 × 1/6 = 2/3", "C(4, 1) × 1/6 × (5/6)³ ≈ 39%", "1/6"],
+        answer: 0,
+        explain:
+          "“At least one” is every count except zero, so take the chance of no sixes, (5/6)⁴ = 625/1296, away from 1. The 39% choice is the chance of exactly one six. 4 × 1/6 counts a roll with two sixes twice.",
+      },
+      {
+        type: "example",
+        lead: "Here the chance each day is 80%, and the question asks for at least 3 sunny days out of 4, so you add two exact chances.",
+      },
+      {
+        type: "trap",
+        body: "Leaving out C(n, k). (1/6)² × (5/6)² ≈ 1.9% is the chance of one order, such as six, six, other, other. Two sixes can come in 6 different orders, so the answer is 6 times that.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "There’s a fixed number of flips, rolls, shots or days, each with the same chance",
+          "The question asks for exactly k, at least k or at most k successes",
+          "Nothing about one try changes the chance on the next",
+        ],
+      },
     ],
-    mistake: "Leaving out C(n, k): pᵏ × (1 − p)ⁿ⁻ᵏ is the chance of one order, not of k successes in any order.",
     targetSeconds: 45,
     example: binomial({ trial: "sunny", tries: 4, successes: 3, ask: "at-least" }),
     families: [
@@ -1767,17 +1876,126 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
     id: "geometric",
     title: "Geometric distribution",
     benefit: "Find how long until the first success",
-    idea: "If each try works with chance p, it takes 1 ÷ p tries on average, and k ÷ p tries to get k successes. The chance the first success comes on try k is (1 − p)ᵏ⁻¹ × p.",
+    summary: "How long you wait for the first success when each try has the same chance: the chance it comes on try k, and why the average wait is 1 ÷ p.",
     difficulty: "Medium",
-    intro:
-      "If each try works with chance p, successes turn up at a rate of p per try, so on average one comes every 1 ÷ p tries. For the first success to land exactly on try k, the k − 1 tries before it must all miss, and then one must work.",
-    formula: "Average tries = 1 ÷ p;  P(first success on try k) = (1 − p)ᵏ⁻¹ × p",
-    cues: [
-      "“Keep trying until…” or “how many tries until…”",
-      "Each try has the same chance and doesn’t depend on the last",
-      "“The first success comes on try k”",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You roll a die until a 6 comes up, then stop. What’s the chance the first 6 comes on the fourth roll? And how many rolls do you need on average?",
+          "In the binomial lesson the number of tries was fixed and the number of successes varied. Here it’s the other way round: you stop at the first success, and the number of tries varies.",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What has to happen for the first 6 to come on roll 4?",
+        choices: ["Rolls 1 to 3 all miss, then roll 4 is a 6", "Roll 4 is a 6", "At least one of rolls 1 to 4 is a 6", "Exactly one of rolls 1 to 4 is a 6"],
+        answer: 0,
+        explain:
+          "“First” means no 6 before it. Rolls 1, 2 and 3 each miss with chance 5/6, and roll 4 hits with chance 1/6. That’s (5/6)³ × 1/6 = 125/1296, about 9.6%.",
+      },
+      {
+        type: "story",
+        heading: "When the first 6 comes",
+        beats: [
+          {
+            text: "The first 6 is on roll 1 with chance 1/6, about 16.7%.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1", value: 0.1667, tone: "hit", text: "1/6" },
+                { label: "2", value: 0.1389, tone: "muted" },
+                { label: "3", value: 0.1157, tone: "muted" },
+                { label: "4", value: 0.0965, tone: "muted" },
+                { label: "5", value: 0.0804, tone: "muted" },
+                { label: "6", value: 0.067, tone: "muted" },
+                { label: "7", value: 0.0558, tone: "muted" },
+                { label: "8", value: 0.0465, tone: "muted" },
+                { label: "9", value: 0.0388, tone: "muted" },
+                { label: "10", value: 0.0323, tone: "muted" },
+              ],
+              caption: "Chance the first 6 is on roll k",
+            },
+          },
+          {
+            text: "For roll 2 you need a miss, then a 6: 5/6 × 1/6 = 5/36. Each roll after that needs one more miss first, so each bar is 5/6 of the one before it.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1", value: 0.1667, tone: "muted" },
+                { label: "2", value: 0.1389, tone: "hit", text: "5/36" },
+                { label: "3", value: 0.1157, tone: "muted" },
+                { label: "4", value: 0.0965, tone: "muted" },
+                { label: "5", value: 0.0804, tone: "muted" },
+                { label: "6", value: 0.067, tone: "muted" },
+                { label: "7", value: 0.0558, tone: "muted" },
+                { label: "8", value: 0.0465, tone: "muted" },
+                { label: "9", value: 0.0388, tone: "muted" },
+                { label: "10", value: 0.0323, tone: "muted" },
+              ],
+              caption: "Chance the first 6 is on roll k",
+            },
+          },
+          {
+            text: "Roll 4 needs three misses and then a 6: (5/6)³ × 1/6 ≈ 9.6%. The bars keep shrinking but never reach zero, and all of them together add up to 1.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "1", value: 0.1667, tone: "muted" },
+                { label: "2", value: 0.1389, tone: "muted" },
+                { label: "3", value: 0.1157, tone: "muted" },
+                { label: "4", value: 0.0965, tone: "hit", text: "9.6%" },
+                { label: "5", value: 0.0804, tone: "muted" },
+                { label: "6", value: 0.067, tone: "muted" },
+                { label: "7", value: 0.0558, tone: "muted" },
+                { label: "8", value: 0.0465, tone: "muted" },
+                { label: "9", value: 0.0388, tone: "muted" },
+                { label: "10", value: 0.0323, tone: "muted" },
+              ],
+              caption: "Chance the first 6 is on roll k",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "The average wait",
+        body: [
+          "Call the average number of rolls E, and look at the first roll. With chance 1/6 it’s a 6 and you’re done after 1 roll. With chance 5/6 it isn’t, and you’ve used one roll and are back where you started, still expecting E more.",
+          "So E = 1 + (5/6) × E. Solving gives E = 6. Any chance p gives E = 1 + (1 − p) × E in the same way, so the average wait is 1 ÷ p.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(first success on try k) = (1 − p)ᵏ⁻¹ × p; average tries = 1 ÷ p",
+        note: "For a die and a 6, p = 1/6. The first 6 comes on roll 4 with chance (5/6)³ × 1/6 ≈ 9.6%, and you need 6 rolls on average. The number of tries up to the first success has a geometric distribution.",
+      },
+      {
+        type: "check",
+        prompt: "You flip a fair coin until you’ve seen 3 heads in total. How many flips do you expect?",
+        choices: ["6", "3", "8", "4"],
+        answer: 0,
+        explain:
+          "Each head takes 2 flips on average, and once one arrives the wait for the next starts over. Three waits of 2 flips each make 6. 3 would only be right if every flip were a head.",
+      },
+      {
+        type: "example",
+        lead: "When more than one outcome ends the wait, add their chances first to get p.",
+      },
+      {
+        type: "trap",
+        body: "Mixing up tries and misses. A 1/6 chance means 6 rolls on average, counting the roll that shows the 6, so you see 5 misses before it on average. Check which one the question asks for.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question says “keep rolling until” or “how many tries until”",
+          "Each try has the same chance and doesn’t depend on the ones before",
+          "It asks when the first success comes, or how many tries it takes",
+        ],
+      },
     ],
-    mistake: "Mixing up the chance and the wait: a 1/6 chance means 6 tries on average, and the try that works counts as one of them.",
     targetSeconds: 30,
     example: geometric({ type: "wait", event: "five-six" }),
     families: [
@@ -1787,7 +2005,7 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         title: "The first success on try k",
         generate: (random) => {
           const hit = pick(random, HITS);
-          // Keep the chance above 1%: likely hits stop at the fourth try (a die's sixth roll is still 6.7%).
+          // Keep the chance above 1%: likely hits stop at the fourth try (a die’s sixth roll is still 6.7%).
           return geometric({ type: "first-on", hit: hit.id, on: int(random, 2, hit.id === "free-throws" || hit.id === "biased" ? 4 : 6) });
         },
       },
@@ -1854,17 +2072,145 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
     id: "normal",
     title: "Normal distribution",
     benefit: "Use the 68–95–99.7 rule",
-    idea: "In a normal distribution, about 68% of values are within 1 standard deviation of the mean, 95% within 2 and 99.7% within 3. What's left splits evenly between the two sides.",
+    summary: "The bell curve and the 68–95–99.7 rule: turn a value into standard deviations from the mean, then read off the share above, below or between.",
     difficulty: "Easy",
-    intro:
-      "A normal distribution is the bell curve: most values sit near the mean, and fewer the further out you go. Distance from the mean is measured in standard deviations. The 68–95–99.7 rule gives the share within 1, 2 and 3 of them, and the curve is the same on both sides, so each side gets half.",
-    formula: "Within 1 SD: 68%; within 2 SD: 95%; within 3 SD: 99.7%; the rest splits evenly",
-    cues: [
-      "It says the values are normal and gives a mean and a standard deviation",
-      "The values asked about are a whole number of standard deviations from the mean",
-      "It asks for a share above, below or between two values",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "Heights, test scores and measurement errors tend to pile up around an average and thin out evenly on both sides. That bell shape is the normal distribution.",
+          "A normal distribution is fixed by two numbers. The mean is its centre. The standard deviation, or SD, measures spread: most values are within one or two SDs of the mean.",
+          "Scores on a test are normal with mean 500 and SD 100. What share of people score between 400 and 700?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Start with part of it. Roughly what share score between 400 and 600, within one SD of the mean?",
+        choices: ["About 68%", "About 50%", "About 95%", "About 34%"],
+        answer: 0,
+        explain:
+          "About 68% of values in any normal distribution are within 1 SD of the mean. 34% is the half of that on one side.",
+      },
+      {
+        type: "story",
+        heading: "Read it off the curve",
+        beats: [
+          {
+            text: "About 68% of scores are within 1 SD of the mean, between 400 and 600.",
+            visual: {
+              type: "normal",
+              shade: [{ from: -1, to: 1, tone: "hit", text: "68%" }],
+              ticks: [
+                { at: -3, label: "200" },
+                { at: -2, label: "300" },
+                { at: -1, label: "400" },
+                { at: 0, label: "500" },
+                { at: 1, label: "600" },
+                { at: 2, label: "700" },
+                { at: 3, label: "800" },
+              ],
+            },
+          },
+          {
+            text: "About 95% are within 2 SDs, between 300 and 700. Almost all of them, 99.7%, are within 3 SDs.",
+            visual: {
+              type: "normal",
+              shade: [{ from: -2, to: 2, tone: "hit", text: "95%" }],
+              ticks: [
+                { at: -3, label: "200" },
+                { at: -2, label: "300" },
+                { at: -1, label: "400" },
+                { at: 0, label: "500" },
+                { at: 1, label: "600" },
+                { at: 2, label: "700" },
+                { at: 3, label: "800" },
+              ],
+            },
+          },
+          {
+            text: "The curve is the same on both sides of the mean, so each of those shares splits in half there. From 400 to 500 is half of 68%, which is 34%. From 500 to 700 is half of 95%, which is 47.5%.",
+            visual: {
+              type: "normal",
+              shade: [
+                { from: -1, to: 0, tone: "alt", text: "34%" },
+                { from: 0, to: 2, tone: "hit", text: "47.5%" },
+              ],
+              ticks: [
+                { at: -3, label: "200" },
+                { at: -2, label: "300" },
+                { at: -1, label: "400" },
+                { at: 0, label: "500" },
+                { at: 1, label: "600" },
+                { at: 2, label: "700" },
+                { at: 3, label: "800" },
+              ],
+            },
+          },
+          {
+            text: "Add the two halves: 34% + 47.5% = 81.5% of people score between 400 and 700.",
+            visual: {
+              type: "normal",
+              shade: [{ from: -1, to: 2, tone: "hit", text: "81.5%" }],
+              ticks: [
+                { at: -3, label: "200" },
+                { at: -2, label: "300" },
+                { at: -1, label: "400" },
+                { at: 0, label: "500" },
+                { at: 1, label: "600" },
+                { at: 2, label: "700" },
+                { at: 3, label: "800" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Count in standard deviations",
+        body: [
+          "First turn each value into a number of SDs from the mean. 700 is 200 above 500, which is 2 SDs. 400 is 1 SD below. This count is called a z-score.",
+          "After that the question depends only on the shape, and every normal distribution has the same shape. That’s why the same three percentages work for every normal distribution, whatever it measures.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Within 1 SD: 68%. Within 2 SDs: 95%. Within 3 SDs: 99.7%.",
+        note: "What’s outside splits evenly between the two sides. 5% of scores are more than 2 SDs from 500, so 2.5% are above 700 and 2.5% are below 300.",
+      },
+      {
+        type: "check",
+        prompt: "Same test. What share of people score above 600?",
+        choices: ["16%", "32%", "34%", "84%"],
+        answer: 0,
+        explain:
+          "68% score between 400 and 600, so 32% are outside that range. Half of them are on the high side, which is 16%. 32% counts both ends.",
+      },
+      {
+        type: "text",
+        heading: "Sums and averages",
+        body: [
+          "Add two independent normal values and the total is normal too. The means add, and so do the squares of the SDs. Two trips with SDs of 3 and 4 minutes give a total with SD √(9 + 16) = 5 minutes, not 7.",
+          "An average of n independent values has the same mean but its SD is divided by √n. Average 25 values with SD 10 and the average has SD 2.",
+        ],
+      },
+      {
+        type: "example",
+        lead: "Heights work the same way. Turn the cut-off into SDs from the mean, then use the rule.",
+      },
+      {
+        type: "trap",
+        body: "Forgetting to halve. 95% of values are within 2 SDs, so 5% are outside, but those 5% are split between the two ends. Only 2.5% are more than 2 SDs above the mean.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question says the values are normal and gives a mean and an SD",
+          "The cut-offs sit a whole number of SDs from the mean",
+          "It asks about a sum or an average of independent normal values",
+        ],
+      },
     ],
-    mistake: "Forgetting to halve: 95% are within 2 standard deviations, so 5% are outside, but only 2.5% are above.",
     targetSeconds: 30,
     example: normal({ type: "range", scale: "heights", lo: 2, hi: OPEN }),
     families: [

@@ -187,7 +187,7 @@ function oddsToChance(
 /** Decimal odds as text: 190 → "1.90". */
 const decimalText = (hundredths: number) => (hundredths / 100).toFixed(2);
 
-/** A two-way market: implied chances add to more than 100%, and the extra is the bookmaker's margin. */
+/** A two-way market: implied chances add to more than 100%, and the extra is the bookmaker’s margin. */
 function bookmakerMargin(params: { type: "margin"; a: number; b: number; ask: "margin" | "fair" }) {
   const { a, b, ask } = params;
   const pa = q(100, a);
@@ -211,8 +211,8 @@ function bookmakerMargin(params: { type: "margin"; a: number; b: number; ask: "m
     `margin-${a}-${b}-${ask}`,
     `A bookmaker offers decimal odds of ${decimalText(a)} on Team A and ${decimalText(b)} on Team B, and one of them must win. ${
       ask === "margin"
-        ? "The implied chances add up to more than 100%, and the extra is the bookmaker's margin. What is the margin?"
-        : "Taking out the bookmaker's margin, what's the fair chance Team A wins?"
+        ? "The implied chances add up to more than 100%, and the extra is the bookmaker’s margin. What is the margin?"
+        : "Taking out the bookmaker’s margin, what’s the fair chance Team A wins?"
     }`,
     ask === "margin" ? sub(sum, q(1)) : div(pa, sum),
     "percent",
@@ -237,7 +237,7 @@ function bookmakerMargin(params: { type: "margin"; a: number; b: number; ask: "m
         work: `${formatPercent(pa)} + ${formatPercent(pb)}`,
         result: formatPercent(sum),
         icon: "add",
-        explain: "One team must win, so fair prices would add up to exactly 100%. Anything over is built into the prices.",
+        explain: "One team must win, so fair prices would add up to exactly 100%. Anything over that is the bookmaker’s margin.",
         visual: bars(true),
       },
       ask === "margin"
@@ -261,7 +261,7 @@ function bookmakerMargin(params: { type: "margin"; a: number; b: number; ask: "m
 /** "40%" when the chance is a whole percent, else "1/6". */
 const chanceText = (chance: Rational) => ((chance.n * 100) % chance.d === 0 ? formatPercent(chance) : formatFraction(chance));
 
-/** Average winnings and average losses as bars, with the difference once it's worked out. */
+/** Average winnings and average losses as bars, with the difference once it’s worked out. */
 function profitBars(gain: Rational, loss: Rational, show: "win" | "both" | "net"): QuantVisual {
   const net = sub(gain, loss);
   return {
@@ -283,20 +283,20 @@ const ODDS_BETS: { id: string; setup: (stake: number) => string; pays: [number, 
     [2, 1, 40], [3, 1, 30], [3, 1, 20], [1, 1, 55], [1, 1, 45], [4, 1, 25], [5, 1, 15], [3, 2, 45], [5, 2, 30], [2, 1, 30],
   ] as const).map(([win, risk, percent]) => ({
     id: `odds-${win}-${risk}-${percent}`,
-    setup: (stake: number) => `A bet pays ${win} to ${risk} and wins with chance ${percent}%. What's your expected profit on a $${stake} bet?`,
+    setup: (stake: number) => `A bet pays ${win} to ${risk} and wins with chance ${percent}%. What’s your expected profit on a $${stake} bet?`,
     pays: [win, risk] as [number, number],
     chance: [percent, 100] as [number, number],
   })),
   ...([4, 5, 6] as const).map((pays) => ({
     id: `die-${pays}`,
     setup: (stake: number) =>
-      `You bet $${stake} that a fair die lands on 6, and a win pays ${pays} to 1. What's your expected profit on the bet?`,
+      `You bet $${stake} that a fair die lands on 6, and a win pays ${pays} to 1. What’s your expected profit on the bet?`,
     pays: [pays, 1] as [number, number],
     chance: [1, 6] as [number, number],
   })),
   {
     id: "seven",
-    setup: (stake: number) => `You bet $${stake} that two dice total 7, and a win pays 4 to 1. What's your expected profit on the bet?`,
+    setup: (stake: number) => `You bet $${stake} that two dice total 7, and a win pays 4 to 1. What’s your expected profit on the bet?`,
     pays: [4, 1],
     chance: [1, 6],
   },
@@ -342,7 +342,7 @@ function betEv(params: BetParams): QuantProblem {
           label: "Expected profit",
           work: `${formatDollars(gain)} − ${formatDollars(loss)}`,
           icon: "subtract",
-          explain: "Average winnings minus average losses is what the bet makes each time, on average. Above zero, it makes money.",
+          explain: "Average winnings minus average losses is what the bet makes per bet in the long run. Above zero, it makes money.",
           visual: profitBars(gain, loss, "net"),
         },
       ],
@@ -357,7 +357,7 @@ function betEv(params: BetParams): QuantProblem {
     const loss = mul(q(bet), sub(q(1), chance));
     return problem(
       `call-${pot}-${bet}-${winPercent}`,
-      `There's $${pot} in the pot and your opponent bets $${bet}. If you call, you win ${winPercent}% of the time. What's your expected profit from calling?`,
+      `There’s $${pot} in the pot and your opponent bets $${bet}. If you call, you win ${winPercent}% of the time. What’s your expected profit from calling?`,
       sub(gain, loss),
       "dollars",
       [
@@ -413,7 +413,7 @@ function betEv(params: BetParams): QuantProblem {
   };
   return problem(
     `pot-${pot}-${bet}`,
-    `There's $${pot} in the pot and your opponent bets $${bet}. What's the least chance of winning that makes calling the $${bet} break even?`,
+    `There’s $${pot} in the pot and your opponent bets $${bet}. What’s the least chance of winning that makes calling the $${bet} break even?`,
     q(bet, total),
     "percent",
     [
@@ -459,7 +459,7 @@ const ROULETTE_BETS: { id: string; label: string; numbers: number; pays: number 
   { id: "column", label: "a column (12 numbers), which pays 2 to 1", numbers: 12, pays: 2 },
 ];
 
-/** Average win and loss per $1, then the house's share once it's worked out. */
+/** Average win and loss per $1, then the house’s share once it’s worked out. */
 function edgeBars(win: Rational, lose: Rational, show: "win" | "both" | "edge"): QuantVisual {
   return {
     type: "bars",
@@ -482,7 +482,7 @@ function houseEdge(params: { type: "roulette"; wheel: 37 | 38; bet: string } | {
     const lose = q(5, 6);
     return problem(
       `die-${pays}`,
-      `A dice game pays ${pays} to 1 if you call the number a fair die lands on. What's the house edge, as a share of each bet?`,
+      `A dice game pays ${pays} to 1 if you call the number a fair die lands on. What’s the house edge, as a share of each bet?`,
       edge,
       "percent",
       [
@@ -522,7 +522,7 @@ function houseEdge(params: { type: "roulette"; wheel: 37 | 38; bet: string } | {
   const lose = q(losing, wheel);
   return problem(
     `roulette-${wheel}-${bet.id}`,
-    `${wheel === 38 ? "An American" : "A European"} roulette wheel has ${wheel} pockets. You bet $1 on ${bet.label}. What's the house edge?`,
+    `${wheel === 38 ? "An American" : "A European"} roulette wheel has ${wheel} pockets. You bet $1 on ${bet.label}. What’s the house edge?`,
     edge,
     "percent",
     [
@@ -581,7 +581,7 @@ function diceHouseEdge(params: { type: "dice"; bet: string }) {
   const lose = q(36 - w, 36);
   return problem(
     `dice-${bet.id}`,
-    `A casino bet pays ${bet.pays} to 1 if ${bet.label} on the next roll. What's the house edge, as a share of each bet?`,
+    `A casino bet pays ${bet.pays} to 1 if ${bet.label} on the next roll. What’s the house edge, as a share of each bet?`,
     q(36 - w - bet.pays * w, 36),
     "percent",
     [
@@ -614,14 +614,14 @@ function diceHouseEdge(params: { type: "dice"; bet: string }) {
   );
 }
 
-/** A raffle: the house keeps whatever the prize doesn't pay back. */
+/** A raffle: the house keeps whatever the prize doesn’t pay back. */
 function raffle(params: { type: "raffle"; tickets: number; price: number; prize: number }) {
   const { tickets, price, prize } = params;
   const average = q(prize, tickets);
   const loss = sub(q(price), average);
   return problem(
     `raffle-${tickets}-${price}-${prize}`,
-    `A raffle sells ${tickets} tickets at $${price} each, and one ticket wins a $${prize} prize. If you buy a ticket, what's the house edge, as a share of what you pay?`,
+    `A raffle sells ${tickets} tickets at $${price} each, and one ticket wins a $${prize} prize. If you buy a ticket, what’s the house edge, as a share of what you pay?`,
     div(loss, q(price)),
     "percent",
     [
@@ -697,7 +697,7 @@ function kellyDecimal(params: { type: "decimal"; winPercent: number; hundredths:
         work: `100% − ${winPercent}%`,
         result: formatPercent(lose),
         icon: "subtract",
-        explain: "Whatever doesn’t win, loses.",
+        explain: "The bet either wins or loses, so the two chances add to 100%.",
       },
       {
         label: "Chance to lose ÷ payout",
@@ -710,7 +710,7 @@ function kellyDecimal(params: { type: "decimal"; winPercent: number; hundredths:
         label: "Kelly stake: chance to win − that",
         work: `${winPercent}% − ${formatPercent(div(lose, b))}`,
         icon: "subtract",
-        explain: "What’s left of your win chance is the share of your bankroll to bet.",
+        explain: "Take that from your win chance. What remains is the share of your bankroll to stake.",
         visual: {
           type: "number-line",
           min: 0,
@@ -764,7 +764,7 @@ function kelly(params: { winPercent: number; pays: number; half: 0 | 1 }) {
             work: `${winPercent}% − ${formatPercent(lose)}`,
             result: formatPercent(full),
             icon: "subtract",
-            explain: "At 1 to 1 a win and a loss are the same size, so the stake is just your edge: win chance minus lose chance.",
+            explain: "At 1 to 1 a win and a loss are the same size, so the stake is your edge: win chance minus lose chance.",
             visual: stakeLine(full, "staked"),
           },
         ]
@@ -774,21 +774,21 @@ function kelly(params: { winPercent: number; pays: number; half: 0 | 1 }) {
             work: `100% − ${winPercent}%`,
             result: formatPercent(lose),
             icon: "subtract",
-            explain: "Whatever doesn’t win, loses.",
+            explain: "The bet either wins or loses, so the two chances add to 100%.",
           },
           {
             label: "Chance to lose ÷ payout",
             work: `${formatPercent(lose)} ÷ ${pays}`,
             result: formatPercent(div(lose, q(pays))),
             icon: "divide",
-            explain: `A win pays ${pays} times your stake, so losses weigh less against you. Divide the lose chance by the payout.`,
+            explain: `A win pays ${pays} times your stake, so each loss counts for less against it. Divide the lose chance by the payout.`,
           },
           {
             label: "Kelly stake: chance to win − that",
             work: `${winPercent}% − ${formatPercent(div(lose, q(pays)))}`,
             result: formatPercent(full),
             icon: "subtract",
-            explain: "What’s left of your win chance is the share of your bankroll to bet.",
+            explain: "Take that from your win chance. What remains is the share of your bankroll to stake.",
             visual: stakeLine(full, "staked"),
           },
         ];
@@ -830,16 +830,108 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
     id: "implied-probability",
     title: "Odds and implied probability",
     benefit: "Turn odds and prices into chances",
-    idea: "Odds are another way to write a chance. 3 to 1 against means you win 1 time in every 4, and decimal odds of 2.50 mean a chance of 1 ÷ 2.50.",
+    summary: "How to read odds against, odds on, decimal odds and American odds as chances, and how to spot the margin a bookmaker builds into its prices.",
     difficulty: "Easy",
-    intro:
-      "Odds compare how often you lose with how often you win. 3 to 1 against means 3 losses for every 1 win, so 1 win in every 4. Decimal odds are what a winning $1 bet pays back in total, and a fair price pays back 1 ÷ chance.",
-    formula: "a to b against: chance = b ÷ (a + b);  decimal odds d: chance = 1 ÷ d",
-    cues: [
-      "It gives odds like 3 to 1, a price like 2.50, or a line like −150",
-      "It asks what chance the odds imply",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "A bookmaker lists a horse at 4 to 1 against. Odds against compare losses with wins: at those odds the horse is expected to lose 4 races for every 1 it wins.",
+          "What chance of winning do the odds describe?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Pick the chance that 4 to 1 against implies.",
+        choices: ["20%", "25%", "80%", "40%"],
+        answer: 0,
+        explain:
+          "4 losses and 1 win make 5 races, and the horse wins 1 of them: 1/5 = 20%. The tempting answer is 25%, which reads 4 to 1 as 1 in 4.",
+      },
+      {
+        type: "story",
+        heading: "Count the races",
+        beats: [
+          {
+            text: "Lay out 5 races, the smallest number that fits the odds: 4 losses and 1 win.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 5,
+              ticks: [0, 1, 2, 3, 4, 5],
+              shade: [
+                { from: 0, to: 1, tone: "win", text: "1 win" },
+                { from: 1, to: 5, tone: "lose", text: "4 losses" },
+              ],
+              caption: "Every 5 races, on average",
+            },
+          },
+          {
+            text: "The horse wins 1 race in 5, which is a 20% chance.",
+            visual: {
+              type: "number-line",
+              min: 0,
+              max: 100,
+              ticks: [0, 25, 50, 75, 100],
+              shade: [
+                { from: 0, to: 20, tone: "win", text: "20% chance" },
+                { from: 20, to: 100, tone: "muted" },
+              ],
+              caption: "Out of 100%",
+            },
+          },
+          {
+            text: "The odds also set the payout. A winning $1 bet at 4 to 1 makes $4. Over 5 races you’d win $4 once and lose $1 four times, which comes to $0. That’s what makes 4 to 1 the fair price for a 20% chance.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Won in 1 race", value: 4, tone: "win", text: "+$4" },
+                { label: "Lost in 4 races", value: 4, tone: "lose", text: "−$4" },
+              ],
+              caption: "A $1 bet on each of 5 races",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Decimal and American odds",
+        body: [
+          "Many bookmakers quote decimal odds: the total a winning $1 bet pays back, your $1 included. The 4 to 1 horse is 5.00 in decimal odds, since a win returns $4 profit plus your $1. A fair decimal price is 1 ÷ chance, so the chance is 1 ÷ 5.00 = 20%.",
+          "American odds are written per $100. +300 means a $100 bet wins $300, and −150 means you bet $150 to win $100. Either way, the implied chance is what you risk ÷ (what you risk + what you win): 100 ÷ 400 = 25% for +300, and 150 ÷ 250 = 60% for −150.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "a to b against: chance = b ÷ (a + b). Decimal odds d: chance = 1 ÷ d",
+        note: "For the horse at 4 to 1 against, b = 1 and a + b = 5, so the chance is 1/5. Its decimal price is 5.00, and 1 ÷ 5.00 gives the same 20%.",
+      },
+      {
+        type: "check",
+        prompt: "Two teams play a match, and a bookmaker offers decimal odds of 1.80 on each. What do the two implied chances add up to?",
+        choices: ["100%", "About 111%", "90%", "180%"],
+        answer: 1,
+        explain:
+          "1 ÷ 1.80 is about 55.6% for each team, so together they come to about 111%. Fair prices on two outcomes would add to exactly 100%. The extra 11% is the bookmaker’s margin, built in so the book profits whichever team wins.",
+      },
+      {
+        type: "example",
+        lead: "Here is a horse at 3 to 1 against, worked through the same way.",
+      },
+      {
+        type: "trap",
+        body: "Reading 3 to 1 against as a 1 in 3 chance. The 3 counts losses and the 1 counts wins, so there are 4 races in all and the chance is 1 in 4, or 25%.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question gives odds like 5 to 2 against, a decimal price like 2.50, or a line like −150",
+          "You’re asked what chance a price implies, or whether a price is fair",
+          "The prices on every outcome of one event add up to more than 100%",
+        ],
+      },
     ],
-    mistake: "Reading 3 to 1 against as a 1 in 3 chance: it’s 1 win for every 3 losses, so 1 in 4.",
     targetSeconds: 20,
     example: oddsToChance({ type: "against", against: 3, for: 1 }),
     families: [
@@ -883,17 +975,107 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
     id: "bet-ev",
     title: "Expected value of a bet",
     benefit: "Decide whether a bet makes money",
-    idea: "Multiply what you could win by its chance, and subtract what you could lose times its chance. A bet makes money when that’s above zero, so a call breaks even when your chance of winning equals your call ÷ the pot after you call.",
+    summary: "How to find the average profit of a bet from what it pays and how often it wins, including whether to call a bet in poker.",
     difficulty: "Medium",
-    intro:
-      "Picture making the same bet many times. You win the payout with chance p and lose your stake otherwise, so on average each bet makes (win × p) − (stake × (1 − p)). If that’s above zero, the bet makes money over time, even though any one bet can lose.",
-    formula: "Expected profit = win × P(win) − stake × P(lose)",
-    cues: [
-      "A payout and a chance of winning are both given",
-      "It asks whether a bet or a call is worth it, or what it makes on average",
-      "A poker pot and a bet you could call",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "A friend offers you a bet on one roll of a die. You put down $1. If the die shows a 6, you win $4 and keep your $1. Any other number, you lose the $1.",
+          "A 4 to 1 payout sounds generous. Should you take the bet?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "If you took this bet over and over, what would it make on average per roll?",
+        choices: ["About +$0.67", "$0", "About −$0.17", "About −$0.83"],
+        answer: 2,
+        explain:
+          "You win $4 on one roll in six and lose $1 on the other five: (4 − 5) ÷ 6 = −$1/6, about 17 cents lost per roll. The bet would need to pay 5 to 1 just to break even.",
+      },
+      {
+        type: "story",
+        heading: "Play it six times",
+        beats: [
+          {
+            text: "Take the bet 6 times, and suppose each face comes up once, which is what happens on average.",
+            visual: { type: "die-faces", sides: 6, marks: [{ faces: [6], tone: "win" }, { faces: [1, 2, 3, 4, 5], tone: "lose" }], caption: "A 6 wins; anything else loses" },
+          },
+          {
+            text: "The roll of 6 wins you $4.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Won", value: 4, tone: "win", text: "+$4" },
+                { label: "Lost", value: 5, tone: "muted" },
+              ],
+              caption: "Over 6 rolls",
+            },
+          },
+          {
+            text: "The other five rolls each cost $1, so $5 in all.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Won", value: 4, tone: "win", text: "+$4" },
+                { label: "Lost", value: 5, tone: "lose", text: "−$5" },
+              ],
+              caption: "Over 6 rolls",
+            },
+          },
+          {
+            text: "Over the 6 rolls you’re down $1, which is −$1/6 a roll. That average per bet is the bet’s expected value.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Won", value: 4, tone: "win", text: "+$4" },
+                { label: "Lost", value: 5, tone: "lose", text: "−$5" },
+                { label: "Per roll", value: 1 / 6, tone: "hit", text: "−$0.17" },
+              ],
+              caption: "Over 6 rolls",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why the average is the number to use",
+        body: [
+          "Any one roll wins $4 or loses $1, and you can’t say which in advance. Over hundreds of rolls, though, each face turns up close to one time in six, and your total settles near −$1/6 per roll.",
+          "So a bet with positive expected value makes money if you can repeat it, even if it loses most of the time. A bet with negative expected value loses money in the long run, however often it pays out along the way.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Expected profit = win × P(win) − stake × P(lose)",
+        note: "For the die bet: 4 × 1/6 − 1 × 5/6 = −1/6. The win here is your profit only. The $1 you get back on a win was yours already, so it isn’t counted.",
+      },
+      {
+        type: "check",
+        prompt: "There’s $80 in a poker pot and your opponent bets $20. Calling costs you $20, and you expect to win 30% of the time. What does calling make on average?",
+        choices: ["+$16", "+$10", "+$22"],
+        answer: 0,
+        explain:
+          "A win collects the $80 pot and their $20 bet: $100 × 0.3 = $30. A loss costs your $20 call: $20 × 0.7 = $14. $30 − $14 = +$16, so you should call. Counting your own $20 as part of the win gives the wrong +$22.",
+      },
+      {
+        type: "example",
+        lead: "A bet that pays 2 to 1 and wins 40% of the time, on a $10 stake.",
+      },
+      {
+        type: "trap",
+        body: "Counting the stake you get back as winnings. At 2 to 1, a winning $10 bet hands you $30, but $10 of that was already yours. The profit is $20, and that’s the number to multiply by the chance of winning.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "You’re given what a bet pays and how often it wins",
+          "You’re asked whether to take a bet, call a raise or buy a ticket",
+          "A poker hand gives the pot, a bet to call and your chance of winning",
+        ],
+      },
     ],
-    mistake: "Counting your returned stake as winnings: at 2 to 1, a winning $1 bet makes $2, not $3.",
     targetSeconds: 30,
     example: betEv({ type: "odds", bet: "odds-2-1-40", stake: 10 }),
     families: [
@@ -932,16 +1114,105 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
     id: "house-edge",
     title: "House edge",
     benefit: "Find what a casino bet costs per $1",
-    idea: "The house edge is how much you lose, on average, for every $1 you bet.",
+    summary: "How to work out what a casino keeps from each dollar you bet, for roulette, dice games and raffles.",
     difficulty: "Easy",
-    intro:
-      "Casinos pay a little less than a fair price. A fair payout would make your average profit zero; the house edge is how far below zero it falls, for every $1 you bet. That’s why the casino wins over many bets even though players win some.",
-    formula: "House edge = P(lose) × $1 − P(win) × payout, per $1 bet",
-    cues: [
-      "A casino bet with a stated payout, like 35 to 1",
-      "It asks for the house edge or the average loss per $1",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "An American roulette wheel has 38 pockets: the numbers 1 to 36, half red and half black, plus a green 0 and a green 00. A bet on red pays 1 to 1.",
+          "You bet $1 on red. On average, how much do you lose per spin?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Pick the average loss per $1 bet on red.",
+        choices: ["Nothing, red is a 50–50 bet", "About 5 cents", "About 10 cents", "About 50 cents"],
+        answer: 1,
+        explain:
+          "Red wins in 18 of the 38 pockets and loses in the other 20. Over 38 spins you win $18 and lose $20, a net loss of $2, or about 5.3 cents a spin. The two green pockets are what tip it.",
+      },
+      {
+        type: "story",
+        heading: "Spin it 38 times",
+        beats: [
+          {
+            text: "Spin the wheel 38 times and suppose each pocket comes up once.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Red", value: 18, tone: "win", text: "18" },
+                { label: "Black", value: 18, tone: "lose", text: "18" },
+                { label: "Green", value: 2, tone: "lose", text: "2" },
+              ],
+              caption: "Pockets on an American wheel",
+            },
+          },
+          {
+            text: "The 18 red spins win you $18, and the 18 black spins cost you $18. So far you’re even.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Won on red", value: 18, tone: "win", text: "+$18" },
+                { label: "Lost on black", value: 18, tone: "lose", text: "−$18" },
+                { label: "Lost on green", value: 2, tone: "muted" },
+              ],
+              caption: "Over 38 spins of $1",
+            },
+          },
+          {
+            text: "The 2 green spins cost $2 more. Over 38 spins you’re down $2, which is 2/38 ≈ 5.26% of every dollar you bet. That share is the house edge.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Won on red", value: 18, tone: "win", text: "+$18" },
+                { label: "Lost on black", value: 18, tone: "lose", text: "−$18" },
+                { label: "Lost on green", value: 2, tone: "hit", text: "−$2" },
+              ],
+              caption: "Over 38 spins of $1",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Where the edge comes from",
+        body: [
+          "A fair payout would make your average profit zero. A single number on this wheel loses 37 times for every win, so a fair price would be 37 to 1. The casino pays 35 to 1 and keeps the difference.",
+          "Nearly every bet on an American wheel works out to the same 2/38, about 5.26%. A European wheel has a single green 0 and 37 pockets, which cuts the edge to 1/37, about 2.70%.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "House edge = P(lose) × $1 − P(win) × payout, per $1 bet",
+        note: "For red: 20/38 × $1 − 18/38 × $1 = 2/38, about 5.3 cents of every dollar. The payout is profit, so a 1 to 1 bet that wins pays $1.",
+      },
+      {
+        type: "check",
+        prompt: "A carnival game pays 4 to 1 if you call the number a fair die lands on. What’s the house edge?",
+        choices: ["About 16.7%", "About 33.3%", "0%", "About 20%"],
+        answer: 0,
+        explain:
+          "Per $1, you win $4 on 1 face in 6 and lose $1 on the other 5: 4/6 won against 5/6 lost. The house keeps 1/6 of each dollar, about 16.7%. A fair game would pay 5 to 1.",
+      },
+      {
+        type: "example",
+        lead: "Here is the 35 to 1 bet on a single number, on the same 38-pocket wheel.",
+      },
+      {
+        type: "trap",
+        body: "Treating red as an even bet. Red wins 18 times in 38, which is less than half, because the two green pockets are neither red nor black. Leave them out and you’ll find an edge of zero.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "A casino game has a stated payout, like 35 to 1 or 2 to 1",
+          "You’re asked what a bet costs on average, per dollar or as a percent",
+          "A raffle or lottery pays out less in prizes than it takes in tickets",
+        ],
+      },
     ],
-    mistake: "Forgetting the green zero pockets: on a 38-pocket wheel, red wins 18 times in 38, not half the time.",
     targetSeconds: 30,
     example: houseEdge({ type: "roulette", wheel: 38, bet: "straight" }),
     families: [
@@ -978,17 +1249,121 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
     id: "kelly",
     title: "Kelly criterion",
     benefit: "Find how much of your bankroll to bet",
-    idea: "Bet this share of your money: your chance of winning, minus your chance of losing divided by the payout. At even money that’s just win chance − lose chance. Half Kelly bets half of it, for smaller swings.",
+    summary: "How to size repeated bets so your money grows fastest, using the Kelly rule, and why betting more than that costs you.",
     difficulty: "Medium",
-    intro:
-      "Bet too little and your money grows slowly; bet too much and a run of losses wipes you out. The Kelly stake is the share of your bankroll that makes it grow fastest over many bets. It’s bigger when your edge is bigger, and smaller when the payout is long.",
-    formula: "Kelly stake = P(win) − P(lose) ÷ payout",
-    cues: [
-      "“What share of your bankroll should you bet?”",
-      "A bet with a known chance of winning and a payout",
-      "It mentions Kelly or half Kelly",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You’re offered a bet on a coin that lands heads 60% of the time, at even money: if you win you gain what you staked, and if you lose you lose it. You start with $100 and can bet on as many flips as you like.",
+          "What share of your money should you stake on each flip?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What share should you stake?",
+        choices: ["All of it", "60%", "20%", "1%"],
+        answer: 2,
+        explain:
+          "The Kelly rule says 20%: your chance of winning minus your chance of losing, 60% − 40%. Staking everything has the highest expected value on each flip, but your first loss takes you to zero, and over many flips that loss is certain to come.",
+      },
+      {
+        type: "story",
+        heading: "Ten flips, four ways",
+        beats: [
+          {
+            text: "Over 10 flips, expect about 6 wins and 4 losses. Stake everything each time and the first loss leaves you with nothing.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Stake 10%", value: 116.2, tone: "muted" },
+                { label: "20%", value: 122.3, tone: "muted" },
+                { label: "50%", value: 71.2, tone: "muted" },
+                { label: "100%", value: 0, tone: "lose", text: "$0" },
+              ],
+              caption: "Money left after 6 wins and 4 losses, from $100",
+            },
+          },
+          {
+            text: "Stake half each time and you end with about $71. Each loss halves your money, and the 50% gain from a win doesn’t make it back: 1.5 × 0.5 is 0.75.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Stake 10%", value: 116.2, tone: "muted" },
+                { label: "20%", value: 122.3, tone: "muted" },
+                { label: "50%", value: 71.2, tone: "lose", text: "$71" },
+                { label: "100%", value: 0, tone: "lose", text: "$0" },
+              ],
+              caption: "Money left after 6 wins and 4 losses, from $100",
+            },
+          },
+          {
+            text: "Stake 10% and you end with about $116. You never come close to going broke, but the money grows slowly.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Stake 10%", value: 116.2, tone: "alt", text: "$116" },
+                { label: "20%", value: 122.3, tone: "muted" },
+                { label: "50%", value: 71.2, tone: "lose", text: "$71" },
+                { label: "100%", value: 0, tone: "lose", text: "$0" },
+              ],
+              caption: "Money left after 6 wins and 4 losses, from $100",
+            },
+          },
+          {
+            text: "Stake 20% and you end with about $122, more than any other fixed share gives. That share is the Kelly stake.",
+            visual: {
+              type: "bars",
+              bars: [
+                { label: "Stake 10%", value: 116.2, tone: "alt", text: "$116" },
+                { label: "20%", value: 122.3, tone: "hit", text: "$122" },
+                { label: "50%", value: 71.2, tone: "lose", text: "$71" },
+                { label: "100%", value: 0, tone: "lose", text: "$0" },
+              ],
+              caption: "Money left after 6 wins and 4 losses, from $100",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why the middle wins",
+        body: [
+          "At a 20% stake, a win multiplies your money by 1.2 and a loss by 0.8. After many bets your money is the product of all those factors, in any order, and a loss shrinks a product more than an equal win grows it.",
+          "The Kelly stake is the share that makes your money grow fastest over many bets. Stake more and you grow slower while taking bigger swings; at about twice Kelly, your money stops growing at all. Many traders stake half Kelly, which keeps about three quarters of the growth with half the swings.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "Kelly stake = P(win) − P(lose) ÷ payout",
+        note: "The payout is the profit per $1 staked. At even money it’s 1, so the stake is 0.6 − 0.4 = 20%. If the same coin paid 3 to 1, you’d stake 0.6 − 0.4 ÷ 3 ≈ 47%.",
+      },
+      {
+        type: "check",
+        prompt: "A bet wins 40% of the time and pays 2 to 1. What share of your bankroll does the Kelly rule say to stake?",
+        choices: ["10%", "40%", "−20%", "20%"],
+        answer: 0,
+        explain:
+          "0.4 − 0.6 ÷ 2 = 0.4 − 0.3 = 10%. Forgetting to divide by the payout gives 0.4 − 0.6 = −20%, which would wrongly turn down a bet that makes +$0.20 per $1 on average.",
+      },
+      {
+        type: "example",
+        lead: "A bet that wins 60% of the time and pays 2 to 1.",
+      },
+      {
+        type: "trap",
+        body: "Taking off the whole lose chance when the bet isn’t at even money. At 2 to 1, a win pays twice what a loss costs, so divide the lose chance by 2 before you subtract it. If the result is negative, the bet has no edge and Kelly says to stake nothing.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "You’re asked what share of a bankroll to stake",
+          "A bet with a known chance and payout can be repeated many times",
+          "The question mentions Kelly, half Kelly or the growth rate of your money",
+        ],
+      },
     ],
-    mistake: "Subtracting the whole lose chance at long odds: at 2 to 1, divide the lose chance by 2 before taking it off.",
     targetSeconds: 30,
     example: kelly({ winPercent: 60, pays: 2, half: 0 }),
     families: [

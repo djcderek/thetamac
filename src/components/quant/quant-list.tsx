@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { motion } from "motion/react";
-import { Check, ChevronRight, CircleDashed, Lock, Puzzle, Search } from "lucide-react";
+import { Check, ChevronRight, CircleDashed, Lock, Puzzle, Search, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { snapSpring } from "@/lib/motion";
 import { buttonVariants } from "@/components/ui/button";
@@ -242,11 +242,17 @@ export function QuantList() {
         <p className="mt-3 text-[17px] leading-7 text-muted-foreground">
           A step-by-step course in the probability and expected value asked in quant interviews.
         </p>
-        <Link href="/quant/puzzles" className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "mt-5")}>
-          <Puzzle aria-hidden="true" />
-          {QUANT_PUZZLES.length} classic puzzles
-          <ChevronRight aria-hidden="true" />
-        </Link>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link href="/quant/shuffle" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            <Shuffle aria-hidden="true" />
+            Shuffle questions
+          </Link>
+          <Link href="/quant/puzzles" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            <Puzzle aria-hidden="true" />
+            {QUANT_PUZZLES.length} classic puzzles
+            <ChevronRight aria-hidden="true" />
+          </Link>
+        </div>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">

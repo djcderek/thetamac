@@ -53,7 +53,7 @@ export function CardsFigure({ visual }: { visual: Cards }) {
                 const x = left + col * (w + gap);
                 const ink = tone === "muted" || tone === "known" ? (suit.red ? "var(--destructive)" : "var(--foreground)") : TONE_INK[tone];
                 return (
-                  <g key={id}>
+                  <g key={id} className="quant-pop" style={{ animationDelay: `${(col + "SHDC".indexOf(suit.id)) * 16}ms` }}>
                     <rect
                       x={x + 0.75}
                       y={y + 0.75}

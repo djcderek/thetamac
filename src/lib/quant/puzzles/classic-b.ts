@@ -42,7 +42,7 @@ const lastColour = (() => {
   };
   return problem(
     "last-colour-standing",
-    `A bag holds ${red} red, ${blue} blue and ${green} green marbles. You take them out one at a time, at random. What's the chance that when the last red marble comes out, at least one blue and at least one green are still in the bag?`,
+    `A bag holds ${red} red, ${blue} blue and ${green} green marbles. You take them out one at a time, at random. What’s the chance that when the last red marble comes out, at least one blue and at least one green are still in the bag?`,
     answer,
     "probability",
     [
@@ -72,7 +72,7 @@ const lastColour = (() => {
         label: "Add both cases",
         work: `${formatFraction(oneCase)} + ${formatFraction(oneCase)}`,
         icon: "add",
-        explain: "The last marble can't be both blue and green, so the two cases don't overlap. Add them.",
+        explain: "The last marble can’t be both blue and green, so the two cases don’t overlap. Add them.",
       },
     ],
     { red, blue, green },
@@ -90,7 +90,7 @@ const polya = (() => {
   const flips: ("H" | "T" | "?")[] = ["H", "T", ...Array<"?">(kicks).fill("?")];
   return problem(
     "polya-urn",
-    `You take penalty kicks. You score the first and miss the second. After that, your chance of scoring each kick equals the share of kicks you've scored so far (so the third kick goes in with chance 1/2). What's the chance you score exactly ${made} of the next ${kicks}?`,
+    `You take penalty kicks. You score the first and miss the second. After that, your chance of scoring each kick equals the share of kicks you’ve scored so far (so the third kick goes in with chance 1/2). What’s the chance you score exactly ${made} of the next ${kicks}?`,
     answer,
     "probability",
     [
@@ -99,7 +99,7 @@ const polya = (() => {
         work: "(1 × 2 × … × 6) × (1 × 2 × 3 × 4) ÷ (2 × 3 × … × 11)",
         result: formatFraction(orderChance),
         icon: "multiply",
-        explain: "Each goal's chance has the goals so far on top, each miss's the misses so far, and the bottoms run 2, 3, …, 11 in any order.",
+        explain: "Each goal’s chance has the goals so far on top, each miss’s the misses so far, and the bottoms run 2, 3, …, 11 in any order.",
         visual: { type: "coins", flips: ["H", "T", "H", "H", "T", "H", "T", "H", "T", "H", "H", "T"], caption: "H = goal, T = miss. Every order with 6 goals has the same chance." },
       },
       {
@@ -184,7 +184,7 @@ const ant = (() => {
         work: "1 ÷ 1/3",
         result: formatDecimal(home),
         icon: "divide",
-        explain: "It's now away from the start, and from any other corner 1 of its 3 moves goes home.",
+        explain: "It’s now away from the start, and from any other corner 1 of its 3 moves goes home.",
       },
       {
         label: "Add the waits",
@@ -216,7 +216,7 @@ const highestBeforeFour = (() => {
   const answer = add(add(mul(q(4), p4), mul(q(5), p5)), mul(q(6), p6));
   return problem(
     "highest-roll-before-a-four",
-    "You roll a fair die until it shows a 4, then stop. What's the highest number you rolled, on average (counting the final 4)?",
+    "You roll a fair die until it shows a 4, then stop. What’s the highest number you rolled, on average (counting the final 4)?",
     answer,
     "number",
     [
@@ -247,7 +247,7 @@ const highestBeforeFour = (() => {
         work: `${formatFraction(atMost4)}, ${formatFraction(atMost5)} − ${formatFraction(atMost4)}, 1 − ${formatFraction(atMost5)}`,
         result: `${formatFraction(p4)}, ${formatFraction(p5)}, ${formatFraction(p6)}`,
         icon: "subtract",
-        explain: "The chance the highest is exactly 5 is the chance it's at most 5, minus the chance it's at most 4.",
+        explain: "The chance the highest is exactly 5 is the chance it’s at most 5, minus the chance it’s at most 4.",
         visual: {
           type: "bars",
           bars: [
@@ -277,7 +277,7 @@ const twoWaits = (() => {
   const answer = div(q(1), q(3, 4));
   return problem(
     "two-coin-waits",
-    "Alice and Bob each flip a fair coin until they get heads, counting their flips. You're told Bob needed more flips than Alice. On average, how many flips did Alice need?",
+    "Alice and Bob each flip a fair coin until they get heads, counting their flips. You’re told Bob needed more flips than Alice. On average, how many flips did Alice need?",
     answer,
     "number",
     [
@@ -285,7 +285,7 @@ const twoWaits = (() => {
         label: "Alice takes a flips and Bob takes more",
         work: "(1/2)ᵃ × (1/2)ᵃ = (1/4)ᵃ",
         icon: "multiply",
-        explain: "Alice's first head comes on flip a with chance (1/2)ᵃ. Bob needs more than a flips, so his first a flips are all tails: (1/2)ᵃ.",
+        explain: "Alice’s first head comes on flip a with chance (1/2)ᵃ. Bob needs more than a flips, so his first a flips are all tails: (1/2)ᵃ.",
         visual: { type: "coins", flips: ["T", "H", "T", "T", "?"], tones: ["alt", "alt", "hit", "hit", "muted"], caption: "Alice (blue) gets heads on flip 2; Bob (orange) is still on tails after 2 flips." },
       },
       {
@@ -293,17 +293,17 @@ const twoWaits = (() => {
         work: "1/4 + 1/16 + 1/64 + …",
         result: formatFraction(bobMore),
         icon: "add",
-        explain: "Add (1/4)ᵃ over every a. This is what you're told happened.",
+        explain: "Add (1/4)ᵃ over every a. This is what you’re told happened.",
       },
       {
         label: "Given that, Alice took a flips",
         work: "(1/4)ᵃ ÷ 1/3 = 3/4, 3/16, 3/64, …",
         icon: "divide",
-        explain: "Divide by the chance of what you know. That's a first-success wait with chance 3/4 each flip.",
+        explain: "Divide by the chance of what you know. That’s a first-success wait with chance 3/4 each flip.",
         visual: {
           type: "bars",
           bars: [1, 2, 3, 4, 5].map((a) => ({ label: String(a), value: 3 / 4 ** a, tone: "alt" as const, text: a <= 3 ? formatFraction(q(3, 4 ** a)) : undefined })),
-          caption: "Alice's flips, given Bob needed more.",
+          caption: "Alice’s flips, given Bob needed more.",
         },
       },
       {
@@ -328,12 +328,12 @@ const untilRepeat = (() => {
   const answer = still.reduce((sum, p) => add(sum, p), q(0));
   return problem(
     "rolling-until-a-repeat",
-    "You roll a fair die again and again, stopping as soon as a number comes up that you've already rolled. On average, how many rolls do you make (counting the last)?",
+    "You roll a fair die again and again, stopping as soon as a number comes up that you’ve already rolled. On average, how many rolls do you make (counting the last)?",
     answer,
     "number",
     [
       {
-        label: "Average rolls = chances you're still rolling, added up",
+        label: "Average rolls = chances you’re still rolling, added up",
         work: "add the chance the first r rolls are all different, for r = 0 to 6",
         icon: "idea",
         explain: "You make roll r + 1 only if the first r rolls were all different. Adding the chance of making each roll gives the average count.",
@@ -395,7 +395,7 @@ const iceCream = (() => {
       },
       {
         label: "Best place: just after n² − n reaches 365",
-        work: "19² − 19 = 342 is under 365; 20² − 20 = 380 isn't",
+        work: "19² − 19 = 342 is under 365; 20² − 20 = 380 isn’t",
         icon: "target",
         explain: "The chance rises while the ratio is above 1, which simplifies to n² − n < 365. It peaks one place after that stops.",
       },
@@ -411,7 +411,7 @@ const gambler = (() => {
   const answer = pow(q(5, 6), spins);
   return problem(
     "gambler-and-friend",
-    `A smaller version of the roulette gambler: a wheel has 6 equal sections, and a $1 bet on one section pays 5 to 1. You bet $1 on the same section for ${spins} spins. What's the chance you end up behind?`,
+    `A smaller version of the roulette gambler: a wheel has 6 equal sections, and a $1 bet on one section pays 5 to 1. You bet $1 on the same section for ${spins} spins. What’s the chance you end up behind?`,
     answer,
     "probability",
     [
@@ -419,7 +419,7 @@ const gambler = (() => {
         label: "One win is enough to break even",
         work: "one win: +$5; five losses: −$5",
         icon: "idea",
-        explain: "A single win pays back exactly what the other 5 bets lose, so you're only behind if you never win.",
+        explain: "A single win pays back exactly what the other 5 bets lose, so you’re only behind if you never win.",
         visual: {
           type: "bars",
           bars: Array.from({ length: spins + 1 }, (_, w) => ({
@@ -435,7 +435,7 @@ const gambler = (() => {
         label: "No win in 6 spins",
         work: `(5/6)${"⁶"}`,
         icon: "repeat",
-        explain: "Each spin misses your section with chance 5/6, and spins don't affect each other, so multiply 6 times.",
+        explain: "Each spin misses your section with chance 5/6, and spins don’t affect each other, so multiply 6 times.",
       },
     ],
     { spins, sections: 6 },
@@ -458,7 +458,7 @@ const runningTotal = (() => {
   const from = (t: number) => approx(worth.get(t)!);
   return problem(
     "running-total-past-a-target",
-    `You roll a fair ${sides}-sided die and keep a running total, stopping as soon as the total is ${target} or more. What's the final total on average?`,
+    `You roll a fair ${sides}-sided die and keep a running total, stopping as soon as the total is ${target} or more. What’s the final total on average?`,
     worth.get(0)!,
     "number",
     [
@@ -488,7 +488,7 @@ const runningTotal = (() => {
         label: "From 7 and 6",
         work: `${from(7)} and ${from(6)}`,
         icon: "repeat",
-        explain: "Each total's value is the average of the values one to four steps ahead.",
+        explain: "Each total’s value is the average of the values one to four steps ahead.",
       },
       {
         label: "Back to a total of 0",
@@ -510,7 +510,7 @@ const runningTotal = (() => {
 
 const stickTriangle = problem(
   "broken-stick-triangle",
-  "You break a stick at two random points, chosen independently. What's the chance the three pieces can form a triangle?",
+  "You break a stick at two random points, chosen independently. What’s the chance the three pieces can form a triangle?",
   q(1, 4),
   "probability",
   [
@@ -518,13 +518,13 @@ const stickTriangle = problem(
       label: "A triangle needs every piece under half",
       work: "the longest side must be shorter than the other two together",
       icon: "idea",
-      explain: "If one piece is half the stick or more, the other two can't reach around it.",
+      explain: "If one piece is half the stick or more, the other two can’t reach around it.",
     },
     {
       label: "Picture the two breaks as a point in a square",
       work: "across: first break, up: second break",
       icon: "split",
-      explain: "Every pair of break points is equally likely, so a chance is a share of the square's area.",
+      explain: "Every pair of break points is equally likely, so a chance is a share of the square’s area.",
       visual: {
         type: "square",
         xLabel: "First break",
@@ -549,7 +549,7 @@ const stickTriangle = problem(
 
 const shortestPiece = problem(
   "shortest-piece",
-  "You break a 1 m stick at two random points. What's the chance the shortest of the three pieces is 20 cm or less?",
+  "You break a 1 m stick at two random points. What’s the chance the shortest of the three pieces is 20 cm or less?",
   q(21, 25),
   "probability",
   [
@@ -564,7 +564,7 @@ const shortestPiece = problem(
       work: "100 − 3 × 20",
       result: "40 cm",
       icon: "subtract",
-      explain: "If every piece is over 20 cm, take 20 cm off each. What's left is a random split of 40 cm.",
+      explain: "If every piece is over 20 cm, take 20 cm off each. What’s left is a random split of 40 cm.",
     },
     {
       label: "Chance every piece is over 20 cm",
@@ -581,7 +581,7 @@ const shortestPiece = problem(
           { points: [[0.2, 0.4], [0.2, 0.8], [0.6, 0.8]], tone: "alt" },
           { points: [[0.4, 0.2], [0.8, 0.2], [0.8, 0.6]], tone: "alt" },
         ],
-        caption: "Blue: every piece is over 20 cm. That's 16% of the square.",
+        caption: "Blue: every piece is over 20 cm. That’s 16% of the square.",
       },
     },
     {
@@ -596,7 +596,7 @@ const shortestPiece = problem(
 
 const acuteTriangle = problem(
   "acute-triangle-on-a-circle",
-  "You pick three random points on a circle and join them into a triangle. What's the chance the triangle is acute (every angle under 90°)?",
+  "You pick three random points on a circle and join them into a triangle. What’s the chance the triangle is acute (every angle under 90°)?",
   q(1, 4),
   "probability",
   [
@@ -616,7 +616,7 @@ const acuteTriangle = problem(
           { at: 110, label: "B", tone: "hit" },
           { at: 160, label: "C", tone: "hit" },
         ],
-        caption: "The circle opened out into degrees: these three fit in a half circle, so the triangle isn't acute.",
+        caption: "The circle opened out into degrees: these three fit in a half circle, so the triangle isn’t acute.",
       },
     },
     {
@@ -630,7 +630,7 @@ const acuteTriangle = problem(
       label: "Chance the triangle is acute",
       work: "1 − 3/4",
       icon: "subtract",
-      explain: "The triangle is acute exactly when the points don't fit in any half circle.",
+      explain: "The triangle is acute exactly when the points don’t fit in any half circle.",
     },
   ],
   { points: 3 },

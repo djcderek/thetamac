@@ -76,7 +76,7 @@ const COINS_KNOWN: Filter<string[]>[] = [
   { id: "first-heads", text: "the first is heads", test: (f) => f[0] === "H" },
 ];
 const COINS_ASKED: Filter<string[]>[] = [
-  { id: "all-heads", text: "they're all heads", test: (f) => f.every((x) => x === "H") },
+  { id: "all-heads", text: "they’re all heads", test: (f) => f.every((x) => x === "H") },
   { id: "exactly-two", text: "exactly two are heads", test: (f) => heads(f) === 2 },
   { id: "two-up", text: "at least two are heads", test: (f) => heads(f) >= 2 },
 ];
@@ -85,7 +85,7 @@ const COINS_ASKED: Filter<string[]>[] = [
 const CHILDREN: Space<string[]>[] = [2, 3].map((n) => ({
   id: `children-${n}`,
   outcomes: flips(n).map((f) => f.map((x) => (x === "H" ? "B" : "G"))),
-  setup: `A family has ${n} children, each equally likely a boy or a girl. You're told`,
+  setup: `A family has ${n} children, each equally likely a boy or a girl. You’re told`,
   unit: "families",
   figure: (marks: Marks<string[]>) => sequenceTree(n, ["B", "G"], marks, "Oldest first"),
 }));
@@ -107,17 +107,17 @@ const CARD_SPACE: Space<Card> = {
   figure: (marks) => ({ type: "cards", marks: marks.map((m) => ({ cards: m.items.map(cardId), tone: m.tone })) }),
 };
 const CARDS_KNOWN: Filter<Card>[] = [
-  { id: "red", text: "it's red", test: isRed, label: "Red cards" },
-  { id: "face", text: "it's a face card (J, Q or K)", test: isFace, label: "Face cards" },
-  { id: "heart", text: "it's a heart", test: (c) => c.suit === "hearts", label: "Hearts" },
-  { id: "not-heart", text: "it's not a heart", test: (c) => c.suit !== "hearts", label: "Cards that aren’t hearts" },
-  { id: "high", text: "it's a 10 or higher (10, J, Q, K)", test: (c) => c.rank >= 10, label: "Cards 10 or higher" },
+  { id: "red", text: "it’s red", test: isRed, label: "Red cards" },
+  { id: "face", text: "it’s a face card (J, Q or K)", test: isFace, label: "Face cards" },
+  { id: "heart", text: "it’s a heart", test: (c) => c.suit === "hearts", label: "Hearts" },
+  { id: "not-heart", text: "it’s not a heart", test: (c) => c.suit !== "hearts", label: "Cards that aren’t hearts" },
+  { id: "high", text: "it’s a 10 or higher (10, J, Q, K)", test: (c) => c.rank >= 10, label: "Cards 10 or higher" },
 ];
 const CARDS_ASKED: Filter<Card>[] = [
-  { id: "heart", text: "it's a heart", test: (c) => c.suit === "hearts", label: "Of those, hearts" },
-  { id: "king", text: "it's a king", test: (c) => c.rank === 13, label: "Of those, kings" },
-  { id: "face", text: "it's a face card", test: isFace, label: "Of those, face cards" },
-  { id: "red-face", text: "it's a red face card", test: (c) => isRed(c) && isFace(c), label: "Of those, red face cards" },
+  { id: "heart", text: "it’s a heart", test: (c) => c.suit === "hearts", label: "Of those, hearts" },
+  { id: "king", text: "it’s a king", test: (c) => c.rank === 13, label: "Of those, kings" },
+  { id: "face", text: "it’s a face card", test: isFace, label: "Of those, face cards" },
+  { id: "red-face", text: "it’s a red face card", test: (c) => isRed(c) && isFace(c), label: "Of those, red face cards" },
 ];
 
 function conditional<T>(space: Space<T>, known: Filter<T>, asked: Filter<T>) {
@@ -125,8 +125,8 @@ function conditional<T>(space: Space<T>, known: Filter<T>, asked: Filter<T>) {
   const both = fit.filter(asked.test).length;
   const isChildren = space.id.startsWith("children");
   const prompt = isChildren
-    ? `${space.setup} ${known.text}. What's the chance ${asked.text}?`
-    : `${space.setup} and are told ${known.text}. What's the chance ${asked.text}?`;
+    ? `${space.setup} ${known.text}. What’s the chance ${asked.text}?`
+    : `${space.setup} and are told ${known.text}. What’s the chance ${asked.text}?`;
   return problem(
     `${space.id}-${known.id}-${asked.id}`,
     prompt,
@@ -137,14 +137,14 @@ function conditional<T>(space: Space<T>, known: Filter<T>, asked: Filter<T>) {
         label: known.label ?? `${space.unit[0].toUpperCase()}${space.unit.slice(1)} where ${known.text}`,
         work: `${fit.length} of ${space.outcomes.length}`,
         icon: "filter",
-        explain: `You’re told ${known.text.replace(/^it's /, "it’s ")}, so only these ${fit.length} of the ${space.outcomes.length} equally likely ${space.unit} are still possible.`,
+        explain: `You’re told ${known.text.replace(/^it’s /, "it’s ")}, so only these ${fit.length} of the ${space.outcomes.length} equally likely ${space.unit} are still possible.`,
         visual: space.figure([{ items: fit, tone: "known" }]),
       },
       {
         label: asked.label ?? `Of those, ${asked.text}`,
         work: `${both} of ${fit.length}`,
         icon: "count",
-        explain: `Count the ones that also fit the question. The chance is that count out of the ${fit.length}, not out of all ${space.outcomes.length}.`,
+        explain: `Of the ${fit.length} that are left, ${both} also ${both === 1 ? "fits" : "fit"} the question. Divide by ${fit.length}, not by all ${space.outcomes.length}.`,
         visual: space.figure([
           { items: fit, tone: "known" },
           { items: fit.filter(asked.test), tone: "hit" },
@@ -175,7 +175,7 @@ const COIN_PROBLEMS = COINS.flatMap((space) => conditionalPairs(space, COINS_KNO
 const CHILDREN_PROBLEMS = CHILDREN.flatMap((space) => conditionalPairs(space, CHILDREN_KNOWN, childrenAsked(space.outcomes[0].length)));
 const CARD_PROBLEMS = conditionalPairs(CARD_SPACE, CARDS_KNOWN, CARDS_ASKED);
 
-/** What the first two cards had in common, and what's asked about the next draw. */
+/** What the first two cards had in common, and what’s asked about the next draw. */
 const NEXT_DRAWS = [
   { id: "pair-pair", after: "pair", ask: "pair" },
   { id: "pair-match", after: "pair", ask: "match" },
@@ -185,11 +185,11 @@ const NEXT_DRAWS = [
   { id: "red-same", after: "red", ask: "same-colour" },
 ] as const;
 
-/** A card's class for each kind of match: its rank, its suit, or its colour. */
+/** A card’s class for each kind of match: its rank, its suit, or its colour. */
 const classOf = { pair: (c: Card) => `${c.rank}`, suit: (c: Card) => c.suit, red: (c: Card) => (isRed(c) ? "red" : "black") };
 
 /**
- * The first two cards share something (a rank, a suit, a colour); what's the chance the next
+ * The first two cards share something (a rank, a suit, a colour); what’s the chance the next
  * draw does too? Two cards are gone, so the groups they came from are smaller.
  */
 function nextDraw(params: { draw: string }) {
@@ -222,7 +222,7 @@ function nextDraw(params: { draw: string }) {
   if (draw.ask === "match") {
     return problem(
       `next-${draw.id}`,
-      `You draw two cards from a shuffled deck and they ${what}. What's the chance the next card is that ${thing} too?`,
+      `You draw two cards from a shuffled deck and they ${what}. What’s the chance the next card is that ${thing} too?`,
       q(theirs.length, 50),
       "probability",
       [
@@ -284,7 +284,7 @@ function nextDraw(params: { draw: string }) {
         : "are the same colour as each other";
   return problem(
     `next-${draw.id}`,
-    `You draw two cards from a shuffled deck and they ${what}. You then draw two more. What's the chance those two ${next}?`,
+    `You draw two cards from a shuffled deck and they ${what}. You then draw two more. What’s the chance those two ${next}?`,
     q(fitting, all),
     "probability",
     [
@@ -374,7 +374,7 @@ function twoBags(params: { redA: number; blueA: number; redB: number; blueB: num
   const tree = (tones: Tone[]) => caseTree("Pick a bag", cases, tones);
   return problem(
     `bags-${redA}-${blueA}-${redB}-${blueB}-${params.chanceA}`,
-    `Bag A has ${redA} red and ${blueA} blue balls. Bag B has ${redB} red and ${blueB} blue. ${how}, then take one ball from it. What's the chance it's red?`,
+    `Bag A has ${redA} red and ${blueA} blue balls. Bag B has ${redB} red and ${blueB} blue. ${how}, then take one ball from it. What’s the chance it’s red?`,
     add(caseA, caseB),
     "probability",
     [
@@ -438,7 +438,7 @@ function secondCard(params: { card: string }) {
   const tree = (tones: Tone[]) => caseTree("Deal two cards", cases, tones);
   return problem(
     `second-${card.id}`,
-    `Two cards are dealt from a shuffled deck. What's the chance the second card is ${card.one}?`,
+    `Two cards are dealt from a shuffled deck. What’s the chance the second card is ${card.one}?`,
     add(firstIs, firstNot),
     "probability",
     [
@@ -462,7 +462,7 @@ function secondCard(params: { card: string }) {
         label: "Add the cases",
         work: `${formatFraction(firstIs)} + ${formatFraction(firstNot)}`,
         icon: "add",
-        explain: `The first card either is or isn’t, so add the two cases. It equals ${t}/52: the second card is just as likely as the first.`,
+        explain: `The first card either is or isn’t, so add the two cases. The total, ${t}/52, is the same as for the first card: a card you haven’t seen tells you nothing.`,
         visual: tree(["hit", "hit"]),
       },
     ],
@@ -482,7 +482,7 @@ const TURN_EVENTS = [
   { id: "ace", activity: "drawing a card and putting it back", goal: "draw an ace", chance: q(1, 13) },
 ];
 
-/** One round of a turn-taking game: A goes, then B; if both miss, it's back where it started. */
+/** One round of a turn-taking game: A goes, then B; if both miss, it’s back where it started. */
 function roundTree(a: Rational, b: Rational) {
   return (aWins: Tone, bWins: Tone, again: Tone): QuantVisual => ({
     type: "tree",
@@ -533,7 +533,7 @@ function takeTurns(params: { event: string; who: "first" | "second" }) {
       work: `${chance} ÷ (1 − ${formatFraction(round)})`,
       result: formatFraction(first),
       icon: "divide",
-      explain: "Every round that gets played, A wins its first turn with the same chance. Dividing by 1 − (both miss) adds up all those rounds.",
+      explain: `Call A’s chance p. A wins at once with chance ${chance}, or both miss and A is back to chance p: p = ${chance} + ${formatFraction(round)} × p. Solving for p gives this division.`,
       visual: round1("hit", "muted", "known"),
     },
   ];
@@ -548,7 +548,7 @@ function takeTurns(params: { event: string; who: "first" | "second" }) {
   }
   return problem(
     `turns-${event.id}-${params.who}`,
-    `A and B take turns ${event.activity}, A first. The first to ${event.goal} wins. What's the chance ${params.who === "first" ? "A" : "B"} wins?`,
+    `A and B take turns ${event.activity}, A first. The first to ${event.goal} wins. What’s the chance ${params.who === "first" ? "A" : "B"} wins?`,
     params.who === "first" ? first : sub(q(1), first),
     "probability",
     steps,
@@ -589,7 +589,7 @@ function turnsDifferent(params: { totalA: number; totalB: number; who: "first" |
       work: `${formatFraction(a)} ÷ (1 − ${formatFraction(bothMiss)})`,
       result: formatFraction(first),
       icon: "divide",
-      explain: "A wins on A’s turn in whichever round gets that far. Dividing by 1 − (both miss) adds up every round.",
+      explain: `Call A’s chance p. A wins at once with chance ${formatFraction(a)}, or both miss and A is back to chance p: p = ${formatFraction(a)} + ${formatFraction(bothMiss)} × p. Solving for p gives this division.`,
       visual: round1("hit", "muted", "known"),
     },
   ];
@@ -604,7 +604,7 @@ function turnsDifferent(params: { totalA: number; totalB: number; who: "first" |
   }
   return problem(
     `turns-${totalA}-${totalB}-${params.who}`,
-    `A and B take turns rolling two dice, A first. A wins by rolling a total of ${totalA} on A’s turn, and B wins by rolling a total of ${totalB} on B’s turn. What's the chance ${params.who === "first" ? "A" : "B"} wins?`,
+    `A and B take turns rolling two dice, A first. A wins by rolling a total of ${totalA} on A’s turn, and B wins by rolling a total of ${totalB} on B’s turn. What’s the chance ${params.who === "first" ? "A" : "B"} wins?`,
     params.who === "first" ? first : sub(q(1), first),
     "probability",
     steps,
@@ -655,7 +655,7 @@ function randomRolls(params: { trial: string }) {
   });
   return problem(
     `random-${trial.id}`,
-    `${source.text}. If that takes n ${source.unit}, you then ${trial.then} n times. What's the chance ${trial.what} at least once?`,
+    `${source.text}. If that takes n ${source.unit}, you then ${trial.then} n times. What’s the chance ${trial.what} at least once?`,
     sub(q(1), none),
     "probability",
     [
@@ -743,7 +743,7 @@ function whichFirst(params: { race: string }) {
   const unit = race.kind === "cards" ? "draw" : "roll";
   return problem(
     `race-${race.id}`,
-    `${race.setup}. What's the chance ${race.a} comes up before ${race.b}?`,
+    `${race.setup}. What’s the chance ${race.a} comes up before ${race.b}?`,
     div(a, add(a, b)),
     "probability",
     [
@@ -751,21 +751,21 @@ function whichFirst(params: { race: string }) {
         label: `Chance of ${race.a} on one ${unit}`,
         work: formatFraction(a),
         icon: "count",
-        explain: `Count the outcomes that give ${race.a}, out of all equally likely outcomes of one ${unit}.`,
+        explain: `The chance that a single ${unit} gives ${race.a}.`,
         visual: figure("hit", "muted"),
       },
       {
         label: `Chance of ${race.b} on one ${unit}`,
         work: formatFraction(b),
         icon: "count",
-        explain: `Do the same for ${race.b}.`,
+        explain: `The chance that a single ${unit} gives ${race.b}.`,
         visual: figure("hit", "alt"),
       },
       {
         label: `${race.a[0].toUpperCase()}${race.a.slice(1)} first`,
         work: `${formatFraction(a)} ÷ (${formatFraction(a)} + ${formatFraction(b)})`,
         icon: "divide",
-        explain: `A ${unit} that gives neither changes nothing, so ignore those. On the ${unit} that settles it, ${race.a} wins its share of the two chances.`,
+        explain: `A ${unit} that gives neither leaves you where you started, so only the ${unit} that settles it matters. On that ${unit}, ${race.a} has its share of the two chances.`,
         visual: figure("hit", "alt"),
       },
     ],
@@ -796,7 +796,7 @@ function twoMachines(params: { shareA: number; faultA: number; faultB: number })
   const tree = (tones: Tone[]) => caseTree("A random part", cases, tones);
   return problem(
     `machines-${shareA}-${faultA}-${faultB}`,
-    `Machine A makes ${shareA}% of a factory’s parts and ${faultA}% of its parts are faulty. Machine B makes the rest, and ${faultB}% of its parts are faulty. What's the chance a random part is faulty?`,
+    `Machine A makes ${shareA}% of a factory’s parts and ${faultA}% of its parts are faulty. Machine B makes the rest, and ${faultB}% of its parts are faulty. What’s the chance a random part is faulty?`,
     add(caseA, caseB),
     "percent",
     [
@@ -887,7 +887,7 @@ function pictureTheCrowd(
           };
     return problem(
       `test-${people}-${sick}-${caught}-${falseAlarms}`,
-      `Of ${people} people, ${sick} have a condition. A test flags ${caught} of the ${sick} who have it, and wrongly flags ${falseAlarms} of the ${healthy} who don't. Someone tests positive. What's the chance they have it?`,
+      `Of ${people} people, ${sick} have a condition. A test flags ${caught} of the ${sick} who have it, and wrongly flags ${falseAlarms} of the ${healthy} who don’t. Someone tests positive. What’s the chance they have it?`,
       q(caught, caught + falseAlarms),
       "probability",
       [
@@ -904,14 +904,14 @@ function pictureTheCrowd(
           work: `${falseAlarms} of the ${healthy}`,
           result: `${falseAlarms}`,
           icon: "count",
-          explain: `The test also flags ${falseAlarms} of the ${healthy} who don’t have it. Because that group is so big, these false alarms add up.`,
+          explain: `The test also flags ${falseAlarms} of the ${healthy} who don’t have it. There are far more people without it, so even a low error rate adds a lot of positives.`,
           visual: crowd(true, true),
         },
         {
           label: "Chance they have it",
           work: `${caught}/(${caught} + ${falseAlarms})`,
           icon: "divide",
-          explain: `You only know the person tested positive, so look at all ${caught + falseAlarms} positives. The share who really have it is the answer.`,
+          explain: `All you know is that the person tested positive, so they’re one of these ${caught + falseAlarms}. ${caught} of the ${caught + falseAlarms} have it.`,
           visual: crowd(true, true),
         },
       ],
@@ -950,16 +950,16 @@ function pictureTheCrowd(
   });
   return problem(
     `coins-${fair}-${rigged}-${flips}`,
-    `A bag has ${coins} and ${riggedText}. You pick one at random and flip it ${flips === 1 ? "once" : `${flips} times`}: ${flips === 1 ? "heads" : "heads every time"}. What's the chance it's two-headed?`,
+    `A bag has ${coins} and ${riggedText}. You pick one at random and flip it ${flips === 1 ? "once" : `${flips} times`}: ${flips === 1 ? "heads" : "heads every time"}. What’s the chance it’s two-headed?`,
     q(riggedHeads, riggedHeads + fairHeads),
     "probability",
     [
       {
-        label: `Picture ${runs * (fair + rigged)} picks`,
+        label: `Count ${runs * (fair + rigged)} picks`,
         work: `${runs} of each coin`,
         result: "",
         icon: "idea",
-        explain: `Imagine doing this ${runs * (fair + rigged)} times, picking each coin ${runs} times. Whole numbers are easier to count than chances.`,
+        explain: `Say you did this ${runs * (fair + rigged)} times and picked each coin ${runs} times. Counting picks keeps every number whole.`,
         visual: picks("muted", "muted"),
       },
       {
@@ -1056,7 +1056,7 @@ function coinBag(params: { set: string; flips: number; ask: "which" | "next"; ta
       label: `Chance it’s the coin that ${coinName(target)}`,
       work: `${formatFraction(joint[params.target])} ÷ ${formatFraction(total)}`,
       icon: "divide",
-      explain: "Its branch’s share of everything that could have shown what you saw.",
+      explain: "Divide its branch by the total: its share of all the ways to see these flips.",
       visual: tree(coins.map((_, j) => (j === params.target ? "hit" : "known"))),
     });
   } else {
@@ -1071,7 +1071,7 @@ function coinBag(params: { set: string; flips: number; ask: "which" | "next"; ta
     });
   }
   const question =
-    params.ask === "which" ? `What's the chance you picked the coin that ${coinName(target)}?` : "What's the chance the next flip of the same coin is heads?";
+    params.ask === "which" ? `What’s the chance you picked the coin that ${coinName(target)}?` : "What’s the chance the next flip of the same coin is heads?";
   return problem(
     `bag-${set.id}-${k}-${params.ask}-${params.ask === "which" ? params.target : "x"}`,
     `A bag holds ${n === 2 ? "two" : "three"} coins: ${describe}. You pick one at random and flip it ${k === 1 ? "once" : k === 2 ? "twice" : `${k} times`}: ${seen}. ${question}`,
@@ -1116,13 +1116,92 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
     id: "conditional-probability",
     title: "Conditional probability",
     benefit: "Find a chance given something happened",
-    idea: "Keep only the outcomes that fit what you’re told. The chance is how many of those fit the question, divided by how many there are.",
+    summary: "How being told something changes a chance: keep only the outcomes that fit what you know, and count again inside them.",
     difficulty: "Medium",
-    intro:
-      "Being told something rules out every outcome that doesn’t fit it. The outcomes that are left are still equally likely, so you just count again inside that smaller group.",
-    formula: "P(A given B) = outcomes in both A and B ÷ outcomes in B",
-    cues: ["The question says “given that” or “you’re told”", "Part of the result is revealed before you answer"],
-    mistake: "Dividing by all the outcomes instead of only the ones that fit what you’re told.",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "You roll two dice without looking. A friend checks them and tells you the total is 8.",
+          "What’s the chance at least one of the dice is a 6?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Given the total is 8, what’s the chance of a 6?",
+        choices: ["2/5", "11/36", "1/6", "1/3"],
+        answer: 0,
+        explain:
+          "It’s 2/5. Before you heard anything, the chance of at least one 6 was 11/36, about 31%. Knowing the total is 8 raises it, because a 6 is one of the few ways to make 8.",
+      },
+      {
+        type: "story",
+        heading: "Count it out",
+        beats: [
+          {
+            text: "Two dice give 36 results, all equally likely. Each square is one of them: the row is the first die, the column the second.",
+            visual: { type: "dice-grid", sides: 6, marks: [] },
+          },
+          {
+            text: "A total of 8 rules out all but 5 squares: 2 and 6, 3 and 5, 4 and 4, 5 and 3, 6 and 2.",
+            visual: {
+              type: "dice-grid",
+              sides: 6,
+              marks: [{ cells: [[2, 6], [3, 5], [4, 4], [5, 3], [6, 2]], tone: "known" }],
+            },
+          },
+          {
+            text: "Two of those 5 have a 6 in them. So the chance is 2 out of 5.",
+            visual: {
+              type: "dice-grid",
+              sides: 6,
+              marks: [
+                { cells: [[2, 6], [3, 5], [4, 4], [5, 3], [6, 2]], tone: "known" },
+                { cells: [[2, 6], [6, 2]], tone: "hit" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why counting again works",
+        body: [
+          "The 5 squares that are left were equally likely before your friend spoke, and a total of 8 doesn’t favour any one of them. So they’re still equally likely, and you can count inside them as if they were the whole set.",
+          "The chance of A given B is written P(A | B), and the bar is read “given”. Here A is “at least one 6” and B is “the total is 8”.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(A | B) = P(A and B) ÷ P(B)",
+        note: "With the dice, P(a 6 and a total of 8) = 2/36 and P(a total of 8) = 5/36. Dividing gives 2/5. The 36s cancel, which is why counting inside the smaller set gives the same answer.",
+      },
+      {
+        type: "check",
+        prompt: "This time your friend tells you the first die is a 6. What’s the chance the total is 8?",
+        choices: ["1/6", "2/5", "1/36", "5/36"],
+        answer: 0,
+        explain:
+          "Knowing the first die is a 6 leaves 6 results, one for each value of the second die, and only a 2 makes 8. P(total is 8 | first is 6) and P(a 6 | total is 8) ask different questions, so their answers differ.",
+      },
+      {
+        type: "example",
+        lead: "In the example the clue is “at least one die is a 6”. It leaves more results than most people expect.",
+      },
+      {
+        type: "trap",
+        body: "Dividing by all 36 results. For the total of 8, that gives 2/36 = 1/18, which is the chance of rolling an 8 with a 6 in it before you know anything. Once you know the total is 8, only 5 results are possible, so divide by 5.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "The question says “given that”, “you’re told” or “someone looks and says”",
+          "Part of the result is shown before you answer, like one card turned face up",
+          "Cards are dealt one after another, so the earlier ones change what’s left",
+        ],
+      },
+    ],
     targetSeconds: 30,
     example: conditional(DICE, DICE_KNOWN[0], DICE_ASKED[0]),
     families: [
@@ -1137,17 +1216,136 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
     id: "splitting-cases",
     title: "Splitting into cases",
     benefit: "Find a chance by adding up every case",
-    idea: "Split into cases that can’t both happen and cover everything. For each, multiply its chance by the chance of the event in it, then add them up.",
+    summary: "The law of total probability: split a problem into cases that cover everything, weight each case by its chance, and add.",
     difficulty: "Medium",
-    intro:
-      "When the answer depends on something you don’t know yet, like which bag was picked, work out each possibility on its own. Weight each one by how likely it is, then add: together the cases cover everything exactly once.",
-    formula: "P(A) = P(case 1) × P(A in case 1) + P(case 2) × P(A in case 2) + …",
-    cues: [
-      "Something is chosen first (a bag, a machine, a card), then the event happens",
-      "Players take turns, or you repeat until one of two things happens",
-      "The answer would be easy if you knew one more thing",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "A factory has two machines. Machine A makes 60% of the parts, and 2% of its parts are faulty. Machine B makes the other 40%, and 5% of its parts are faulty.",
+          "You pick a part at random. What’s the chance it’s faulty?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "What’s the chance the part is faulty?",
+        choices: ["3.2%", "3.5%", "7%", "2%"],
+        answer: 0,
+        explain:
+          "It’s 3.2%. Averaging 2% and 5% gives 3.5%, but that treats the machines as if they made equal numbers of parts. A makes more of them, so its lower rate counts for more.",
+      },
+      {
+        type: "story",
+        heading: "Split on the machine",
+        beats: [
+          {
+            text: "Every part comes from exactly one machine: A with chance 0.6, B with chance 0.4. Those two cases cover every part.",
+            visual: {
+              type: "tree",
+              root: {
+                label: "A part",
+                children: [
+                  { label: "Machine A", edge: "0.6" },
+                  { label: "Machine B", edge: "0.4" },
+                ],
+              },
+            },
+          },
+          {
+            text: "Inside each case you know the fault rate. Multiply along each path: 0.6 × 0.02 = 0.012 for A, and 0.4 × 0.05 = 0.02 for B.",
+            visual: {
+              type: "tree",
+              root: {
+                label: "A part",
+                children: [
+                  {
+                    label: "Machine A",
+                    edge: "0.6",
+                    children: [
+                      { label: "Faulty", edge: "0.02", tone: "hit" },
+                      { label: "Fine", edge: "0.98", tone: "muted" },
+                    ],
+                  },
+                  {
+                    label: "Machine B",
+                    edge: "0.4",
+                    children: [
+                      { label: "Faulty", edge: "0.05", tone: "hit" },
+                      { label: "Fine", edge: "0.95", tone: "muted" },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            text: "A faulty part came from A or from B, never both. Add the two paths: 0.012 + 0.02 = 0.032, or 3.2%. Out of 1,000 parts, that’s 12 faulty ones from A and 20 from B.",
+            visual: {
+              type: "tree",
+              root: {
+                label: "A part",
+                children: [
+                  {
+                    label: "Machine A",
+                    edge: "0.6",
+                    children: [
+                      { label: "Faulty: 0.012", edge: "0.02", tone: "hit" },
+                      { label: "Fine", edge: "0.98", tone: "muted" },
+                    ],
+                  },
+                  {
+                    label: "Machine B",
+                    edge: "0.4",
+                    children: [
+                      { label: "Faulty: 0.02", edge: "0.05", tone: "hit" },
+                      { label: "Fine", edge: "0.95", tone: "muted" },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why it works",
+        body: [
+          "The cases must cover every possibility and must not overlap. Then each faulty part is counted once, in the branch it came from.",
+          "Each case is weighted by how often it happens. That’s why A’s 2% pulls the answer down more than B’s 5% pulls it up. This method is called the law of total probability.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(A) = P(case 1) × P(A | case 1) + P(case 2) × P(A | case 2) + …",
+        note: "For the machines: 0.6 × 0.02 + 0.4 × 0.05 = 0.032. Use as many cases as you need, as long as exactly one of them always happens.",
+      },
+      {
+        type: "check",
+        prompt: "You and a friend take turns rolling a die, you first. The first to roll a 6 wins. What’s the chance you win?",
+        choices: ["6/11", "1/2", "1/6", "5/11"],
+        answer: 0,
+        explain:
+          "Split on the first round. You win at once with chance 1/6. With chance 5/6 × 5/6 = 25/36 nobody rolls a 6 and the game starts over, so you win with the same chance p as before. p = 1/6 + 25/36 × p gives p = 6/11.",
+      },
+      {
+        type: "example",
+        lead: "In the example a coin flip picks one of two bags, and then you draw a ball. Split on the bag.",
+      },
+      {
+        type: "trap",
+        body: "Adding the chances inside the cases without weighting them. For the machines, 2% + 5% = 7% is far too high, and averaging them to 3.5% assumes the machines make equal shares. Multiply each rate by the chance of its case first.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "Something is chosen first, like a bag, a machine or a coin, and then the event happens",
+          "Players take turns, or you repeat something until one of two things happens",
+          "The question would be easy if you knew one more fact, so split on that fact",
+        ],
+      },
     ],
-    mistake: "Adding the chances inside each case without first multiplying each by how likely that case is.",
     targetSeconds: 40,
     example: twoBags({ redA: 3, blueA: 2, redB: 1, blueB: 4, chanceA: "coin" }),
     families: [
@@ -1195,17 +1393,113 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
     id: "bayes-rule",
     title: "Bayes’ rule",
     benefit: "Work back from evidence to its cause",
-    idea: "Picture a big group. Count everyone who shows the evidence, split by cause. The chance of a cause is its share of that count.",
+    summary: "How to turn the chance of a result given a cause into the chance of the cause given the result, with the medical-test problem worked out.",
     difficulty: "Hard",
-    intro:
-      "Evidence like a positive test can come from more than one cause. Picture a big group, count everyone who shows the evidence, and split that count by cause. A rare cause can stay unlikely even after strong evidence, because so few people had it to begin with.",
-    formula: "P(cause given evidence) = (cause and evidence) ÷ (everyone with the evidence)",
-    cues: [
-      "You’re told a result (a positive test, heads) and asked what caused it",
-      "You’re given the chance of the evidence given the cause, and asked the reverse",
-      "You’re asked what happens next, given what you’ve already seen",
+    parts: [
+      {
+        type: "text",
+        body: [
+          "A disease affects 5% of people. A test for it comes back positive for 90% of the people who have it, and also for 10% of the people who don’t.",
+          "You take the test and it’s positive. How likely is it that you have the disease?",
+        ],
+      },
+      {
+        type: "check",
+        prompt: "Roughly how likely is it that you have it?",
+        choices: ["About 90%", "About 60%", "About 30%", "About 5%"],
+        answer: 2,
+        explain:
+          "It’s about 32%. The popular answer is 90%, but that’s the chance a sick person tests positive. You want the chance a positive person is sick, which is a different number.",
+      },
+      {
+        type: "story",
+        heading: "Count it out",
+        beats: [
+          {
+            text: "Take 200 people. 5% of them, 10 people, have the disease.",
+            visual: {
+              type: "people",
+              groups: [
+                { count: 10, tone: "hit", label: "Have it" },
+                { count: 190, tone: "muted", label: "Don’t have it" },
+              ],
+            },
+          },
+          {
+            text: "The test is positive for 90% of those 10, so 9 of them test positive.",
+            visual: {
+              type: "people",
+              groups: [
+                { count: 9, tone: "hit", label: "Have it, positive" },
+                { count: 1, tone: "known", label: "Have it, negative" },
+                { count: 190, tone: "muted", label: "Don’t have it" },
+              ],
+            },
+          },
+          {
+            text: "It’s also positive for 10% of the 190 healthy people. That’s 19 more positives.",
+            visual: {
+              type: "people",
+              groups: [
+                { count: 9, tone: "hit", label: "Have it, positive" },
+                { count: 1, tone: "known", label: "Have it, negative" },
+                { count: 19, tone: "alt", label: "Don’t have it, positive" },
+                { count: 171, tone: "muted", label: "Don’t have it, negative" },
+              ],
+            },
+          },
+          {
+            text: "Now keep only the people who tested positive. There are 28, and 9 of them have the disease. Your chance is 9 in 28, about 32%.",
+            visual: {
+              type: "people",
+              groups: [
+                { count: 9, tone: "hit", label: "Have it" },
+                { count: 19, tone: "alt", label: "Don’t have it" },
+              ],
+              caption: "Everyone who tested positive",
+            },
+          },
+        ],
+      },
+      {
+        type: "text",
+        heading: "Why it’s so low",
+        body: [
+          "Healthy people outnumber sick people 19 to 1. A 10% error rate on that many people gives more false positives than the disease gives true ones: 19 against 9.",
+          "The 5% you started with is called the prior. The test moves it up to 32%, which is a big jump, but a rare disease is still more likely to be absent than present.",
+        ],
+      },
+      {
+        type: "rule",
+        rule: "P(A | B) = P(A and B) ÷ P(B)",
+        note: "Here A is “has the disease” and B is “tests positive”. The top is the share of people who are sick and positive: 0.05 × 0.9 = 0.045. The bottom is everyone positive, from both groups: 0.045 + 0.95 × 0.1 = 0.14. So the answer is 0.045 ÷ 0.14 ≈ 0.32.",
+      },
+      {
+        type: "check",
+        prompt: "Same test, but now only people with symptoms get tested, and half of them have the disease. What’s the chance a positive result is right?",
+        choices: ["90%", "50%", "32%", "45%"],
+        answer: 0,
+        explain:
+          "Take 200 people again: 100 are sick and 90 of them test positive. Of the 100 healthy, 10 test positive. That’s 90 sick out of 100 positives. The test didn’t change. The prior did.",
+      },
+      {
+        type: "example",
+        lead: "The same counting works whenever something hidden produces what you see. Here the hidden thing is which coin you picked.",
+      },
+      {
+        type: "trap",
+        body: "Giving the test’s accuracy as the answer. “Positive for 90% of sick people” is P(positive | sick). The question asks for P(sick | positive). They’re only equal when the prior is 50%.",
+      },
+      {
+        type: "list",
+        heading: "Use it when",
+        items: [
+          "A test, a witness or a sensor gives a signal and you’re asked how far to trust it",
+          "You pick one of several coins, dice or bags at random, see a result, and are asked which one you have",
+          "You’ve seen some flips and are asked about the next one, which depends on the coin you likely hold",
+        ],
+      },
     ],
-    mistake: "Answering with the test’s accuracy (the chance of a positive if you have it) instead of the chance you have it given a positive.",
     targetSeconds: 40,
     example: pictureTheCrowd({ type: "coins", fair: 1, rigged: 1, flips: 1 }),
     families: [

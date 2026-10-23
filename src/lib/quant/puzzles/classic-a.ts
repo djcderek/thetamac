@@ -27,7 +27,7 @@ const montyHall: QuantPuzzle = {
   difficulty: "Medium",
   problem: problem(
     "monty-hall",
-    "A game show has 3 doors: a car behind one, goats behind the other two. You pick a door. The host, who knows where the car is, opens one of the other doors to show a goat, then lets you switch to the last closed door. If you switch, what's the chance you win the car?",
+    "A game show has 3 doors: a car behind one, goats behind the other two. You pick a door. The host, who knows where the car is, opens one of the other doors to show a goat, then lets you switch to the last closed door. If you switch, what’s the chance you win the car?",
     q(2, 3),
     "probability",
     [
@@ -69,7 +69,7 @@ const montyHall: QuantPuzzle = {
         label: "Switching wins",
         work: "whenever your first pick was a goat",
         icon: "check",
-        explain: "The host's door tells you nothing about your own pick, which stays at 1/3. All the rest of the chance moves to the other door.",
+        explain: "The host’s door tells you nothing about your own pick, which stays at 1/3. All the rest of the chance moves to the other door.",
       },
     ],
     {},
@@ -89,11 +89,11 @@ const montyHall: QuantPuzzle = {
 const bertrandsBox: QuantPuzzle = {
   id: "bertrands-box",
   lesson: "bayes-rule",
-  title: "Bertrand's box",
+  title: "Bertrand’s box",
   difficulty: "Medium",
   problem: problem(
     "bertrands-box",
-    "There are three boxes. One holds two gold coins, one holds two silver coins, and one holds a gold coin and a silver coin. You pick a box at random and take out one coin without looking: it's gold. What's the chance the other coin in that box is gold too?",
+    "There are three boxes. One holds two gold coins, one holds two silver coins, and one holds a gold coin and a silver coin. You pick a box at random and take out one coin without looking: it’s gold. What’s the chance the other coin in that box is gold too?",
     q(2, 3),
     "probability",
     [
@@ -102,7 +102,7 @@ const bertrandsBox: QuantPuzzle = {
         work: "2 in the two-gold box + 1 in the mixed box",
         result: "3",
         icon: "count",
-        explain: "Every coin is equally likely to be the one you draw. You drew a gold one, so it's one of these 3, each equally likely.",
+        explain: "Every coin is equally likely to be the one you draw. You drew a gold one, so it’s one of these 3, each equally likely.",
         visual: {
           type: "marbles",
           groups: [
@@ -116,7 +116,7 @@ const bertrandsBox: QuantPuzzle = {
         label: "Of those, from the two-gold box",
         work: "2 of 3",
         icon: "divide",
-        explain: "2 of the 3 gold coins sit in the box whose other coin is gold. It's not 1/2: the two-gold box gives you gold twice as often.",
+        explain: "2 of the 3 gold coins sit in the box whose other coin is gold. It’s not 1/2: the two-gold box gives you gold twice as often.",
       },
     ],
     {},
@@ -138,13 +138,13 @@ const lostBoardingPass: QuantPuzzle = {
   difficulty: "Hard",
   problem: problem(
     "lost-boarding-pass",
-    "100 passengers board a plane with 100 seats, one at a time. The first has lost their boarding pass and sits in a random seat. Everyone after sits in their own seat if it's free, and in a random free seat if it isn't. What's the chance the last passenger gets their own seat?",
+    "100 passengers board a plane with 100 seats, one at a time. The first has lost their boarding pass and sits in a random seat. Everyone after sits in their own seat if it’s free, and in a random free seat if it isn’t. What’s the chance the last passenger gets their own seat?",
     q(1, 2),
     "probability",
     [
       {
         label: "Only two seats matter",
-        work: "the first passenger's seat and the last passenger's seat",
+        work: "the first passenger’s seat and the last passenger’s seat",
         icon: "idea",
         explain: "Whenever someone sits at random, they either take seat 1 (everyone after is fine), seat 100 (the last passenger loses), or push the problem on.",
         visual: {
@@ -181,7 +181,7 @@ const lostBoardingPass: QuantPuzzle = {
         { label: "Seat 100", value: "100", tone: "lose" },
       ],
       op: "",
-      caption: "The seat the first passenger lost, and the last passenger's seat.",
+      caption: "The seat the first passenger lost, and the last passenger’s seat.",
     },
   ),
 };
@@ -210,7 +210,7 @@ const labellingADie: QuantPuzzle = {
         work: "any of the other 5",
         result: "5",
         icon: "count",
-        explain: "The top face is opposite 1, and turning can't change which number is opposite 1.",
+        explain: "The top face is opposite 1, and turning can’t change which number is opposite 1.",
         visual: {
           type: "slots",
           slots: [
@@ -255,7 +255,7 @@ const locksAndKeys: QuantPuzzle = {
   difficulty: "Hard",
   problem: problem(
     "locks-and-keys",
-    "5 partners lock a safe with several locks and share out keys so that any 3 of them together can open every lock, but no 2 of them can. What's the fewest locks they need?",
+    "5 partners lock a safe with several locks and share out keys so that any 3 of them together can open every lock, but no 2 of them can. What’s the fewest locks they need?",
     q(10),
     "count",
     [
@@ -263,7 +263,7 @@ const locksAndKeys: QuantPuzzle = {
         label: "Every pair must be stopped by some lock",
         work: "a lock neither of the 2 has a key to",
         icon: "filter",
-        explain: "No 2 partners can open the safe, so for each pair there's a lock that both of them are missing.",
+        explain: "No 2 partners can open the safe, so for each pair there’s a lock that both of them are missing.",
         visual: {
           type: "people",
           groups: [
@@ -273,7 +273,7 @@ const locksAndKeys: QuantPuzzle = {
         },
       },
       {
-        label: "That lock's keys go to everyone else",
+        label: "That lock’s keys go to everyone else",
         work: "all 3 of the others",
         icon: "idea",
         explain: "If any of the other 3 also lacked that key, a trio could be stuck. So the lock stops exactly one pair and no other.",
@@ -309,7 +309,7 @@ const bubblePass: QuantPuzzle = {
   difficulty: "Hard",
   problem: problem(
     "one-bubble-pass",
-    "The numbers 1 to 5 are put in a random order. You make one bubble-sort pass: go left to right, swapping each neighbouring pair that's in the wrong order. What's the chance the list is sorted after that one pass?",
+    "The numbers 1 to 5 are put in a random order. You make one bubble-sort pass: go left to right, swapping each neighbouring pair that’s in the wrong order. What’s the chance the list is sorted after that one pass?",
     q(2, 15),
     "probability",
     [
@@ -323,7 +323,7 @@ const bubblePass: QuantPuzzle = {
         label: "So number k must start in the first k + 1 places",
         work: "1 in place 1 or 2, 2 in places 1 to 3, and so on",
         icon: "filter",
-        explain: "To end in place k, number k can start at most one place to its right. That's the only thing that can go wrong.",
+        explain: "To end in place k, number k can start at most one place to its right. That’s the only thing that can go wrong.",
       },
       {
         label: "Place 1, then 2, then 3 …",
@@ -374,7 +374,7 @@ const oddGrid: QuantPuzzle = {
   difficulty: "Hard",
   problem: problem(
     "odd-sums-grid",
-    "The numbers 1 to 9 are placed at random in a 3 × 3 grid, one per square. What's the chance every row and every column adds up to an odd number?",
+    "The numbers 1 to 9 are placed at random in a 3 × 3 grid, one per square. What’s the chance every row and every column adds up to an odd number?",
     q(1, 14),
     "probability",
     [
@@ -382,7 +382,7 @@ const oddGrid: QuantPuzzle = {
         label: "Only where the odd numbers go matters",
         work: "5 odd numbers (1, 3, 5, 7, 9) and 4 even",
         icon: "idea",
-        explain: "A row's sum is odd when it holds an odd count of odd numbers: 1 or 3. Evens don't change that.",
+        explain: "A row’s sum is odd when it holds an odd count of odd numbers: 1 or 3. Evens don’t change that.",
         visual: {
           type: "die-faces",
           sides: 9,
@@ -433,7 +433,7 @@ const evensBeforeOdds: QuantPuzzle = {
   difficulty: "Medium",
   problem: problem(
     "evens-before-odds",
-    "You roll a fair die until every face has come up at least once. What's the chance that 2, 4 and 6 have all appeared before you see any odd number?",
+    "You roll a fair die until every face has come up at least once. What’s the chance that 2, 4 and 6 have all appeared before you see any odd number?",
     q(1, 20),
     "probability",
     [
@@ -441,7 +441,7 @@ const evensBeforeOdds: QuantPuzzle = {
         label: "Only the order faces first appear matters",
         work: "a random order of the 6 faces",
         icon: "idea",
-        explain: "Repeats don't change anything. The first new face, then the next new face and so on form an order of 1 to 6, and every order is equally likely.",
+        explain: "Repeats don’t change anything. The first new face, then the next new face and so on form an order of 1 to 6, and every order is equally likely.",
       },
       {
         label: "Orders in all",
@@ -493,7 +493,7 @@ const knockoutMeet: QuantPuzzle = {
   difficulty: "Medium",
   problem: problem(
     "knockout-meeting",
-    "128 players are put in a random knockout bracket. Every game knocks one player out, and the better player always wins. You pick two of the players at random. What's the chance they play each other at some point?",
+    "128 players are put in a random knockout bracket. Every game knocks one player out, and the better player always wins. You pick two of the players at random. What’s the chance they play each other at some point?",
     q(1, 64),
     "probability",
     [
@@ -531,15 +531,15 @@ const bestTwoFinal: QuantPuzzle = {
   difficulty: "Medium",
   problem: problem(
     "best-two-final",
-    "128 players are put in a random knockout bracket, and the better player always wins. What's the chance the two best players meet in the final?",
+    "128 players are put in a random knockout bracket, and the better player always wins. What’s the chance the two best players meet in the final?",
     q(64, 127),
     "probability",
     [
       {
-        label: "They meet in the final when they're in different halves",
+        label: "They meet in the final when they’re in different halves",
         work: "each then beats everyone in their half",
         icon: "split",
-        explain: "The best two lose to no one else. If they're in different halves they both reach the final; in the same half they meet earlier.",
+        explain: "The best two lose to no one else. If they’re in different halves they both reach the final; in the same half they meet earlier.",
         visual: { type: "tree", root: bracket({ left: "hit", right: "alt" }), caption: "The two halves of the bracket." },
       },
       {
@@ -552,7 +552,7 @@ const bestTwoFinal: QuantPuzzle = {
         label: "Chance",
         work: "64 ÷ 127",
         icon: "divide",
-        explain: "64 of those 127 spots are in the half the best player isn't in.",
+        explain: "64 of those 127 spots are in the half the best player isn’t in.",
       },
     ],
     {},
@@ -568,7 +568,7 @@ const cardAfterFirstAce: QuantPuzzle = {
   difficulty: "Hard",
   problem: problem(
     "card-after-first-ace",
-    "You shuffle a deck and turn the cards over one at a time until the first ace appears. What's the chance the very next card is the king of hearts?",
+    "You shuffle a deck and turn the cards over one at a time until the first ace appears. What’s the chance the very next card is the king of hearts?",
     q(1, 52),
     "probability",
     [
@@ -667,7 +667,7 @@ const straight: QuantPuzzle = {
     "count",
     [
       {
-        label: "Choose the lowest card's rank",
+        label: "Choose the lowest card’s rank",
         work: "A, 2, 3, … up to 10",
         result: "10",
         icon: "count",
@@ -693,7 +693,7 @@ const straight: QuantPuzzle = {
         label: "Take off the ones all in one suit",
         work: "10 × 1,024 − 10 × 4",
         icon: "subtract",
-        explain: "10 ranks × 4 suits = 40 hands are straight flushes, which don't count. That leaves a chance of about 0.39%.",
+        explain: "10 ranks × 4 suits = 40 hands are straight flushes, which don’t count. That leaves a chance of about 0.39%.",
       },
     ],
     {},
@@ -714,13 +714,13 @@ const spinnerRace: QuantPuzzle = {
   difficulty: "Medium",
   problem: problem(
     "spinner-race",
-    "A spinner has 7 equal spots numbered 1 to 7. You spin it again and again. What's the chance a 5 comes up twice before either a 4 or a 6 comes up even once?",
+    "A spinner has 7 equal spots numbered 1 to 7. You spin it again and again. What’s the chance a 5 comes up twice before either a 4 or a 6 comes up even once?",
     q(1, 9),
     "probability",
     [
       {
-        label: "Ignore spins that aren't 4, 5 or 6",
-        work: "they don't change anything",
+        label: "Ignore spins that aren’t 4, 5 or 6",
+        work: "they don’t change anything",
         icon: "filter",
         explain: "A 1, 2, 3 or 7 just means you spin again. Only spins of 4, 5 or 6 move the race on.",
         visual: {
@@ -743,7 +743,7 @@ const spinnerRace: QuantPuzzle = {
         label: "The first two spins that count are both 5s",
         work: "1/3 × 1/3",
         icon: "multiply",
-        explain: "You win only if the first two spins that count are 5s. Those spins don't affect each other, so multiply.",
+        explain: "You win only if the first two spins that count are 5s. Those spins don’t affect each other, so multiply.",
         visual: {
           type: "tree",
           root: {

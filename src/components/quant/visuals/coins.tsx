@@ -37,7 +37,7 @@ export function CoinsFigure({ visual }: { visual: Coins }) {
           }
           const tone = visual.tones?.[i] ?? "muted";
           return (
-            <g key={i}>
+            <g key={i} className="quant-pop" style={{ animationDelay: `${i * 40}ms` }}>
               <circle
                 cx={cx}
                 cy={cy}

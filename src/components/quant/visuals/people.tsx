@@ -3,18 +3,23 @@ import { TONE_FILL } from "@/components/quant/visuals/tones";
 
 type People = Extract<QuantVisual, { type: "people" }>;
 
-const FADE = { transition: "fill 250ms ease, opacity 250ms ease" };
+/** Colour changes sweep across the grid in reading order, and icons glide to new places. */
+const sweep = (i: number) => {
+  const delay = `${Math.min(i * 4, 360)}ms`;
+  return { transition: `fill 320ms ease ${delay}, transform 520ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}` };
+};
 
 /** Icons are small, so "known" needs more ink than the shared wash to stand apart from unmarked. */
 const fillOf = (tone: Tone) => (tone === "known" ? "color-mix(in oklab, var(--foreground) 34%, transparent)" : TONE_FILL[tone]);
 
 /** One person: a round head over rounded shoulders, centred at (x, y) in a 16×18 box. */
-function Person({ x, y, tone }: { x: number; y: number; tone: Tone }) {
+function Person({ x, y, tone, index }: { x: number; y: number; tone: Tone; index: number }) {
   const fill = fillOf(tone);
+  const style = sweep(index);
   return (
-    <g>
-      <circle cx={x} cy={y - 4.5} r={3.6} fill={fill} style={FADE} />
-      <path d={`M ${x - 6} ${y + 8} a 6 6.5 0 0 1 12 0 z`} fill={fill} style={FADE} />
+    <g className="quant-pop" style={{ transform: `translate(${x}px, ${y}px)`, ...style, animationDelay: `${Math.min(index * 3, 300)}ms` }}>
+      <circle cx={0} cy={-4.5} r={3.6} fill={fill} style={style} />
+      <path d="M -6 8 a 6 6.5 0 0 1 12 0 z" fill={fill} style={style} />
     </g>
   );
 }
@@ -25,8 +30,8 @@ function Person({ x, y, tone }: { x: number; y: number; tone: Tone }) {
  */
 export function PeopleFigure({ visual }: { visual: People }) {
   const each = visual.each ?? 1;
-  const icons = visual.groups.flatMap((group, g) =>
-    Array.from({ length: Math.round(group.count / each) }, (_, i) => ({ tone: group.tone, key: `${g}-${i}` })),
+  const icons = visual.groups.flatMap((group) =>
+    Array.from({ length: Math.round(group.count / each) }, () => group.tone),
   );
   const cols = icons.length > 50 ? 20 : 10;
   const rows = Math.ceil(icons.length / cols);
@@ -43,7 +48,8 @@ export function PeopleFigure({ visual }: { visual: People }) {
   }));
   const legendRows: (typeof legend)[] = [];
   // Wrap the legend when it's wider than the grid.
-  const maxW = Math.max(gridW, 300);
+  // At least the width of a full 20-wide grid, so a figure that shrinks keeps its scale.
+  const maxW = Math.max(gridW, 344);
   let row: typeof legend = [];
   let rowX = 2;
   for (const item of legend) {
@@ -65,15 +71,17 @@ export function PeopleFigure({ visual }: { visual: People }) {
   const total = visual.groups.reduce((sum, g) => sum + g.count, 0);
 
   return (
-    <figure className="mx-auto w-full" style={{ maxWidth: Math.min(560, width * 1.4) }}>
+    <figure className="mx-auto w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={`${total.toLocaleString("en-US")} people: ${visual.groups.map((g) => `${g.count} ${g.label}`).join(", ")}`}
-        style={{ width: "100%", height: "auto", maxHeight: 280, fontFamily: "inherit" }}
+        // A fixed scale (shrunk only to fit a phone), so icons keep their size when the groups change.
+        style={{ display: "block", margin: "0 auto", width: width * 1.2, maxWidth: "100%", height: "auto", fontFamily: "inherit" }}
       >
-        {icons.map((icon, i) => (
-          <Person key={icon.key} x={(width - gridW) / 2 + stepX / 2 + (i % cols) * stepX} y={11 + Math.floor(i / cols) * stepY} tone={icon.tone} />
+        {/* Keyed by position, so when the groups change each icon recolours or moves instead of redrawing. */}
+        {icons.map((tone, i) => (
+          <Person key={i} index={i} x={(width - gridW) / 2 + stepX / 2 + (i % cols) * stepX} y={11 + Math.floor(i / cols) * stepY} tone={tone} />
         ))}
         {legendRows.map((items, r) => (
           <g key={`row-${r}`}>

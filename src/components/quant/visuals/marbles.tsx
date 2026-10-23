@@ -56,7 +56,7 @@ export function MarblesFigure({ visual }: { visual: Marbles }) {
           return slot.removed ? (
             <circle key={slot.key} cx={cx} cy={cy} r={r - 1} fill="none" stroke="var(--muted-foreground)" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.55} />
           ) : (
-            <circle key={slot.key} cx={cx} cy={cy} r={r} fill={TONE_FILL[slot.tone]} style={FADE} />
+            <circle key={slot.key} cx={cx} cy={cy} r={r} fill={TONE_FILL[slot.tone]} className="quant-pop" style={{ ...FADE, animationDelay: `${Math.min(i * 22, 400)}ms` }} />
           );
         })}
 

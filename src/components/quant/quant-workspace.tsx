@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CS
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, BookOpen, ListChecks, Puzzle, Check, ChevronLeft, CircleDashed, ChevronRight, Clock, Lightbulb, List, Lock, Play, RotateCcw, Sparkles, X } from "lucide-react";
+import { BookOpen, ListChecks, Puzzle, Check, ChevronLeft, CircleDashed, ChevronRight, Clock, Lightbulb, List, Lock, Play, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { runEnter, snapSpring } from "@/lib/motion";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,23 +16,22 @@ import {
   QUANT_LESSONS,
   QUANT_MASTERY_FIRST_TRY,
   QUANT_SOLO,
-  QUANT_TOPICS,
   createFamilyProblem,
   createQuantLessonProblems,
   getQuantLesson,
   isFreeQuantLesson,
   isQuantLessonMastered,
-  type QuantLesson,
   type QuantLessonId,
   type QuantProblem,
 } from "@/lib/quant/lessons";
 import { formatAnswer, isRightAnswer, type AnswerKind } from "@/lib/quant/rational";
 import { useQuantProgress } from "@/components/quant/quant-list";
-import { DifficultyLabel, DifficultyPill } from "@/components/quant/difficulty";
+import { DifficultyLabel } from "@/components/quant/difficulty";
 import { Walkthrough } from "@/components/quant/walkthrough";
 import { QuantFigure } from "@/components/quant/visuals";
 import { StepIcon } from "@/components/quant/step-icon";
 import { AnswerBox } from "@/components/quant/answer-box";
+import { LessonReader } from "@/components/quant/lesson-reader";
 import { markPuzzle, markType, usePuzzleMarks, useTypeMarks } from "@/components/quant/type-progress";
 
 /** How long a right answer stays on screen before the next question. */
@@ -112,75 +111,6 @@ function Pane({ header, children, className, style }: { header: ReactNode; child
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2 max-md:hidden">{header}</div>
       <div className="min-h-0 flex-1 md:overflow-y-auto">{children}</div>
     </section>
-  );
-}
-
-function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
-  return (
-    <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-      <span aria-hidden="true" className="text-muted-foreground">
-        {icon}
-      </span>
-      {children}
-    </h2>
-  );
-}
-
-/** The lesson itself: why it works, the rule, when to use it, a worked example and the usual mistake. */
-function LessonTab({ lesson }: { lesson: QuantLesson }) {
-  const topic = QUANT_TOPICS.find((t) => t.id === lesson.topic)!;
-  const free = isFreeQuantLesson(lesson.id);
-  return (
-    <article className="space-y-8 px-5 py-6 sm:px-6">
-      <header>
-        <p className="text-[13px] font-medium text-muted-foreground">
-          Unit {topic.number} · {topic.title}
-        </p>
-        <h1 className="mt-1.5 text-[28px] font-semibold leading-tight tracking-[-0.03em]">{lesson.title}</h1>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <DifficultyPill difficulty={lesson.difficulty} />
-          <span className="rounded-full bg-control px-2.5 py-0.5 text-[13px] font-medium text-muted-foreground">{free ? "Free" : "Pro"}</span>
-        </div>
-        <p className="mt-5 text-[17px] leading-7">{lesson.intro}</p>
-      </header>
-
-      <section aria-labelledby="rule" className="space-y-3">
-        <SectionTitle icon={<Sparkles className="h-4 w-4" />}>
-          <span id="rule">The rule</span>
-        </SectionTitle>
-        <p className="rounded-[18px] bg-secondary px-5 py-4 text-[19px] font-semibold leading-7 tracking-[-0.01em]">{lesson.formula}</p>
-        <p className="text-[15px] leading-6 text-muted-foreground">{lesson.idea}</p>
-      </section>
-
-      <section aria-labelledby="cues" className="space-y-3">
-        <SectionTitle icon={<Lightbulb className="h-4 w-4" />}>
-          <span id="cues">Use it when</span>
-        </SectionTitle>
-        <ul className="space-y-2">
-          {lesson.cues.map((cue) => (
-            <li key={cue} className="flex gap-2.5 text-[15px] leading-6">
-              <Check aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-success" strokeWidth={2.5} />
-              {cue}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section aria-labelledby="example" className="space-y-3">
-        <SectionTitle icon={<BookOpen className="h-4 w-4" />}>
-          <span id="example">Example</span>
-        </SectionTitle>
-        <p className="text-[17px] leading-7">{lesson.example.prompt}</p>
-        <Walkthrough problem={lesson.example} />
-      </section>
-
-      <section aria-labelledby="mistake" className="space-y-3">
-        <SectionTitle icon={<AlertTriangle className="h-4 w-4" />}>
-          <span id="mistake">Watch out</span>
-        </SectionTitle>
-        <p className="rounded-[18px] bg-secondary px-5 py-4 text-[15px] leading-6">{lesson.mistake}</p>
-      </section>
-    </article>
   );
 }
 
@@ -861,7 +791,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
           style={{ "--split": `${split}%` } as CSSProperties}
           className={cn("min-w-0 shrink-0 md:w-[var(--split)]", mobileTab === "practice" && "max-md:hidden")}
           header={<Tabs id="left" value={leftTab} onChange={setLeftTab} tabs={leftTabs} />}>
-          {leftTab === "lesson" ? <LessonTab lesson={lesson} /> : leftTab === "questions" ? questionsBody : walkthroughBody}
+          {leftTab === "lesson" ? <LessonReader lesson={lesson} onPractice={() => (run || lessonLocked ? setMobileTab("practice") : start())} /> : leftTab === "questions" ? questionsBody : walkthroughBody}
         </Pane>
         <div
           role="separator"
