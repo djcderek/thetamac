@@ -4,6 +4,7 @@ import { Check, ArrowLeft } from "lucide-react";
 
 import { getCurrentUserPremiumStatus, subscriptionNeedsAttention } from "@/lib/subscription";
 import { getUpgradeUrl, type UpgradeFeature } from "@/lib/upgrade";
+import { QUANT_LESSONS } from "@/lib/quant/lessons";
 
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
@@ -53,7 +54,7 @@ const proFeatures = [
   "Today: a daily five minutes built from your own misses and slow spots",
   "Review: your past misses come back until they stick",
   "All 12 Learning lessons",
-  "All 13 quant lessons: probability, expected value and betting maths",
+  `All ${QUANT_LESSONS.length} quant lessons, including harder interview problems`,
   "Advanced analytics & charts",
   "Weak point training",
   "Skill breakdowns & trends",

@@ -26,12 +26,13 @@ export const QUANT_SET_SIZE = QUANT_GUIDED + QUANT_SOLO;
 /** Solo problems right first time (within the target time) to master a lesson. */
 export const QUANT_MASTERY_FIRST_TRY = QUANT_SOLO - 1;
 
-export type QuantTopic = "probability" | "expected-value" | "betting";
+export type QuantTopic = "probability" | "expected-value" | "betting" | "harder";
 
 export const QUANT_TOPICS: { id: QuantTopic; title: string; blurb: string }[] = [
   { id: "probability", title: "Probability", blurb: "How likely something is to happen." },
   { id: "expected-value", title: "Expected value", blurb: "What something is worth on average." },
   { id: "betting", title: "Betting maths", blurb: "Whether a bet is good, and how much to bet." },
+  { id: "harder", title: "Harder problems", blurb: "Multi-step questions from trading interviews." },
 ];
 
 /** One line of working: "Pot after your call: 60 + 20 + 20 = 100". */
@@ -62,6 +63,12 @@ export const QUANT_LESSON_IDS = [
   "pot-odds",
   "house-edge",
   "kelly",
+  "combinations",
+  "meeting-problem",
+  "highest-lowest",
+  "coupon-collector",
+  "pattern-wait",
+  "gamblers-ruin",
 ] as const;
 
 export type QuantLessonId = (typeof QUANT_LESSON_IDS)[number];
@@ -680,6 +687,237 @@ const KELLY_BETS = [
   [55, 1], [60, 1], [65, 1], [70, 1], [75, 1], [40, 2], [50, 2], [60, 2], [30, 3], [40, 3], [25, 4], [30, 4], [20, 5],
 ] as const;
 
+// ─── Harder problems ────────────────────────────────────────────────────────────────────
+
+/** 2598960 → "2,598,960". */
+const commas = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+const SUPERSCRIPTS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+const sup = (n: number) => String(n).replace(/\d/g, (digit) => SUPERSCRIPTS[Number(digit)]);
+
+export function choose(n: number, k: number): number {
+  if (k < 0 || k > n) return 0;
+  let result = 1;
+  for (let i = 1; i <= k; i++) result = (result * (n - k + i)) / i;
+  return Math.round(result);
+}
+
+type CombinationsParams =
+  | { type: "hearts"; cards: number; hearts: number }
+  | { type: "heads"; flips: number; heads: number }
+  | { type: "team"; men: number; women: number; size: number; picked: number };
+
+function combinations(params: CombinationsParams): QuantProblem {
+  if (params.type === "hearts") {
+    const { cards, hearts } = params;
+    const good = choose(13, hearts) * choose(39, cards - hearts);
+    const all = choose(52, cards);
+    return problem(
+      `hearts-${cards}-${hearts}`,
+      `You're dealt ${cards} cards from a shuffled deck. What's the chance exactly ${hearts} ${hearts === 1 ? "is a heart" : "are hearts"}?`,
+      q(good, all),
+      // Hand counts reduce to unwieldy fractions (9139/33320), so these ask for a percentage.
+      "percent",
+      [
+        {
+          label: `Hands with ${hearts} ${hearts === 1 ? "heart" : "hearts"}`,
+          work: `C(13, ${hearts}) × C(39, ${cards - hearts}) = ${commas(choose(13, hearts))} × ${commas(choose(39, cards - hearts))}`,
+          result: commas(good),
+        },
+        { label: `All ${cards}-card hands`, work: `C(52, ${cards})`, result: commas(all) },
+        { label: "Chance", work: `${commas(good)} ÷ ${commas(all)}` },
+      ],
+      params,
+    );
+  }
+  if (params.type === "heads") {
+    const { flips, heads } = params;
+    const ways = choose(flips, heads);
+    return problem(
+      `heads-${flips}-${heads}`,
+      `You flip a fair coin ${flips} times. What's the chance of exactly ${heads} ${heads === 1 ? "head" : "heads"}?`,
+      q(ways, 2 ** flips),
+      "probability",
+      [
+        { label: `Ways to place ${heads} ${heads === 1 ? "head" : "heads"}`, work: `C(${flips}, ${heads})`, result: `${ways}` },
+        { label: "All outcomes", work: `2${sup(flips)}`, result: `${2 ** flips}` },
+        { label: "Chance", work: `${ways}/${2 ** flips}` },
+      ],
+      params,
+    );
+  }
+  const { men, women, size, picked } = params;
+  const good = choose(women, picked) * choose(men, size - picked);
+  const all = choose(men + women, size);
+  return problem(
+    `team-${men}-${women}-${size}-${picked}`,
+    `A team of ${size} is picked at random from ${men} men and ${women} women. What's the chance it has exactly ${picked} ${picked === 1 ? "woman" : "women"}?`,
+    q(good, all),
+    "probability",
+    [
+      {
+        label: `Teams with ${picked} ${picked === 1 ? "woman" : "women"}`,
+        work: `C(${women}, ${picked}) × C(${men}, ${size - picked}) = ${choose(women, picked)} × ${choose(men, size - picked)}`,
+        result: `${good}`,
+      },
+      { label: "All teams", work: `C(${men + women}, ${size})`, result: `${all}` },
+      { label: "Chance", work: `${good}/${all}` },
+    ],
+    params,
+  );
+}
+
+function meetingProblem(params: { window: number; wait: number }): QuantProblem {
+  const { window, wait } = params;
+  const gap = window - wait;
+  const miss = q(gap * gap, window * window);
+  const span = window === 60 ? "within the same hour" : "within the same half hour";
+  return problem(
+    `meet-${window}-${wait}`,
+    `Two friends each arrive at a random time ${span}. Whoever comes first waits ${wait} minutes, then leaves. What's the chance they meet?`,
+    sub(q(1), miss),
+    "probability",
+    [
+      { label: `Chance they arrive over ${wait} min apart`, work: `(${gap}/${window})²`, result: formatFraction(miss) },
+      { label: "Chance they meet", work: `1 − ${formatFraction(miss)}` },
+    ],
+    params,
+  );
+}
+
+function highestOrLowest(params: { type: "highest" | "lowest"; dice: number; sides: number }): QuantProblem {
+  const { type, dice, sides } = params;
+  // Ways the highest is k: all dice ≤ k, minus all dice ≤ k − 1 (the lowest mirrors it).
+  const ways = Array.from({ length: sides }, (_, i) => i + 1).map((k) => {
+    const atMost = type === "highest" ? k : sides - k + 1;
+    return atMost ** dice - (atMost - 1) ** dice;
+  });
+  const total = sides ** dice;
+  const sum = ways.reduce((acc, w, i) => acc + (i + 1) * w, 0);
+  const power = sup(dice);
+  return problem(
+    `${type}-${dice}-${sides}`,
+    `You roll ${dice === 2 ? "two" : "three"} fair ${sides}-sided dice. What's the ${type} roll on average?`,
+    q(sum, total),
+    "number",
+    [
+      {
+        label: `Ways the ${type} is k`,
+        work: type === "highest" ? `k${power} − (k − 1)${power}` : `(${sides + 1} − k)${power} − (${sides} − k)${power}`,
+      },
+      { label: `Ways for k = 1 to ${sides}`, work: ways.join(", "), result: "" },
+      { label: "Average", work: `(${ways.map((w, i) => `${i + 1}×${w}`).join(" + ")}) ÷ ${total}` },
+    ],
+    params,
+  );
+}
+
+const COLLECTIONS: { id: string; sides: number; prompt: string }[] = [
+  ...[3, 4, 6, 8, 10, 12].map((sides) => ({
+    id: `die-${sides}`,
+    sides,
+    prompt: `You roll a fair ${sides}-sided die until every face has come up at least once. How many rolls do you expect it to take?`,
+  })),
+  {
+    id: "suits",
+    sides: 4,
+    prompt: "You draw a card, note its suit, and put it back, until you've seen all four suits. How many draws do you expect it to take?",
+  },
+  ...[3, 5].map((sides) => ({
+    id: `prizes-${sides}`,
+    sides,
+    prompt: `Each cereal box holds one of ${sides} toys, all equally likely. How many boxes do you expect to open to get every toy?`,
+  })),
+];
+
+function collectThemAll(params: { collection: string }): QuantProblem {
+  const collection = COLLECTIONS.find((c) => c.id === params.collection)!;
+  const n = collection.sides;
+  let expected = q(0);
+  for (let k = 1; k <= n; k++) expected = add(expected, q(n, k));
+  const harmonic = n <= 6
+    ? Array.from({ length: n }, (_, i) => (i === 0 ? "1" : `1/${i + 1}`)).join(" + ")
+    : `1 + 1/2 + … + 1/${n}`;
+  return problem(
+    `collect-${collection.id}`,
+    collection.prompt,
+    expected,
+    "number",
+    [
+      { label: `With k of ${n} seen, a new one takes`, work: `${n} ÷ (${n} − k) tries on average`, result: "" },
+      { label: `Add them for k = 0 to ${n - 1}`, work: `${n} × (${harmonic})` },
+    ],
+    params,
+  );
+}
+
+/** Lengths k where the pattern's first k symbols match its last k (the whole pattern counts). */
+export function patternOverlaps(pattern: string[]) {
+  return Array.from({ length: pattern.length }, (_, i) => i + 1).filter((k) =>
+    pattern.slice(0, k).every((symbol, i) => symbol === pattern[pattern.length - k + i]),
+  );
+}
+
+function patternWait(params: { type: "coin" | "die"; pattern: string }): QuantProblem {
+  const symbols = params.pattern.split(" ");
+  const base = params.type === "coin" ? 2 : 6;
+  const overlaps = patternOverlaps(symbols);
+  const expected = overlaps.reduce((sum, k) => sum + base ** k, 0);
+  const shown = (k: number) => symbols.slice(0, k).join(" ");
+  const prompt =
+    params.type === "coin"
+      ? `You flip a fair coin until the last ${symbols.length} flips are ${params.pattern}. How many flips do you expect it to take?`
+      : `You roll a fair die until the last ${symbols.length} rolls are ${params.pattern}. How many rolls do you expect it to take?`;
+  return problem(
+    `pattern-${params.type}-${symbols.join("")}`,
+    prompt,
+    q(expected),
+    "number",
+    [
+      { label: "Where the start matches the end", work: overlaps.map((k) => `${shown(k)}`).join(", "), result: "" },
+      { label: `Add ${base} to the power of each length`, work: overlaps.map((k) => `${base}${sup(k)}`).join(" + ") },
+    ],
+    params,
+  );
+}
+
+function gamblersRuin(params: { start: number; target: number; winN: number; winD: number; ask: "reach" | "broke" }): QuantProblem {
+  const { start, target, ask } = params;
+  const win = q(params.winN, params.winD);
+  const fair = win.n * 2 === win.d;
+  const chanceText = fair ? "fair coin flips" : `bets that each win with chance ${formatFraction(win)}`;
+  const prompt = `You have $${start} and bet $1 at a time on ${chanceText}. You stop when you reach $${target} or go broke. What's the chance you ${ask === "reach" ? `reach $${target}` : "go broke"}?`;
+  let reach: Rational;
+  const steps: { label: string; work: string; result?: string }[] = [];
+  if (fair) {
+    reach = q(start, target);
+    steps.push({ label: "Fair bets: start ÷ target", work: `${start} ÷ ${target}`, result: formatFraction(reach) });
+  } else {
+    const r = div(sub(q(1), win), win);
+    reach = div(sub(pow(r, start), q(1)), sub(pow(r, target), q(1)));
+    const rText = formatFraction(r);
+    steps.push({ label: "r = lose chance ÷ win chance", work: `${formatFraction(sub(q(1), win))} ÷ ${formatFraction(win)}`, result: rText });
+    steps.push({
+      label: `Chance to reach $${target}`,
+      work: `(r${sup(start)} − 1) ÷ (r${sup(target)} − 1)`,
+      result: formatFraction(reach),
+    });
+  }
+  if (ask === "broke") steps.push({ label: "Chance to go broke", work: `1 − ${formatFraction(reach)}` });
+  return problem(
+    `ruin-${start}-${target}-${params.winN}-${params.winD}-${ask}`,
+    prompt,
+    ask === "reach" ? reach : sub(q(1), reach),
+    "probability",
+    steps,
+    params,
+  );
+}
+
+const COIN_PATTERNS = ["H H", "H T", "T T", "H H H", "H H T", "H T H", "H T T", "T H H", "H H H H", "H T H T", "H H T H", "H T T H"];
+const DIE_PATTERNS = ["6 6", "6 1", "6 6 6", "6 1 6", "1 2 3"];
+const RUIN_ODDS = [[1, 2], [1, 2], [2, 5], [3, 5], [1, 3], [2, 3], [9, 20]] as const;
+
 export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "count-outcomes",
@@ -866,6 +1104,96 @@ export const QUANT_LESSONS: QuantLesson[] = [
     generate: (random) => {
       const [winPercent, pays] = pick(random, KELLY_BETS);
       return kelly({ winPercent, pays });
+    },
+  },
+  {
+    id: "combinations",
+    topic: "harder",
+    title: "Combinations",
+    benefit: "Find the chance of a hand or a team",
+    idea: "C(n, k), said “n choose k”, is the number of ways to pick k things from n. The chance is the good picks ÷ all picks.",
+    targetSeconds: 60,
+    example: combinations({ type: "hearts", cards: 5, hearts: 2 }),
+    generate: (random) =>
+      pick(random, [
+        () => {
+          const cards = int(random, 3, 6);
+          // At most 3 hearts, so the chance stays above 1% and types cleanly.
+          return combinations({ type: "hearts", cards, hearts: int(random, 1, Math.min(cards - 1, 3)) });
+        },
+        () => {
+          const flips = int(random, 4, 10);
+          const edge = flips >= 8 ? 2 : 1;
+          return combinations({ type: "heads", flips, heads: int(random, edge, flips - edge) });
+        },
+        () => {
+          const men = int(random, 3, 7), women = int(random, 3, 7), size = int(random, 3, 5);
+          return combinations({ type: "team", men, women, size, picked: int(random, Math.max(1, size - men), Math.min(size - 1, women)) });
+        },
+      ])(),
+  },
+  {
+    id: "meeting-problem",
+    topic: "harder",
+    title: "The meeting problem",
+    benefit: "Find the chance two people meet",
+    idea: "Draw both arrival times as a square. They miss when they arrive too far apart, which is two corner triangles. Chance they meet = 1 − the triangles’ share.",
+    targetSeconds: 45,
+    example: meetingProblem({ window: 60, wait: 15 }),
+    generate: (random) =>
+      random() < 0.7
+        ? meetingProblem({ window: 60, wait: pick(random, [5, 10, 12, 20, 24, 30, 36, 40, 45]) })
+        : meetingProblem({ window: 30, wait: pick(random, [5, 6, 10, 12, 15, 20]) }),
+  },
+  {
+    id: "highest-lowest",
+    topic: "harder",
+    title: "Highest and lowest rolls",
+    benefit: "Find the average highest or lowest roll",
+    idea: "Count the ways the highest roll is each value k. The average is each value times its ways, added up, then divided by all the ways.",
+    targetSeconds: 60,
+    example: highestOrLowest({ type: "highest", dice: 2, sides: 6 }),
+    generate: (random) => {
+      const dice = random() < 0.6 ? 2 : 3;
+      const sides = pick(random, dice === 2 ? [4, 6, 8, 10] : [4, 6, 8]);
+      return highestOrLowest({ type: random() < 0.6 ? "highest" : "lowest", dice, sides });
+    },
+  },
+  {
+    id: "coupon-collector",
+    topic: "harder",
+    title: "The coupon collector",
+    benefit: "Find the rolls needed to see every face",
+    idea: "Once you’ve seen k of n faces, a new one comes up with chance (n − k) ÷ n, so it takes n ÷ (n − k) rolls on average. Add these up.",
+    targetSeconds: 45,
+    example: collectThemAll({ collection: "die-6" }),
+    generate: (random) => collectThemAll({ collection: pick(random, COLLECTIONS).id }),
+  },
+  {
+    id: "pattern-wait",
+    topic: "harder",
+    title: "Waiting for a pattern",
+    benefit: "Find the average flips until HTH shows",
+    idea: "Find every length where the pattern’s start matches its end, including the whole pattern. For a coin, add 2 to the power of each length; for a die, 6.",
+    targetSeconds: 45,
+    example: patternWait({ type: "coin", pattern: "H T H" }),
+    generate: (random) =>
+      random() < 0.75
+        ? patternWait({ type: "coin", pattern: pick(random, COIN_PATTERNS) })
+        : patternWait({ type: "die", pattern: pick(random, DIE_PATTERNS) }),
+  },
+  {
+    id: "gamblers-ruin",
+    topic: "harder",
+    title: "Gambler’s ruin",
+    benefit: "Find the chance a gambler goes broke",
+    idea: "With fair bets, the chance of reaching the target is start ÷ target. With unfair bets, let r = lose chance ÷ win chance. Starting with $a and aiming for $N, the chance is (rᵃ − 1) ÷ (rᴺ − 1).",
+    targetSeconds: 60,
+    example: gamblersRuin({ start: 3, target: 6, winN: 2, winD: 5, ask: "reach" }),
+    generate: (random) => {
+      const [winN, winD] = pick(random, RUIN_ODDS);
+      const target = int(random, 4, 8);
+      return gamblersRuin({ start: int(random, 1, target - 1), target, winN, winD, ask: random() < 0.5 ? "reach" : "broke" });
     },
   },
 ];

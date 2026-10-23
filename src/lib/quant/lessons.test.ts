@@ -7,6 +7,7 @@ import {
   QUANT_SET_SIZE,
   QUANT_SOLO,
   createQuantLessonProblems,
+  patternOverlaps,
   getQuantLesson,
   isQuantLessonMastered,
   type QuantProblem,
@@ -204,8 +205,116 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       }
       return (low + high) / 2;
     }
+    case "combinations": {
+      if (p.type === "heads") return share(sequences(["H", "T"], +p.flips), (f) => f.filter((x) => x === "H").length === +p.heads);
+      if (p.type === "team") {
+        // Every unordered team, by walking all subsets of the people.
+        const people = [...Array(+p.women).fill("w"), ...Array(+p.men).fill("m")];
+        const teams: string[][] = [];
+        for (let mask = 0; mask < 1 << people.length; mask++) {
+          const team = people.filter((_, i) => mask & (1 << i));
+          if (team.length === +p.size) teams.push(team);
+        }
+        return share(teams, (team) => team.filter((x) => x === "w").length === +p.picked);
+      }
+      // Deal card by card, tracking how many hearts are out (no counting formulas).
+      let dist = new Map([[0, 1]]);
+      for (let dealt = 0; dealt < +p.cards; dealt++) {
+        const next = new Map<number, number>();
+        for (const [hearts, chance] of dist) {
+          const left = 52 - dealt, heartsLeft = 13 - hearts;
+          next.set(hearts + 1, (next.get(hearts + 1) ?? 0) + (chance * heartsLeft) / left);
+          next.set(hearts, (next.get(hearts) ?? 0) + (chance * (left - heartsLeft)) / left);
+        }
+        dist = next;
+      }
+      return dist.get(+p.hearts) ?? 0;
+    }
+    case "meeting-problem": {
+      // Integrate the meeting chance over the first arrival time, piece by linear piece.
+      const window = +p.window, wait = +p.wait;
+      const meetLength = (x: number) => Math.min(window, x + wait) - Math.max(0, x - wait);
+      const cuts = [0, wait, window - wait, window].sort((a, b) => a - b);
+      let area = 0;
+      for (let i = 0; i < cuts.length - 1; i++) area += ((meetLength(cuts[i]) + meetLength(cuts[i + 1])) / 2) * (cuts[i + 1] - cuts[i]);
+      return area / (window * window);
+    }
+    case "highest-lowest": {
+      const rolls = sequences(faces(+p.sides), +p.dice);
+      const pickRoll = (r: number[]) => (p.type === "highest" ? Math.max(...r) : Math.min(...r));
+      return rolls.reduce((sum, r) => sum + pickRoll(r), 0) / rolls.length;
+    }
+    case "coupon-collector": {
+      // E[T] = sum over t of P(not every face seen after t rolls), by inclusion–exclusion.
+      const n = +String(p.collection).split("-").at(-1)! || 4;
+      let expected = 0;
+      for (let t = 0; t < 3000; t++) {
+        let notAll = 0;
+        for (let j = 1; j <= n; j++) notAll += (j % 2 ? 1 : -1) * choose(n, j) * (1 - j / n) ** t;
+        expected += notAll;
+      }
+      return expected;
+    }
+    case "pattern-wait": {
+      // Solve the waiting-time equations over "how much of the pattern is matched" states.
+      const pattern = String(p.pattern).split(" ");
+      const alphabet = p.type === "coin" ? ["H", "T"] : faces(6).map(String);
+      const step = (matched: number, symbol: string) => {
+        const seen = [...pattern.slice(0, matched), symbol];
+        for (let k = Math.min(seen.length, pattern.length); k > 0; k--) {
+          if (seen.slice(seen.length - k).every((s, i) => s === pattern[i])) return k;
+        }
+        return 0;
+      };
+      const size = pattern.length;
+      // E[m] = 1 + average of E[next]; E[size] = 0. As a linear system A·E = b.
+      const a = Array.from({ length: size }, () => Array(size).fill(0));
+      const b = Array(size).fill(1);
+      for (let m = 0; m < size; m++) {
+        a[m][m] += 1;
+        for (const symbol of alphabet) {
+          const next = step(m, symbol);
+          if (next < size) a[m][next] -= 1 / alphabet.length;
+        }
+      }
+      return solve(a, b)[0];
+    }
+    case "gamblers-ruin": {
+      // Solve P[i] = win·P[i+1] + lose·P[i−1] with P[0] = 0, P[target] = 1.
+      const target = +p.target, win = +p.winN / +p.winD;
+      const size = target + 1;
+      const a = Array.from({ length: size }, () => Array(size).fill(0));
+      const b = Array(size).fill(0);
+      a[0][0] = 1;
+      a[target][target] = 1;
+      b[target] = 1;
+      for (let i = 1; i < target; i++) {
+        a[i][i] = 1;
+        a[i][i + 1] = -win;
+        a[i][i - 1] = -(1 - win);
+      }
+      const reach = solve(a, b)[+p.start];
+      return p.ask === "reach" ? reach : 1 - reach;
+    }
   }
   throw new Error(`No check for ${lessonId}`);
+}
+
+/** Gaussian elimination with partial pivoting. */
+function solve(a: number[][], b: number[]): number[] {
+  const n = b.length;
+  const m = a.map((row, i) => [...row, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let pivot = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(m[r][col]) > Math.abs(m[pivot][col])) pivot = r;
+    [m[col], m[pivot]] = [m[pivot], m[col]];
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const factor = m[r][col] / m[col][col];
+      for (let c = col; c <= n; c++) m[r][c] -= factor * m[col][c];
+    }
+  }
+  return m.map((row, i) => row[n] / row[i]);
 }
 
 function factorial(n: number): number {
@@ -228,7 +337,7 @@ test("every lesson's answers agree with an independent working", () => {
       if (seen.has(problem.key)) continue;
       seen.add(problem.key);
       const expected = independentAnswer(lesson.id, problem);
-      const tolerance = lesson.id === "kelly" ? 1e-6 : 1e-9;
+      const tolerance = lesson.id === "kelly" ? 1e-6 : lesson.id === "coupon-collector" || lesson.id === "pattern-wait" ? 1e-7 : 1e-9;
       assert.ok(Math.abs(value(problem.answer) - expected) < tolerance, `${lesson.id} ${problem.key}: ${value(problem.answer)} vs ${expected}`);
     }
   }
@@ -278,7 +387,7 @@ test("quant lesson IDs never collide with Learning's, since they share the progr
 });
 
 test("the first lesson of each topic is free", () => {
-  assert.deepEqual([...FREE_QUANT_LESSON_IDS], ["count-outcomes", "weigh-the-payouts", "odds-to-chance"]);
+  assert.deepEqual([...FREE_QUANT_LESSON_IDS], ["count-outcomes", "weigh-the-payouts", "odds-to-chance", "combinations"]);
 });
 
 test("mastery needs four of the five solo problems right first time, within the target", () => {
@@ -295,4 +404,11 @@ test("every lesson says what it's for in one short line", () => {
     assert.ok(lesson.benefit.length > 0 && lesson.benefit.length <= 40, `${lesson.id}: "${lesson.benefit}"`);
     assert.ok(!lesson.benefit.endsWith("."), `${lesson.id}: a list line, not a sentence`);
   }
+});
+
+test("pattern overlaps are the lengths where the start matches the end", () => {
+  assert.deepEqual(patternOverlaps(["H", "T", "H"]), [1, 3]);
+  assert.deepEqual(patternOverlaps(["H", "H"]), [1, 2]);
+  assert.deepEqual(patternOverlaps(["H", "T"]), [2]);
+  assert.deepEqual(patternOverlaps(["H", "T", "H", "T"]), [2, 4]);
 });

@@ -24,7 +24,7 @@ import {
   type QuantLessonId,
   type QuantProblem,
 } from "@/lib/quant/lessons";
-import { isRightAnswer } from "@/lib/quant/rational";
+import { isRightAnswer, type AnswerKind } from "@/lib/quant/rational";
 import type { LessonsSummary } from "@/components/training/training-types";
 import { QuantLessonDetail, QuantLessonList } from "@/components/quant/quant-picker";
 import { QuantRun, type QuantPhase } from "@/components/quant/quant-run";
@@ -32,6 +32,13 @@ import { QuantResult, type QuantOutcome } from "@/components/quant/quant-result"
 
 /** How long a right answer stays on screen (with its exact form) before the next problem. */
 const RIGHT_PAUSE_MS = 700;
+/** How a lesson's answers can be typed, by the kind its example asks for. */
+const ANSWER_HINTS: Record<AnswerKind, string> = {
+  probability: "Answer as a fraction, decimal or percent.",
+  percent: "Answer as a percent.",
+  number: "Answer as a number or fraction.",
+  dollars: "Answer in dollars.",
+};
 /** Wrong submits before the answer is shown. */
 const WRONG_TRIES = 2;
 
@@ -328,7 +335,7 @@ export function QuantClient() {
             note={
               isLocked(openLesson.id)
                 ? "This lesson is part of Pro. The first lesson in each topic is free."
-                : `${QUANT_GUIDED + QUANT_SOLO} questions. The first ${QUANT_GUIDED} show the steps. Answer as a fraction, decimal or percent.`
+                : `${QUANT_GUIDED + QUANT_SOLO} questions. The first ${QUANT_GUIDED} show the steps. ${ANSWER_HINTS[openLesson.example.kind]}`
             }
           />
         </motion.div>
@@ -351,7 +358,7 @@ export function QuantClient() {
                   {upgradeLink(
                     "quant_list",
                     undefined,
-                    "Get Pro for all 13",
+                    `Get Pro for all ${QUANT_LESSONS.length}`,
                     "whitespace-nowrap font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground",
                   )}
                 </p>
