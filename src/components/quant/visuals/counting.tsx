@@ -1,104 +1,14 @@
 import type { QuantVisual } from "@/lib/quant/visual";
-import { TONE_FILL, TONE_INK } from "@/components/quant/visuals/tones";
+import { TONE_FILL } from "@/components/quant/visuals/tones";
 
-type Slots = Extract<QuantVisual, { type: "slots" }>;
 type StarsBars = Extract<QuantVisual, { type: "stars-bars" }>;
 type GridPath = Extract<QuantVisual, { type: "grid-path" }>;
 
 const FADE = { transition: "fill 250ms ease, opacity 250ms ease, stroke 250ms ease, stroke-opacity 250ms ease" };
 const svgStyle = { width: "100%", height: "auto", maxHeight: 280, fontFamily: "inherit" } as const;
-const textWidth = (text: string, size: number) => text.length * size * 0.56;
 
 function Caption({ text }: { text?: string }) {
   return text ? <figcaption className="mt-2 text-center text-[13px] text-muted-foreground">{text}</figcaption> : null;
-}
-
-/** Boxes for choices made in steps: a big value in each, its label underneath, joined by × or +. */
-export function SlotsFigure({ visual }: { visual: Slots }) {
-  // Long rows (a 5-character plate) pack tighter so labels stay readable on a phone.
-  const compact = visual.slots.length >= 5;
-  const boxH = compact ? 50 : 58;
-  const gap = compact ? 20 : 30;
-  const valueSize = compact ? 20 : 22;
-  const boxes = visual.slots.map((slot) => ({
-    ...slot,
-    w: Math.max(compact ? 44 : 64, textWidth(slot.value, valueSize) + (compact ? 18 : 28), textWidth(slot.label, 12) + 10),
-  }));
-  const placed: (typeof boxes[number] & { x: number })[] = [];
-  let x = 2;
-  for (const box of boxes) {
-    placed.push({ ...box, x });
-    x += box.w + gap;
-  }
-  const resultText = visual.result ? `= ${visual.result}` : "";
-  const width = x - gap + (resultText ? 14 + textWidth(resultText, valueSize) + 6 : 0) + 2;
-  const height = boxH + 26;
-
-  return (
-    <figure className="mx-auto w-full" style={{ maxWidth: Math.min(600, width * 1.2) }}>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={`${visual.slots.map((s) => `${s.value} ${s.label}`).join(visual.op === "×" ? " times " : visual.op === "+" ? " plus " : ", ")}${
-          visual.result ? ` equals ${visual.result}` : ""
-        }`}
-        style={svgStyle}
-      >
-        {placed.map((box, i) => {
-          const tone = box.tone ?? "muted";
-          return (
-            <g key={i}>
-              <rect
-                x={box.x + 0.75}
-                y={2.75}
-                width={box.w - 1.5}
-                height={boxH - 1.5}
-                rx={10}
-                fill={TONE_FILL[tone]}
-                stroke="var(--muted-foreground)"
-                strokeOpacity={tone === "known" ? 0.55 : 0}
-                strokeWidth={1.5}
-                style={FADE}
-              />
-              <text
-                x={box.x + box.w / 2}
-                y={2 + boxH / 2}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={valueSize}
-                fontWeight={600}
-                fill={tone === "muted" || tone === "known" ? "var(--foreground)" : TONE_INK[tone]}
-                style={FADE}
-              >
-                {box.value}
-              </text>
-              <text x={box.x + box.w / 2} y={boxH + 18} textAnchor="middle" fontSize={12} fill="var(--muted-foreground)">
-                {box.label}
-              </text>
-              {visual.op && i < placed.length - 1 && (
-                <text
-                  x={box.x + box.w + gap / 2}
-                  y={2 + boxH / 2}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={18}
-                  fill="var(--muted-foreground)"
-                >
-                  {visual.op}
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {resultText && (
-          <text x={x - gap + 14} y={2 + boxH / 2} dominantBaseline="central" fontSize={valueSize} fontWeight={600} fill="var(--foreground)">
-            {resultText}
-          </text>
-        )}
-      </svg>
-      <Caption text={visual.caption} />
-    </figure>
-  );
 }
 
 /** A five-point star centred at (cx, cy). */
