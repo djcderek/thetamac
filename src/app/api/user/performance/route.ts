@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {
+  dayKey,
+  lastMonthKeys,
+  monthKey,
+  monthName,
+  monthStartDay,
+  queryStartFor,
+  weekdayName,
+} from "@/lib/local-days";
+import { localDayNumber, resolveTimeZone } from "@/lib/streak";
 import { checkPremiumAccess } from "@/lib/subscription";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
-const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export async function GET(request: Request) {
   try {
@@ -30,26 +38,13 @@ export async function GET(request: Request) {
       }
     }
 
-    const now = new Date();
-    let startDate: Date;
-    
-    switch (range) {
-      case "monthly":
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 27); // ~4 weeks
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case "yearly":
-        startDate = new Date(now);
-        startDate.setMonth(startDate.getMonth() - 11);
-        startDate.setDate(1);
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      default: // weekly
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 6);
-        startDate.setHours(0, 0, 0, 0);
-    }
+    // Buckets follow the player's calendar, not UTC or the server's time zone.
+    const timeZone = resolveTimeZone(searchParams.get("tz"));
+    const today = localDayNumber(new Date(), timeZone);
+    const months = lastMonthKeys(today, 12);
+    const firstDay =
+      range === "yearly" ? monthStartDay(months[0]) : range === "monthly" ? today - 27 : today - 6;
+    const startDate = queryStartFor(firstDay);
 
     // Find training sessions that match default timed mode settings
     const matchingSessions = await db.trainingSession.findMany({
@@ -92,12 +87,13 @@ export async function GET(request: Request) {
       },
     });
 
+    const days = attempts.map((attempt) => ({ ...attempt, day: localDayNumber(attempt.createdAt, timeZone) }));
     if (range === "yearly") {
-      return handleYearlyData(attempts, now);
+      return handleYearlyData(days, months);
     } else if (range === "monthly") {
-      return handleMonthlyData(attempts, startDate);
+      return handleMonthlyData(days, firstDay);
     } else {
-      return handleWeeklyData(attempts, startDate);
+      return handleWeeklyData(days, firstDay);
     }
   } catch (error) {
     console.error("Error fetching performance data:", error);
@@ -111,36 +107,31 @@ export async function GET(request: Request) {
 interface Attempt {
   isCorrect: boolean;
   timeTaken: number;
-  createdAt: Date;
+  /** The player's local day number (see localDayNumber). */
+  day: number;
 }
 
-function handleWeeklyData(attempts: Attempt[], startDate: Date) {
-  const performanceByDay: Record<string, { correct: number; total: number; totalTime: number }> = {};
-
-  // Initialize all 7 days
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    const dayKey = date.toISOString().split("T")[0];
-    performanceByDay[dayKey] = { correct: 0, total: 0, totalTime: 0 };
-  }
+function handleWeeklyData(allAttempts: Attempt[], firstDay: number) {
+  // The query starts a day early to cover every time zone; drop what falls before the week.
+  const attempts = allAttempts.filter((attempt) => attempt.day >= firstDay);
+  const performanceByDay = Array.from({ length: 7 }, () => ({ correct: 0, total: 0, totalTime: 0 }));
 
   // Aggregate attempts by day
   for (const attempt of attempts) {
-    const dayKey = attempt.createdAt.toISOString().split("T")[0];
-    if (performanceByDay[dayKey]) {
-      performanceByDay[dayKey].total++;
-      performanceByDay[dayKey].totalTime += attempt.timeTaken;
+    const data = performanceByDay[attempt.day - firstDay];
+    if (data) {
+      data.total++;
+      data.totalTime += attempt.timeTaken;
       if (attempt.isCorrect) {
-        performanceByDay[dayKey].correct++;
+        data.correct++;
       }
     }
   }
 
   // Convert to array format for chart
-  const performanceData = Object.entries(performanceByDay).map(([dateStr, data]) => {
-    const date = new Date(dateStr);
-    const dayName = dayNames[date.getDay()];
+  const performanceData = performanceByDay.map((data, index) => {
+    const dateStr = dayKey(firstDay + index);
+    const dayName = weekdayName(firstDay + index);
     const accuracy = data.total > 0 ? Math.round((data.correct / data.total) * 100) : null;
     const avgSpeed = data.total > 0 ? Math.round((data.totalTime / data.total) * 10) / 10 : null;
     
@@ -189,7 +180,8 @@ function handleWeeklyData(attempts: Attempt[], startDate: Date) {
   });
 }
 
-function handleMonthlyData(attempts: Attempt[], startDate: Date) {
+function handleMonthlyData(allAttempts: Attempt[], firstDay: number) {
+  const attempts = allAttempts.filter((attempt) => attempt.day >= firstDay);
   const performanceByWeek: Record<string, { correct: number; total: number; totalTime: number }> = {};
 
   // Initialize 4 weeks
@@ -200,7 +192,7 @@ function handleMonthlyData(attempts: Attempt[], startDate: Date) {
 
   // Aggregate attempts by week
   for (const attempt of attempts) {
-    const daysSinceStart = Math.floor((attempt.createdAt.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysSinceStart = attempt.day - firstDay;
     const weekIndex = Math.min(Math.floor(daysSinceStart / 7), 3);
     const weekKey = `Week ${weekIndex + 1}`;
     
@@ -246,37 +238,30 @@ function handleMonthlyData(attempts: Attempt[], startDate: Date) {
   });
 }
 
-function handleYearlyData(attempts: Attempt[], now: Date) {
-  const performanceByMonth: Record<string, { correct: number; total: number }> = {};
-
-  // Initialize 12 months
-  for (let i = 11; i >= 0; i--) {
-    const date = new Date(now);
-    date.setMonth(date.getMonth() - i);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    performanceByMonth[monthKey] = { correct: 0, total: 0 };
-  }
+function handleYearlyData(allAttempts: Attempt[], months: string[]) {
+  const attempts = allAttempts.filter((attempt) => attempt.day >= monthStartDay(months[0]));
+  const performanceByMonth: Record<string, { correct: number; total: number }> = Object.fromEntries(
+    months.map((key) => [key, { correct: 0, total: 0 }]),
+  );
 
   // Aggregate attempts by month
   for (const attempt of attempts) {
-    const monthKey = `${attempt.createdAt.getFullYear()}-${String(attempt.createdAt.getMonth() + 1).padStart(2, "0")}`;
-    if (performanceByMonth[monthKey]) {
-      performanceByMonth[monthKey].total++;
+    const data = performanceByMonth[monthKey(attempt.day)];
+    if (data) {
+      data.total++;
       if (attempt.isCorrect) {
-        performanceByMonth[monthKey].correct++;
+        data.correct++;
       }
     }
   }
 
   // Convert to array format for chart
-  const performanceData = Object.entries(performanceByMonth).map(([monthKey, data]) => {
-    const [, month] = monthKey.split("-");
-    const monthName = monthNames[parseInt(month) - 1];
+  const performanceData = Object.entries(performanceByMonth).map(([key, data]) => {
     const accuracy = data.total > 0 ? Math.round((data.correct / data.total) * 100) : null;
     
     return {
-      month: monthName,
-      monthKey,
+      month: monthName(key),
+      monthKey: key,
       correct: data.correct,
       total: data.total,
       accuracy,

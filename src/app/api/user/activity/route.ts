@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { dayKey, queryStartFor, weekdayName } from "@/lib/local-days";
+import { localDayNumber, resolveTimeZone } from "@/lib/streak";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
 
@@ -11,57 +13,35 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+    const timeZone = resolveTimeZone(new URL(request.url).searchParams.get("tz"));
 
-    // Get the last 7 days
-    const now = new Date();
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    // The last 7 days on the player's calendar, ending today.
+    const firstDay = localDayNumber(new Date(), timeZone) - 6;
 
-    // Fetch problem attempts for the last 7 days
     const attempts = await db.problemAttempt.findMany({
       where: {
         userId,
         createdAt: {
-          gte: sevenDaysAgo,
+          gte: queryStartFor(firstDay),
         },
       },
       select: {
         createdAt: true,
       },
-      orderBy: {
-        createdAt: "asc",
-      },
     });
 
-    // Group by day
-    const shortDayNames = ["S", "M", "T", "W", "T", "F", "S"];
-    const activityByDay: Record<string, number> = {};
-
-    // Initialize all 7 days
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(sevenDaysAgo);
-      date.setDate(date.getDate() + i);
-      const dayKey = date.toISOString().split("T")[0];
-      activityByDay[dayKey] = 0;
-    }
-
-    // Count attempts by day
+    const counts = new Array<number>(7).fill(0);
     for (const attempt of attempts) {
-      const dayKey = attempt.createdAt.toISOString().split("T")[0];
-      if (activityByDay[dayKey] !== undefined) {
-        activityByDay[dayKey]++;
-      }
+      const index = localDayNumber(attempt.createdAt, timeZone) - firstDay;
+      if (index >= 0 && index < 7) counts[index]++;
     }
 
-    // Convert to array format for chart
-    const activityData = Object.entries(activityByDay).map(([dateStr, problems]) => {
-      const date = new Date(dateStr);
-      const dayName = shortDayNames[date.getDay()];
-      
+    const activityData = counts.map((problems, index) => {
+      const day = firstDay + index;
       return {
-        day: dayName,
-        date: dateStr,
+        // One letter: the chart is narrow.
+        day: weekdayName(day).charAt(0),
+        date: dayKey(day),
         problems,
       };
     });
@@ -85,7 +65,3 @@ export async function GET() {
     );
   }
 }
-
-
-
-

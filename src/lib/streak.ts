@@ -11,14 +11,21 @@ export function resolveTimeZone(value: unknown): string {
   }
 }
 
+// Building a formatter is far slower than using one, and charts call this once per attempt.
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function dayFormatter(timeZone: string) {
+  let formatter = dayFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+    dayFormatters.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 /** Days since the epoch for the calendar date `date` falls on in `timeZone`. */
 export function localDayNumber(date: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
+  const parts = dayFormatter(timeZone).formatToParts(date);
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
   return Math.floor(Date.UTC(get("year"), get("month") - 1, get("day")) / 86_400_000);
 }

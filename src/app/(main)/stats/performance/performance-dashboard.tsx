@@ -122,10 +122,11 @@ export function PerformanceDashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
+        const timeZone = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
         const [weeklyRes, monthlyRes, yearlyRes] = await Promise.all([
-          fetch("/api/user/performance?range=weekly"),
-          fetch("/api/user/performance?range=monthly"),
-          fetch("/api/user/performance?range=yearly"),
+          fetch(`/api/user/performance?range=weekly&tz=${timeZone}`),
+          fetch(`/api/user/performance?range=monthly&tz=${timeZone}`),
+          fetch(`/api/user/performance?range=yearly&tz=${timeZone}`),
         ]);
 
         if (weeklyRes.ok) {
@@ -250,7 +251,8 @@ export function PerformanceDashboard() {
                   <div className="h-[240px]">
                     {hasWeeklyData ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={weeklyData?.data.map(d => ({ ...d, speed: d.speed ?? 0 }))} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                        {/* Days without play stay empty; as 0s they plotted as the fastest days. */}
+                        <LineChart data={weeklyData?.data} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
                           <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                           <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, weeklyMaxSpeed]} tickFormatter={(v) => `${v}s`} reversed />
                           <Tooltip content={<SimpleTooltip />} />

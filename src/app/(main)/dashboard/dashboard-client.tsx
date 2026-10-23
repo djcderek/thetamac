@@ -73,8 +73,8 @@ export function DashboardClient() {
         const timeZone = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
         const [statsRes, performanceRes, activityRes, dailyRes] = await Promise.all([
           fetch(`/api/user/stats?tz=${timeZone}`),
-          fetch("/api/user/performance"),
-          fetch("/api/user/activity"),
+          fetch(`/api/user/performance?tz=${timeZone}`),
+          fetch(`/api/user/activity?tz=${timeZone}`),
           fetch(`/api/training/daily?tz=${timeZone}`, { cache: "no-store" }),
         ]);
 
