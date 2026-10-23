@@ -53,6 +53,7 @@ model User {
   problemAttempts  ProblemAttempt[]
   lessonProgress   LessonProgress[]
   dailySessions    DailySession[]
+  quantAttempts    QuantAttempt[]
   featureRequests  FeatureRequest[]
 
   @@map("users")
@@ -290,6 +291,25 @@ model DailySession {
 
   @@unique([userId, day])
   @@map("daily_sessions")
+}
+
+// One answered quant question (src/lib/quant). Questions are generated, so an attempt is kept
+// by its question type: a missed type comes back in review with fresh numbers.
+model QuantAttempt {
+  id        String   @id @default(cuid())
+  userId    String
+  lessonId  String
+  // The question type's id within the lesson, or "puzzle:<id>" for a classic puzzle.
+  family    String
+  // Right first time without opening the steps.
+  correct   Boolean
+  seconds   Float?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("quant_attempts")
 }
 
 // ============================================

@@ -58,10 +58,22 @@ export function answerFor(operandA: number, operandB: number, operation: string)
   return answer === undefined || !Number.isInteger(answer) ? null : answer;
 }
 
-type Track = {
-  latest: ReviewAttempt;
+/** One answer to something that can be reviewed, under a key that says what it was. */
+export type KeyedAttempt<T> = { key: string; isCorrect: boolean; createdAt: Date; item: T };
+
+export type ScheduledMiss<T> = {
+  /** The item as it was last asked. */
+  item: T;
   misses: number;
-  lastMiss: ReviewAttempt;
+  lastMissedAt: Date;
+  /** When it is (or was) next due. */
+  dueAt: Date;
+};
+
+type Track<T> = {
+  latest: KeyedAttempt<T>;
+  misses: number;
+  lastMiss: KeyedAttempt<T>;
   /** missed: due now. checking: answered right in a later sitting, due again at dueAt. */
   stage: "missed" | "checking" | "cleared";
   dueAt: Date;
@@ -71,20 +83,16 @@ type Track = {
  * Works out which past misses are due for review. A miss is due straight away. Answering it
  * right in a later sitting (RECALL_GAP_MS after the miss) moves it to a check
  * REVIEW_CHECK_DAYS later, and answering it right at or after that clears it. Missing it
- * again at any point puts it back to due.
+ * again at any point puts it back to due. Shared by arithmetic facts and quant question types.
  */
-export function buildReviewSchedule(attempts: ReviewAttempt[], now: Date): ReviewSchedule {
+export function scheduleMisses<T>(attempts: KeyedAttempt<T>[], now: Date): { due: ScheduledMiss<T>[]; waiting: ScheduledMiss<T>[] } {
   const sorted = [...attempts].sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime());
-  const tracks = new Map<string, Track>();
+  const tracks = new Map<string, Track<T>>();
 
   for (const attempt of sorted) {
-    // Only problems the trainer can ask again: a known operation with a whole-number answer.
-    if (answerFor(attempt.operandA, attempt.operandB, attempt.operation) === null) continue;
-    const key = factKey(attempt.operandA, attempt.operandB, attempt.operation);
-    const track = tracks.get(key);
-
+    const track = tracks.get(attempt.key);
     if (!attempt.isCorrect) {
-      tracks.set(key, {
+      tracks.set(attempt.key, {
         latest: attempt,
         misses: (track?.misses ?? 0) + 1,
         lastMiss: attempt,
@@ -93,7 +101,7 @@ export function buildReviewSchedule(attempts: ReviewAttempt[], now: Date): Revie
       });
       continue;
     }
-    // A right answer only matters for a problem that has been missed.
+    // A right answer only matters for something that has been missed.
     if (!track) continue;
     track.latest = attempt;
     const sinceMiss = attempt.createdAt.getTime() - track.lastMiss.createdAt.getTime();
@@ -105,28 +113,37 @@ export function buildReviewSchedule(attempts: ReviewAttempt[], now: Date): Revie
     }
   }
 
-  const due: ReviewItem[] = [];
-  const waiting: ReviewItem[] = [];
+  const due: ScheduledMiss<T>[] = [];
+  const waiting: ScheduledMiss<T>[] = [];
   for (const track of tracks.values()) {
     if (track.stage === "cleared") continue;
-    const { latest } = track;
-    const item: ReviewItem = {
-      // The way round it was last asked.
-      problem: {
-        a: latest.operandA,
-        b: latest.operandB,
-        operation: latest.operation as Operation,
-        answer: ANSWERS[latest.operation](latest.operandA, latest.operandB),
-      },
-      misses: track.misses,
-      lastMissedAt: track.lastMiss.createdAt,
-      dueAt: track.dueAt,
-    };
-    if (track.stage === "missed" || track.dueAt <= now) due.push(item);
-    else waiting.push(item);
+    const entry = { item: track.latest.item, misses: track.misses, lastMissedAt: track.lastMiss.createdAt, dueAt: track.dueAt };
+    if (track.stage === "missed" || track.dueAt <= now) due.push(entry);
+    else waiting.push(entry);
   }
-
   due.sort((x, y) => y.misses - x.misses || y.lastMissedAt.getTime() - x.lastMissedAt.getTime());
   waiting.sort((x, y) => x.dueAt.getTime() - y.dueAt.getTime());
   return { due, waiting };
+}
+
+/** Past arithmetic misses due for review, by fact (7 × 8 and 8 × 7 together). */
+export function buildReviewSchedule(attempts: ReviewAttempt[], now: Date): ReviewSchedule {
+  const keyed = attempts
+    // Only problems the trainer can ask again: a known operation with a whole-number answer.
+    .filter((attempt) => answerFor(attempt.operandA, attempt.operandB, attempt.operation) !== null)
+    .map((attempt) => ({ key: factKey(attempt.operandA, attempt.operandB, attempt.operation), isCorrect: attempt.isCorrect, createdAt: attempt.createdAt, item: attempt }));
+  const { due, waiting } = scheduleMisses(keyed, now);
+  const toItem = (entry: ScheduledMiss<ReviewAttempt>): ReviewItem => ({
+    // The way round it was last asked.
+    problem: {
+      a: entry.item.operandA,
+      b: entry.item.operandB,
+      operation: entry.item.operation as Operation,
+      answer: ANSWERS[entry.item.operation](entry.item.operandA, entry.item.operandB),
+    },
+    misses: entry.misses,
+    lastMissedAt: entry.lastMissedAt,
+    dueAt: entry.dueAt,
+  });
+  return { due: due.map(toItem), waiting: waiting.map(toItem) };
 }

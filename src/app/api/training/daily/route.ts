@@ -7,6 +7,7 @@ import { trainingRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import { localDayNumber, resolveTimeZone } from "@/lib/streak";
 import { REVIEW_LOOKBACK_DAYS } from "@/lib/review-schedule";
 import { isLessonId } from "@/lib/lessons";
+import { buildQuantReview } from "@/lib/quant/review";
 import {
   DAILY_SIZE,
   buildDailyPlan,
@@ -22,6 +23,7 @@ export const dynamic = "force-dynamic";
 // Sessions drawn on the dashboard's speed chart.
 const HISTORY_SHOWN = 14;
 const MAX_ATTEMPTS = 20000;
+const MAX_QUANT_ATTEMPTS = 5000;
 
 async function loadDays(userId: string) {
   return db.dailySession.findMany({
@@ -47,7 +49,7 @@ export async function GET(request: Request) {
     const today = localDayNumber(now, timeZone);
 
     const since = new Date(now.getTime() - REVIEW_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-    const [{ isPremium }, attempts, lessons, days] = await Promise.all([
+    const [{ isPremium }, attempts, lessons, days, quantRows] = await Promise.all([
       checkPremiumAccess(userId),
       db.problemAttempt.findMany({
         where: { userId, createdAt: { gte: since } },
@@ -57,6 +59,12 @@ export async function GET(request: Request) {
       }),
       db.lessonProgress.findMany({ where: { userId, masteredAt: { not: null } }, select: { lessonId: true } }),
       loadDays(userId),
+      db.quantAttempt.findMany({
+        where: { userId, createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: MAX_QUANT_ATTEMPTS,
+        select: { lessonId: true, family: true, correct: true, createdAt: true },
+      }),
     ]);
 
     const plan = buildDailyPlan({
@@ -78,6 +86,8 @@ export async function GET(request: Request) {
         weak: plan.filter((item) => item.section === "weak").length,
       },
       items: isPremium ? plan : [],
+      // Quant question types due in review, which Today points to (they run on /quant/review).
+      quantDue: buildQuantReview(quantRows, now).due.length,
       // Recent sessions' average time, oldest first, and the latest against the first days.
       history: days
         .filter((row) => row.averageSeconds !== null)

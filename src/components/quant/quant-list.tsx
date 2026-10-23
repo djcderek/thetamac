@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { motion } from "motion/react";
-import { Check, ChevronRight, CircleDashed, Lock, Puzzle, Search, Shuffle } from "lucide-react";
+import { Check, ChevronRight, CircleDashed, Lock, Puzzle, RotateCcw, Search, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { snapSpring } from "@/lib/motion";
 import { buttonVariants } from "@/components/ui/button";
@@ -214,7 +214,16 @@ function UpgradeCard() {
 
 /** The course as a problem list: filter by unit, difficulty and status, or search by name. */
 export function QuantList() {
-  const { lessons, locked } = useQuantProgress();
+  const { lessons, locked, signedIn } = useQuantProgress();
+  // How many missed question types are due, for the Review button (signed-in players).
+  const [reviewDue, setReviewDue] = useState<number | null>(null);
+  useEffect(() => {
+    if (!signedIn) return;
+    fetch("/api/quant/review", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { dueCount: number } | null) => data && setReviewDue(data.dueCount))
+      .catch(() => {});
+  }, [signedIn]);
   const [query, setQuery] = useState("");
   const [difficulty, setDifficulty] = useState<QuantDifficulty | null>(null);
   const [status, setStatus] = useState<Status | "all">("all");
@@ -243,6 +252,15 @@ export function QuantList() {
           A step-by-step course in the probability and expected value asked in quant interviews.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
+          {signedIn && (
+            <Link href="/quant/review" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+              <RotateCcw aria-hidden="true" />
+              Review
+              {!!reviewDue && (
+                <span className="rounded-full bg-brand px-1.5 text-[12px] font-semibold leading-[18px] text-brand-foreground tabular-nums">{reviewDue}</span>
+              )}
+            </Link>
+          )}
           <Link href="/quant/shuffle" className={buttonVariants({ variant: "secondary", size: "sm" })}>
             <Shuffle aria-hidden="true" />
             Shuffle questions
