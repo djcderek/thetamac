@@ -14,6 +14,7 @@ import { LogoMark } from "@/components/brand/logo-mark";
 // It replaces the dashboard-template left sidebar on desktop; phones keep MobileTopBar.
 export const primaryNavigation = [
   { name: "Train", href: "/" },
+  { name: "Quant", href: "/quant" },
   { name: "Dashboard", href: "/dashboard" },
   { name: "Multiplayer", href: "/multiplayer" },
   { name: "Leaderboard", href: "/leaderboard" },

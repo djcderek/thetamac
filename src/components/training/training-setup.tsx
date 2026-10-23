@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowRight,
   ChevronDown,
   ChevronUp,
   CornerDownLeft,
@@ -445,6 +446,20 @@ export function TrainingSetup({
             lessons={lessons}
             locked={lessonsLocked}
           />
+        )}
+
+        {/* The quant lessons live on their own page; Learning is where people look for lessons. */}
+        {isLearning && (
+          <Link
+            href="/quant"
+            className="flex items-center justify-between gap-3 rounded-[22px] bg-secondary px-4 py-3.5 transition-colors hover:bg-control-hover"
+          >
+            <span className="min-w-0">
+              <span className="block text-[15px] font-medium">Quant lessons</span>
+              <span className="block text-[13px] text-muted-foreground">Probability, expected value and betting maths</span>
+            </span>
+            <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
         )}
       </motion.div>
 

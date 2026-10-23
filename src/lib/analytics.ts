@@ -20,6 +20,8 @@ export const ANALYTICS_EVENTS = {
   mobileTrainingUpdateViewed: "mobile_training_update_viewed",
   mobileTrainingUpdateDismissed: "mobile_training_update_dismissed",
   premiumGateViewed: "premium_gate_viewed",
+  quantLessonCompleted: "quant_lesson_completed",
+  quantLessonStarted: "quant_lesson_started",
   secondarySurfaceViewed: "secondary_surface_viewed",
   seoCtaClicked: "seo_cta_clicked",
   settingsSaved: "settings_saved",

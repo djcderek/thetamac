@@ -427,11 +427,14 @@ export type StoredLessonProgress = {
   masteredAt: Date | null;
 };
 
-/** A finished lesson folded into the saved progress: the best run, and mastered once, for good. */
+/**
+ * A finished lesson folded into the saved progress: the best run, and mastered once, for good.
+ * `mastered` is whether this run masters it, by the lesson's own rule (arithmetic or quant).
+ */
 export function mergeLessonProgress(
-  lesson: Lesson,
   saved: StoredLessonProgress | null,
   result: LessonResult,
+  mastered: boolean,
   now: Date,
 ): StoredLessonProgress {
   const better =
@@ -444,6 +447,6 @@ export function mergeLessonProgress(
     plays: (saved?.plays ?? 0) + 1,
     bestFirstTry: better ? result.soloFirstTry : saved.bestFirstTry,
     bestAverageSeconds: better ? result.soloAverageSeconds : saved.bestAverageSeconds,
-    masteredAt: saved?.masteredAt ?? (isLessonMastered(lesson, result) ? now : null),
+    masteredAt: saved?.masteredAt ?? (mastered ? now : null),
   };
 }

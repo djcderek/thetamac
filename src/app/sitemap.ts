@@ -9,6 +9,7 @@ const staticRouteUpdatedAt: Record<string, string> = {
   "/": "2026-07-10",
   "/about": "2026-05-19",
   "/leaderboard": "2026-03-04",
+  "/quant": "2026-10-23",
   "/multiplayer": "2026-03-04",
   "/training/focused": "2026-03-04",
   "/upgrade": "2026-03-04",
@@ -52,6 +53,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: getRouteLastModified("/leaderboard"),
       changeFrequency: "hourly",
       priority: 0.9,
+    },
+    {
+      url: `${siteUrl}/quant`,
+      lastModified: getRouteLastModified("/quant"),
+      changeFrequency: "weekly",
+      priority: 0.85,
     },
     {
       url: `${siteUrl}/multiplayer`,
