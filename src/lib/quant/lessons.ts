@@ -684,7 +684,7 @@ export const QUANT_LESSONS: QuantLesson[] = [
   {
     id: "count-outcomes",
     topic: "probability",
-    title: "Counting outcomes",
+    title: "Basic probability",
     benefit: "Find the chance of a card, roll or flip",
     idea: "If every outcome is equally likely, the chance is the outcomes you want divided by all the outcomes.",
     targetSeconds: 15,
