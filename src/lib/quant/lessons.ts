@@ -1,5 +1,5 @@
 import { QUANT_LESSON_IDS, type QuantLessonId } from "./ids";
-import type { QuantLessonDef, QuantProblem, Random } from "./build";
+import type { QuantFamily, QuantLessonDef, QuantProblem, Random } from "./build";
 import { COUNTING_LESSONS } from "./units/counting";
 import { BASICS_LESSONS } from "./units/basics";
 import { CONDITIONAL_LESSONS } from "./units/conditional";
@@ -10,7 +10,7 @@ import { STATES_LESSONS } from "./units/markov";
 import { CONTINUOUS_LESSONS } from "./units/continuous";
 
 export { QUANT_LESSON_IDS, type QuantLessonId };
-export type { QuantProblem, QuantStep } from "./build";
+export type { QuantFamily, QuantProblem, QuantStep } from "./build";
 
 /**
  * The quant course: probability and expected value, the way trading interviews ask it. Units
@@ -58,9 +58,24 @@ export const QUANT_TOPICS: QuantUnit[] = UNITS.map((unit, index) => ({
   blurb: unit.blurb,
 }));
 
-export type QuantLesson = QuantLessonDef & { topic: QuantTopic };
+export type QuantLesson = QuantLessonDef & {
+  topic: QuantTopic;
+  /** A question from any of the lesson's types, chosen at random. */
+  generate: (random: Random) => QuantProblem;
+};
 
-export const QUANT_LESSONS: QuantLesson[] = UNITS.flatMap((unit) => unit.lessons.map((lesson) => ({ ...lesson, topic: unit.id })));
+/** A question of one type, tagged with that type. */
+export function generateFromFamily(family: QuantFamily, random: Random): QuantProblem {
+  return { ...family.generate(random), family: family.id };
+}
+
+export const QUANT_LESSONS: QuantLesson[] = UNITS.flatMap((unit) =>
+  unit.lessons.map((lesson) => ({
+    ...lesson,
+    topic: unit.id,
+    generate: (random: Random) => generateFromFamily(lesson.families[Math.floor(random() * lesson.families.length)], random),
+  })),
+);
 
 /** The Foundations units are free; everything after them is Pro. */
 export const FREE_QUANT_LESSON_IDS: readonly QuantLessonId[] = QUANT_LESSONS.filter(
@@ -75,17 +90,31 @@ export function getQuantLesson(id: string): QuantLesson | null {
   return QUANT_LESSONS.find((lesson) => lesson.id === id) ?? null;
 }
 
-/** A lesson's set: different problems, starting from ones unlike the worked example. */
+/**
+ * A lesson's set: different problems, none the worked example, spread across its question
+ * types (each type once, in a shuffled order, before any repeats).
+ */
 export function createQuantLessonProblems(lesson: QuantLesson, random: Random = Math.random): QuantProblem[] {
   const problems: QuantProblem[] = [];
   const seen = new Set<string>([lesson.example.key]);
-  for (let tries = 0; problems.length < QUANT_SET_SIZE && tries < 500; tries++) {
-    const next = lesson.generate(random);
+  const order = [...lesson.families].sort(() => random() - 0.5);
+  for (let tries = 0; problems.length < QUANT_SET_SIZE && tries < 1000; tries++) {
+    const family = order[problems.length % order.length];
+    // A type that keeps repeating gives way to a random one.
+    const next = generateFromFamily(tries % 25 === 24 ? order[Math.floor(random() * order.length)] : family, random);
     if (seen.has(next.key)) continue;
     seen.add(next.key);
     problems.push(next);
   }
   return problems;
+}
+
+/** One fresh question of a type, avoiding keys already seen (for practising one type). */
+export function createFamilyProblem(lesson: QuantLesson, familyId: string, avoid: ReadonlySet<string> = new Set(), random: Random = Math.random) {
+  const family = lesson.families.find((f) => f.id === familyId) ?? lesson.families[0];
+  let problem = generateFromFamily(family, random);
+  for (let tries = 0; avoid.has(problem.key) && tries < 50; tries++) problem = generateFromFamily(family, random);
+  return problem;
 }
 
 export function isQuantLessonMastered(

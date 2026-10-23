@@ -1,4 +1,4 @@
-import { div, formatFraction, formatResult, mul, pow, q, sub, type Rational } from "../rational";
+import { add, div, formatFraction, formatResult, mul, pow, q, sub, value, type Rational } from "../rational";
 import { int, pick, problem, sup, type QuantLessonDef, type QuantProblem } from "../build";
 import type { QuantVisual, Tone } from "../visual";
 
@@ -205,10 +205,10 @@ function uniformNumber(params: UniformParams): QuantProblem {
 
 const RANGES = [[0, 10], [0, 20], [0, 12], [0, 30], [2, 12], [5, 25], [10, 40], [4, 16]] as const;
 
-function randomUniform(random: () => number): QuantProblem {
+function randomUniform(random: () => number, types: readonly UniformParams["type"][]): QuantProblem {
   const [low, high] = pick(random, RANGES);
   const inside = () => int(random, low + 1, high - 1);
-  switch (pick(random, ["between", "above", "wait", "average", "average-above", "variance"] as const)) {
+  switch (pick(random, types)) {
     case "between": {
       const a = inside();
       let b = inside();
@@ -483,7 +483,8 @@ function highestOrLowest(params: { type: "highest" | "lowest"; dice: number; sid
   );
 }
 
-const COUNT_WORDS = ["", "one", "two", "three", "four", "five", "six"];
+const COUNT_WORDS = ["", "one", "two", "three", "four", "five", "six", "seven", "eight"];
+const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
 /** n random numbers split their range into n + 1 gaps of the same average size. */
 function uniformExtreme(params: { type: "max" | "min"; n: number; scale: 1 | 60 }): QuantProblem {
@@ -582,6 +583,342 @@ function allBelow(params: { n: number; xN: number; xD: number; side: "below" | "
 const HIGH_CUTOFFS: readonly (readonly [number, number])[] = [[1, 3], [1, 2], [2, 3], [3, 4], [4, 5], [9, 10]];
 const LOW_CUTOFFS: readonly (readonly [number, number])[] = [[1, 10], [1, 5], [1, 4], [1, 3], [1, 2]];
 
+// ─── More continuous questions ───────────────────────────────────────────────────────────
+
+type StickParams =
+  | { type: "short" | "long"; length: number }
+  | { type: "under"; length: number; under: number }
+  | { type: "ratio"; length: number; k: number };
+
+/** A stick broken at one random point. */
+function brokenStick(params: StickParams): QuantProblem {
+  const L = params.length;
+  const half = L / 2;
+  const intro = `A stick ${L} cm long is broken at a random point, every point equally likely.`;
+  const stick = (shade: Band[], caption: string, ticks: number[] = [0, half, L]): QuantVisual => line(0, L, shade, caption, { ticks });
+  const nearer = {
+    label: "The shorter piece runs from the break to the nearer end",
+    work: `anywhere from 0 to ${formatResult(q(L, 2), "number")} cm`,
+    result: "",
+    icon: "idea" as const,
+    explain: `A break in the left half leaves the short piece on the left, and in the right half on the right. Either way its length is spread evenly from 0 to half the stick.`,
+    visual: stick([{ from: 0, to: half, tone: "known", text: "break here: short piece on the left" }], `The shorter piece is the distance from the break to the nearer end.`),
+  };
+  switch (params.type) {
+    case "short":
+    case "long": {
+      const short = q(L, 4);
+      return problem(
+        `stick-${params.type}-${L}`,
+        `${intro} What's the average length of the ${params.type === "short" ? "shorter" : "longer"} piece, in cm?`,
+        params.type === "short" ? short : sub(q(L), short),
+        "number",
+        [
+          nearer,
+          {
+            label: "Average shorter piece: half of half the stick",
+            work: `${formatResult(q(L, 2), "number")} ÷ 2`,
+            result: formatResult(short, "number"),
+            icon: "divide",
+            explain: "A length spread evenly from 0 to half the stick averages the middle of that: a quarter of the stick.",
+          },
+          ...(params.type === "long"
+            ? [
+                {
+                  label: "The longer piece is the rest",
+                  work: `${L} − ${formatResult(short, "number")}`,
+                  icon: "subtract" as const,
+                  explain: "The two pieces always add up to the whole stick, so their averages do too.",
+                },
+              ]
+            : []),
+        ],
+        params,
+        stick([{ from: 0, to: L, tone: "known" }], `The break is equally likely anywhere along the ${L} cm.`),
+      );
+    }
+    case "under": {
+      const x = params.under;
+      return problem(
+        `stick-under-${L}-${x}`,
+        `${intro} What's the chance the shorter piece is less than ${x} cm long?`,
+        q(2 * x, L),
+        "probability",
+        [
+          {
+            label: `The shorter piece is under ${x} cm when the break is within ${x} cm of an end`,
+            work: `${x} cm at each end`,
+            result: `${2 * x} cm`,
+            icon: "target",
+            explain: "A break close to either end leaves a short stub at that end.",
+            visual: stick(
+              [
+                { from: 0, to: x, tone: "hit", text: `${x}` },
+                { from: L - x, to: L, tone: "hit", text: `${x}` },
+              ],
+              `Breaks in the orange ends leave a piece under ${x} cm.`,
+              [0, x, L - x, L],
+            ),
+          },
+          {
+            label: "Chance",
+            work: `${2 * x} ÷ ${L}`,
+            icon: "divide",
+            explain: "Every break point is equally likely, so the chance is the orange length out of the whole stick.",
+          },
+        ],
+        params,
+        stick([{ from: 0, to: L, tone: "known" }], `The break is equally likely anywhere along the ${L} cm.`),
+      );
+    }
+    case "ratio": {
+      const { k } = params;
+      const cut = q(L, k + 1);
+      return problem(
+        `stick-ratio-${L}-${k}`,
+        `${intro} What's the chance the longer piece is more than ${k} times as long as the shorter one?`,
+        q(2, k + 1),
+        "probability",
+        [
+          {
+            label: `Longer > ${k} × shorter when the shorter piece is under`,
+            work: `${L} ÷ (${k} + 1)`,
+            result: `${formatResult(cut, "number")} cm`,
+            icon: "divide",
+            explain: `If the short piece is s, the long one is ${L} − s. ${L} − s > ${k}s means s < ${L} ÷ ${k + 1}.`,
+            visual: stick(
+              [
+                { from: 0, to: value(cut), tone: "hit" },
+                { from: L - value(cut), to: L, tone: "hit" },
+              ],
+              `Breaks in the orange ends make the long piece more than ${k} times the short one.`,
+              [0, L],
+            ),
+          },
+          {
+            label: "Chance: both ends, out of the whole stick",
+            work: `2 × ${formatResult(cut, "number")} ÷ ${L}`,
+            icon: "divide",
+            explain: "The break must fall that close to one end or the other.",
+          },
+        ],
+        params,
+        stick([{ from: 0, to: L, tone: "known" }], `The break is equally likely anywhere along the ${L} cm.`),
+      );
+    }
+  }
+}
+
+/** Landing in a ring of a target: areas, where π cancels. */
+function targetRing(params: { r1: number; r2: number; r3: number; ring: "inner" | "middle" | "outer" }): QuantProblem {
+  const { r1, r2, r3, ring } = params;
+  const areas = [r1 * r1, r2 * r2 - r1 * r1, r3 * r3 - r2 * r2];
+  const index = ring === "inner" ? 0 : ring === "middle" ? 1 : 2;
+  const names = ["the bullseye", "the middle ring", "the outer ring"];
+  const ringWork = ring === "inner" ? `${r1}²` : ring === "middle" ? `${r2}² − ${r1}²` : `${r3}² − ${r2}²`;
+  const bars = (highlight: boolean): QuantVisual => ({
+    type: "bars",
+    bars: ["Bullseye", "Middle", "Outer"].map((label, i) => ({
+      label,
+      value: areas[i],
+      tone: highlight && i === index ? ("hit" as const) : ("muted" as const),
+      text: `${areas[i]}π`,
+    })),
+    caption: "The area of each part of the target, in units of π square inches.",
+  });
+  return problem(
+    `ring-${r1}-${r2}-${r3}-${ring}`,
+    `A target has a bullseye of radius ${r1} inch${r1 === 1 ? "" : "es"}, a middle ring out to ${r2} inches and an outer ring out to ${r3} inches. An arrow lands at a random point on the target, every point equally likely. What's the chance it lands in ${names[index]}?`,
+    q(areas[index], r3 * r3),
+    "probability",
+    [
+      {
+        label: `Area of ${names[index]}`,
+        work: `π × (${ringWork})`,
+        result: `${areas[index]}π`,
+        icon: "subtract",
+        explain: "A circle of radius r has area π × r². A ring is the bigger circle minus the smaller one inside it.",
+        visual: bars(true),
+      },
+      {
+        label: "Area of the whole target",
+        work: `π × ${r3}²`,
+        result: `${r3 * r3}π`,
+        icon: "count",
+        explain: "The whole target is the biggest circle.",
+      },
+      {
+        label: "Chance: its share of the area, π cancels",
+        work: `${areas[index]} ÷ ${r3 * r3}`,
+        icon: "divide",
+        explain: "Every point is equally likely, so the chance is the area you want divided by the whole area. The π is on both, so it cancels.",
+      },
+    ],
+    params,
+    bars(false),
+  );
+}
+
+const TARGETS: readonly (readonly [number, number, number])[] = [[4, 8, 12], [1, 2, 3], [2, 3, 5], [3, 6, 9], [2, 4, 5], [1, 3, 4], [2, 5, 6]];
+
+/** Chance a ÷ b is below k, for two uniforms on [0, 1]. */
+const ratioBelow = (k: Rational) => (value(k) <= 1 ? div(k, q(2)) : sub(q(1), div(q(1), mul(q(2), k))));
+
+function ratioRange(params: { mN: number; mD: number; MN: number; MD: number }): QuantProblem {
+  const m = q(params.mN, params.mD), M = q(params.MN, params.MD);
+  const mv = value(m), Mv = value(M);
+  const below = (k: Rational) => ratioBelow(k);
+  const answer = sub(below(M), below(m));
+  const show = (k: Rational) => formatResult(k, "number");
+  const lowerEnd: [number, number] = Mv >= 1 ? [1, 1 / Mv] : [Mv, 1];
+  const upperEnd: [number, number] = mv >= 1 ? [1, 1 / mv] : [mv, 1];
+  const points: [number, number][] = [[0, 0], lowerEnd];
+  if (Mv >= 1 && mv < 1) points.push([1, 1]);
+  points.push(upperEnd);
+  const unitAxis = { xLabel: "a", yLabel: "b", max: "1" };
+  const belowWork = (k: Rational) => (value(k) <= 1 ? `${show(k)} ÷ 2` : `1 − 1 ÷ (2 × ${show(k)})`);
+  const belowExplain = (k: Rational) =>
+    value(k) <= 1
+      ? `a ÷ b < ${show(k)} means b > a ÷ ${show(k)}: above that line is a triangle of area ${show(k)} ÷ 2.`
+      : `a ÷ b < ${show(k)} means b > a ÷ ${show(k)}. Only a thin triangle below that line is left out, area 1 ÷ (2 × ${show(k)}).`;
+  return problem(
+    `ratio-range-${params.mN}-${params.mD}-${params.MN}-${params.MD}`,
+    `Two numbers a and b are picked at random between 0 and 1, every value equally likely. What's the chance a ÷ b is between ${show(m)} and ${show(M)}?`,
+    answer,
+    "probability",
+    [
+      {
+        label: `Chance a ÷ b is less than ${show(M)}`,
+        work: belowWork(M),
+        result: formatFraction(below(M)),
+        icon: "target",
+        explain: belowExplain(M),
+      },
+      {
+        label: `Chance a ÷ b is less than ${show(m)}`,
+        work: belowWork(m),
+        result: formatFraction(below(m)),
+        icon: "target",
+        explain: belowExplain(m),
+      },
+      {
+        label: "Between the two",
+        work: `${formatFraction(below(M))} − ${formatFraction(below(m))}`,
+        icon: "subtract",
+        explain: `Less than ${show(M)} but not less than ${show(m)}: the wedge between the two lines.`,
+        visual: {
+          type: "square",
+          ...unitAxis,
+          regions: [{ points, tone: "hit", text: `${show(m)} < a/b < ${show(M)}` }],
+          caption: `Between the lines b = a ÷ ${show(M)} and b = a ÷ ${show(m)}.`,
+        },
+      },
+    ],
+    params,
+    { type: "square", ...unitAxis, regions: [], caption: "Each point in the square is one pair (a, b)." },
+  );
+}
+
+const RATIO_RANGES: readonly (readonly [number, number, number, number])[] = [
+  [1, 1, 3, 1], [1, 1, 2, 1], [2, 1, 4, 1], [1, 2, 2, 1], [1, 3, 3, 1], [1, 2, 1, 1], [2, 1, 3, 1], [1, 4, 1, 1], [1, 2, 3, 1],
+];
+
+/** n random points on a circle: all within some half (or the centre inside their shape). */
+function halfCircle(params: { n: number; ask: "half" | "centre" }): QuantProblem {
+  const { n, ask } = params;
+  const inHalf = q(n, 2 ** (n - 1));
+  const prompt =
+    ask === "half"
+      ? `${COUNT_WORDS[n][0].toUpperCase()}${COUNT_WORDS[n].slice(1)} points are placed at random on a circle. What's the chance all of them lie within some half of the circle?`
+      : `A round table gets ${COUNT_WORDS[n]} legs, each placed at a random point on its edge. It stands only if its centre is inside the shape the legs make. What's the chance it stands?`;
+  const others = range(1, n - 1).map((i) => (i * 180) / n);
+  const halfLine: QuantVisual = {
+    type: "number-line",
+    min: 0,
+    max: 360,
+    ticks: [0, 90, 180, 270, 360],
+    shade: [{ from: 0, to: 180, tone: "hit", text: "the half after it" }],
+    points: [{ at: 0, label: "start", tone: "known" }, ...others.map((at) => ({ at, label: "", tone: "hit" as const }))],
+    caption: "The circle unrolled into 0° to 360°. Every other point must fall in the half after the starting point.",
+  };
+  const steps: Parameters<typeof problem>[4] = [
+    {
+      label: "Pick which point starts the half",
+      work: `${n} choices`,
+      result: "",
+      icon: "split",
+      explain: "If they all fit in a half circle, exactly one of them is first going clockwise. Split by which point that is.",
+    },
+    {
+      label: "The others all fall in the half after it",
+      work: `(1/2)${sup(n - 1)}`,
+      result: formatFraction(pow(q(1, 2), n - 1)),
+      icon: "multiply",
+      explain: `Each of the other ${n - 1} points lands in that half with chance 1/2, independently.`,
+      visual: halfLine,
+    },
+    {
+      label: "Add the cases",
+      work: `${n} × ${formatFraction(pow(q(1, 2), n - 1))}`,
+      result: ask === "half" ? undefined : formatFraction(inHalf),
+      icon: "add",
+      explain: "Only one point can be the first, so the cases don’t overlap and you can add them.",
+    },
+  ];
+  if (ask === "centre") {
+    steps.push({
+      label: "The table stands unless all legs are in one half",
+      work: `1 − ${formatFraction(inHalf)}`,
+      icon: "subtract",
+      explain: "The centre is outside the legs’ shape exactly when all the legs fit in one half of the circle.",
+    });
+  }
+  return problem(`circle-${ask}-${n}`, prompt, ask === "half" ? inHalf : sub(q(1), inHalf), "probability", steps, params, halfLine);
+}
+
+/** The middle of three uniforms on [0, L] is above x when at least 2 of the 3 are. */
+function medianThree(params: { length: number; x: number; side: "above" | "below" }): QuantProblem {
+  const { length: L, x, side } = params;
+  const each = side === "above" ? q(L - x, L) : q(x, L);
+  const notEach = sub(q(1), each);
+  const two = mul(q(3), mul(mul(each, each), notEach));
+  const three = pow(each, 3);
+  const eText = formatFraction(each);
+  const word = side === "above" ? "more" : "less";
+  const counts = [pow(notEach, 3), mul(q(3), mul(each, mul(notEach, notEach))), two, three];
+  return problem(
+    `median-${L}-${x}-${side}`,
+    `Three numbers are picked at random between 0 and ${L}, every value equally likely. What's the chance the middle one is ${word} than ${x}?`,
+    add(two, three),
+    "probability",
+    [
+      {
+        label: `Each number is ${word} than ${x} with chance`,
+        work: side === "above" ? `(${L} − ${x}) ÷ ${L}` : `${x} ÷ ${L}`,
+        result: eText,
+        icon: "target",
+        explain: `One number lands ${side === "above" ? `above ${x}` : `below ${x}`} with chance equal to that share of the range.`,
+        visual: line(0, L, [side === "above" ? { from: x, to: L, tone: "hit", text: eText } : { from: 0, to: x, tone: "hit", text: eText }], "Where one number must land.", { ticks: [0, x, L] }),
+      },
+      {
+        label: `The middle one is ${word} than ${x} when at least 2 of the 3 are`,
+        work: `3 × (${eText})² × ${formatFraction(notEach)} + (${eText})³`,
+        icon: "add",
+        explain: "Sort the three numbers. The middle one passes the line exactly when two or all three of them do. Add those two binomial cases.",
+        visual: {
+          type: "bars",
+          bars: counts.map((c, i) => ({ label: `${i} of 3`, value: value(c), tone: i >= 2 ? ("hit" as const) : ("muted" as const), text: formatFraction(c) })),
+          caption: `How many of the three are ${word} than ${x}. Orange: at least 2.`,
+        },
+      },
+    ],
+    params,
+    line(0, L, [{ from: 0, to: L, tone: "known" }], `Three numbers, each anywhere from 0 to ${L}.`),
+  );
+}
+
+const MEDIAN_CUTS: readonly (readonly [number, number])[] = [[4, 1], [4, 2], [4, 3], [3, 1], [3, 2], [10, 3], [10, 5], [10, 7], [12, 3], [12, 8]];
+
 export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
   {
     id: "uniform",
@@ -599,7 +936,24 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
     mistake: "Dividing by the top of the range when it doesn’t start at 0. Divide by the range’s length: high − low.",
     targetSeconds: 25,
     example: uniformNumber({ type: "between", low: 0, high: 20, from: 3, to: 11 }),
-    generate: randomUniform,
+    families: [
+      { id: "chance-range", title: "Chance a number lands in a range", generate: (random) => randomUniform(random, ["between", "above"]) },
+      { id: "bus-wait", title: "Waiting for a bus", generate: (random) => randomUniform(random, ["wait"]) },
+      { id: "average", title: "The average, and the average once you know more", generate: (random) => randomUniform(random, ["average", "average-above"]) },
+      { id: "variance", title: "Variance of a random number", generate: (random) => randomUniform(random, ["variance"]) },
+      {
+        id: "broken-stick",
+        title: "Breaking a stick at a random point",
+        generate: (random) => {
+          const length = pick(random, [12, 20, 30, 60, 100]);
+          return pick(random, [
+            () => brokenStick({ type: random() < 0.5 ? "short" : "long", length }),
+            () => brokenStick({ type: "under", length, under: int(random, 1, length / 2 - 1) }),
+            () => brokenStick({ type: "ratio", length, k: int(random, 2, 5) }),
+          ])();
+        },
+      },
+    ],
   },
   {
     id: "area",
@@ -617,21 +971,54 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
     mistake: "Working with the gap as if it were one uniform number. Small gaps are more likely than big ones, which the square shows.",
     targetSeconds: 45,
     example: areaProblem({ type: "meet", window: 60, wait: 15 }),
-    generate: (random) => {
-      const roll = random();
-      if (roll < 0.35) {
-        return random() < 0.7
-          ? areaProblem({ type: "meet", window: 60, wait: pick(random, [5, 10, 12, 20, 24, 30, 36, 40, 45]) })
-          : areaProblem({ type: "meet", window: 30, wait: pick(random, [5, 6, 10, 12, 15, 20]) });
-      }
-      if (roll < 0.5) return areaProblem({ type: "stick", window: pick(random, [10, 20]), wait: pick(random, [1, 2, 4, 5]) });
-      if (roll < 0.8) {
-        const [tN, tD] = pick(random, SUM_LIMITS);
-        return areaProblem({ type: "sum", tN, tD });
-      }
-      const [kN, kD] = pick(random, RATIOS);
-      return areaProblem({ type: "ratio", kN, kD });
-    },
+    families: [
+      {
+        id: "meeting",
+        title: "Two people meeting",
+        generate: (random) =>
+          random() < 0.7
+            ? areaProblem({ type: "meet", window: 60, wait: pick(random, [5, 10, 12, 20, 24, 30, 36, 40, 45]) })
+            : areaProblem({ type: "meet", window: 30, wait: pick(random, [5, 6, 10, 12, 15, 20]) }),
+      },
+      { id: "close-points", title: "Two points close together on a stick", generate: (random) => areaProblem({ type: "stick", window: pick(random, [10, 20]), wait: pick(random, [1, 2, 4, 5]) }) },
+      {
+        id: "sum-below",
+        title: "The sum of two random numbers",
+        generate: (random) => {
+          const [tN, tD] = pick(random, SUM_LIMITS);
+          return areaProblem({ type: "sum", tN, tD });
+        },
+      },
+      {
+        id: "one-bigger",
+        title: "One number k times the other",
+        generate: (random) => {
+          const [kN, kD] = pick(random, RATIOS);
+          return areaProblem({ type: "ratio", kN, kD });
+        },
+      },
+      {
+        id: "ratio-range",
+        title: "A ratio falling in a range",
+        generate: (random) => {
+          const [mN, mD, MN, MD] = pick(random, RATIO_RANGES);
+          return ratioRange({ mN, mD, MN, MD });
+        },
+      },
+      {
+        id: "target-ring",
+        title: "Hitting a ring of a target",
+        generate: (random) => {
+          const [r1, r2, r3] = pick(random, TARGETS);
+          return targetRing({ r1, r2, r3, ring: pick(random, ["inner", "middle", "outer"] as const) });
+        },
+      },
+      {
+        id: "half-circle",
+        title: "Random points on a circle",
+        generate: (random) => halfCircle({ n: int(random, 3, 7), ask: random() < 0.5 ? "half" : "centre" }),
+      },
+    ],
   },
   {
     id: "highest-lowest",
@@ -649,19 +1036,38 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
     mistake: "Thinking the highest of two dice averages 3.5 like one die. Taking the higher one pulls the average up, to about 4.47.",
     targetSeconds: 60,
     example: highestOrLowest({ type: "highest", dice: 2, sides: 6 }),
-    generate: (random) => {
-      const roll = random();
-      if (roll < 0.4) {
-        const dice = random() < 0.6 ? 2 : 3;
-        const sides = pick(random, dice === 2 ? [4, 6, 8, 10] : [4, 6, 8]);
-        return highestOrLowest({ type: random() < 0.6 ? "highest" : "lowest", dice, sides });
-      }
-      if (roll < 0.75) {
-        return uniformExtreme({ type: random() < 0.6 ? "max" : "min", n: int(random, 2, 5), scale: random() < 0.5 ? 1 : 60 });
-      }
-      const side = random() < 0.6 ? "below" : "above";
-      const [xN, xD] = pick(random, side === "below" ? HIGH_CUTOFFS : LOW_CUTOFFS);
-      return allBelow({ n: int(random, 2, 4), xN, xD, side });
-    },
+    families: [
+      {
+        id: "dice",
+        title: "Highest or lowest of several dice",
+        generate: (random) => {
+          const dice = random() < 0.6 ? 2 : 3;
+          const sides = pick(random, dice === 2 ? [4, 6, 8, 10] : [4, 6, 8]);
+          return highestOrLowest({ type: random() < 0.6 ? "highest" : "lowest", dice, sides });
+        },
+      },
+      {
+        id: "uniform-extreme",
+        title: "Largest or smallest of random numbers",
+        generate: (random) => uniformExtreme({ type: random() < 0.6 ? "max" : "min", n: int(random, 2, 5), scale: random() < 0.5 ? 1 : 60 }),
+      },
+      {
+        id: "all-past",
+        title: "Chance the largest or smallest passes a value",
+        generate: (random) => {
+          const side = random() < 0.6 ? "below" : "above";
+          const [xN, xD] = pick(random, side === "below" ? HIGH_CUTOFFS : LOW_CUTOFFS);
+          return allBelow({ n: int(random, 2, 4), xN, xD, side });
+        },
+      },
+      {
+        id: "median",
+        title: "The middle of three random numbers",
+        generate: (random) => {
+          const [length, x] = pick(random, MEDIAN_CUTS);
+          return medianThree({ length, x, side: random() < 0.6 ? "above" : "below" });
+        },
+      },
+    ],
   },
 ];

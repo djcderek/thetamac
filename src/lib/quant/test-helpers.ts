@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getQuantLesson, type QuantLesson, type QuantProblem } from "./lessons";
+import { generateFromFamily, getQuantLesson, type QuantLesson, type QuantProblem } from "./lessons";
 import { value } from "./rational";
 
 /** Shared pieces for the quant tests: seeded sampling and brute-force tools. */
@@ -12,11 +12,12 @@ export function seeded(seed: number) {
   };
 }
 
-/** Every problem a lesson makes over many seeds, plus its worked example. */
+/** Problems from every one of a lesson's question types (at least 30 each), plus its worked example. */
 export function sample(lessonId: string, count = 300) {
   const lesson = getQuantLesson(lessonId)!;
   const random = seeded(lessonId.length * 97 + 11);
-  return [lesson.example, ...Array.from({ length: count }, () => lesson.generate(random))];
+  const each = Math.max(30, Math.ceil(count / lesson.families.length));
+  return [lesson.example, ...lesson.families.flatMap((family) => Array.from({ length: each }, () => generateFromFamily(family, random)))];
 }
 
 /** All sequences of `length` picks from `values` (with repeats). */

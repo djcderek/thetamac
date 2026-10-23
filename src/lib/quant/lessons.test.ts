@@ -8,6 +8,7 @@ import {
   QUANT_SOLO,
   QUANT_TOPICS,
   createQuantLessonProblems,
+  generateFromFamily,
   getQuantLesson,
   isQuantLessonMastered,
 } from "./lessons";
@@ -180,5 +181,27 @@ test("every walkthrough step says what it does, and every problem has a figure",
       assert.ok(visuals.length > 0, `${label}: no figure`);
       for (const visual of visuals) checkVisual(visual, label);
     }
+  }
+});
+
+test("every lesson has several named question types, each with its own variety", () => {
+  for (const lesson of QUANT_LESSONS) {
+    assert.ok(lesson.families.length >= 4, `${lesson.id}: ${lesson.families.length} types`);
+    const ids = lesson.families.map((f) => f.id);
+    assert.equal(new Set(ids).size, ids.length, `${lesson.id}: duplicate type ids`);
+    for (const family of lesson.families) {
+      assert.ok(family.title.length > 0 && family.title.length <= 48, `${lesson.id}/${family.id}: "${family.title}"`);
+      const random = seeded(family.id.length * 31 + 7);
+      const keys = new Set(Array.from({ length: 200 }, () => generateFromFamily(family, random).key));
+      assert.ok(keys.size >= 3, `${lesson.id}/${family.id}: only ${keys.size} different questions`);
+    }
+  }
+});
+
+test("a practice set spreads across question types", () => {
+  for (const lesson of QUANT_LESSONS) {
+    const problems = createQuantLessonProblems(lesson, seeded(5));
+    const types = new Set(problems.map((p) => p.family));
+    assert.ok(types.size >= Math.min(lesson.families.length, QUANT_SET_SIZE) - 1, `${lesson.id}: ${types.size} types in a set`);
   }
 });

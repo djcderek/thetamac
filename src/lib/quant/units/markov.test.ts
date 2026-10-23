@@ -9,6 +9,31 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "coupon-collector": {
+      if (p.k !== undefined || p.red !== undefined) {
+        // Push the distribution of the state forward turn by turn; E[T] = sum of P(not done yet).
+        // some-types: state = types seen (done at k). swap-urn: state = red balls left (done at 0).
+        const swap = p.red !== undefined;
+        const n = swap ? +p.red + +p.blue : +p.n;
+        const start = swap ? +p.red : 0;
+        const done = (state: number) => (swap ? state === 0 : state === +p.k);
+        const moveChance = (state: number) => (swap ? state / n : (n - state) / n);
+        let dist = new Map([[start, 1]]);
+        let expected = 0;
+        for (let t = 0; t < 6000; t++) {
+          let alive = 0;
+          const next = new Map<number, number>();
+          for (const [state, chance] of dist) {
+            if (done(state)) continue;
+            alive += chance;
+            const moved = swap ? state - 1 : state + 1;
+            next.set(moved, (next.get(moved) ?? 0) + chance * moveChance(state));
+            next.set(state, (next.get(state) ?? 0) + chance * (1 - moveChance(state)));
+          }
+          expected += alive;
+          dist = next;
+        }
+        return expected;
+      }
       // E[T] = sum over t of P(not every face seen after t rolls), by inclusion–exclusion.
       const n = +p.sides;
       let expected = 0;
@@ -20,6 +45,37 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return expected;
     }
     case "patterns": {
+      if (p.k !== undefined) {
+        // Run-length states 0..k−1: a success moves up one, a miss drops to 0. Solve the equations.
+        const k = +p.k, chance = +p.pN / +p.pD;
+        const a = Array.from({ length: k }, () => Array(k).fill(0));
+        const b = Array(k).fill(1);
+        for (let m = 0; m < k; m++) {
+          a[m][m] += 1;
+          if (m + 1 < k) a[m][m + 1] -= chance;
+          a[m][0] -= 1 - chance;
+        }
+        return solve(a, b)[0];
+      }
+      if (p.ask === "even" || p.ask === "odd") {
+        // Track (last flip, flip count) forward and add up where the game stops, by parity.
+        const heads = +p.headsN / +p.headsD;
+        const chance = { H: heads, T: 1 - heads };
+        let alive: Record<"H" | "T", number> = { ...chance };
+        let even = 0, odd = 0;
+        for (let n = 2; n < 400; n++) {
+          const next: Record<"H" | "T", number> = { H: 0, T: 0 };
+          for (const last of ["H", "T"] as const) {
+            const stop = alive[last] * chance[last];
+            if (n % 2 === 0) even += stop;
+            else odd += stop;
+            const other = last === "H" ? "T" : "H";
+            next[other] += alive[last] * chance[other];
+          }
+          alive = next;
+        }
+        return p.ask === "even" ? even : odd;
+      }
       // Solve the waiting-time equations over "how much of the pattern is matched" states.
       const pattern = String(p.pattern).split(" ");
       const alphabet = p.type === "die" ? faces(6).map(String) : ["H", "T"];
@@ -46,6 +102,57 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return solve(a, b)[0];
     }
     case "random-walks": {
+      if (p.ask === "win" || p.ask === "points") {
+        // States −2..2 (Ana's lead). Solve for the win chance or the expected points from deuce.
+        const win = +p.pN / +p.pD;
+        const a = Array.from({ length: 5 }, () => Array(5).fill(0));
+        const b = Array(5).fill(0);
+        a[0][0] = 1;
+        a[4][4] = 1;
+        if (p.ask === "win") b[4] = 1;
+        for (let i = 1; i < 4; i++) {
+          a[i][i] = 1;
+          a[i][i + 1] = -win;
+          a[i][i - 1] = -(1 - win);
+          if (p.ask === "points") b[i] = 1;
+        }
+        return solve(a, b)[2];
+      }
+      if (p.sN !== undefined) {
+        // E[i] = 1 + s·E[i] + u·E[i+1] + u·E[i−1], E[0] = E[N] = 0.
+        const target = +p.target, stay = +p.sN / +p.sD, move = (1 - stay) / 2;
+        const a = Array.from({ length: target + 1 }, () => Array(target + 1).fill(0));
+        const b = Array(target + 1).fill(0);
+        a[0][0] = 1;
+        a[target][target] = 1;
+        for (let i = 1; i < target; i++) {
+          a[i][i] = 1 - stay;
+          a[i][i + 1] = -move;
+          a[i][i - 1] = -move;
+          b[i] = 1;
+        }
+        return solve(a, b)[+p.start];
+      }
+      if (p.tokens !== undefined) {
+        // Count dice outcomes for each total directly, then solve the token walk from t to 0 or 2t.
+        const rolls = sequences(faces(6), +p.dice);
+        const toA = rolls.filter((r) => r.reduce((x, y) => x + y, 0) === +p.aTotal).length;
+        const toB = rolls.filter((r) => r.reduce((x, y) => x + y, 0) === +p.bTotal).length;
+        const size = 2 * +p.tokens + 1;
+        const a = Array.from({ length: size }, () => Array(size).fill(0));
+        const b = Array(size).fill(0);
+        a[0][0] = 1;
+        a[size - 1][size - 1] = 1;
+        b[size - 1] = 1;
+        for (let i = 1; i < size - 1; i++) {
+          // Rolls that move nothing leave you where you are, so they're part of the equation too.
+          const stayChance = 1 - (toA + toB) / rolls.length;
+          a[i][i] = 1 - stayChance;
+          a[i][i + 1] = -toA / rolls.length;
+          a[i][i - 1] = -toB / rolls.length;
+        }
+        return solve(a, b)[+p.tokens];
+      }
       // Chances: solve P[i] = win·P[i+1] + lose·P[i−1], P[0] = 0, P[target] = 1.
       // Durations: solve E[i] = 1 + win·E[i+1] + lose·E[i−1], E[0] = E[target] = 0.
       const target = +p.target, win = +p.winN / +p.winD;
@@ -66,6 +173,28 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return p.ask === "broke" ? 1 - result : result;
     }
     case "optimal-stopping": {
+      if (p.type === "doubles" || p.type === "total" || p.type === "pig") {
+        // For each score, list every outcome of one more roll and find the first score where it doesn't pay.
+        const outcomes: { bust: boolean; add: number }[] = [];
+        if (p.type === "pig") for (const f of faces(+p.sides)) outcomes.push({ bust: f === 1, add: f });
+        else {
+          const n = p.type === "doubles" ? +p.sides : 6;
+          for (const [x, y] of sequences(faces(n), 2)) outcomes.push({ bust: p.type === "doubles" ? x === y : x + y === +p.total, add: x + y });
+        }
+        for (let score = 0; score < 1000; score++) {
+          const gain = outcomes.reduce((sum, o) => sum + (o.bust ? -score : o.add), 0) / outcomes.length;
+          if (gain <= 1e-9) return score;
+        }
+        throw new Error("no stopping score");
+      }
+      if (p.costN !== undefined) {
+        // Value iteration: V = average of max(face, V − cost), from V = 0 until it settles.
+        const sides = +p.sides, cost = +p.costN / +p.costD;
+        let worth = 0;
+        for (let i = 0; i < 20000; i++) worth = faces(sides).reduce((sum, f) => sum + Math.max(f, worth - cost), 0) / sides;
+        if (p.ask === "value") return worth;
+        return faces(sides).find((f) => f >= worth - cost - 1e-9)!;
+      }
       if (p.type === "uniform") {
         // Numerically integrate max(x, value of going on) over x, one redraw at a time.
         const steps = 200000;

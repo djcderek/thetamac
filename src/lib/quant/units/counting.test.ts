@@ -20,14 +20,22 @@ function arrangements(counts: Map<string, number>, memo = new Map<string, number
   return total;
 }
 
-/** Subsets of `size` from `n` items with a property, by walking every bitmask. */
+/** Subsets of `size` from `n` items with a property, listing each group of that size once. */
 function subsets(n: number, size: number, keep: (members: number[]) => boolean = () => true) {
   let count = 0;
-  for (let mask = 0; mask < 1 << n; mask++) {
-    const members: number[] = [];
-    for (let i = 0; i < n; i++) if (mask & (1 << i)) members.push(i);
-    if (members.length === size && keep(members)) count++;
-  }
+  const members: number[] = [];
+  const walk = (from: number) => {
+    if (members.length === size) {
+      if (keep(members)) count++;
+      return;
+    }
+    for (let i = from; i <= n - (size - members.length); i++) {
+      members.push(i);
+      walk(i + 1);
+      members.pop();
+    }
+  };
+  walk(0);
   return count;
 }
 
@@ -65,10 +73,28 @@ function strings(options: number[]) {
   return count;
 }
 
+// Every ordering of 1…n, built once per n: the checks list them for many problems.
+const orderCache = new Map<number, number[][]>();
+function orders(n: number): number[][] {
+  if (!orderCache.has(n)) orderCache.set(n, draws(faces(n), n));
+  return orderCache.get(n)!;
+}
+
 function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "multiplying-choices": {
+      if (p.type === "subsets" || p.type === "toppings") {
+        let count = 0;
+        for (let mask = 0; mask < 1 << +p.items; mask++) if (p.type === "subsets" || mask !== 0) count++;
+        return count;
+      }
+      if (p.type === "nested") {
+        // Every pair of bitmasks, keeping those where A's items are all in B.
+        let count = 0;
+        for (let a = 0; a < 1 << +p.items; a++) for (let b = 0; b < 1 << +p.items; b++) if ((a & b) === a) count++;
+        return count;
+      }
       if (p.type === "outfits") return countTuples([+p.shirts, +p.trousers, +p.shoes]);
       if (p.type === "pin") return strings(Array(+p.digits).fill(10));
       if (p.type === "plate") return strings([...Array(+p.letters).fill(26), ...Array(+p.digits).fill(10)]);
@@ -80,7 +106,39 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return meals;
     }
     case "permutations": {
-      if (p.type === "shelf") return draws(faces(+p.books), +p.books).length;
+      if (p.type === "together") {
+        // Person 1 is Ana and person 2 is Ben.
+        const together = orders(+p.people).filter((o) => Math.abs(o.indexOf(1) - o.indexOf(2)) === 1).length;
+        return p.ask === "together" ? together : orders(+p.people).length - together;
+      }
+      if (p.type === "gaps") {
+        // People 1…girls are the girls; keep orders with no two girls side by side.
+        const girl = (x: number) => x <= +p.girls;
+        return orders(+p.boys + +p.girls).filter((o) => o.every((x, i) => i === 0 || !(girl(x) && girl(o[i - 1])))).length;
+      }
+      if (p.type === "mirror" || p.type === "seat-some") {
+        // Every seating as a ring; make rotations (and for mirror, reflections) the same.
+        const from = p.type === "mirror" ? +p.people : +p.from;
+        const seats = p.type === "mirror" ? +p.people : +p.seats;
+        const mirror = p.type === "mirror" || +p.mirror === 1;
+        const seen = new Set<string>();
+        for (const order of draws(faces(from), seats)) {
+          const forms: string[] = [];
+          for (const ring of mirror ? [order, [...order].reverse()] : [order]) {
+            for (let r = 0; r < ring.length; r++) forms.push([...ring.slice(r), ...ring.slice(0, r)].join());
+          }
+          seen.add(forms.sort()[0]);
+        }
+        return seen.size;
+      }
+      if (p.type === "heights") {
+        // Place students tallest first: each goes to the next free spot on the left or the right of the middle.
+        const half = (+p.students - 2) / 2;
+        const ways = (left: number, right: number): number =>
+          left === half && right === half ? 1 : (left < half ? ways(left + 1, right) : 0) + (right < half ? ways(left, right + 1) : 0);
+        return 2 * ways(0, 0);
+      }
+      if (p.type === "shelf") return orders(+p.books).length;
       if (p.type === "podium") return draws(faces(+p.runners), +p.places).length;
       if (p.type === "pin") return draws(faces(10), +p.digits).length;
       if (p.type === "anagram") {
@@ -90,13 +148,46 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       }
       // Round table: every seating, with rotations made the same by starting from person 1.
       const seen = new Set<string>();
-      for (const order of draws(faces(+p.people), +p.people)) {
+      for (const order of orders(+p.people)) {
         const start = order.indexOf(1);
         seen.add([...order.slice(start), ...order.slice(0, start)].join());
       }
       return seen.size;
     }
     case "combinations": {
+      if (p.type === "named-groups") {
+        // Every way to give each person one of the three jobs, keeping the right group sizes.
+        const n = +p.a + +p.b + +p.c;
+        return sequences([0, 1, 2], n).filter((jobs) => jobs.filter((j) => j === 0).length === +p.a && jobs.filter((j) => j === 1).length === +p.b).length;
+      }
+      if (p.type === "through") {
+        // Every route as a sequence of E and N steps, keeping those that visit the corner.
+        const steps = +p.east + +p.north;
+        let count = 0;
+        for (let mask = 0; mask < 1 << steps; mask++) {
+          let e = 0, n = 0, visits = +p.viaEast === 0 && +p.viaNorth === 0, ok = true;
+          for (let i = 0; i < steps; i++) {
+            if (mask & (1 << i)) n++;
+            else e++;
+            if (e === +p.viaEast && n === +p.viaNorth) visits = true;
+          }
+          if (e !== +p.east || n !== +p.north) ok = false;
+          if (ok && visits) count++;
+        }
+        return count;
+      }
+      if (p.type === "poker") {
+        const rank = (card: number) => DECK[card].rank - 1;
+        const shape = (counts: number[]) => counts.filter((c) => c > 0).sort((a, b) => b - a).join();
+        const wanted: Record<string, string> = { four: "4,1", full: "3,2", three: "3,1,1", "two-pair": "2,2,1", "one-pair": "2,1,1,1" };
+        return hands(rank, 5, (counts) => shape(counts) === wanted[p.hand as string], 13);
+      }
+      if (p.type === "range") return subsets(+p.high - +p.low + 1, +p.count);
+      if (p.type === "sweets-min") {
+        const share = (sweets: number, children: number): number =>
+          children === 1 ? (sweets >= 1 ? 1 : 0) : Array.from({ length: sweets }, (_, give) => give + 1).reduce((acc, give) => acc + share(sweets - give, children - 1), 0);
+        return share(+p.sweets, +p.children);
+      }
       if (p.type === "choose") return subsets(+p.from, +p.pick);
       if (p.type === "committee") {
         // People 0 … women−1 are the women.
@@ -127,6 +218,12 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return hands((card) => (suit(card) <= 1 ? 0 : 1), 5, ([red]) => red === 5, 2);
     }
     case "inclusion-exclusion": {
+      if (p.type === "onto") return sequences(faces(+p.options), +p.people).filter((picks) => new Set(picks).size === +p.options).length;
+      if (p.type === "capped") {
+        const values = Array.from({ length: +p.high - +p.low + 1 }, (_, i) => +p.low + i);
+        return sequences(values, +p.parts).filter((xs) => xs.reduce((a, b) => a + b, 0) === +p.total).length;
+      }
+      if (p.type === "derange") return orders(+p.n).filter((o) => o.every((x, i) => x !== i + 1)).length;
       const upTo = faces(+p.upTo || 0);
       if (p.type === "divisible") {
         const either = upTo.filter((n) => n % +p.a === 0 || n % +p.b === 0).length;

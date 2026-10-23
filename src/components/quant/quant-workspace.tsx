@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, BookOpen, Check, ChevronLeft, ChevronRight, Clock, Lightbulb, List, Lock, Play, RotateCcw, Sparkles, X } from "lucide-react";
+import { AlertTriangle, BookOpen, ListChecks, Check, ChevronLeft, CircleDashed, ChevronRight, Clock, Lightbulb, List, Lock, Play, RotateCcw, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { runEnter, snapSpring } from "@/lib/motion";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   QUANT_MASTERY_FIRST_TRY,
   QUANT_SOLO,
   QUANT_TOPICS,
+  createFamilyProblem,
   createQuantLessonProblems,
   getQuantLesson,
   isFreeQuantLesson,
@@ -31,6 +32,7 @@ import { Walkthrough } from "@/components/quant/walkthrough";
 import { QuantFigure } from "@/components/quant/visuals";
 import { StepIcon } from "@/components/quant/step-icon";
 import { AnswerBox } from "@/components/quant/answer-box";
+import { markType, useTypeMarks } from "@/components/quant/type-progress";
 
 /** How long a right answer stays on screen before the next question. */
 const RIGHT_PAUSE_MS = 900;
@@ -46,8 +48,19 @@ const ANSWER_HINTS: Record<AnswerKind, string> = {
 
 type Phase = "answering" | "right" | "missed";
 type Attempt = { problem: QuantProblem; result: "right" | "missed" | null; firstTry: boolean; seconds: number | null };
-type Run = { problems: QuantProblem[]; index: number; phase: Phase; wrongTries: number; lastWrong: string; attempts: Attempt[] };
-type LeftTab = "lesson" | "walkthrough";
+type Run = {
+  problems: QuantProblem[];
+  index: number;
+  phase: Phase;
+  wrongTries: number;
+  lastWrong: string;
+  attempts: Attempt[];
+  /** Practising one question type: endless fresh questions of it, not a scored set. */
+  single?: string;
+  /** The steps were opened for this question, so it doesn't count as right first time. */
+  hinted?: boolean;
+};
+type LeftTab = "lesson" | "questions" | "walkthrough";
 
 const noSubscribe = () => () => {};
 function readSplit() {
@@ -64,7 +77,7 @@ type MobileTab = LeftTab | "practice";
 
 function Tabs<T extends string>({ tabs, value, onChange, id }: { tabs: { id: T; label: string; icon: ReactNode }[]; value: T; onChange: (tab: T) => void; id: string }) {
   return (
-    <div role="tablist" className="flex items-center gap-1">
+    <div role="tablist" className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -73,7 +86,7 @@ function Tabs<T extends string>({ tabs, value, onChange, id }: { tabs: { id: T; 
           aria-selected={value === tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
-            "relative isolate flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-colors",
+            "relative isolate flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium transition-colors sm:px-3.5",
             value === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
@@ -193,6 +206,15 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
   const lesson = getQuantLesson(lessonId)!;
   const reduceMotion = useReducedMotion();
   const { lessons, setLessons, locked, signedIn } = useQuantProgress();
+  const typeMarks = useTypeMarks(lessonId);
+  // One sample prompt per type, the same on every render (a fixed seed).
+  const [familySamples] = useState(() =>
+    lesson.families.map((family, i) => {
+      let seed = 97 + i * 13;
+      const random = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
+      return family.generate(random).prompt;
+    }),
+  );
   const lessonLocked = locked && !isFreeQuantLesson(lesson.id);
   const position = QUANT_LESSONS.indexOf(lesson);
   const previous = QUANT_LESSONS[position - 1] ?? null;
@@ -236,10 +258,18 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
       .catch(() => {});
   }, [setLessons]);
 
-  const start = () => {
+  const start = (single?: string) => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    const problems = createQuantLessonProblems(lesson);
-    setRun({ problems, index: 0, phase: "answering", wrongTries: 0, lastWrong: "", attempts: problems.map((problem) => ({ problem, result: null, firstTry: false, seconds: null })) });
+    const problems = single ? [createFamilyProblem(lesson, single)] : createQuantLessonProblems(lesson);
+    setRun({
+      problems,
+      index: 0,
+      phase: "answering",
+      wrongTries: 0,
+      lastWrong: "",
+      attempts: problems.map((problem) => ({ problem, result: null, firstTry: false, seconds: null })),
+      single,
+    });
     setFinished(null);
     setInput("");
     setReviewIndex(0);
@@ -270,12 +300,20 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
 
   const advance = (current: Run) => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    if (current.index + 1 >= current.problems.length) {
+    // One type: another question of it, with numbers not seen yet this session.
+    if (current.single) {
+      const fresh = createFamilyProblem(lesson, current.single, new Set(current.problems.map((p) => p.key)));
+      current = {
+        ...current,
+        problems: [...current.problems, fresh],
+        attempts: [...current.attempts, { problem: fresh, result: null, firstTry: false, seconds: null }],
+      };
+    } else if (current.index + 1 >= current.problems.length) {
       finish(current);
       return;
     }
     setInput("");
-    setRun({ ...current, index: current.index + 1, phase: "answering", wrongTries: 0, lastWrong: "" });
+    setRun({ ...current, index: current.index + 1, phase: "answering", wrongTries: 0, lastWrong: "", hinted: false });
     shownAt.current = performance.now();
     setQuestionStart(shownAt.current);
     setNow(shownAt.current);
@@ -284,9 +322,10 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
 
   const record = (current: Run, result: "right" | "missed"): Run => {
     const seconds = (performance.now() - shownAt.current) / 1000;
-    const attempts = current.attempts.map((a, i) =>
-      i === current.index ? { ...a, result, firstTry: result === "right" && current.wrongTries === 0, seconds } : a,
-    );
+    const family = current.problems[current.index].family;
+    const clean = result === "right" && current.wrongTries === 0 && !current.hinted;
+    if (family) markType(lesson.id, family, clean);
+    const attempts = current.attempts.map((a, i) => (i === current.index ? { ...a, result, firstTry: clean, seconds } : a));
     return { ...current, attempts, phase: result };
   };
 
@@ -294,7 +333,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     const next = record(current, "right");
     setRun(next);
     setReviewIndex(current.index);
-    advanceTimer.current = setTimeout(() => advance(next), RIGHT_PAUSE_MS);
+    // A set moves on by itself; one type waits, so the walkthrough can be read.
+    if (!current.single) advanceTimer.current = setTimeout(() => advance(next), RIGHT_PAUSE_MS);
   };
 
   const reveal = () => {
@@ -379,17 +419,70 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
       ) : (
         <div className="grid place-items-center gap-3 px-4 py-16 text-center">
           <StepIcon name="idea" />
-          <p className="text-[17px] font-semibold">Walkthroughs show up here</p>
+          <p className="text-[17px] font-semibold">Solutions show up here</p>
           <p className="max-w-xs text-[15px] leading-6 text-muted-foreground">
             Answer a practice question, or show its answer, to see it worked out step by step.
           </p>
           {!run && !lessonLocked && (
-            <Button variant="secondary" onClick={start} className="mt-2">
+            <Button variant="secondary" onClick={() => start()} className="mt-2">
               Start practice
             </Button>
           )}
         </div>
       )}
+    </div>
+  );
+
+  // ── Left pane: the lesson's question types, each practisable on its own ──
+  const questionsBody = (
+    <div className="space-y-4 px-5 py-6 sm:px-6">
+      <div>
+        <p className="text-[19px] font-semibold tracking-tight">Question types</p>
+        <p className="mt-1 text-[15px] leading-6 text-muted-foreground">
+          {lesson.families.length} kinds of question in this lesson. Practise any one on its own, with new numbers every time.
+        </p>
+      </div>
+      <ol className="space-y-1.5">
+        {lesson.families.map((family, index) => {
+          const mark = typeMarks[family.id];
+          const active = run?.single === family.id;
+          return (
+            <li key={family.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (lessonLocked) {
+                    setMobileTab("practice");
+                    return;
+                  }
+                  start(family.id);
+                }}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
+                  active ? "bg-secondary" : index % 2 === 0 ? "bg-secondary/60 hover:bg-control-hover" : "hover:bg-control-hover",
+                )}
+              >
+                <span className="grid size-7 shrink-0 place-items-center">
+                  {mark === "solved" ? (
+                    <Check aria-label="Solved" className="h-4 w-4 text-success" strokeWidth={2.5} />
+                  ) : mark === "tried" ? (
+                    <CircleDashed aria-label="Tried" className="h-4 w-4 text-warning" />
+                  ) : (
+                    <span className="text-[13px] font-semibold tabular-nums text-muted-foreground">{index + 1}</span>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-medium">{family.title}</span>
+                  <span className="block truncate text-[13px] text-muted-foreground">{familySamples[index]}</span>
+                </span>
+                <span className="shrink-0 text-[13px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                  {lessonLocked ? <Lock aria-label="Pro" className="h-3.5 w-3.5" /> : active ? "Practising" : "Practise"}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 
@@ -457,7 +550,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
                 {a.result === "right" ? <Check aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} /> : <X aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />}
               </span>
               <span className="min-w-0 flex-1 truncate text-[15px]">{a.problem.prompt}</span>
-              <span className="shrink-0 text-[13px] text-muted-foreground">Walkthrough</span>
+              <span className="shrink-0 text-[13px] text-muted-foreground">Solution</span>
             </button>
           </li>
         ))}
@@ -469,7 +562,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
             <ChevronRight aria-hidden="true" />
           </Link>
         ) : (
-          <Button variant="brand" size="lg" onClick={start} className="w-full">
+          <Button variant="brand" size="lg" onClick={() => start()} className="w-full">
             <RotateCcw aria-hidden="true" />
             Practise again
           </Button>
@@ -495,8 +588,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
       <div className="flex-1 space-y-5 px-5 py-6 sm:px-6">
         {/* Question navigator: done ones in their result colour, the current one in ink. */}
         <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5" aria-label={`Question ${run.index + 1} of ${run.problems.length}`}>
-            {run.attempts.map((a, i) => (
+          <div className="flex flex-wrap gap-1.5" aria-label={run.single ? `Question ${run.index + 1}` : `Question ${run.index + 1} of ${run.problems.length}`}>
+            {run.attempts.map((a, i) => (run.single && i < run.attempts.length - 8 ? null : (
               <span
                 key={a.problem.key}
                 className={cn(
@@ -506,7 +599,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
               >
                 {i + 1}
               </span>
-            ))}
+            )))}
           </div>
           {seconds !== null && (
             <span className="flex shrink-0 items-center gap-1 text-[14px] tabular-nums text-muted-foreground">
@@ -518,7 +611,21 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
 
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={problem.key} initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={runEnter} className="space-y-5">
-            <p className="text-[13px] font-medium text-muted-foreground">{guided ? "Guided · the steps are shown" : "On your own"}</p>
+            {run.single ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="min-w-0 truncate text-[13px] font-medium text-muted-foreground">
+                  Practising · {lesson.families.find((f) => f.id === run.single)?.title}
+                </p>
+                {!run.hinted && run.phase === "answering" && (
+                  <Button variant="ghost" size="sm" onClick={() => setRun({ ...run, hinted: true })} className="shrink-0 text-muted-foreground">
+                    <Lightbulb aria-hidden="true" />
+                    Show the steps
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <p className="text-[13px] font-medium text-muted-foreground">{guided ? "Guided · the steps are shown" : "On your own"}</p>
+            )}
             <p data-problem className="text-[19px] leading-8">
               {problem.prompt}
             </p>
@@ -527,7 +634,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
                 <QuantFigure visual={problem.visual} />
               </div>
             )}
-            {guided && (
+            {(guided || run.hinted) && (
               <ol aria-label="Steps" className="space-y-3 rounded-[18px] border border-border px-4 py-4">
                 {problem.steps.map((step, i) => (
                   <HintStep key={i} step={step} hideResult={i === problem.steps.length - 1 && run.phase === "answering"} />
@@ -550,9 +657,17 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
                 {formatAnswer(problem.answer, problem.kind)} · {run.attempts[run.index].seconds?.toFixed(1)}s
               </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => openWalkthrough(run.index)}>
-              Walkthrough
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => openWalkthrough(run.index)}>
+                Solution
+              </Button>
+              {run.single && (
+                <Button size="sm" onClick={() => advance(run)} autoFocus>
+                  Another one
+                  <ChevronRight aria-hidden="true" />
+                </Button>
+              )}
+            </div>
           </div>
         ) : run.phase === "missed" ? (
           <div className="space-y-3">
@@ -564,10 +679,10 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => openWalkthrough(run.index)} className="flex-1">
-                See the walkthrough
+                See the solution
               </Button>
               <Button onClick={() => advance(run)} autoFocus className="flex-1">
-                {run.index + 1 >= run.problems.length ? "Finish" : "Next question"}
+                {run.single ? "Another one" : run.index + 1 >= run.problems.length ? "Finish" : "Next question"}
                 <ChevronRight aria-hidden="true" />
               </Button>
             </div>
@@ -598,7 +713,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
           {saved.mastered ? "Mastered" : `Best so far: ${saved.bestFirstTry} of ${QUANT_SOLO}`}
         </p>
       )}
-      <Button variant="brand" size="lg" onClick={start} className="w-full">
+      <Button variant="brand" size="lg" onClick={() => start()} className="w-full">
         <Play aria-hidden="true" className="h-4 w-4 fill-current" />
         Start practice
       </Button>
@@ -607,7 +722,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
 
   const leftTabs = [
     { id: "lesson" as const, label: "Lesson", icon: <BookOpen aria-hidden="true" className="h-4 w-4" /> },
-    { id: "walkthrough" as const, label: "Walkthrough", icon: <Lightbulb aria-hidden="true" className="h-4 w-4" /> },
+    { id: "questions" as const, label: "Questions", icon: <ListChecks aria-hidden="true" className="h-4 w-4" /> },
+    { id: "walkthrough" as const, label: "Solution", icon: <Lightbulb aria-hidden="true" className="h-4 w-4" /> },
   ];
 
   return (
@@ -646,7 +762,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
             setMobileTab(tab);
             if (tab !== "practice") setLeftTab(tab);
           }}
-          tabs={[leftTabs[0], { id: "practice" as const, label: "Practice", icon: <Play aria-hidden="true" className="h-4 w-4" /> }, leftTabs[1]]}
+          tabs={[leftTabs[0], leftTabs[1], { id: "practice" as const, label: "Practice", icon: <Play aria-hidden="true" className="h-4 w-4" /> }, leftTabs[2]]}
         />
       </div>
 
@@ -656,7 +772,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
           style={{ "--split": `${split}%` } as CSSProperties}
           className={cn("min-w-0 shrink-0 md:w-[var(--split)]", mobileTab === "practice" && "max-md:hidden")}
           header={<Tabs id="left" value={leftTab} onChange={setLeftTab} tabs={leftTabs} />}>
-          {leftTab === "lesson" ? <LessonTab lesson={lesson} /> : walkthroughBody}
+          {leftTab === "lesson" ? <LessonTab lesson={lesson} /> : leftTab === "questions" ? questionsBody : walkthroughBody}
         </Pane>
         <div
           role="separator"

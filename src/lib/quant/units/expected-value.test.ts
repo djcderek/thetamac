@@ -20,6 +20,18 @@ function diceTotal(dice: number): [number, number][] {
   return [...dist];
 }
 
+const popcount = (x: number) => {
+  let count = 0;
+  for (; x; x &= x - 1) count++;
+  return count;
+};
+
+/** Every ordering of the items. */
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) return [items];
+  return items.flatMap((item, i) => permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest]));
+}
+
 const binomial = (n: number, p: number): [number, number][] =>
   Array.from({ length: n + 1 }, (_, k) => [k, choose(n, k) * p ** k * (1 - p) ** (n - k)]);
 import type { QuantProblem } from "../build";
@@ -30,6 +42,37 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   switch (lessonId) {
     case "expected-value": {
       const key = String(problem.key);
+      if (key.startsWith("capped-")) {
+        let expected = 0;
+        for (let n = 1; n < 300; n++) expected += 0.5 ** n * Math.min(2 ** n, +p.cap);
+        return expected;
+      }
+      if (key.startsWith("boxes-")) {
+        // Every position of the prize, equally likely; then find the break-even price by bisection.
+        const n = +p.boxes;
+        const opened = faces(n).reduce((s, k) => s + k, 0) / n;
+        if (p.ask === "boxes") return opened;
+        let low = 0, high = +p.prize;
+        for (let i = 0; i < 200; i++) {
+          const mid = (low + high) / 2;
+          if (+p.prize - mid * opened > 0) low = mid;
+          else high = mid;
+        }
+        return low;
+      }
+      if (key.startsWith("doors-")) {
+        // You always pick door 1; the prize is behind each door equally often.
+        const n = +p.doors;
+        const blind = faces(n).reduce((s, door) => s + (door === 1 ? +p.prize : 0), 0) / n;
+        return +p.prize - blind;
+      }
+      if (key.startsWith("info-")) {
+        const cases = [+p.high, +p.low];
+        const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+        const blind = Math.max(avg(cases), +p.sure);
+        const informed = avg(cases.map((box) => Math.max(box, +p.sure)));
+        return informed - blind;
+      }
       if (key.startsWith("sum-") || key.startsWith("product-")) {
         const rolls = sequences(faces(+p.sides), 2);
         const value = (r: number[]) => (p.type === "sum" ? r[0] + r[1] : r[0] * r[1]);
@@ -50,6 +93,47 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return all.reduce((sum, face) => sum + pay(face), 0) / all.length;
     }
     case "linearity": {
+      const key = String(problem.key);
+      if (key.startsWith("couples-")) {
+        // Every seating of the 2n people; partners are 2i and 2i + 1.
+        const n = +p.couples, seats = 2 * n;
+        const orders = permutations(faces(seats).map((x) => x - 1));
+        const together = (order: number[]) => {
+          let count = 0;
+          for (let i = 0; i < seats; i++) {
+            const j = i + 1;
+            if (j === seats && p.seating !== "round") continue;
+            const a = order[i], b = order[j % seats];
+            if (Math.floor(a / 2) === Math.floor(b / 2)) count++;
+          }
+          return count;
+        };
+        return orders.reduce((s, o) => s + together(o), 0) / orders.length;
+      }
+      if (key.startsWith("runs-")) {
+        // Every placement of the red cards among the positions, counting runs directly.
+        const r = +p.red, n = r + +p.black;
+        let total = 0, rows = 0;
+        for (let mask = 0; mask < 1 << n; mask++) {
+          if (popcount(mask) !== r) continue;
+          let runs = 1;
+          for (let i = 1; i < n; i++) if (((mask >> i) & 1) !== ((mask >> (i - 1)) & 1)) runs++;
+          total += runs;
+          rows++;
+        }
+        return total / rows;
+      }
+      if (key.startsWith("sets-")) {
+        // Every choice of removed pieces; piece i belongs to set floor(i / size).
+        const sets = +p.sets, size = +p.size, m = +p.removed, n = sets * size;
+        let total = 0, choices = 0;
+        for (let mask = 0; mask < 1 << n; mask++) {
+          if (popcount(mask) !== m) continue;
+          choices++;
+          for (let s = 0; s < sets; s++) if (((mask >> (s * size)) & ((1 << size) - 1)) === 0) total++;
+        }
+        return total / choices;
+      }
       if (p.type === "dice-total") return moments(diceTotal(+p.dice)).mean;
       if (String(problem.key).startsWith("first-")) {
         // E[position] = sum over j of P(the first j cards hold no target card).
@@ -93,6 +177,22 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return expected;
     }
     case "variance": {
+      const key = String(problem.key);
+      if (key.startsWith("without-")) {
+        // The hypergeometric distribution of the count, then its variance.
+        const pools: Record<string, [number, number]> = { clubs: [52, 13], aces: [52, 4], red: [52, 26], balls: [10, 4], "balls-12": [12, 6] };
+        const [N, K] = pools[String(p.pool)];
+        const n = +p.draws;
+        const dist: [number, number][] = [];
+        for (let k = 0; k <= Math.min(n, K); k++) dist.push([k, (choose(K, k) * choose(N - K, n - k)) / choose(N, n)]);
+        return moments(dist).variance;
+      }
+      if (key.startsWith("sd-total-")) {
+        // Model each part as ±SD with equal chance (variance SD²) and build the total's distribution.
+        const n = +p.parts, sd = +p.sd;
+        const dist = binomial(n, 1 / 2).map(([k, c]) => [sd * (2 * k - n), c] as [number, number]);
+        return Math.sqrt(moments(dist).variance);
+      }
       if (p.type === "die") return moments(faces(+p.sides).map((f) => [f, 1 / +p.sides])).variance;
       if (p.type === "dice-sum") return moments(diceTotal(+p.dice)).variance;
       if (p.type === "heads") return moments(binomial(+p.flips, +p.headsN / +p.headsD)).variance;

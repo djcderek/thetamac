@@ -1,4 +1,4 @@
-import { div, formatDollars, formatFraction, formatPercent, mul, q, sub, value, type Rational } from "../rational";
+import { add, div, formatDollars, formatFraction, formatPercent, mul, q, sub, value, type Rational } from "../rational";
 import { int, pick, problem, type QuantLessonDef, type QuantProblem } from "../build";
 import type { QuantVisual } from "../visual";
 
@@ -21,6 +21,7 @@ function chanceLine(chance: Rational, label = "implied chance"): QuantVisual {
 function oddsToChance(
   params:
     | { type: "against"; against: number; for: number }
+    | { type: "on"; on: number; against: number }
     | { type: "decimal"; hundredths: number }
     | { type: "american"; line: number },
 ) {
@@ -58,6 +59,45 @@ function oddsToChance(
           shade: [
             { from: 0, to: forOdds, tone: "win", text: `${forOdds} ${forOdds === 1 ? "win" : "wins"}` },
             { from: forOdds, to: total, tone: "lose", text: `${against} losses` },
+          ],
+          caption: `Every ${total} races, on average`,
+        },
+      );
+    }
+    case "on": {
+      // "a to b on" is b to a against: the favourite wins a times for every b losses.
+      const { on, against } = params;
+      const total = on + against;
+      return problem(
+        `on-${on}-${against}`,
+        `A favourite is ${on} to ${against} on (the same as ${against} to ${on} against). What chance of winning do those odds imply?`,
+        q(on, total),
+        "percent",
+        [
+          {
+            label: "Wins",
+            work: `${on} in every ${on} + ${against}`,
+            result: `${on}/${total}`,
+            icon: "count",
+            explain: `“On” means the odds favour it: ${on} wins for every ${against} ${against === 1 ? "loss" : "losses"}, so ${on} wins in every ${total} races.`,
+          },
+          {
+            label: "Chance",
+            work: `${on} ÷ ${total}`,
+            icon: "divide",
+            explain: "Wins divided by all the races is the chance of winning.",
+            visual: chanceLine(q(on, total)),
+          },
+        ],
+        params,
+        {
+          type: "number-line",
+          min: 0,
+          max: total,
+          ticks: Array.from({ length: total + 1 }, (_, i) => i),
+          shade: [
+            { from: 0, to: on, tone: "win", text: `${on} wins` },
+            { from: on, to: total, tone: "lose", text: `${against} ${against === 1 ? "loss" : "losses"}` },
           ],
           caption: `Every ${total} races, on average`,
         },
@@ -142,6 +182,80 @@ function oddsToChance(
       );
     }
   }
+}
+
+/** Decimal odds as text: 190 → "1.90". */
+const decimalText = (hundredths: number) => (hundredths / 100).toFixed(2);
+
+/** A two-way market: implied chances add to more than 100%, and the extra is the bookmaker's margin. */
+function bookmakerMargin(params: { type: "margin"; a: number; b: number; ask: "margin" | "fair" }) {
+  const { a, b, ask } = params;
+  const pa = q(100, a);
+  const pb = q(100, b);
+  const sum = add(pa, pb);
+  const bars = (withTotal: boolean): QuantVisual => ({
+    type: "bars",
+    bars: [
+      { label: "Team A", value: value(pa), tone: "hit", text: formatPercent(pa) },
+      { label: "Team B", value: value(pb), tone: "alt", text: formatPercent(pb) },
+      ...(withTotal
+        ? [
+            { label: "Together", value: value(sum), tone: "lose" as const, text: formatPercent(sum) },
+            { label: "A fair book", value: 1, tone: "muted" as const, text: "100%" },
+          ]
+        : []),
+    ],
+    caption: "Implied chances from the two prices",
+  });
+  return problem(
+    `margin-${a}-${b}-${ask}`,
+    `A bookmaker offers decimal odds of ${decimalText(a)} on Team A and ${decimalText(b)} on Team B, and one of them must win. ${
+      ask === "margin"
+        ? "The implied chances add up to more than 100%, and the extra is the bookmaker's margin. What is the margin?"
+        : "Taking out the bookmaker's margin, what's the fair chance Team A wins?"
+    }`,
+    ask === "margin" ? sub(sum, q(1)) : div(pa, sum),
+    "percent",
+    [
+      {
+        label: "Implied chance of Team A",
+        work: `1 ÷ ${decimalText(a)}`,
+        result: formatPercent(pa),
+        icon: "divide",
+        explain: "Decimal odds are 1 ÷ the chance the price implies.",
+      },
+      {
+        label: "Implied chance of Team B",
+        work: `1 ÷ ${decimalText(b)}`,
+        result: formatPercent(pb),
+        icon: "divide",
+        explain: "The same for the other side.",
+        visual: bars(false),
+      },
+      {
+        label: "Together",
+        work: `${formatPercent(pa)} + ${formatPercent(pb)}`,
+        result: formatPercent(sum),
+        icon: "add",
+        explain: "One team must win, so fair prices would add up to exactly 100%. Anything over is built into the prices.",
+        visual: bars(true),
+      },
+      ask === "margin"
+        ? {
+            label: "Margin",
+            work: `${formatPercent(sum)} − 100%`,
+            icon: "subtract" as const,
+            explain: "The extra above 100% is the bookmaker’s cut, spread across both prices.",
+          }
+        : {
+            label: "Team A’s fair chance",
+            work: `${formatPercent(pa)} ÷ ${formatPercent(sum)}`,
+            icon: "divide" as const,
+            explain: "Scale both chances down so they add to 100%: divide each one by the total.",
+          },
+    ],
+    params,
+  );
 }
 
 /** "40%" when the chance is a whole percent, else "1/6". */
@@ -341,6 +455,8 @@ const ROULETTE_BETS: { id: string; label: string; numbers: number; pays: number 
   { id: "corner", label: "a corner (four numbers), which pays 8 to 1", numbers: 4, pays: 8 },
   { id: "dozen", label: "a dozen (12 numbers), which pays 2 to 1", numbers: 12, pays: 2 },
   { id: "red", label: "red (18 numbers), which pays 1 to 1", numbers: 18, pays: 1 },
+  { id: "low", label: "1 to 18 (18 numbers), which pays 1 to 1", numbers: 18, pays: 1 },
+  { id: "column", label: "a column (12 numbers), which pays 2 to 1", numbers: 12, pays: 2 },
 ];
 
 /** Average win and loss per $1, then the house's share once it's worked out. */
@@ -446,6 +562,183 @@ function houseEdge(params: { type: "roulette"; wheel: 37 | 38; bet: string } | {
   );
 }
 
+/** Casino bets on one roll of two dice. */
+const DICE_BETS: { id: string; label: string; pays: number; wins: (a: number, b: number) => boolean }[] = [
+  { id: "seven", label: "two dice total 7", pays: 4, wins: (a, b) => a + b === 7 },
+  { id: "double", label: "two dice show a double", pays: 4, wins: (a, b) => a === b },
+  { id: "twelve", label: "two dice total 12", pays: 30, wins: (a, b) => a + b === 12 },
+  { id: "eleven", label: "two dice total 11", pays: 15, wins: (a, b) => a + b === 11 },
+  { id: "craps", label: "two dice total 2, 3 or 12", pays: 7, wins: (a, b) => [2, 3, 12].includes(a + b) },
+  { id: "two-or-twelve", label: "two dice total 2 or 12", pays: 15, wins: (a, b) => a + b === 2 || a + b === 12 },
+];
+
+function diceHouseEdge(params: { type: "dice"; bet: string }) {
+  const bet = DICE_BETS.find((d) => d.id === params.bet)!;
+  const cells: [number, number][] = [];
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (bet.wins(a, b)) cells.push([a, b]);
+  const w = cells.length;
+  const win = q(bet.pays * w, 36);
+  const lose = q(36 - w, 36);
+  return problem(
+    `dice-${bet.id}`,
+    `A casino bet pays ${bet.pays} to 1 if ${bet.label} on the next roll. What's the house edge, as a share of each bet?`,
+    q(36 - w - bet.pays * w, 36),
+    "percent",
+    [
+      {
+        label: "Win times its chance",
+        work: `$${bet.pays} × ${w}/36`,
+        result: formatDollars(win),
+        icon: "multiply",
+        explain: `${w} of the 36 equally likely rolls win, and each pays $${bet.pays} on a $1 bet.`,
+        visual: edgeBars(win, lose, "win"),
+      },
+      {
+        label: "Loss times its chance",
+        work: `$1 × ${36 - w}/36`,
+        result: formatDollars(lose),
+        icon: "multiply",
+        explain: `The other ${36 - w} rolls lose your $1.`,
+        visual: edgeBars(win, lose, "both"),
+      },
+      {
+        label: "Average loss per $1",
+        work: `(${36 - w} − ${bet.pays * w}) ÷ 36`,
+        icon: "subtract",
+        explain: "Average loss minus average win is what the house keeps from each $1 you bet.",
+        visual: edgeBars(win, lose, "edge"),
+      },
+    ],
+    params,
+    { type: "dice-grid", sides: 6, marks: [{ cells, tone: "win" }], caption: `${w} of the 36 rolls win` },
+  );
+}
+
+/** A raffle: the house keeps whatever the prize doesn't pay back. */
+function raffle(params: { type: "raffle"; tickets: number; price: number; prize: number }) {
+  const { tickets, price, prize } = params;
+  const average = q(prize, tickets);
+  const loss = sub(q(price), average);
+  return problem(
+    `raffle-${tickets}-${price}-${prize}`,
+    `A raffle sells ${tickets} tickets at $${price} each, and one ticket wins a $${prize} prize. If you buy a ticket, what's the house edge, as a share of what you pay?`,
+    div(loss, q(price)),
+    "percent",
+    [
+      {
+        label: "Chance your ticket wins",
+        work: `1 in ${tickets}`,
+        result: `1/${tickets}`,
+        icon: "count",
+        explain: `Every ticket is equally likely to be drawn, so yours wins 1 time in ${tickets}.`,
+      },
+      {
+        label: "Average prize per ticket",
+        work: `$${prize} × 1/${tickets}`,
+        result: formatDollars(average),
+        icon: "multiply",
+        explain: "Weight the prize by your chance of winning it.",
+      },
+      {
+        label: "Average loss per ticket",
+        work: `$${price} − ${formatDollars(average)}`,
+        result: formatDollars(loss),
+        icon: "subtract",
+        explain: "You pay for the ticket either way, and get the average prize back.",
+        visual: {
+          type: "bars",
+          bars: [
+            { label: "Ticket", value: price, tone: "lose", text: `$${price}` },
+            { label: "Average prize", value: value(average), tone: "win", text: formatDollars(average) },
+            { label: "House keeps", value: value(loss), tone: "hit", text: formatDollars(loss) },
+          ],
+          caption: "Per ticket, on average",
+        },
+      },
+      {
+        label: "House edge",
+        work: `${formatDollars(loss)} ÷ $${price}`,
+        icon: "divide",
+        explain: "As a share of what you pay, that’s the house edge.",
+      },
+    ],
+    params,
+  );
+}
+
+/** Raffles: tickets, price, and the share of ticket money the prize pays back. */
+const RAFFLES = [100, 200, 500, 1000].flatMap((tickets) =>
+  [1, 2, 5].flatMap((price) => [50, 60, 70, 80].map((back) => ({ tickets, price, prize: (tickets * price * back) / 100 }))),
+);
+
+/** Kelly with the payout given as decimal odds: the payout per $1 is the decimal odds minus 1. */
+function kellyDecimal(params: { type: "decimal"; winPercent: number; hundredths: number }) {
+  const { winPercent, hundredths } = params;
+  const p = q(winPercent, 100);
+  const lose = sub(q(1), p);
+  const b = q(hundredths - 100, 100);
+  const bText = `${(hundredths - 100) / 100}`;
+  const full = sub(p, div(lose, b));
+  return problem(
+    `kelly-decimal-${winPercent}-${hundredths}`,
+    `A bet wins ${winPercent}% of the time at decimal odds of ${decimalText(hundredths)}: a winning $1 returns $${decimalText(hundredths)} in total. What share of your bankroll does the Kelly rule say to stake?`,
+    full,
+    "percent",
+    [
+      {
+        label: "Payout per $1",
+        work: `${decimalText(hundredths)} − 1`,
+        result: bText,
+        icon: "subtract",
+        explain: "Decimal odds include your $1 back. The payout Kelly uses is only the profit, so take off the $1.",
+      },
+      {
+        label: "Chance to lose",
+        work: `100% − ${winPercent}%`,
+        result: formatPercent(lose),
+        icon: "subtract",
+        explain: "Whatever doesn’t win, loses.",
+      },
+      {
+        label: "Chance to lose ÷ payout",
+        work: `${formatPercent(lose)} ÷ ${bText}`,
+        result: formatPercent(div(lose, b)),
+        icon: "divide",
+        explain: `A win pays ${bText} times your stake, so divide the lose chance by the payout.`,
+      },
+      {
+        label: "Kelly stake: chance to win − that",
+        work: `${winPercent}% − ${formatPercent(div(lose, b))}`,
+        icon: "subtract",
+        explain: "What’s left of your win chance is the share of your bankroll to bet.",
+        visual: {
+          type: "number-line",
+          min: 0,
+          max: 100,
+          ticks: [0, 25, 50, 75, 100],
+          shade: [
+            { from: 0, to: value(full) * 100, tone: "hit", text: `${formatPercent(full)} staked` },
+            { from: value(full) * 100, to: 100, tone: "known", text: "kept back" },
+          ],
+          caption: "Share of your bankroll",
+        },
+      },
+    ],
+    params,
+    {
+      type: "bars",
+      bars: [
+        { label: "Win", value: value(p), tone: "win", text: `${winPercent}%` },
+        { label: "Lose", value: value(lose), tone: "lose", text: formatPercent(lose) },
+      ],
+      caption: `Decimal odds of ${decimalText(hundredths)}`,
+    },
+  );
+}
+
+/** Decimal-odds Kelly bets with an edge: win chance and odds in hundredths. */
+const KELLY_DECIMAL = [[50, 250], [40, 300], [60, 200], [45, 250], [55, 220], [30, 400], [35, 350], [70, 175]] as const;
+
 function kelly(params: { winPercent: number; pays: number; half: 0 | 1 }) {
   const { winPercent, pays, half } = params;
   const p = q(winPercent, 100);
@@ -549,15 +842,42 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
     mistake: "Reading 3 to 1 against as a 1 in 3 chance: it’s 1 win for every 3 losses, so 1 in 4.",
     targetSeconds: 20,
     example: oddsToChance({ type: "against", against: 3, for: 1 }),
-    generate: (random) =>
-      pick(random, [
-        () => {
+    families: [
+      {
+        id: "against",
+        title: "Odds against",
+        generate: (random) => {
           const [against, forOdds] = pick(random, [[1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [9, 1], [3, 2], [5, 2], [7, 2], [5, 4], [7, 4]] as const);
           return oddsToChance({ type: "against", against, for: forOdds });
         },
-        () => oddsToChance({ type: "decimal", hundredths: pick(random, [125, 150, 200, 250, 400, 500, 800]) }),
-        () => oddsToChance({ type: "american", line: pick(random, [-400, -300, -200, -150, 150, 200, 300, 400]) }),
-      ])(),
+      },
+      {
+        id: "on",
+        title: "Odds on a favourite",
+        generate: (random) => {
+          const [on, against] = pick(random, [[2, 1], [3, 1], [4, 1], [9, 1], [3, 2], [5, 2], [7, 4], [5, 4]] as const);
+          return oddsToChance({ type: "on", on, against });
+        },
+      },
+      {
+        id: "decimal",
+        title: "Decimal odds",
+        generate: (random) => oddsToChance({ type: "decimal", hundredths: pick(random, [125, 150, 200, 250, 400, 500, 800]) }),
+      },
+      {
+        id: "american",
+        title: "American odds (+200, −150)",
+        generate: (random) => oddsToChance({ type: "american", line: pick(random, [-400, -300, -200, -150, 150, 200, 300, 400]) }),
+      },
+      {
+        id: "margin",
+        title: "A bookmaker’s margin",
+        generate: (random) => {
+          const [a, b] = pick(random, [[190, 190], [150, 250], [125, 400], [200, 180], [160, 230], [140, 280], [110, 600]] as const);
+          return bookmakerMargin({ type: "margin", a, b, ask: random() < 0.5 ? "margin" : "fair" });
+        },
+      },
+    ],
   },
   {
     id: "bet-ev",
@@ -576,18 +896,37 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
     mistake: "Counting your returned stake as winnings: at 2 to 1, a winning $1 bet makes $2, not $3.",
     targetSeconds: 30,
     example: betEv({ type: "odds", bet: "odds-2-1-40", stake: 10 }),
-    generate: (random) =>
-      pick(random, [
-        () => betEv({ type: "odds", bet: pick(random, ODDS_BETS).id, stake: pick(random, [5, 10, 20, 50, 100]) }),
-        () =>
+    families: [
+      {
+        id: "stated-odds",
+        title: "A bet with a stated payout and chance",
+        generate: (random) =>
+          betEv({ type: "odds", bet: pick(random, ODDS_BETS.filter((b) => b.id.startsWith("odds-"))).id, stake: pick(random, [5, 10, 20, 50, 100]) }),
+      },
+      {
+        id: "dice-bet",
+        title: "A bet on dice",
+        generate: (random) =>
+          betEv({ type: "odds", bet: pick(random, ODDS_BETS.filter((b) => !b.id.startsWith("odds-"))).id, stake: pick(random, [5, 10, 20, 50, 100]) }),
+      },
+      {
+        id: "poker-call",
+        title: "Is a poker call profitable?",
+        generate: (random) =>
           betEv({
             type: "call",
             pot: pick(random, [40, 60, 80, 100, 150]),
             bet: pick(random, [10, 20, 30, 50]),
             winPercent: pick(random, [15, 20, 25, 30, 35, 40]),
           }),
-        () => betEv({ type: "break-even", pot: pick(random, [20, 40, 50, 60, 80, 100, 150, 200]), bet: pick(random, [10, 20, 25, 30, 40, 50, 100]) }),
-      ])(),
+      },
+      {
+        id: "pot-odds",
+        title: "The chance you need to call",
+        generate: (random) =>
+          betEv({ type: "break-even", pot: pick(random, [20, 40, 50, 60, 80, 100, 150, 200]), bet: pick(random, [10, 20, 25, 30, 40, 50, 100]) }),
+      },
+    ],
   },
   {
     id: "house-edge",
@@ -605,10 +944,35 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
     mistake: "Forgetting the green zero pockets: on a 38-pocket wheel, red wins 18 times in 38, not half the time.",
     targetSeconds: 30,
     example: houseEdge({ type: "roulette", wheel: 38, bet: "straight" }),
-    generate: (random) =>
-      random() < 0.2
-        ? houseEdge({ type: "die", pays: int(random, 3, 4) })
-        : houseEdge({ type: "roulette", wheel: pick(random, [37, 38] as const), bet: pick(random, ROULETTE_BETS).id }),
+    families: [
+      {
+        id: "die-call",
+        title: "Calling the number on one die",
+        generate: (random) => houseEdge({ type: "die", pays: int(random, 2, 4) }),
+      },
+      {
+        id: "roulette-numbers",
+        title: "Roulette: one to four numbers",
+        generate: (random) =>
+          houseEdge({ type: "roulette", wheel: pick(random, [37, 38] as const), bet: pick(random, ["straight", "split", "street", "corner"] as const) }),
+      },
+      {
+        id: "roulette-groups",
+        title: "Roulette: red, 1 to 18, dozens and columns",
+        generate: (random) =>
+          houseEdge({ type: "roulette", wheel: pick(random, [37, 38] as const), bet: pick(random, ["red", "low", "dozen", "column"] as const) }),
+      },
+      {
+        id: "two-dice",
+        title: "Casino bets on two dice",
+        generate: (random) => diceHouseEdge({ type: "dice", bet: pick(random, DICE_BETS).id }),
+      },
+      {
+        id: "raffle",
+        title: "A raffle ticket",
+        generate: (random) => raffle({ type: "raffle", ...pick(random, RAFFLES) }),
+      },
+    ],
   },
   {
     id: "kelly",
@@ -627,9 +991,36 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
     mistake: "Subtracting the whole lose chance at long odds: at 2 to 1, divide the lose chance by 2 before taking it off.",
     targetSeconds: 30,
     example: kelly({ winPercent: 60, pays: 2, half: 0 }),
-    generate: (random) => {
-      const [winPercent, pays] = pick(random, KELLY_BETS);
-      return kelly({ winPercent, pays, half: random() < 0.3 ? 1 : 0 });
-    },
+    families: [
+      {
+        id: "even-money",
+        title: "Kelly at even money",
+        generate: (random) => kelly({ winPercent: pick(random, KELLY_BETS.filter(([, pays]) => pays === 1))[0], pays: 1, half: 0 }),
+      },
+      {
+        id: "longer-odds",
+        title: "Kelly at odds of 2 to 1 or longer",
+        generate: (random) => {
+          const [winPercent, pays] = pick(random, KELLY_BETS.filter(([, b]) => b > 1));
+          return kelly({ winPercent, pays, half: 0 });
+        },
+      },
+      {
+        id: "half-kelly",
+        title: "Half Kelly",
+        generate: (random) => {
+          const [winPercent, pays] = pick(random, KELLY_BETS);
+          return kelly({ winPercent, pays, half: 1 });
+        },
+      },
+      {
+        id: "decimal-odds",
+        title: "Kelly from decimal odds",
+        generate: (random) => {
+          const [winPercent, hundredths] = pick(random, KELLY_DECIMAL);
+          return kellyDecimal({ type: "decimal", winPercent, hundredths });
+        },
+      },
+    ],
   },
 ];

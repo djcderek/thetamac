@@ -60,6 +60,25 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "conditional-probability": {
+      if (String(problem.key).startsWith("next-")) {
+        // Brute force: remove a concrete first two cards, then look at every ordered next draw.
+        const draw = String(p.draw);
+        const gone =
+          draw.startsWith("pair") ? ["13hearts", "13spades"] : draw.startsWith("suit") ? ["2hearts", "7hearts"] : ["5hearts", "9diamonds"];
+        const left = DECK.filter((c) => !gone.includes(`${c.rank}${c.suit}`));
+        const red = (c: Card) => c.suit === "hearts" || c.suit === "diamonds";
+        if (draw.endsWith("match")) {
+          const same = draw.startsWith("pair") ? (c: Card) => c.rank === 13 : (c: Card) => c.suit === "hearts";
+          return share(left, same);
+        }
+        const fits: Record<string, (a: Card, b: Card) => boolean> = {
+          "pair-pair": (a, b) => a.rank === b.rank,
+          "suit-suit": (a, b) => a.suit === b.suit,
+          "red-red": (a, b) => red(a) && red(b),
+          "red-same": (a, b) => red(a) === red(b),
+        };
+        return share(draws(left, 2), ([a, b]) => fits[draw](a, b));
+      }
       const space = String(p.space);
       const known = String(p.known), asked = String(p.asked);
       if (space === "dice") return conditionalShare(sequences(faces(6), 2), DICE[known], DICE[asked]);
@@ -69,7 +88,47 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return conditionalShare(sequences(["B", "G"], n), CHILDREN[known], CHILDREN[asked]);
     }
     case "splitting-cases": {
-      if (String(problem.key).startsWith("bags")) {
+      const key = String(problem.key);
+      if (p.totalA !== undefined) {
+        // Sum A's chance of winning in round 1, 2, 3, … from the dice directly.
+        const rolls = sequences(faces(6), 2);
+        const a = share(rolls, (r) => r[0] + r[1] === +p.totalA);
+        const b = share(rolls, (r) => r[0] + r[1] === +p.totalB);
+        let aWins = 0;
+        for (let round = 0; round < 3000; round++) aWins += ((1 - a) * (1 - b)) ** round * a;
+        return p.who === "first" ? aWins : 1 - aWins;
+      }
+      if (key.startsWith("random-")) {
+        // Add P(N = n) × P(at least one hit in n tries) over n, term by term.
+        const trial = String(p.trial);
+        const stop = ["coin-heads", "die-ace"].includes(trial) ? 1 / 6 : 1 / 2;
+        const hit = { "die-one": 1 / 6, "die-high": 2 / 6, "die-even": 3 / 6, "card-ace": 4 / 52, "coin-heads": 1 / 2, "die-ace": 4 / 52 }[trial]!;
+        let chance = 0;
+        for (let n = 1; n < 3000; n++) chance += (1 - stop) ** (n - 1) * stop * (1 - (1 - hit) ** n);
+        return chance;
+      }
+      if (key.startsWith("race-")) {
+        // Sum over the try that settles it: k tries with neither, then A.
+        const race = String(p.race);
+        const rolls = sequences(faces(6), 2);
+        const odds: Record<string, [number, number]> = {
+          "seven-six": [share(rolls, (r) => r[0] + r[1] === 7), share(rolls, (r) => r[0] + r[1] === 6)],
+          "eight-seven": [share(rolls, (r) => r[0] + r[1] === 8), share(rolls, (r) => r[0] + r[1] === 7)],
+          "double-seven": [share(rolls, (r) => r[0] === r[1]), share(rolls, (r) => r[0] + r[1] === 7)],
+          "ten-four": [share(rolls, (r) => r[0] + r[1] > 9), share(rolls, (r) => r[0] + r[1] < 5)],
+          "eleven-two": [share(rolls, (r) => r[0] + r[1] === 11), share(rolls, (r) => r[0] + r[1] < 4)],
+          "five-four-six": [1 / 6, 2 / 6],
+          "six-odd": [1 / 6, 3 / 6],
+          "low-six": [2 / 6, 1 / 6],
+          "ace-face": [share(DECK, (c) => c.rank === 1), share(DECK, (c) => c.rank > 10)],
+          "heart-black-ace": [share(DECK, (c) => c.suit === "hearts"), share(DECK, (c) => (c.suit === "spades" || c.suit === "clubs") && c.rank === 1)],
+        };
+        const [a, b] = odds[race];
+        let first = 0;
+        for (let k = 0; k < 5000; k++) first += (1 - a - b) ** k * a;
+        return first;
+      }
+      if (key.startsWith("bags")) {
         // Every (bag, ball) pair, weighted by the chance of picking that bag.
         const pickA = p.chanceA === "coin" ? 1 / 2 : 2 / 6;
         const bagA = [...Array(+p.redA).fill("r"), ...Array(+p.blueA).fill("b")];
@@ -102,6 +161,29 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return ((fromA * +p.faultA) / 100 + (fromB * +p.faultB) / 100) / 10000;
     }
     case "bayes-rule": {
+      if (String(problem.key).startsWith("bag-")) {
+        // Enumerate every coin and every sequence of k + 1 flips, weighted, then condition on the first k.
+        const sets: Record<string, number[]> = {
+          "third-sure": [1 / 3, 2 / 3, 1],
+          quarters: [1 / 4, 1 / 2, 3 / 4],
+          "third-half": [1 / 3, 1 / 2],
+          "half-sure": [1 / 2, 3 / 4, 1],
+          "three-coins": [1, 0, 1 / 2],
+        };
+        const coins = sets[String(p.set)];
+        const k = +p.flips;
+        let seen = 0, target = 0, nextHeads = 0;
+        coins.forEach((c, i) => {
+          for (const flips of sequences(["H", "T"], k + 1)) {
+            const weight = flips.reduce((w, f) => w * (f === "H" ? c : 1 - c), 1 / coins.length);
+            if (flips.slice(0, k).some((f) => f === "T")) continue;
+            seen += weight;
+            if (i === +p.target) target += weight;
+            if (flips[k] === "H") nextHeads += weight;
+          }
+        });
+        return p.ask === "which" ? target / seen : nextHeads / seen;
+      }
       if (p.type === "test") {
         // Bayes' rule from rates, rather than counting the crowd.
         const prior = +p.sick / +p.people;

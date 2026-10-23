@@ -6,6 +6,7 @@ import {
   DRAW_EVENTS,
   choose,
   commas,
+  frac,
   int,
   numberWord,
   pairsFor,
@@ -817,6 +818,387 @@ function teamFigure(women: number, men: number, pickedWomen: number, pickedMen: 
   };
 }
 
+// ─── More question types ───────────────────────────────────────────────────────────────
+
+const factorialOf = (n: number): number => (n <= 1 ? 1 : n * factorialOf(n - 1));
+const percentText = (n: number) => `${n}%`;
+
+type MoreLikelyParams =
+  | { type: "increasing"; sides: number; rolls: number }
+  | { type: "bigger-die"; big: number; small: number }
+  | { type: "poker-chance"; hand: string }
+  | { type: "shuffle-order"; order: string }
+  | { type: "exact-faces"; sides: number; rolls: number };
+
+const POKER_CHANCES: Record<string, { name: string; ways: number; work: string; example: CardId[] }> = {
+  three: { name: "three of a kind (three cards of one rank, the other two of two other ranks)", ways: 54912, work: "13 × C(4, 3) × C(12, 2) × 4 × 4", example: ["7S", "7H", "7D", "12C", "2S"] },
+  "two-pair": { name: "two pair (two of one rank, two of another, and a fifth card of a third rank)", ways: 123552, work: "C(13, 2) × C(4, 2)² × 44", example: ["11S", "11H", "3D", "3C", "8S"] },
+  "one-pair": { name: "exactly one pair (two of one rank, three cards of three other ranks)", ways: 1098240, work: "13 × C(4, 2) × C(12, 3) × 4³", example: ["1S", "1H", "6D", "10C", "13S"] },
+  "all-ranks": { name: "five cards of five different ranks", ways: 1317888, work: "C(13, 5) × 4⁵", example: ["2S", "5H", "8D", "11C", "13S"] },
+};
+
+/** Named cards in a shuffle: does the target come after all of them? */
+const SHUFFLE_ORDERS: Record<string, { cards: CardId[]; text: string; target: CardId; targetText: string }> = {
+  "ace-before-king": { cards: ["1S"], text: "the ace of spades", target: "13H", targetText: "the king of hearts" },
+  "black-aces": { cards: ["1S", "1C"], text: "both black aces", target: "13H", targetText: "the king of hearts" },
+  "royals-before-joker": { cards: ["13H", "12H", "11H"], text: "the king, queen and jack of hearts", target: "1S", targetText: "the ace of spades" },
+  "all-aces": { cards: ["1S", "1H", "1D", "1C"], text: "all four aces", target: "13H", targetText: "the king of hearts" },
+};
+
+const SPINNER_NAME = (sides: number) => (sides === 2 ? "coin" : sides === 3 ? "fair 3-sided spinner" : `fair ${sides}-sided die`);
+
+function moreLikely(params: MoreLikelyParams): QuantProblem {
+  switch (params.type) {
+    case "increasing": {
+      const { sides, rolls } = params;
+      const ways = choose(sides, rolls);
+      const all = sides ** rolls;
+      return problem(
+        `increasing-${sides}-${rolls}`,
+        `You roll a fair ${sides}-sided die ${timesWord(rolls)}. What's the chance each roll is higher than the one before?`,
+        q(ways, all),
+        "probability",
+        [
+          {
+            label: "Results that go up every time",
+            work: `C(${sides}, ${rolls})`,
+            result: `${ways}`,
+            icon: "count",
+            explain: `Any ${rolls} different numbers can be put in rising order in exactly one way, so count the sets of ${rolls} different faces.`,
+            visual:
+              rolls === 2 && sides <= 8
+                ? diceGrid(sides, [{ test: (a, b) => a < b, tone: "hit" }], "Second roll higher than the first")
+                : { type: "die-faces", sides, marks: [{ faces: Array.from({ length: rolls }, (_, i) => i + 2), tone: "hit" }], caption: `One rising set: ${Array.from({ length: rolls }, (_, i) => i + 2).join(", ")}` },
+          },
+          {
+            label: "All results",
+            work: `${sides}${sup(rolls)}`,
+            result: commas(all),
+            icon: "multiply",
+            explain: `Each roll has ${sides} faces, so there are ${sides}${sup(rolls)} equally likely sequences.`,
+          },
+          { label: "Chance", work: `${ways} ÷ ${commas(all)}`, icon: "divide", explain: "The chance is the rising sequences out of all sequences." },
+        ],
+        params,
+      );
+    }
+    case "bigger-die": {
+      const { big, small } = params;
+      const wins = big * small - (small * (small + 1)) / 2;
+      const all = big * small;
+      return problem(
+        `bigger-${big}-${small}`,
+        `Ann rolls a fair ${big}-sided die and Ben rolls a fair ${small}-sided die. Ann wins if her number is higher; Ben wins ties. What's the chance Ann wins?`,
+        q(wins, all),
+        "probability",
+        [
+          {
+            label: "Ann’s winning numbers for each of Ben’s rolls",
+            work: `if Ben rolls b, Ann needs b + 1 to ${big}: ${big} − b numbers`,
+            icon: "count",
+            explain: "Fix Ben’s roll first. Ann wins with any number above it.",
+            visual: {
+              type: "bars",
+              bars: Array.from({ length: small }, (_, i) => ({ label: `${i + 1}`, value: big - i - 1, tone: "hit" as Tone, text: `${big - i - 1}` })),
+              caption: "Ann’s winning numbers, for each roll Ben could make",
+            },
+          },
+          {
+            label: "Add them up",
+            work: Array.from({ length: small }, (_, i) => big - i - 1).join(" + "),
+            result: `${wins}`,
+            icon: "add",
+            explain: "Each of Ben’s rolls is a separate case, so add the winning pairs.",
+          },
+          {
+            label: "Chance",
+            work: `${wins} ÷ (${big} × ${small})`,
+            icon: "divide",
+            explain: `All ${all} pairs of rolls are equally likely.`,
+          },
+        ],
+        params,
+      );
+    }
+    case "poker-chance": {
+      const hand = POKER_CHANCES[params.hand];
+      const all = choose(52, 5);
+      return problem(
+        `poker-${params.hand}`,
+        `You're dealt 5 cards from a shuffled deck. What's the chance of ${hand.name}?`,
+        q(hand.ways, all),
+        "percent",
+        [
+          {
+            label: "Hands of that kind",
+            work: hand.work,
+            result: commas(hand.ways),
+            icon: "count",
+            explain: "Count rank choices first, then the suits for each card, and multiply.",
+            visual: { type: "cards", marks: [{ cards: hand.example, tone: "hit" }], caption: "One hand of this kind" },
+          },
+          {
+            label: "All 5-card hands",
+            work: "C(52, 5)",
+            result: commas(all),
+            icon: "count",
+            explain: "Every hand is any 5 of the 52 cards, all equally likely.",
+          },
+          { label: "Chance", work: `${commas(hand.ways)} ÷ ${commas(all)}`, icon: "divide", explain: "The chance is the hands you want out of all hands." },
+        ],
+        params,
+      );
+    }
+    case "shuffle-order": {
+      const order = SHUFFLE_ORDERS[params.order];
+      const group = order.cards.length + 1;
+      return problem(
+        `order-${params.order}`,
+        `You shuffle a standard deck and turn the cards over one at a time. What's the chance ${order.text} ${order.cards.length === 1 ? "comes" : order.text.startsWith("all") || order.text.startsWith("both") ? "come" : "all come"} before ${order.targetText}?`,
+        q(1, group),
+        "probability",
+        [
+          {
+            label: "Only these cards matter",
+            work: `${group} cards: ${order.text} and ${order.targetText}`,
+            icon: "filter",
+            explain: "The other cards don’t change which of these comes last, so ignore them.",
+            visual: {
+              type: "cards",
+              marks: [
+                { cards: order.cards, tone: "hit" },
+                { cards: [order.target], tone: "alt" },
+              ],
+            },
+          },
+          {
+            label: `${order.targetText[0].toUpperCase()}${order.targetText.slice(1)} must be last of the ${group}`,
+            work: `1 of ${group} equally likely spots`,
+            icon: "divide",
+            explain: `In a fair shuffle each of the ${group} cards is equally likely to be the last of them, so the chance is 1 ÷ ${group}.`,
+          },
+        ],
+        params,
+      );
+    }
+    case "exact-faces": {
+      const { sides, rolls } = params;
+      const each = rolls / sides;
+      const orders = factorialOf(rolls) / factorialOf(each) ** sides;
+      const all = sides ** rolls;
+      const thing = SPINNER_NAME(sides);
+      return problem(
+        `exact-${sides}-${rolls}`,
+        sides === 2
+          ? `You flip a fair coin ${rolls} times. What's the chance of exactly ${each} heads and ${each} tails?`
+          : `You ${sides === 3 ? "spin" : "roll"} a ${thing} ${rolls} times. What's the chance each of the ${sides} results comes up exactly ${timesWord(each)}?`,
+        q(orders, all),
+        "probability",
+        [
+          {
+            label: `Orders with each result ${timesWord(each)}`,
+            work: `${rolls}! ÷ (${each}!)${sup(sides)}`,
+            result: commas(orders),
+            icon: "count",
+            explain: `Arrange the ${rolls} results as if all different, then divide by the ways to shuffle each result’s ${each} copies among themselves.`,
+            visual: { type: "bars", bars: Array.from({ length: sides }, (_, i) => ({ label: sides === 2 ? ["H", "T"][i] : `${i + 1}`, value: each, tone: "hit" as Tone, text: `${each}` })), caption: "Each result the same number of times" },
+          },
+          {
+            label: "All sequences",
+            work: `${sides}${sup(rolls)}`,
+            result: commas(all),
+            icon: "multiply",
+            explain: `Each of the ${rolls} tries has ${sides} equally likely results.`,
+          },
+          { label: "Chance", work: `${commas(orders)} ÷ ${commas(all)}`, icon: "divide", explain: "The chance is the sequences you want out of all sequences." },
+        ],
+        params,
+      );
+    }
+  }
+}
+
+type MoreComplementParams =
+  | { type: "shared"; things: string; people: number; ask: "share" | "different" }
+  | { type: "yours"; things: string; people: number };
+
+const BIRTH_THINGS: Record<string, { size: number; prompt: (n: number) => string; one: string; many: string }> = {
+  months: { size: 12, prompt: (n) => `${n} people each have a birth month, every month equally likely`, one: "month", many: "months" },
+  weekdays: { size: 7, prompt: (n) => `${n} people were each born on a day of the week, every day equally likely`, one: "day", many: "days" },
+  dice: { size: 6, prompt: (n) => `You roll ${n} fair dice`, one: "number", many: "numbers" },
+};
+
+function moreComplements(params: MoreComplementParams): QuantProblem {
+  const thing = BIRTH_THINGS[params.things];
+  const { size } = thing;
+  if (params.type === "yours") {
+    const { people } = params;
+    const miss = q(size - 1, size);
+    const none = pow(miss, people);
+    return problem(
+      `yours-${params.things}-${people}`,
+      params.things === "dice"
+        ? `You roll a die and get a 6. Then you roll ${people} more dice. What's the chance at least one of them is also a 6?`
+        : `${thing.prompt(people)}. What's the chance at least one of them shares your ${thing.one}?`,
+      sub(q(1), none),
+      "probability",
+      [
+        {
+          label: `One person misses your ${thing.one}`,
+          work: `${size - 1} of ${size}`,
+          result: formatFraction(miss),
+          icon: "flip",
+          explain: `Work out the chance nobody matches. One person lands on another ${thing.one} with chance ${size - 1}/${size}.`,
+        },
+        {
+          label: `All ${people} miss it`,
+          work: `(${formatFraction(miss)})${sup(people)}`,
+          result: formatFraction(none),
+          icon: "repeat",
+          explain: "Each person is independent of the others, so multiply the miss chance for every one.",
+          ...(people <= 4 ? { visual: missChain(people, "Miss", formatFraction(miss), "Match", frac(1, size)) } : {}),
+        },
+        { label: "At least one matches", work: `1 − ${formatFraction(none)}`, icon: "subtract", explain: "Either everyone misses or at least one matches, so take the all-miss chance from 1." },
+      ],
+      params,
+      {
+        type: "people",
+        groups: [
+          { count: 1, tone: "hit", label: params.things === "dice" ? "Your first roll" : "You" },
+          { count: people, tone: "muted", label: params.things === "dice" ? "Other rolls" : "Others" },
+        ],
+      },
+    );
+  }
+  const { people, ask } = params;
+  const factors = Array.from({ length: people }, (_, i) => size - i);
+  const different = q(product(factors), size ** people);
+  const steps: Parameters<typeof problem>[4] = [
+    {
+      label: "Each new one avoids all the earlier ones",
+      work: factors.map((f) => `${f}/${size}`).join(" × "),
+      result: formatFraction(different),
+      icon: "multiply",
+      explain: `The first can be anything. The second must avoid 1 ${thing.one}, the third must avoid 2, and so on.`,
+      visual: { type: "slots", slots: factors.slice(0, 7).map((f, i) => ({ label: `${i + 1}${["st", "nd", "rd"][i] ?? "th"}`, value: `${f}/${size}`, tone: "hit" as Tone })), op: "×" },
+    },
+  ];
+  if (ask === "share") {
+    steps.push({ label: "At least two share", work: `1 − ${formatFraction(different)}`, icon: "subtract", explain: "Either all are different or at least two match, so take “all different” from 1." });
+  }
+  return problem(
+    `shared-${params.things}-${people}-${ask}`,
+    `${thing.prompt(people)}. What's the chance ${ask === "share" ? `at least two ${params.things === "dice" ? "show the same number" : `share a ${thing.one}`}` : `they're all different`}?`,
+    ask === "share" ? sub(q(1), different) : different,
+    "probability",
+    steps,
+    params,
+  );
+}
+
+const product = (values: number[]) => values.reduce((acc, v) => acc * v, 1);
+
+const THREE_EVENTS = [
+  { id: "friends", text: (a: number, b: number, c: number) => `You text three friends. They reply with chances ${a}%, ${b}% and ${c}%, independently. What's the chance at least one replies?`, what: "No one replies" },
+  { id: "alarms", text: (a: number, b: number, c: number) => `You set three alarms. They go off with chances ${a}%, ${b}% and ${c}%, independently. What's the chance at least one goes off?`, what: "None go off" },
+  { id: "shots", text: (a: number, b: number, c: number) => `Three players each take one shot. They score with chances ${a}%, ${b}% and ${c}%, independently. What's the chance at least one scores?`, what: "Nobody scores" },
+];
+
+function threeIndependent(params: { type: "three"; event: string; a: number; b: number; c: number }): QuantProblem {
+  const event = THREE_EVENTS.find((e) => e.id === params.event)!;
+  const { a, b, c } = params;
+  const none = mul(mul(q(100 - a, 100), q(100 - b, 100)), q(100 - c, 100));
+  return problem(
+    `three-${event.id}-${a}-${b}-${c}`,
+    event.text(a, b, c),
+    sub(q(1), none),
+    "percent",
+    [
+      {
+        label: event.what,
+        work: `${100 - a}% × ${100 - b}% × ${100 - c}%`,
+        result: formatPercent(none),
+        icon: "multiply",
+        explain: "Counting the overlaps of three events is messy. It’s simpler to find the chance none happen: multiply each miss chance.",
+        visual: { type: "slots", slots: [100 - a, 100 - b, 100 - c].map((m, i) => ({ label: `Miss ${i + 1}`, value: percentText(m), tone: "alt" as Tone })), op: "×", result: formatPercent(none) },
+      },
+      { label: "At least one", work: `100% − ${formatPercent(none)}`, icon: "subtract", explain: "Either none happen or at least one does, so take the none chance from 100%." },
+    ],
+    params,
+  );
+}
+
+const TRIES = [
+  { id: "free-throws", text: (n: number, p: number) => `A player makes each free throw with chance ${p}%, independently. What's the chance they make all ${n} of their next ${n}?`, one: "Each throw" },
+  { id: "flights", text: (n: number, p: number) => `Each of ${n} connecting flights is on time with chance ${p}%, independently. What's the chance all ${n} are on time?`, one: "Each flight" },
+  { id: "parts", text: (n: number, p: number) => `A machine has ${n} parts, and each works with chance ${p}%, independently. It runs only if every part works. What's the chance it runs?`, one: "Each part" },
+];
+
+function allTries(params: { type: "all-tries"; context: string; tries: number; percent: number }): QuantProblem {
+  const context = TRIES.find((t) => t.id === params.context)!;
+  const { tries, percent } = params;
+  const chance = pow(q(percent, 100), tries);
+  return problem(
+    `tries-${context.id}-${tries}-${percent}`,
+    context.text(tries, percent),
+    chance,
+    "percent",
+    [
+      {
+        label: `${context.one} succeeds`,
+        work: `${percent}%`,
+        icon: "target",
+        explain: "Every one of them has to succeed, and they don’t affect each other.",
+      },
+      {
+        label: `All ${tries} succeed`,
+        work: `(${percent}%)${sup(tries)}`,
+        icon: "multiply",
+        explain: `Multiply the chance once for each of the ${tries}: a share of a share of a share.`,
+        visual: { type: "slots", slots: Array.from({ length: tries }, (_, i) => ({ label: `${i + 1}`, value: percentText(percent), tone: "hit" as Tone })), op: "×" },
+      },
+    ],
+    params,
+  );
+}
+
+const THREE_CARD_TESTS: Record<string, { text: string; count: number; test: (card: Card) => boolean }> = {
+  red: { text: "red", count: 26, test: (c) => c.suit === "hearts" || c.suit === "diamonds" },
+  black: { text: "black", count: 26, test: (c) => c.suit === "spades" || c.suit === "clubs" },
+  hearts: { text: "hearts", count: 13, test: (c) => c.suit === "hearts" },
+  spades: { text: "spades", count: 13, test: (c) => c.suit === "spades" },
+  "low": { text: "numbered 2 to 9", count: 32, test: (c) => c.rank >= 2 && c.rank <= 9 },
+};
+
+function threeCards(params: { type: "three-cards"; event: string }): QuantProblem {
+  const event = THREE_CARD_TESTS[params.event];
+  const factors = [0, 1, 2].map((i) => q(event.count - i, 52 - i));
+  const chance = factors.reduce((acc, f) => mul(acc, f), q(1));
+  return problem(
+    `three-cards-${params.event}`,
+    `You deal three cards from a shuffled deck. What's the chance all three are ${event.text}?`,
+    chance,
+    "probability",
+    [
+      ...[0, 1, 2].map((i) => ({
+        label: ["First card", "Second card", "Third card"][i],
+        work: `${event.count - i} of the ${52 - i} left`,
+        result: `${event.count - i}/${52 - i}`,
+        icon: (i === 0 ? "count" : "repeat") as "count" | "repeat",
+        explain: i === 0 ? `${event.count} of the 52 cards are ${event.text}.` : "One matching card is gone and not put back, so there’s one fewer of them and one fewer card.",
+        ...(i === 0 ? { visual: deck([{ test: event.test, tone: "hit" }]) } : {}),
+      })),
+      {
+        label: "All three",
+        work: `${event.count}/52 × ${event.count - 1}/51 × ${event.count - 2}/50`,
+        icon: "multiply",
+        explain: "Each card must match, so multiply the chance for each draw.",
+      },
+    ],
+    params,
+  );
+}
+
 export const BASICS_LESSONS: QuantLessonDef[] = [
   {
     id: "equally-likely",
@@ -835,25 +1217,63 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
     mistake: "Counting outcomes that aren’t equally likely, like the totals 2 to 12 on two dice, instead of the 36 pairs of rolls.",
     targetSeconds: 30,
     example: countOutcomes({ type: "card", event: "heart-or-king" }),
-    generate: (random) =>
-      pick(random, [
-        () => countOutcomes({ type: "card", event: pick(random, CARD_EVENTS).id }),
-        () => {
+    families: [
+      { id: "one-card", title: "One card from a deck", generate: (random) => countOutcomes({ type: "card", event: pick(random, CARD_EVENTS).id }) },
+      {
+        id: "one-die",
+        title: "One roll of a die",
+        generate: (random) => {
           const sides = pick(random, DIE_SIDES);
           return countOutcomes({ type: "die", sides, atLeast: int(random, 2, sides - 1) });
         },
-        () => {
+      },
+      {
+        id: "two-dice-total",
+        title: "Two dice: a total or a double",
+        generate: (random) => {
           const roll = random();
           if (roll < 0.2) return twoDice({ type: "double", total: 0 });
           if (roll < 0.6) return twoDice({ type: "exactly", total: int(random, 3, 11) });
           return twoDice({ type: "at-least", total: int(random, 8, 11) });
         },
-        () =>
+      },
+      {
+        id: "two-rolls-compared",
+        title: "Two rolls compared",
+        generate: (random) =>
           random() < 0.5
             // Dice up to 8 sides, so every pair fits on the grid figure.
             ? compareRolls({ type: "compare", sides: pick(random, [4, 5, 6, 7, 8]), ask: "less", gap: 0 })
             : compareRolls({ type: "compare", sides: pick(random, [5, 6, 7, 8]), ask: "apart", gap: int(random, 1, 3) }),
-        () => {
+      },
+      {
+        id: "bigger-die",
+        title: "A bigger die against a smaller one",
+        generate: (random) => {
+          const [big, small] = pick(random, [[6, 4], [8, 6], [10, 6], [12, 8], [20, 12], [30, 20], [8, 4], [12, 6]] as const);
+          return moreLikely({ type: "bigger-die", big, small });
+        },
+      },
+      {
+        id: "rising-rolls",
+        title: "Rolls that keep going up",
+        generate: (random) => {
+          const [sides, rolls] = pick(random, [[6, 2], [6, 3], [8, 2], [8, 3], [4, 2], [4, 3], [10, 3], [10, 4], [12, 3]] as const);
+          return moreLikely({ type: "increasing", sides, rolls });
+        },
+      },
+      {
+        id: "each-face-equally",
+        title: "Each result an exact number of times",
+        generate: (random) => {
+          const [sides, rolls] = pick(random, [[2, 4], [2, 6], [2, 8], [3, 3], [3, 6], [4, 4], [4, 8], [6, 6]] as const);
+          return moreLikely({ type: "exact-faces", sides, rolls });
+        },
+      },
+      {
+        id: "hands-teams",
+        title: "Card hands and random teams",
+        generate: (random) => {
           if (random() < 0.55) {
             const cards = int(random, 3, 6);
             // At most 3 hearts, so the chance stays above 1% and types cleanly.
@@ -862,7 +1282,10 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
           const men = int(random, 3, 7), women = int(random, 3, 7), size = int(random, 3, 5);
           return handsAndTeams({ type: "team", men, women, size, picked: int(random, Math.max(1, size - men), Math.min(size - 1, women)) });
         },
-      ])(),
+      },
+      { id: "poker-hands", title: "Poker hands", generate: (random) => moreLikely({ type: "poker-chance", hand: pick(random, Object.keys(POKER_CHANCES)) }) },
+      { id: "shuffle-order", title: "Which card comes first in a shuffle", generate: (random) => moreLikely({ type: "shuffle-order", order: pick(random, Object.keys(SHUFFLE_ORDERS)) }) },
+    ],
   },
   {
     id: "complements",
@@ -881,14 +1304,34 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
     mistake: "Adding the chance for each try, like 1/6 + 1/6 + 1/6 for three rolls. That counts overlaps twice and can go over 1.",
     targetSeconds: 30,
     example: atLeastOne({ type: "sixes", rolls: 3 }),
-    generate: (random) =>
-      pick(random, [
-        () => atLeastOne({ type: "sixes", rolls: int(random, 2, 4) }),
-        () => atLeastOne({ type: "low", rolls: int(random, 2, 4) }),
-        // Up to 6 flips, so the chance stays under 99% and types cleanly.
-        () => atLeastOne({ type: "heads", flips: int(random, 3, 6) }),
-        () => atLeastOne({ type: "ace", cards: int(random, 2, 3) }),
-      ])(),
+    families: [
+      {
+        id: "repeated-rolls",
+        title: "At least one in repeated rolls",
+        generate: (random) =>
+          random() < 0.5 ? atLeastOne({ type: "sixes", rolls: int(random, 2, 4) }) : atLeastOne({ type: "low", rolls: int(random, 2, 4) }),
+      },
+      // Up to 6 flips, so the chance stays under 99% and types cleanly.
+      { id: "at-least-one-head", title: "At least one head", generate: (random) => atLeastOne({ type: "heads", flips: int(random, 3, 6) }) },
+      { id: "at-least-one-ace", title: "At least one ace in a few cards", generate: (random) => atLeastOne({ type: "ace", cards: int(random, 2, 5) }) },
+      {
+        id: "shared-birthdays",
+        title: "Shared birth months, days or numbers",
+        generate: (random) => {
+          const things = pick(random, ["months", "weekdays", "dice"]);
+          const people = things === "months" ? int(random, 2, 7) : int(random, 2, 4);
+          return moreComplements({ type: "shared", things, people, ask: random() < 0.7 ? "share" : "different" });
+        },
+      },
+      {
+        id: "shares-yours",
+        title: "Someone matches yours",
+        generate: (random) => {
+          const things = pick(random, ["months", "weekdays", "dice"]);
+          return moreComplements({ type: "yours", things, people: int(random, 2, things === "months" ? 8 : 5) });
+        },
+      },
+    ],
   },
   {
     id: "or-events",
@@ -907,18 +1350,33 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
     mistake: "Just adding the two chances when they can both happen, so the overlap is counted twice.",
     targetSeconds: 30,
     example: orEvents({ type: "cards", event: "spade-face" }),
-    generate: (random) =>
-      pick(random, [
-        () => orEvents({ type: "cards", event: pick(random, OR_CARD_EVENTS).id }),
-        () => orEvents({ type: "dice", event: pick(random, OR_DICE_EVENTS).id }),
-        () =>
+    families: [
+      { id: "or-cards", title: "One card: this or that", generate: (random) => orEvents({ type: "cards", event: pick(random, OR_CARD_EVENTS).id }) },
+      { id: "or-dice", title: "Two dice: this or that", generate: (random) => orEvents({ type: "dice", event: pick(random, OR_DICE_EVENTS).id }) },
+      {
+        id: "or-two-chances",
+        title: "Two separate chances",
+        generate: (random) =>
           orEvents({
             type: "independent",
             pair: pick(random, INDEPENDENT_PAIRS).id,
             aPercent: pick(random, [10, 20, 25, 30, 40, 50, 60]),
             bPercent: pick(random, [10, 20, 30, 40, 50, 70]),
           }),
-      ])(),
+      },
+      {
+        id: "or-three-chances",
+        title: "At least one of three",
+        generate: (random) =>
+          threeIndependent({
+            type: "three",
+            event: pick(random, THREE_EVENTS).id,
+            a: pick(random, [10, 20, 30, 40, 50]),
+            b: pick(random, [10, 20, 25, 40, 60]),
+            c: pick(random, [10, 30, 50, 70]),
+          }),
+      },
+    ],
   },
   {
     id: "and-events",
@@ -937,20 +1395,35 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
     mistake: "Forgetting that a draw without replacement changes what’s left, and using 5/8 × 5/8 instead of 5/8 × 4/7.",
     targetSeconds: 30,
     example: inARow({ type: "bag", red: 5, blue: 3, draws: 2 }),
-    generate: (random) => {
-      const roll = random();
-      if (roll < 0.25) {
-        return allIndependent({
-          type: "independent",
-          pair: pick(random, INDEPENDENT_PAIRS).id,
-          aPercent: pick(random, [20, 30, 40, 50, 60, 70, 80, 90]),
-          bPercent: pick(random, [20, 25, 50, 60, 75, 80, 90]),
-        });
-      }
+    families: [
+      {
+        id: "marbles",
+        title: "Marbles without putting back",
+        generate: (random) => {
+          const red = int(random, 3, 7);
+          return inARow({ type: "bag", red, blue: int(random, 2, 6), draws: int(random, 2, 3) });
+        },
+      },
       // Not two aces: 1 in 221 is too small to type cleanly.
-      if (roll < 0.5) return inARow({ type: "cards", event: pick(random, DRAW_EVENTS.filter((e) => e.id !== "aces")).id });
-      const red = int(random, 3, 7);
-      return inARow({ type: "bag", red, blue: int(random, 2, 6), draws: int(random, 2, 3) });
-    },
+      { id: "two-cards", title: "Two cards, both alike", generate: (random) => inARow({ type: "cards", event: pick(random, DRAW_EVENTS.filter((e) => e.id !== "aces")).id }) },
+      { id: "three-cards", title: "Three cards, all alike", generate: (random) => threeCards({ type: "three-cards", event: pick(random, Object.keys(THREE_CARD_TESTS)) }) },
+      {
+        id: "two-chances",
+        title: "Two separate chances, both",
+        generate: (random) =>
+          allIndependent({
+            type: "independent",
+            pair: pick(random, INDEPENDENT_PAIRS).id,
+            aPercent: pick(random, [20, 30, 40, 50, 60, 70, 80, 90]),
+            bPercent: pick(random, [20, 25, 50, 60, 75, 80, 90]),
+          }),
+      },
+      {
+        id: "every-try",
+        title: "Every try succeeds",
+        generate: (random) =>
+          allTries({ type: "all-tries", context: pick(random, TRIES).id, tries: int(random, 2, 5), percent: pick(random, [60, 70, 75, 80, 90, 95]) }),
+      },
+    ],
   },
 ];

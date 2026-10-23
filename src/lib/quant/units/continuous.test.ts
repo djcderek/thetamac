@@ -1,6 +1,6 @@
 import test from "node:test";
 import { CONTINUOUS_LESSONS } from "./continuous";
-import { checkAgainstIndependentWorking, faces, sequences } from "../test-helpers";
+import { checkAgainstIndependentWorking, choose, faces, sequences } from "../test-helpers";
 
 /** Exact integral of a piecewise-linear f over [0, width]: trapezoids between its kinks. */
 function integrateLinearPieces(f: (x: number) => number, width: number, kinks: number[]) {
@@ -24,6 +24,19 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "uniform": {
+      if (p.type === "short" || p.type === "long" || p.type === "under" || p.type === "ratio") {
+        // Integrate over the break point u, spread evenly on [0, L].
+        const L = +p.length;
+        const short = (u: number) => Math.min(u, L - u);
+        if (p.type === "short") return integrateLinearPieces(short, L, [L / 2]) / L;
+        if (p.type === "long") return integrateLinearPieces((u) => L - short(u), L, [L / 2]) / L;
+        // An indicator over the break point, counted on a fine grid of break points.
+        const hit = p.type === "under" ? (u: number) => short(u) < +p.under : (u: number) => L - short(u) > +p.k * short(u);
+        const steps = 600000;
+        let hits = 0;
+        for (let i = 0; i < steps; i++) if (hit(((i + 0.5) / steps) * L)) hits++;
+        return hits / steps;
+      }
       // Integrate the uniform density directly with Simpson's rule.
       const low = +(p.low ?? 0), high = +p.high;
       const density = 1 / (high - low);
@@ -35,6 +48,25 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return simpson((x) => (x - mean) ** 2 * density, low, high);
     }
     case "area": {
+      if (p.mN !== undefined) {
+        // For each a, the b in [0, 1] with m ≤ a ÷ b ≤ M: from a ÷ M up to min(1, a ÷ m).
+        const m = +p.mN / +p.mD, M = +p.MN / +p.MD;
+        const length = (a: number) => Math.max(0, Math.min(1, a / m) - Math.min(1, a / M));
+        return integrateLinearPieces(length, 1, [m, M]);
+      }
+      if (p.r1 !== undefined) {
+        // Polar: the share of the target's area between two radii, ∫ 2πr dr ÷ πR².
+        const radii = [0, +p.r1, +p.r2, +p.r3];
+        const i = p.ring === "inner" ? 0 : p.ring === "middle" ? 1 : 2;
+        return simpson((r) => 2 * Math.PI * r, radii[i], radii[i + 1]) / (Math.PI * (+p.r3) ** 2);
+      }
+      if (p.ask === "half" || p.ask === "centre") {
+        // Gaps between n random points on a circle: P(some gap ≥ 1/2) by inclusion–exclusion over the gaps.
+        const n = +p.n;
+        let some = 0;
+        for (let k = 1; k <= n; k++) some += (k % 2 ? 1 : -1) * choose(n, k) * Math.max(0, 1 - k / 2) ** (n - 1);
+        return p.ask === "half" ? some : 1 - some;
+      }
       if (p.type === "meet" || p.type === "stick") {
         // Integrate the closeness chance over the first point, piece by linear piece.
         const window = +p.window, wait = +p.wait;
@@ -51,6 +83,11 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return integrateLinearPieces((x) => Math.min(1, x / k), 1, [k]);
     }
     case "highest-lowest": {
+      if (p.length !== undefined) {
+        // Integrate the density of the middle of three uniforms on [0, 1]: 6t(1 − t).
+        const x = +p.x / +p.length;
+        return p.side === "above" ? simpson((t) => 6 * t * (1 - t), x, 1) : simpson((t) => 6 * t * (1 - t), 0, x);
+      }
       if (p.type === "max" || p.type === "min") {
         // E[max] = ∫ P(max > x) dx = ∫ (1 − xⁿ) dx; E[min] = ∫ P(min > x) dx = ∫ (1 − x)ⁿ dx.
         const n = +p.n;
@@ -73,5 +110,5 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
 }
 
 test("continuous answers agree with an independent working", () => {
-  checkAgainstIndependentWorking(CONTINUOUS_LESSONS, independentAnswer, { tolerance: { uniform: 1e-9, "highest-lowest": 1e-9 } });
+  checkAgainstIndependentWorking(CONTINUOUS_LESSONS, independentAnswer, { tolerance: { uniform: 1e-5, "highest-lowest": 1e-9, area: 1e-9 } });
 });

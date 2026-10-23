@@ -27,11 +27,25 @@ export type QuantProblem = {
   steps: QuantStep[];
   /** The figure for the question itself (the bag, the grid), shown before any working. */
   visual?: QuantVisual;
+  /** The question type it was made from (set by the course, not by builders). */
+  family?: string;
   /** The numbers the problem was built from, so tests can work the answer out again. */
   params: Record<string, number | string>;
 };
 
 export type Random = () => number;
+
+/**
+ * One type of question within a lesson, like "Two dice, given a six": its own builder, so a
+ * player can practise just that type with fresh numbers each time.
+ */
+export type QuantFamily = {
+  /** Unique within its lesson; progress for the type is stored under it. */
+  id: string;
+  /** A plain name for the type, short enough for a list row. */
+  title: string;
+  generate: (random: Random) => QuantProblem;
+};
 
 /** A lesson as a unit defines it; the course adds its unit. */
 export type QuantLessonDef = {
@@ -54,7 +68,8 @@ export type QuantLessonDef = {
   /** Average seconds per solo problem to master it. */
   targetSeconds: number;
   example: QuantProblem;
-  generate: (random: Random) => QuantProblem;
+  /** The question types, easier first. A practice set draws across them. */
+  families: QuantFamily[];
 };
 
 export function int(random: Random, min: number, max: number) {

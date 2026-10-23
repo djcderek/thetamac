@@ -323,11 +323,17 @@ export function QuantList() {
                     <span className="block truncate text-[15px] font-medium">
                       <span className="tabular-nums">{number}.</span> {lesson.title}
                     </span>
-                    <span className="block truncate text-[13px] text-muted-foreground">{lesson.benefit}</span>
+                    <span className="block truncate text-[13px] text-muted-foreground">
+                      {lesson.benefit}
+                      <span className="hidden sm:inline"> · {lesson.families.length} question types</span>
+                    </span>
                     {/* Phones fold the unit and level into the row. */}
                     <span className="mt-0.5 block text-[13px] sm:hidden">
                       <DifficultyLabel difficulty={lesson.difficulty} />
-                      <span className="text-muted-foreground"> · {topic.title}</span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {topic.title} · {lesson.families.length} types
+                      </span>
                     </span>
                   </span>
                   <span role="cell" className="hidden truncate text-[14px] text-muted-foreground sm:block">
