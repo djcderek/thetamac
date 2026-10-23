@@ -18,6 +18,7 @@ const PLACEHOLDERS: Record<AnswerKind, string> = {
   percent: "Percent",
   dollars: "Dollars",
   number: "Number or fraction",
+  count: "Whole number",
 };
 
 // Keys a phone's number pad doesn't have, for fractions, percentages and losses.
@@ -26,6 +27,7 @@ const HELPER_KEYS: Record<AnswerKind, string[]> = {
   percent: ["/", "."],
   dollars: ["−", "."],
   number: ["/", "."],
+  count: [],
 };
 
 export function QuantRun({

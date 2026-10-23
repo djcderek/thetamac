@@ -38,6 +38,7 @@ const ANSWER_HINTS: Record<AnswerKind, string> = {
   percent: "Answer as a percent.",
   number: "Answer as a number or fraction.",
   dollars: "Answer in dollars.",
+  count: "Answer as a whole number.",
 };
 /** Wrong submits before the answer is shown. */
 const WRONG_TRIES = 2;
@@ -334,7 +335,7 @@ export function QuantClient() {
             }
             note={
               isLocked(openLesson.id)
-                ? "This lesson is part of Pro. The first lesson in each topic is free."
+                ? "This lesson is part of Pro. The Foundations units are free."
                 : `${QUANT_GUIDED + QUANT_SOLO} questions. The first ${QUANT_GUIDED} show the steps. ${ANSWER_HINTS[openLesson.example.kind]}`
             }
           />
@@ -344,7 +345,7 @@ export function QuantClient() {
           <header className="mb-10 px-1">
             <h1 className="text-[34px] font-semibold leading-[1.05] tracking-[-0.035em] md:text-[44px]">Quant</h1>
             <p className="mt-3 text-[17px] leading-7 text-muted-foreground">
-              Learn the probability and expected value asked in quant interviews.
+              A step-by-step course in the probability and expected value asked in quant interviews.
             </p>
           </header>
           <QuantLessonList
@@ -354,11 +355,11 @@ export function QuantClient() {
             footer={
               locked && (
                 <p className="px-1 text-[15px] leading-6 text-muted-foreground">
-                  The first lesson in each topic is free.{" "}
+                  Foundations are free.{" "}
                   {upgradeLink(
                     "quant_list",
                     undefined,
-                    `Get Pro for all ${QUANT_LESSONS.length}`,
+                    `Get Pro for all ${QUANT_LESSONS.length} lessons`,
                     "whitespace-nowrap font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground",
                   )}
                 </p>

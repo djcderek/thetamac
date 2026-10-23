@@ -63,7 +63,10 @@ export function formatDollars(x: Rational) {
 }
 
 /** How an answer is asked for and typed. */
-export type AnswerKind = "probability" | "percent" | "number" | "dollars";
+export type AnswerKind = "probability" | "percent" | "number" | "dollars" | "count";
+
+/** 2598960 → "2,598,960". */
+export const formatCount = (x: Rational) => String(Math.round(value(x))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 /** The answer as shown after a miss: exact where that's clearer, with the rounded value. */
 export function formatAnswer(x: Rational, kind: AnswerKind) {
@@ -76,6 +79,8 @@ export function formatAnswer(x: Rational, kind: AnswerKind) {
       return `${terminatesWithin(x, 2) ? "" : "≈ "}${formatDollars(x)}`;
     case "number":
       return terminatesWithin(x, 3) ? formatDecimal(x) : `${formatFraction(x)} ≈ ${formatDecimal(x)}`;
+    case "count":
+      return formatCount(x);
   }
 }
 
@@ -90,6 +95,8 @@ export function formatResult(x: Rational, kind: AnswerKind) {
       return formatDollars(x);
     case "number":
       return terminatesWithin(x, 3) ? formatDecimal(x) : formatFraction(x);
+    case "count":
+      return formatCount(x);
   }
 }
 
@@ -118,6 +125,8 @@ const RELATIVE_TOLERANCE = 0.006;
 /** Whether a typed answer is right: exact, or a decimal that rounds to it. */
 export function isRightAnswer(input: string, answer: Rational, kind: AnswerKind) {
   const target = value(answer);
+  // Counts are exact: 1,757,000 isn't 1,757,600.
+  if (kind === "count") return readAnswer(input, kind).some((typed) => typed === target);
   // Money is right to the nearest cent, however small the amount.
   const tolerance = Math.max(RELATIVE_TOLERANCE * Math.abs(target), kind === "dollars" ? 0.005 + 1e-9 : 0);
   return readAnswer(input, kind).some((typed) => Math.abs(typed - target) < 1e-9 || Math.abs(typed - target) <= tolerance);

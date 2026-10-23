@@ -54,14 +54,23 @@ export function QuantLessonList({
 }) {
   return (
     <div className="space-y-10">
-      {QUANT_TOPICS.map((topic) => {
+      {QUANT_TOPICS.map((topic, topicIndex) => {
         const inTopic = QUANT_LESSONS.filter((lesson) => lesson.topic === topic.id);
         const masteredCount = inTopic.filter((lesson) => lessons?.progress[lesson.id]?.mastered).length;
+        const startsStage = QUANT_TOPICS[topicIndex - 1]?.stage !== topic.stage;
         return (
           <section key={topic.id} aria-labelledby={`quant-topic-${topic.id}`}>
+            {/* Each stage opens with its name; for free accounts it also says what's included. */}
+            {startsStage && (
+              <p className={cn("mb-4 px-1 text-[15px] font-medium text-muted-foreground", topicIndex > 0 && "mt-14")}>
+                {topic.stage}
+                {locked && <> · {topic.stage === "Foundations" ? "Free" : "Pro"}</>}
+              </p>
+            )}
             <div className="mb-3 px-1">
               <div className="flex items-baseline justify-between gap-4">
                 <h2 id={`quant-topic-${topic.id}`} className="text-[22px] font-semibold tracking-[-0.02em]">
+                  <span className="mr-2 tabular-nums text-muted-foreground">{topic.number}</span>
                   {topic.title}
                 </h2>
                 {masteredCount > 0 && (
@@ -161,7 +170,7 @@ export function QuantLessonDetail({
           <ArrowLeft aria-hidden="true" className="h-5 w-5" />
         </button>
         <p className="text-[15px] text-muted-foreground">
-          {topic.title} · {inTopic.indexOf(lesson) + 1} of {inTopic.length}
+          Unit {topic.number} · {topic.title} · {inTopic.indexOf(lesson) + 1} of {inTopic.length}
         </p>
       </div>
 
