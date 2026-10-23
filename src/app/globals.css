@@ -84,6 +84,10 @@
   --ring: #f76a29;
   --success: #2f8f4e;
   --warning: #c98a12;
+  /* Quant figures: what's asked (hit), a second set (alt), and what's known. */
+  --viz-hit: #f76a29;
+  --viz-alt: #3f78c9;
+  --viz-known: rgb(27 30 25 / 0.3);
   --sidebar: #ffffff;
   --sidebar-foreground: #1b1e19;
   --sidebar-primary: #f76a29;
@@ -121,6 +125,9 @@
   --ring: #ff7a3d;
   --success: #4fb46f;
   --warning: #e0a63a;
+  --viz-hit: #ff7a3d;
+  --viz-alt: #6c9de6;
+  --viz-known: rgb(242 243 238 / 0.32);
   --sidebar: #111210;
   --sidebar-foreground: #f2f3ee;
   --sidebar-primary: #ff7a3d;

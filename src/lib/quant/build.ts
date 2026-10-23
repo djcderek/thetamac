@@ -1,10 +1,22 @@
 import { formatFraction, formatResult, q, type AnswerKind, type Rational } from "./rational";
 import type { QuantLessonId } from "./ids";
+import type { QuantVisual, StepIcon } from "./visual";
 
 /** Shared pieces for building quant problems: types, randomness, cards, dice and text helpers. */
 
 /** One line of working: "Pot after your call: 60 + 20 + 20 = 100". */
-export type QuantStep = { label: string; work: string; result: string };
+export type QuantStep = {
+  label: string;
+  work: string;
+  result: string;
+  /** Why this step, in a plain sentence, for the walkthrough. */
+  explain?: string;
+  icon?: StepIcon;
+  /** The figure for this step; without one, the walkthrough keeps the previous figure. */
+  visual?: QuantVisual;
+};
+
+export type QuantDifficulty = "Easy" | "Medium" | "Hard";
 
 export type QuantProblem = {
   /** Identifies the problem, so a set never repeats one. */
@@ -13,6 +25,8 @@ export type QuantProblem = {
   answer: Rational;
   kind: AnswerKind;
   steps: QuantStep[];
+  /** The figure for the question itself (the bag, the grid), shown before any working. */
+  visual?: QuantVisual;
   /** The numbers the problem was built from, so tests can work the answer out again. */
   params: Record<string, number | string>;
 };
@@ -28,6 +42,15 @@ export type QuantLessonDef = {
   benefit: string;
   /** The method in a sentence or two. */
   idea: string;
+  difficulty: QuantDifficulty;
+  /** Why the method works, in two or three plain sentences. */
+  intro: string;
+  /** The rule as one line, e.g. "Chance = outcomes you want ÷ all outcomes". */
+  formula: string;
+  /** Signs in a question that this is the tool to use, e.g. "The question says “at least one”". */
+  cues: string[];
+  /** The mistake people most often make with it. */
+  mistake: string;
   /** Average seconds per solo problem to master it. */
   targetSeconds: number;
   example: QuantProblem;
@@ -49,16 +72,16 @@ export function problem(
   prompt: string,
   answer: Rational,
   kind: AnswerKind,
-  steps: { label: string; work: string; result?: string }[],
+  steps: (Omit<QuantStep, "result"> & { result?: string })[],
   params: QuantProblem["params"],
+  visual?: QuantVisual,
 ): QuantProblem {
   // The last step's result is the answer, in the form the question asks for.
   const withResult = steps.map((step, index) => ({
-    label: step.label,
-    work: step.work,
+    ...step,
     result: index === steps.length - 1 ? formatResult(answer, kind) : (step.result ?? ""),
   }));
-  return { key, prompt, answer, kind, steps: withResult, params };
+  return { key, prompt, answer, kind, steps: withResult, params, ...(visual ? { visual } : {}) };
 }
 
 /** 2598960 → "2,598,960". */

@@ -1,24 +1,22 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { QuantClient } from "@/components/quant/quant-client";
+import { redirect } from "next/navigation";
+import { getQuantLesson } from "@/lib/quant/lessons";
+import { QuantList } from "@/components/quant/quant-list";
 
 export const metadata: Metadata = {
   title: "Probability and Expected Value Practice",
   description:
-    "Practice the probability, expected value and betting maths that quant and trading interviews ask: dice, cards, Bayes, pot odds, house edge and Kelly bet sizing, with worked solutions.",
+    "A step-by-step course in the probability and expected value that quant and trading interviews ask: counting, conditional probability, expected value, distributions, betting, random walks and more, with worked walkthroughs.",
   alternates: { canonical: "/quant" },
   openGraph: {
     title: "Probability and Expected Value Practice | thetamac",
-    description:
-      "Quant interview maths, one idea at a time: dice and card probability, expected value, pot odds, house edge and the Kelly rule.",
+    description: "28 lessons from counting to continuous probability, each with practice and step-by-step walkthroughs.",
   },
 };
 
-export default function QuantPage() {
-  return (
-    // The lesson can come from the URL (?lesson=), which needs a Suspense boundary.
-    <Suspense>
-      <QuantClient />
-    </Suspense>
-  );
+export default async function QuantPage({ searchParams }: { searchParams: Promise<{ lesson?: string }> }) {
+  // Older links opened a lesson with ?lesson=; lessons now have their own pages.
+  const lesson = getQuantLesson((await searchParams).lesson ?? "");
+  if (lesson) redirect(`/quant/${lesson.id}`);
+  return <QuantList />;
 }

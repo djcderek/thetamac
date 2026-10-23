@@ -1,5 +1,6 @@
 import { add, div, formatFraction, formatPercent, mul, pow, q, sub, value, type Rational } from "../rational";
 import { choose, int, pick, problem, sup, type QuantLessonDef, type QuantProblem, type Random } from "../build";
+import type { CardId, QuantVisual } from "../visual";
 
 // ─── Binomial ────────────────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,8 @@ const timesTerms = (...terms: string[]) => terms.filter(Boolean).join(" × ");
 /** Repeated tries with the same chance, in the words of each setting. */
 const TRIALS: {
   id: string;
+  /** One try, for figure labels: "Day 1". */
+  one: string;
   chance: [number, number];
   /** The tries, for "which 3 of the 5 days". */
   noun: string;
@@ -25,6 +28,7 @@ const TRIALS: {
 }[] = [
   {
     id: "heads",
+    one: "Flip",
     chance: [1, 2],
     noun: "flips",
     minTries: 3,
@@ -33,6 +37,7 @@ const TRIALS: {
   },
   {
     id: "sixes",
+    one: "Roll",
     chance: [1, 6],
     noun: "rolls",
     minTries: 2,
@@ -41,6 +46,7 @@ const TRIALS: {
   },
   {
     id: "sunny",
+    one: "Day",
     chance: [4, 5],
     noun: "days",
     minTries: 3,
@@ -50,6 +56,7 @@ const TRIALS: {
   },
   {
     id: "free-throws",
+    one: "Shot",
     chance: [7, 10],
     noun: "shots",
     minTries: 3,
@@ -58,6 +65,7 @@ const TRIALS: {
   },
   {
     id: "guessing",
+    one: "Question",
     chance: [1, 4],
     noun: "questions",
     minTries: 3,
@@ -67,6 +75,7 @@ const TRIALS: {
   },
   {
     id: "biased-coin",
+    one: "Flip",
     chance: [2, 3],
     noun: "flips",
     minTries: 3,
@@ -79,6 +88,47 @@ const TRIALS: {
 const exactlyChance = (n: number, k: number, p: Rational) =>
   mul(q(choose(n, k)), mul(pow(p, k), pow(sub(q(1), p), n - k)));
 
+/** Every count of successes from 0 to n, with the asked counts picked out (and labelled, once worked out). */
+function distributionBars(n: number, p: Rational, asked: number[], noun: string, labelled = true): QuantVisual {
+  return {
+    type: "bars",
+    bars: Array.from({ length: n + 1 }, (_, j) => {
+      const isAsked = asked.includes(j);
+      return {
+        label: `${j}`,
+        value: value(exactlyChance(n, j, p)),
+        tone: isAsked ? "hit" : "muted",
+        ...(isAsked && labelled ? { text: formatPercent(exactlyChance(n, j, p)) } : {}),
+      };
+    }),
+    caption: `Chance of each number of successes in ${n} ${noun}`,
+  };
+}
+
+/** One order of k successes then n − k misses: coins for coin flips, multiplied boxes otherwise. */
+function oneOrderVisual(trial: (typeof TRIALS)[number], n: number, k: number): QuantVisual {
+  const p = q(...trial.chance);
+  if (trial.id === "heads" || trial.id === "biased-coin") {
+    return {
+      type: "coins",
+      flips: Array.from({ length: n }, (_, i) => (i < k ? "H" : "T")),
+      tones: Array.from({ length: n }, (_, i) => (i < k ? "hit" : "muted")),
+      caption: `One order: ${k} ${k === 1 ? "head" : "heads"}, then ${n - k} ${n - k === 1 ? "tail" : "tails"}`,
+    };
+  }
+  return {
+    type: "slots",
+    op: "×",
+    slots: Array.from({ length: n }, (_, i) => ({
+      label: `${trial.one} ${i + 1}`,
+      value: formatFraction(i < k ? p : sub(q(1), p)),
+      tone: i < k ? "hit" : "muted",
+    })),
+    result: formatFraction(mul(pow(p, k), pow(sub(q(1), p), n - k))),
+    caption: `One order: ${k} ${k === 1 ? "success" : "successes"} first, then ${n - k} ${n - k === 1 ? "miss" : "misses"}`,
+  };
+}
+
 function binomial(params: { trial: string; tries: number; successes: number; ask: "exactly" | "at-least" }): QuantProblem {
   const trial = TRIALS.find((t) => t.id === params.trial)!;
   const { tries: n, successes: k, ask } = params;
@@ -86,6 +136,8 @@ function binomial(params: { trial: string; tries: number; successes: number; ask
   const miss = sub(q(1), p);
   const count = ask === "exactly" ? `exactly ${k}` : `at least ${k}`;
   const key = `${trial.id}-${n}-${k}-${ask}`;
+  const terms = ask === "exactly" ? [k] : Array.from({ length: n - k + 1 }, (_, i) => k + i);
+  const question = distributionBars(n, p, terms, trial.noun, false);
   if (ask === "exactly") {
     const ways = choose(n, k);
     const oneOrder = mul(pow(p, k), pow(miss, n - k));
@@ -95,15 +147,34 @@ function binomial(params: { trial: string; tries: number; successes: number; ask
       exactlyChance(n, k, p),
       "probability",
       [
-        { label: `Ways to pick which ${k} of the ${n} ${trial.noun}`, work: `C(${n}, ${k})`, result: `${ways}` },
-        { label: "Chance of one such order", work: timesTerms(power(p, k), power(miss, n - k)), result: formatFraction(oneOrder) },
-        { label: `Chance of exactly ${k}`, work: `${ways} × ${formatFraction(oneOrder)}` },
+        {
+          label: `Ways to pick which ${k} of the ${n} ${trial.noun}`,
+          work: `C(${n}, ${k})`,
+          result: `${ways}`,
+          icon: "count",
+          explain: `Any ${k} of the ${n} ${trial.noun} can be the successes. C(${n}, ${k}) counts the ways to choose them.`,
+          visual: oneOrderVisual(trial, n, k),
+        },
+        {
+          label: "Chance of one such order",
+          work: timesTerms(power(p, k), power(miss, n - k)),
+          result: formatFraction(oneOrder),
+          icon: "multiply",
+          explain: `The ${trial.noun} don’t affect each other, so multiply: ${formatFraction(p)} for each success and ${formatFraction(miss)} for each miss.`,
+        },
+        {
+          label: `Chance of exactly ${k}`,
+          work: `${ways} × ${formatFraction(oneOrder)}`,
+          icon: "multiply",
+          explain: "Every order has the same chance, so multiply one order’s chance by the number of orders.",
+          visual: distributionBars(n, p, [k], trial.noun),
+        },
       ],
       params,
+      question,
     );
   }
   // At least k: add the exact chances from k up to n.
-  const terms = Array.from({ length: n - k + 1 }, (_, i) => k + i);
   let total = q(0);
   for (const j of terms) total = add(total, exactlyChance(n, j, p));
   return problem(
@@ -116,10 +187,23 @@ function binomial(params: { trial: string; tries: number; successes: number; ask
         label: `Exactly ${j}`,
         work: timesTerms(j === n ? "" : `C(${n}, ${j})`, power(p, j), power(miss, n - j)),
         result: formatFraction(exactlyChance(n, j, p)),
+        icon: "multiply" as const,
+        explain:
+          j === n
+            ? `All ${n} succeed: there’s only one order, so multiply ${formatFraction(p)} by itself ${n} times.`
+            : `The ways to pick which ${j} of the ${n} succeed, times the chance of one such order.`,
+        visual: distributionBars(n, p, [j], trial.noun),
       })),
-      { label: `At least ${k}`, work: terms.map((j) => formatFraction(exactlyChance(n, j, p))).join(" + ") },
+      {
+        label: `At least ${k}`,
+        work: terms.map((j) => formatFraction(exactlyChance(n, j, p))).join(" + "),
+        icon: "add",
+        explain: "These counts can’t happen at the same time, so add their chances.",
+        visual: distributionBars(n, p, terms, trial.noun),
+      },
     ],
     params,
+    question,
   );
 }
 
@@ -211,6 +295,57 @@ type GeometricParams =
   | { type: "both-sides"; headsN: number; headsD: number }
   | { type: "roll-total"; sides: number; target: number; last: "with" | "without" };
 
+/** What ends the wait, drawn: the faces, pairs, cards or coins that count. */
+function waitVisual(id: string): QuantVisual {
+  const pairs = (test: (a: number, b: number) => boolean) => {
+    const cells: [number, number][] = [];
+    for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (test(a, b)) cells.push([a, b]);
+    return cells;
+  };
+  switch (id) {
+    case "six":
+      return { type: "die-faces", sides: 6, marks: [{ faces: [6], tone: "hit" }], caption: "1 of the 6 faces ends the wait" };
+    case "five-six":
+      return { type: "die-faces", sides: 6, marks: [{ faces: [5, 6], tone: "hit" }], caption: "2 of the 6 faces end the wait" };
+    case "double":
+      return { type: "dice-grid", sides: 6, marks: [{ cells: pairs((a, b) => a === b), tone: "hit" }], caption: "6 of the 36 pairs are doubles" };
+    case "eleven-up":
+      return { type: "dice-grid", sides: 6, marks: [{ cells: pairs((a, b) => a + b >= 11), tone: "hit" }], caption: "3 of the 36 pairs total 11 or 12" };
+    case "ten-up":
+      return { type: "dice-grid", sides: 6, marks: [{ cells: pairs((a, b) => a + b >= 10), tone: "hit" }], caption: "6 of the 36 pairs total 10 or more" };
+    case "ace":
+      return { type: "cards", marks: [{ cards: ["1S", "1H", "1D", "1C"], tone: "hit" }], caption: "4 of the 52 cards are aces" };
+    case "heart":
+      return {
+        type: "cards",
+        marks: [{ cards: Array.from({ length: 13 }, (_, i) => `${i + 1}H` as CardId), tone: "hit" }],
+        caption: "13 of the 52 cards are hearts",
+      };
+    default:
+      return { type: "coins", flips: ["H", "H"], tones: ["hit", "hit"], caption: "Only 1 of the 4 outcomes is two heads" };
+  }
+}
+
+/** The chance the first success lands on each try, 1 to `count`. */
+function firstSuccessBars(chance: Rational, highlight?: number, count = 8): QuantVisual {
+  const miss = sub(q(1), chance);
+  return {
+    type: "bars",
+    bars: Array.from({ length: count }, (_, i) => {
+      const on = i + 1;
+      const share = mul(pow(miss, on - 1), chance);
+      return {
+        label: `${on}`,
+        value: value(share),
+        tone: highlight === undefined ? "alt" : on === highlight ? "hit" : "muted",
+      };
+    }),
+    caption: "Chance the first success comes on each try",
+  };
+}
+
+const capitalise = (text: string) => `${text[0].toUpperCase()}${text.slice(1)}`;
+
 function geometric(params: GeometricParams): QuantProblem {
   switch (params.type) {
     case "wait": {
@@ -222,15 +357,29 @@ function geometric(params: GeometricParams): QuantProblem {
         div(q(1), chance),
         "number",
         [
-          { label: "Chance each try", work: wait.each, result: formatFraction(chance) },
-          { label: "Average tries", work: `1 ÷ ${formatFraction(chance)}` },
+          {
+            label: "Chance each try",
+            work: wait.each,
+            result: formatFraction(chance),
+            icon: "count",
+            explain: "Count the outcomes that end the wait, out of all the equally likely outcomes of one try.",
+          },
+          {
+            label: "Average tries",
+            work: `1 ÷ ${formatFraction(chance)}`,
+            icon: "divide",
+            explain: `A ${formatFraction(chance)} chance each try means 1 success every ${formatFraction(div(q(1), chance))} tries on average, counting the try that works.`,
+            visual: firstSuccessBars(chance),
+          },
         ],
         params,
+        waitVisual(wait.id),
       );
     }
     case "k-hits": {
       const hit = HITS.find((h) => h.id === params.hit)!;
       const chance = q(...hit.chance);
+      const each = div(q(1), chance);
       const { hits } = params;
       return problem(
         `k-hits-${hit.id}-${hits}`,
@@ -238,8 +387,31 @@ function geometric(params: GeometricParams): QuantProblem {
         div(q(hits), chance),
         "number",
         [
-          { label: `Average ${hit.tries} for each ${hit.hit}`, work: `1 ÷ ${formatFraction(chance)}`, result: formatFraction(div(q(1), chance)) },
-          { label: `For ${hits}`, work: `${hits} × ${formatFraction(div(q(1), chance))}` },
+          {
+            label: `Average ${hit.tries} for each ${hit.hit}`,
+            work: `1 ÷ ${formatFraction(chance)}`,
+            result: formatFraction(each),
+            icon: "divide",
+            explain: `Each ${hit.hit} has chance ${formatFraction(chance)}, so waiting for one takes 1 ÷ ${formatFraction(chance)} ${hit.tries} on average.`,
+            visual: firstSuccessBars(chance),
+          },
+          {
+            label: `For ${hits}`,
+            work: `${hits} × ${formatFraction(each)}`,
+            icon: "repeat",
+            explain: `After each ${hit.hit} the wait starts fresh, so the ${hits} waits add up.`,
+            visual: {
+              type: "slots",
+              op: "+",
+              slots: Array.from({ length: hits }, (_, i) => ({
+                label: `${capitalise(hit.hit)} ${i + 1}`,
+                value: formatFraction(each),
+                tone: "alt",
+              })),
+              result: formatFraction(div(q(hits), chance)),
+              caption: `One wait for each of the ${hits}`,
+            },
+          },
         ],
         params,
       );
@@ -249,16 +421,41 @@ function geometric(params: GeometricParams): QuantProblem {
       const chance = q(...hit.chance);
       const miss = sub(q(1), chance);
       const { on } = params;
+      const tries = (withHit: boolean): QuantVisual => ({
+        type: "slots",
+        op: "×",
+        slots: Array.from({ length: withHit ? on : on - 1 }, (_, i) => ({
+          label: `${capitalise(hit.tryWord)} ${i + 1}`,
+          value: formatFraction(i === on - 1 ? chance : miss),
+          tone: i === on - 1 ? "hit" : "muted",
+        })),
+        result: formatFraction(withHit ? mul(pow(miss, on - 1), chance) : pow(miss, on - 1)),
+        caption: withHit ? `${on - 1} ${on - 1 === 1 ? "miss" : "misses"}, then a ${hit.hit}` : `${on - 1} ${on - 1 === 1 ? "miss" : "misses"} in a row`,
+      });
       return problem(
         `first-on-${hit.id}-${on}`,
         `${hit.untilFirst}. What's the chance the first ${hit.hit} comes on the ${ORDINALS[on]} ${hit.tryWord}?`,
         mul(pow(miss, on - 1), chance),
         "probability",
         [
-          { label: `Miss the first ${on - 1}`, work: power(miss, on - 1), result: formatFraction(pow(miss, on - 1)) },
-          { label: `Then a ${hit.hit}`, work: `${formatFraction(pow(miss, on - 1))} × ${formatFraction(chance)}` },
+          {
+            label: `Miss the first ${on - 1}`,
+            work: power(miss, on - 1),
+            result: formatFraction(pow(miss, on - 1)),
+            icon: "multiply",
+            explain: `For the first ${hit.hit} to come on ${hit.tryWord} ${on}, every ${hit.tryWord} before it must miss. Each miss has chance ${formatFraction(miss)}, so multiply them.`,
+            visual: tries(false),
+          },
+          {
+            label: `Then a ${hit.hit}`,
+            work: `${formatFraction(pow(miss, on - 1))} × ${formatFraction(chance)}`,
+            icon: "target",
+            explain: `Then ${hit.tryWord} ${on} must work, which has chance ${formatFraction(chance)}.`,
+            visual: tries(true),
+          },
         ],
         params,
+        firstSuccessBars(chance, on, Math.max(6, on)),
       );
     }
     case "both-sides": {
@@ -275,13 +472,48 @@ function geometric(params: GeometricParams): QuantProblem {
         add(q(1), afterFirst),
         "number",
         [
-          { label: "The first flip shows one side", work: "1 flip", result: "" },
+          {
+            label: "The first flip shows one side",
+            work: "1 flip",
+            result: "",
+            icon: "flip",
+            explain: "Whatever the first flip shows, you’ve seen one side. Now you only need the other.",
+            visual: { type: "coins", flips: ["H", "?"], tones: ["alt", "muted"], caption: "One side seen; waiting for the other" },
+          },
           {
             label: "Then wait for the other side",
             work: `${formatFraction(heads)} × ${formatFraction(div(q(1), tails))} + ${formatFraction(tails)} × ${formatFraction(div(q(1), heads))}`,
             result: formatFraction(afterFirst),
+            icon: "split",
+            explain: "If the first flip was heads, waiting for tails takes 1 ÷ P(tails) flips; if tails, 1 ÷ P(heads). Weight each case by its chance.",
+            visual: {
+              type: "tree",
+              root: {
+                label: "First flip",
+                children: [
+                  {
+                    label: "Heads",
+                    edge: formatFraction(heads),
+                    tone: "alt",
+                    children: [{ label: `${formatFraction(div(q(1), tails))} more`, edge: "wait for T", tone: "hit" }],
+                  },
+                  {
+                    label: "Tails",
+                    edge: formatFraction(tails),
+                    tone: "alt",
+                    children: [{ label: `${formatFraction(div(q(1), heads))} more`, edge: "wait for H", tone: "hit" }],
+                  },
+                ],
+              },
+              caption: "The wait for the other side, by what the first flip showed",
+            },
           },
-          { label: "Average flips", work: `1 + ${formatFraction(afterFirst)}` },
+          {
+            label: "Average flips",
+            work: `1 + ${formatFraction(afterFirst)}`,
+            icon: "add",
+            explain: "Add the first flip to the average wait for the other side.",
+          },
         ],
         params,
       );
@@ -292,19 +524,68 @@ function geometric(params: GeometricParams): QuantProblem {
       const averageRoll = q(sides + 1, 2);
       const withLast = mul(q(sides), averageRoll);
       const answer = last === "with" ? withLast : sub(withLast, q(target));
+      const product: QuantVisual = {
+        type: "slots",
+        op: "×",
+        slots: [
+          { label: "Rolls", value: `${sides}` },
+          { label: "Each roll", value: `${value(averageRoll)}`, tone: "alt" },
+        ],
+        result: `${value(withLast)}`,
+        caption: "Average rolls times the average roll",
+      };
       return problem(
         `total-${sides}-${target}-${last}`,
         `You roll a fair ${sides}-sided die until it lands on ${sides === 6 && target === 6 ? "a six" : target}, adding up every roll ${last === "with" ? "including" : "except"} the last one. What total do you expect?`,
         answer,
         "number",
         [
-          { label: "Average rolls", work: `1 ÷ 1/${sides}`, result: `${sides}` },
-          { label: "Average roll", work: `(1 + ${sides}) ÷ 2`, result: `${value(averageRoll)}` },
+          {
+            label: "Average rolls",
+            work: `1 ÷ 1/${sides}`,
+            result: `${sides}`,
+            icon: "divide",
+            explain: `Each roll lands on ${target} with chance 1/${sides}, so it takes ${sides} rolls on average, counting the last.`,
+            visual: { type: "die-faces", sides, marks: [{ faces: [target], tone: "hit" }], caption: `The roll that stops you: ${target}` },
+          },
+          {
+            label: "Average roll",
+            work: `(1 + ${sides}) ÷ 2`,
+            result: `${value(averageRoll)}`,
+            icon: "add",
+            explain: "Every face is equally likely, so one roll averages the middle of 1 and the top face.",
+            visual: {
+              type: "die-faces",
+              sides,
+              marks: [{ faces: Array.from({ length: sides }, (_, i) => i + 1), tone: "alt" }],
+              caption: `Faces 1 to ${sides}, each equally likely`,
+            },
+          },
           ...(last === "with"
-            ? [{ label: "Average total", work: `${sides} × ${value(averageRoll)}` }]
+            ? [
+                {
+                  label: "Average total",
+                  work: `${sides} × ${value(averageRoll)}`,
+                  icon: "multiply" as const,
+                  explain: "The average total is the average number of rolls times the average roll.",
+                  visual: product,
+                },
+              ]
             : [
-                { label: "Average total with the last roll", work: `${sides} × ${value(averageRoll)}`, result: `${value(withLast)}` },
-                { label: "Without the last roll", work: `${value(withLast)} − ${target}` },
+                {
+                  label: "Average total with the last roll",
+                  work: `${sides} × ${value(averageRoll)}`,
+                  result: `${value(withLast)}`,
+                  icon: "multiply" as const,
+                  explain: "The average total is the average number of rolls times the average roll.",
+                  visual: product,
+                },
+                {
+                  label: "Without the last roll",
+                  work: `${value(withLast)} − ${target}`,
+                  icon: "subtract" as const,
+                  explain: `The last roll is always ${target}, so take it off.`,
+                },
               ]),
         ],
         params,
@@ -408,24 +689,95 @@ const SCALES: {
 
 const RULE = "Using the 68–95–99.7 rule";
 
+/** The figure spans −3 to 3 standard deviations; "no limit" draws to the edge. */
+const edge = (z: number) => Math.max(-3, Math.min(3, z));
+
+type Band = [number, number];
+
+/** A bell curve with bands shaded, ticks at the mean and each whole SD in the question's units. */
+function bellCurve(
+  scale: (typeof SCALES)[number],
+  layers: { bands: Band[]; tone: "hit" | "known"; text?: (band: Band) => string }[],
+  caption: string,
+): QuantVisual {
+  return {
+    type: "normal",
+    shade: layers.flatMap((layer) =>
+      layer.bands.map((band) => ({
+        from: edge(band[0]),
+        to: edge(band[1]),
+        tone: layer.tone,
+        ...(layer.text ? { text: layer.text(band) } : {}),
+      })),
+    ),
+    ticks: [-3, -2, -1, 0, 1, 2, 3].map((z) => ({ at: z, label: scale.show(scale.mean + z * scale.sd) })),
+    caption,
+  };
+}
+
+const bandShare = ([lo, hi]: Band) => formatPercent(shareBetween(lo, hi));
+
 /** One line of working for a share on one side of the mean (both z-scores the same sign or 0). */
-function sideStep(lo: number, hi: number, scale: (typeof SCALES)[number]): { label: string; work: string; result: string } {
+function sideStep(lo: number, hi: number, scale: (typeof SCALES)[number]) {
   const at = (z: number) => scale.show(scale.mean + z * scale.sd);
   const share = formatPercent(shareBetween(lo, hi));
   const w = (z: number) => `${WITHIN[Math.abs(z)] / 100}%`;
   const outer = Math.max(Math.abs(lo), Math.abs(hi));
   const inner = Math.min(Math.abs(lo), Math.abs(hi));
-  if (outer === OPEN && inner === 0) return { label: hi > 0 ? "Above the mean" : "Below the mean", work: "half of 100%", result: share };
-  if (outer === OPEN) {
-    return { label: `${hi > 0 ? "Above" : "Below"} ${at(hi > 0 ? lo : hi)}`, work: `(100% − ${w(inner)}) ÷ 2`, result: share };
+  const sd = (k: number) => `${k} standard deviation${k === 1 ? "" : "s"}`;
+  const visual = bellCurve(scale, [{ bands: [[lo, hi]], tone: "hit", text: bandShare }], "The share you want, shaded");
+  if (outer === OPEN && inner === 0) {
+    return {
+      label: hi > 0 ? "Above the mean" : "Below the mean",
+      work: "half of 100%",
+      result: share,
+      icon: "split" as const,
+      explain: "The curve is the same on both sides of the mean, so half of all values are on each side.",
+      visual,
+    };
   }
-  if (inner === 0) return { label: `From the mean to ${at(hi > 0 ? hi : lo)}`, work: `${w(outer)} ÷ 2`, result: share };
-  return { label: `From ${at(lo)} to ${at(hi)}`, work: `(${w(outer)} − ${w(inner)}) ÷ 2`, result: share };
+  if (outer === OPEN) {
+    return {
+      label: `${hi > 0 ? "Above" : "Below"} ${at(hi > 0 ? lo : hi)}`,
+      work: `(100% − ${w(inner)}) ÷ 2`,
+      result: share,
+      icon: "split" as const,
+      explain: `${w(inner)} of values are within ${sd(inner)} of the mean. The rest are outside, split evenly between the two tails, so take half.`,
+      visual,
+    };
+  }
+  if (inner === 0) {
+    return {
+      label: `From the mean to ${at(hi > 0 ? hi : lo)}`,
+      work: `${w(outer)} ÷ 2`,
+      result: share,
+      icon: "split" as const,
+      explain: `${w(outer)} of values are within ${sd(outer)} of the mean, half on each side, so take half.`,
+      visual,
+    };
+  }
+  return {
+    label: `From ${at(lo)} to ${at(hi)}`,
+    work: `(${w(outer)} − ${w(inner)}) ÷ 2`,
+    result: share,
+    icon: "subtract" as const,
+    explain: `Take the share within ${sd(inner)} away from the share within ${sd(outer)}. That leaves two equal strips, one on each side, so take half.`,
+    visual,
+  };
 }
 
 type NormalParams =
   | { type: "range"; scale: string; lo: number; hi: number }
   | { type: "given"; scale: string; condition: "beyond-1" | "above-1" | "above-mean"; event: "beyond-2" | "above-2" | "above-1" };
+
+/** The parts of the curve each named region covers, in standard deviations. */
+const REGION_BANDS: Record<string, Band[]> = {
+  "beyond-1": [[-OPEN, -1], [1, OPEN]],
+  "beyond-2": [[-OPEN, -2], [2, OPEN]],
+  "above-1": [[1, OPEN]],
+  "above-2": [[2, OPEN]],
+  "above-mean": [[0, OPEN]],
+};
 
 function normal(params: NormalParams): QuantProblem {
   const scale = SCALES.find((s) => s.id === params.scale)!;
@@ -435,9 +787,18 @@ function normal(params: NormalParams): QuantProblem {
     const question =
       lo === -OPEN ? `${scale.below} ${at(hi)}` : hi === OPEN ? `${scale.above} ${at(lo)}` : `between ${at(lo)} and ${at(hi)}`;
     // Split the range at the mean so each piece is a share on one side.
-    const pieces = lo < 0 && hi > 0 ? [[lo, 0], [0, hi]] : [[lo, hi]];
-    const steps = pieces.map(([a, b]) => sideStep(a, b, scale));
-    if (pieces.length > 1) steps.push({ label: "Total", work: steps.map((s) => s.result).join(" + "), result: "" });
+    const pieces: Band[] = lo < 0 && hi > 0 ? [[lo, 0], [0, hi]] : [[lo, hi]];
+    const steps: (Omit<QuantProblem["steps"][number], "result"> & { result?: string })[] = pieces.map(([a, b]) => sideStep(a, b, scale));
+    if (pieces.length > 1) {
+      steps.push({
+        label: "Total",
+        work: steps.map((s) => s.result).join(" + "),
+        result: "",
+        icon: "add",
+        explain: "The two pieces sit on opposite sides of the mean and don’t overlap, so add them.",
+        visual: bellCurve(scale, [{ bands: pieces, tone: "hit", text: bandShare }], "Both pieces together"),
+      });
+    }
     return problem(
       `range-${scale.id}-${lo}-${hi}`,
       `${scale.setup} ${RULE}, ${scale.share} ${question}?`,
@@ -445,6 +806,7 @@ function normal(params: NormalParams): QuantProblem {
       "percent",
       steps,
       params,
+      bellCurve(scale, [{ bands: [[lo, hi]], tone: "hit" }], `The values ${question}`),
     );
   }
   const { condition, event } = params;
@@ -470,17 +832,39 @@ function normal(params: NormalParams): QuantProblem {
             : `above the mean of ${at(0)}`;
   const given = chanceOf(condition);
   const both = chanceOf(event);
+  const known = { bands: REGION_BANDS[condition], tone: "known" as const, text: bandShare };
+  const asked = { bands: REGION_BANDS[event], tone: "hit" as const, text: bandShare };
   return problem(
     `given-${scale.id}-${condition}-${event}`,
     `${scale.setup} ${RULE}: ${scale.one} is ${describe(condition)}. What's the chance it's ${describe(event)}?`,
     div(both, given),
     "percent",
     [
-      { label: "Chance of what you know", work: describe(condition).replace(/ \(.*\)$/, ""), result: formatPercent(given) },
-      { label: "Chance of what you're asked", work: describe(event).replace(/ \(.*\)$/, ""), result: formatPercent(both) },
-      { label: "Share of the first that's also the second", work: `${formatPercent(both)} ÷ ${formatPercent(given)}` },
+      {
+        label: "Chance of what you know",
+        work: describe(condition).replace(/ \(.*\)$/, ""),
+        result: formatPercent(given),
+        icon: "filter",
+        explain: "This is the part of the curve you’re told the value is in. Only this part counts now.",
+        visual: bellCurve(scale, [known], "What you’re told"),
+      },
+      {
+        label: "Chance of what you're asked",
+        work: describe(event).replace(/ \(.*\)$/, ""),
+        result: formatPercent(both),
+        icon: "target",
+        explain: "This is the part you’re asked about. It sits inside what you’re told.",
+        visual: bellCurve(scale, [known, asked], "What you’re asked, inside what you’re told"),
+      },
+      {
+        label: "Share of the first that's also the second",
+        work: `${formatPercent(both)} ÷ ${formatPercent(given)}`,
+        icon: "divide",
+        explain: "Given what you know, the chance is the asked share as a fraction of the known share.",
+      },
     ],
     params,
+    bellCurve(scale, [{ bands: REGION_BANDS[condition], tone: "known" }], "What you’re told"),
   );
 }
 
@@ -503,6 +887,16 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
     title: "Binomial distribution",
     benefit: "Find the chance of k wins in n tries",
     idea: "The chance of exactly k successes in n tries is C(n, k) × pᵏ × (1 − p)ⁿ⁻ᵏ: the ways to pick which tries succeed, times the chance of one such order. For “at least”, add up the exact chances.",
+    difficulty: "Medium",
+    intro:
+      "Each try has the same chance p and doesn’t affect the others. One particular order of k successes and n − k misses has chance pᵏ × (1 − p)ⁿ⁻ᵏ, and every order has that same chance. So count the orders with C(n, k) and multiply.",
+    formula: "P(exactly k) = C(n, k) × pᵏ × (1 − p)ⁿ⁻ᵏ",
+    cues: [
+      "A fixed number of tries, each with the same chance",
+      "It asks for exactly k or at least k successes",
+      "The tries don’t affect each other",
+    ],
+    mistake: "Leaving out C(n, k): pᵏ × (1 − p)ⁿ⁻ᵏ is the chance of one order, not of k successes in any order.",
     targetSeconds: 45,
     example: binomial({ trial: "sunny", tries: 4, successes: 3, ask: "at-least" }),
     generate: randomBinomial,
@@ -512,6 +906,16 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
     title: "Geometric distribution",
     benefit: "Find how long until the first success",
     idea: "If each try works with chance p, it takes 1 ÷ p tries on average, and k ÷ p tries to get k successes. The chance the first success comes on try k is (1 − p)ᵏ⁻¹ × p.",
+    difficulty: "Medium",
+    intro:
+      "If each try works with chance p, successes turn up at a rate of p per try, so on average one comes every 1 ÷ p tries. For the first success to land exactly on try k, the k − 1 tries before it must all miss, and then one must work.",
+    formula: "Average tries = 1 ÷ p;  P(first success on try k) = (1 − p)ᵏ⁻¹ × p",
+    cues: [
+      "“Keep trying until…” or “how many tries until…”",
+      "Each try has the same chance and doesn’t depend on the last",
+      "“The first success comes on try k”",
+    ],
+    mistake: "Mixing up the chance and the wait: a 1/6 chance means 6 tries on average, and the try that works counts as one of them.",
     targetSeconds: 30,
     example: geometric({ type: "wait", event: "five-six" }),
     generate: randomGeometric,
@@ -521,6 +925,16 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
     title: "Normal distribution",
     benefit: "Use the 68–95–99.7 rule",
     idea: "In a normal distribution, about 68% of values are within 1 standard deviation of the mean, 95% within 2 and 99.7% within 3. What's left splits evenly between the two sides.",
+    difficulty: "Easy",
+    intro:
+      "A normal distribution is the bell curve: most values sit near the mean, and fewer the further out you go. Distance from the mean is measured in standard deviations. The 68–95–99.7 rule gives the share within 1, 2 and 3 of them, and the curve is the same on both sides, so each side gets half.",
+    formula: "Within 1 SD: 68%; within 2 SD: 95%; within 3 SD: 99.7%; the rest splits evenly",
+    cues: [
+      "It says the values are normal and gives a mean and a standard deviation",
+      "The values asked about are a whole number of standard deviations from the mean",
+      "It asks for a share above, below or between two values",
+    ],
+    mistake: "Forgetting to halve: 95% are within 2 standard deviations, so 5% are outside, but only 2.5% are above.",
     targetSeconds: 30,
     example: normal({ type: "range", scale: "heights", lo: 2, hi: OPEN }),
     generate: (random) =>
