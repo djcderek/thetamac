@@ -3,29 +3,30 @@ import test from "node:test";
 import {
   aggregateDuelResults,
   aggregateRaceResults,
-  aggregateTrainingRuns,
   calculateRankTrends,
   getPersonalBestTrainingScores,
   getQueryStart,
   isGuestLeaderboardId,
   isInComparisonPeriod,
   isInCurrentPeriod,
+  rankTrainingTotals,
   sortRankedItems,
   type RankedItem,
 } from "./leaderboard-ranking";
 
 test("training rankings use total solved with best run and streak tie-breakers", () => {
   const entries = sortRankedItems(
-    aggregateTrainingRuns([
-      { userId: "a", correctAnswers: 30, bestStreak: 18 },
-      { userId: "a", correctAnswers: 20, bestStreak: 20 },
-      { userId: "b", correctAnswers: 50, bestStreak: 15 },
+    rankTrainingTotals([
+      { userId: "a", total: 50, bestRun: 30, bestStreak: 20 },
+      { userId: "b", total: 50, bestRun: 50, bestStreak: 15 },
+      { userId: "c", total: 50, bestRun: 50, bestStreak: 16 },
+      { userId: "d", total: 60, bestRun: 20, bestStreak: 9 },
     ])
   );
 
-  assert.deepEqual(entries.map((entry) => entry.userId), ["b", "a"]);
-  assert.deepEqual(entries[0].performance, { kind: "bestRun", value: 50 });
-  assert.deepEqual(entries[1].performance, { kind: "bestRun", value: 30 });
+  assert.deepEqual(entries.map((entry) => entry.userId), ["d", "c", "b", "a"]);
+  assert.deepEqual(entries[1].performance, { kind: "bestRun", value: 50 });
+  assert.equal(entries[0].score, 60);
 });
 
 test("top scores keep one personal best per player", () => {

@@ -730,7 +730,7 @@ export function LeaderboardClient({
                             </div>
                           ) : null}
                           <div className="text-xs text-muted-foreground">
-                            Distribution of best single-session scores (default timed settings)
+                            Scores from every timed run on the default settings
                           </div>
                         </div>
                       </div>
