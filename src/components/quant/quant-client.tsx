@@ -327,8 +327,8 @@ export function QuantClient() {
             }
             note={
               isLocked(openLesson.id)
-                ? "The first lesson in each topic is free. Pro opens all 13."
-                : `${QUANT_GUIDED} with the working, then ${QUANT_SOLO} on your own. Fractions, decimals and percentages all count.`
+                ? "This lesson is part of Pro. The first lesson in each topic is free."
+                : `${QUANT_GUIDED + QUANT_SOLO} questions. The first ${QUANT_GUIDED} show the steps. Answer as a fraction, decimal or percent.`
             }
           />
         </motion.div>
@@ -337,7 +337,7 @@ export function QuantClient() {
           <header className="mb-10 px-1">
             <h1 className="text-[34px] font-semibold leading-[1.05] tracking-[-0.035em] md:text-[44px]">Quant</h1>
             <p className="mt-3 text-[17px] leading-7 text-muted-foreground">
-              The probability and expected value questions trading interviews ask, one idea at a time.
+              Learn the probability and expected value asked in quant interviews.
             </p>
           </header>
           <QuantLessonList

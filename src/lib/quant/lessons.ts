@@ -29,9 +29,9 @@ export const QUANT_MASTERY_FIRST_TRY = QUANT_SOLO - 1;
 export type QuantTopic = "probability" | "expected-value" | "betting";
 
 export const QUANT_TOPICS: { id: QuantTopic; title: string; blurb: string }[] = [
-  { id: "probability", title: "Probability", blurb: "The dice, card and coin questions every trading interview opens with." },
-  { id: "expected-value", title: "Expected value", blurb: "Price a game, then play it the best way." },
-  { id: "betting", title: "Betting maths", blurb: "Spot a good bet, and size it." },
+  { id: "probability", title: "Probability", blurb: "How likely something is to happen." },
+  { id: "expected-value", title: "Expected value", blurb: "What something is worth on average." },
+  { id: "betting", title: "Betting maths", blurb: "Whether a bet is good, and how much to bet." },
 ];
 
 /** One line of working: "Pot after your call: 60 + 20 + 20 = 100". */
@@ -179,7 +179,7 @@ function countOutcomes(params: { type: "die"; sides: number; atLeast: number } |
     q(ways, 52),
     "probability",
     [
-      { label: "Ways", work: event.breakdown, result: `${ways}` },
+      { label: "Cards that count", work: event.breakdown, result: `${ways}` },
       { label: "Chance", work: `${ways} of 52 cards` },
     ],
     params,
@@ -196,7 +196,7 @@ function twoDice(params: { type: "exactly" | "at-least" | "double"; total: numbe
       "probability",
       [
         { label: "Doubles", work: "1+1, 2+2, … 6+6", result: "6" },
-        { label: "Pairs in all", work: "6 × 6", result: "36" },
+        { label: "Ways in all", work: "6 × 6", result: "36" },
         { label: "Chance", work: "6/36" },
       ],
       params,
@@ -214,8 +214,8 @@ function twoDice(params: { type: "exactly" | "at-least" | "double"; total: numbe
     q(ways, 36),
     "probability",
     [
-      { label: type === "exactly" ? `Pairs making ${total}` : "Pairs per total", work: listing, result: `${ways}` },
-      { label: "Pairs in all", work: "6 × 6", result: "36" },
+      { label: type === "exactly" ? `Ways to make ${total}` : `Ways to make ${total} or more`, work: listing, result: `${ways}` },
+      { label: "Ways in all", work: "6 × 6", result: "36" },
       { label: "Chance", work: `${ways}/36` },
     ],
     params,
@@ -243,7 +243,7 @@ function atLeastOne(
         "probability",
         [
           { label: `No ${params.type === "sixes" ? "six" : "1 or 2"} on one roll`, work: params.type === "sixes" ? "1 − 1/6" : "1 − 2/6", result: formatFraction(miss) },
-          { label: `None in ${rolls} rolls`, work: `(${formatFraction(miss)})^${rolls}`, result: formatFraction(none) },
+          { label: `No ${params.type === "sixes" ? "six" : "1 or 2"} in ${rolls} rolls`, work: `(${formatFraction(miss)})^${rolls}`, result: formatFraction(none) },
           { label: "At least one", work: `1 − ${formatFraction(none)}` },
         ],
         params,
@@ -344,7 +344,7 @@ function pictureTheCrowd(
       [
         { label: "Positive and have it", work: `${caught} of the ${sick}`, result: `${caught}` },
         { label: "Positive but don't", work: `${falseAlarms} of the ${healthy}`, result: `${falseAlarms}` },
-        { label: "Have it, of all positives", work: `${caught}/(${caught} + ${falseAlarms})` },
+        { label: "Chance they have it", work: `${caught}/(${caught} + ${falseAlarms})` },
       ],
       params,
     );
@@ -362,10 +362,10 @@ function pictureTheCrowd(
     q(riggedHeads, riggedHeads + fairHeads),
     "probability",
     [
-      { label: `Imagine ${runs * (fair + rigged)} picks`, work: `${runs} of each coin`, result: "" },
-      { label: "Two-headed, all heads", work: `${rigged} × ${runs}`, result: `${riggedHeads}` },
-      { label: "Fair, all heads", work: `${fair * runs} × 1/${runs}`, result: `${fairHeads}` },
-      { label: "Two-headed, of all-heads", work: `${riggedHeads}/(${riggedHeads} + ${fairHeads})` },
+      { label: `Out of ${runs * (fair + rigged)} picks`, work: `${runs} of each coin`, result: "" },
+      { label: `Two-headed and ${flips === 1 ? "heads" : "all heads"}`, work: `${rigged} × ${runs}`, result: `${riggedHeads}` },
+      { label: `Fair and ${flips === 1 ? "heads" : "all heads"}`, work: `${fair * runs} × 1/${runs}`, result: `${fairHeads}` },
+      { label: "Chance it’s two-headed", work: `${riggedHeads}/(${riggedHeads} + ${fairHeads})` },
     ],
     params,
   );
@@ -383,7 +383,7 @@ function weighThePayouts(
       "dollars",
       [
         { label: "Each face pays its number", work: `1 + 2 + … + ${sides}`, result: `${(sides * (sides + 1)) / 2}` },
-        { label: "Average over the faces", work: `${(sides * (sides + 1)) / 2} ÷ ${sides}` },
+        { label: "Average", work: `${(sides * (sides + 1)) / 2} ÷ ${sides}` },
       ],
       params,
     );
@@ -399,7 +399,7 @@ function weighThePayouts(
       { label: "Six", work: `$${six} × 1/6`, result: formatDollars(q(six, 6)) },
       { label: "Five", work: `$${five} × 1/6`, result: formatDollars(q(five, 6)) },
       { label: "One to four", work: `−$${cost} × 4/6`, result: formatDollars(q(-4 * cost, 6)) },
-      { label: "Add them", work: `(${six} + ${five} − ${4 * cost}) ÷ 6` },
+      { label: "Average per roll", work: `(${six} + ${five} − ${4 * cost}) ÷ 6` },
     ],
     params,
   );
@@ -448,7 +448,7 @@ function addTheAverages(
         "number",
         [
           { label: `Each card is ${params.type === "hearts" ? "a heart" : "an ace"}`, work: params.type === "hearts" ? "13 of 52" : "4 of 52", result: formatFraction(share) },
-          { label: `${params.cards} cards, dependence and all`, work: `${params.cards} × ${formatFraction(share)}` },
+          { label: `In ${params.cards} cards`, work: `${params.cards} × ${formatFraction(share)}` },
         ],
         params,
       );
@@ -501,9 +501,9 @@ function rerollOrKeep(params: { sides: number; rerolls: number }) {
         work: rerolls === 1 ? `(1 + ${sides}) ÷ 2` : `the one-reroll game`,
         result: formatDollars(fresh),
       },
-      { label: `Keep ${keepFrom} or more, since they beat that`, work: `${keepCount} of ${sides} faces, averaging ${formatResult(keptAverage, "number")}` },
+      { label: `Keep ${keepFrom} or more, since they beat ${formatDollars(fresh)}`, work: `${keepCount} of ${sides} faces, averaging ${formatResult(keptAverage, "number")}` },
       {
-        label: "Value",
+        label: "The game is worth",
         work: `${frac(keepCount, sides)} × ${formatResult(keptAverage, "number")} + ${frac(sides - keepCount, sides)} × ${formatResult(fresh, "number")}`,
       },
     ],
@@ -532,7 +532,7 @@ function waitForIt(params: { event: string }) {
     "number",
     [
       { label: "Chance each try", work: wait.each, result: formatFraction(chance) },
-      { label: "Expected tries", work: `1 ÷ ${formatFraction(chance)}` },
+      { label: "Average tries", work: `1 ÷ ${formatFraction(chance)}` },
     ],
     params,
   );
@@ -553,8 +553,8 @@ function oddsToChance(
         q(forOdds, against + forOdds),
         "percent",
         [
-          { label: "It wins", work: `${forOdds} in every ${against} + ${forOdds}`, result: `${forOdds}/${against + forOdds}` },
-          { label: "As a chance", work: `${forOdds} ÷ ${against + forOdds}` },
+          { label: "Wins", work: `${forOdds} in every ${against} + ${forOdds}`, result: `${forOdds}/${against + forOdds}` },
+          { label: "Chance", work: `${forOdds} ÷ ${against + forOdds}` },
         ],
         params,
       );
@@ -568,7 +568,7 @@ function oddsToChance(
         q(100, hundredths),
         "percent",
         [
-          { label: "Fair odds pay back 1 ÷ chance", work: `${odds} = 1 ÷ chance` },
+          { label: "Decimal odds are 1 ÷ chance", work: `${odds} = 1 ÷ chance` },
           { label: "Chance", work: `1 ÷ ${odds}` },
         ],
         params,
@@ -588,7 +588,7 @@ function oddsToChance(
         "percent",
         [
           { label: "You risk", work: favourite ? `$${stake} to win $100` : `$100 to win $${line}` },
-          { label: "Risk ÷ (risk + win)", work: favourite ? `${stake} ÷ ${stake + 100}` : `100 ÷ ${line + 100}` },
+          { label: "Chance is risk ÷ (risk + win)", work: favourite ? `${stake} ÷ ${stake + 100}` : `100 ÷ ${line + 100}` },
         ],
         params,
       );
@@ -606,7 +606,7 @@ function potOdds(params: { pot: number; bet: number }) {
     "percent",
     [
       { label: "Pot after you call", work: `${pot} + ${bet} + ${bet}`, result: `$${total}` },
-      { label: "Your call, of that pot", work: `${bet} ÷ ${total}` },
+      { label: "Your call ÷ that pot", work: `${bet} ÷ ${total}` },
     ],
     params,
   );
@@ -633,7 +633,7 @@ function houseEdge(params: { type: "roulette"; wheel: 37 | 38; bet: string } | {
       [
         { label: "Win", work: `$${pays} × 1/6`, result: formatDollars(q(pays, 6)) },
         { label: "Lose", work: "$1 × 5/6", result: formatDollars(q(5, 6)) },
-        { label: "House keeps per $1", work: `(5 − ${pays}) ÷ 6` },
+        { label: "Average loss per $1", work: `(5 − ${pays}) ÷ 6` },
       ],
       params,
     );
@@ -650,7 +650,7 @@ function houseEdge(params: { type: "roulette"; wheel: 37 | 38; bet: string } | {
     [
       { label: "Win", work: `$${bet.pays} × ${bet.numbers}/${wheel}`, result: `$${bet.pays * bet.numbers}/${wheel}` },
       { label: "Lose", work: `$1 × ${losing}/${wheel}`, result: `$${losing}/${wheel}` },
-      { label: "House keeps per $1", work: `(${losing} − ${bet.pays * bet.numbers}) ÷ ${wheel}` },
+      { label: "Average loss per $1", work: `(${losing} − ${bet.pays * bet.numbers}) ÷ ${wheel}` },
     ],
     params,
   );
@@ -668,8 +668,8 @@ function kelly(params: { winPercent: number; pays: number }) {
     "percent",
     [
       { label: "Chance to lose", work: `100% − ${winPercent}%`, result: formatPercent(lose) },
-      { label: "Lose chance ÷ payout", work: `${formatPercent(lose)} ÷ ${pays}`, result: formatPercent(div(lose, q(pays))) },
-      { label: "Kelly: win chance minus that", work: `${winPercent}% − ${formatPercent(div(lose, q(pays)))}` },
+      { label: "Chance to lose ÷ payout", work: `${formatPercent(lose)} ÷ ${pays}`, result: formatPercent(div(lose, q(pays))) },
+      { label: "Bet: chance to win − that", work: `${winPercent}% − ${formatPercent(div(lose, q(pays)))}` },
     ],
     params,
   );
@@ -685,8 +685,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "count-outcomes",
     topic: "probability",
     title: "Counting outcomes",
-    benefit: "Answer any card, dice or coin question",
-    idea: "When every outcome is equally likely, the chance is the ways it can happen over all the ways.",
+    benefit: "Find the chance of a card, roll or flip",
+    idea: "If every outcome is equally likely, the chance is the outcomes you want divided by all the outcomes.",
     targetSeconds: 15,
     example: countOutcomes({ type: "card", event: "heart-or-king" }),
     generate: (random) =>
@@ -701,8 +701,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "two-dice",
     topic: "probability",
     title: "Two-dice totals",
-    benefit: "Know the chance of any sum on sight",
-    idea: "Two dice make 36 equally likely pairs. Count the pairs that give the total.",
+    benefit: "Find the chance of a total on two dice",
+    idea: "Two dice can land 36 ways. Count the ways that make your total, then divide by 36.",
     targetSeconds: 20,
     example: twoDice({ type: "exactly", total: 9 }),
     generate: (random) => {
@@ -716,7 +716,7 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "at-least-one",
     topic: "probability",
     title: "The complement rule",
-    benefit: "Solve “at least one” in a single step",
+    benefit: "Find the chance of “at least one”",
     idea: "The chance of at least one is 1 minus the chance of none.",
     targetSeconds: 30,
     example: atLeastOne({ type: "sixes", rolls: 3 }),
@@ -732,8 +732,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "in-a-row",
     topic: "probability",
     title: "Draws in a row",
-    benefit: "Chain chances across several draws",
-    idea: "For draws in a row, multiply the chances, shrinking what's left after each draw.",
+    benefit: "Find the chance two cards are both aces",
+    idea: "Multiply the chance of each draw. If you don’t put things back, there are fewer left each time.",
     targetSeconds: 30,
     example: inARow({ type: "bag", red: 5, blue: 3, draws: 2 }),
     generate: (random) => {
@@ -746,8 +746,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "picture-the-crowd",
     topic: "probability",
     title: "Bayes’ theorem",
-    benefit: "Crack the “given that” question",
-    idea: "For “given that” questions, count everyone who fits the clue, then the share who fit the question too.",
+    benefit: "Update a chance with new information",
+    idea: "Count every case that fits what you know. The answer is the share of those cases you’re asked about.",
     targetSeconds: 40,
     example: pictureTheCrowd({ type: "coins", fair: 1, rigged: 1, flips: 1 }),
     generate: (random) => {
@@ -765,8 +765,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "weigh-the-payouts",
     topic: "expected-value",
     title: "Pricing a game",
-    benefit: "Work out what any game is worth",
-    idea: "A game's expected value is each payout times its chance, added up.",
+    benefit: "Find what a game pays on average",
+    idea: "Multiply each payout by its chance and add them up. That’s what the game pays on average.",
     targetSeconds: 30,
     example: weighThePayouts({ type: "game", six: 12, five: 6, cost: 2 }),
     generate: (random) =>
@@ -778,8 +778,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "add-the-averages",
     topic: "expected-value",
     title: "Linearity of expectation",
-    benefit: "The shortcut behind the hardest EV puzzles",
-    idea: "The expected total is the sum of each part's expected value, even when the parts depend on each other.",
+    benefit: "Find the average of a total by parts",
+    idea: "The average of a total is the averages of its parts added up, even when the parts affect each other.",
     targetSeconds: 25,
     example: addTheAverages({ type: "aces", cards: 5 }),
     generate: (random) =>
@@ -795,8 +795,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "reroll-or-keep",
     topic: "expected-value",
     title: "Optimal stopping",
-    benefit: "Know when to reroll, and what it’s worth",
-    idea: "Keep a roll only if it beats what rolling again is worth on average.",
+    benefit: "Decide when to keep a roll or reroll",
+    idea: "Keep a roll if it’s higher than what a reroll pays on average. Otherwise, reroll.",
     targetSeconds: 45,
     example: rerollOrKeep({ sides: 6, rerolls: 1 }),
     generate: (random) =>
@@ -808,8 +808,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "wait-for-it",
     topic: "expected-value",
     title: "Expected waiting time",
-    benefit: "How many tries until it happens",
-    idea: "If each try works with chance p, you need 1 ÷ p tries on average.",
+    benefit: "Find how many tries it takes on average",
+    idea: "If each try works with chance p, it takes 1 ÷ p tries on average.",
     targetSeconds: 20,
     example: waitForIt({ event: "five-six" }),
     generate: (random) => waitForIt({ event: pick(random, WAITS).id }),
@@ -818,8 +818,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "odds-to-chance",
     topic: "betting",
     title: "Implied probability",
-    benefit: "Turn any odds or price into a chance",
-    idea: "Odds are a chance in disguise: “a to b against” means b wins in every a + b.",
+    benefit: "Turn betting odds into a chance",
+    idea: "Odds are another way to write a chance. 3 to 1 against means you win 1 time in every 4.",
     targetSeconds: 20,
     example: oddsToChance({ type: "against", against: 3, for: 1 }),
     generate: (random) =>
@@ -836,8 +836,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "pot-odds",
     topic: "betting",
     title: "Pot odds",
-    benefit: "Know when a call makes money",
-    idea: "A call breaks even when your chance of winning equals your call over the pot after you call.",
+    benefit: "Decide if a poker call is worth it",
+    idea: "A call is worth it if your chance of winning is more than your call divided by the pot after you call.",
     targetSeconds: 25,
     example: potOdds({ pot: 60, bet: 20 }),
     generate: (random) => potOdds({ pot: pick(random, [20, 40, 50, 60, 80, 100, 150, 200]), bet: pick(random, [10, 20, 25, 30, 40, 50, 100]) }),
@@ -846,8 +846,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "house-edge",
     topic: "betting",
     title: "House edge",
-    benefit: "Work out what a casino bet costs you",
-    idea: "The house edge is what each $1 bet loses on average: losses times their chance, minus wins times theirs.",
+    benefit: "Find how much a casino bet costs you",
+    idea: "The house edge is how much you lose, on average, for every $1 you bet.",
     targetSeconds: 30,
     example: houseEdge({ type: "roulette", wheel: 38, bet: "straight" }),
     generate: (random) =>
@@ -859,8 +859,8 @@ export const QUANT_LESSONS: QuantLesson[] = [
     id: "kelly",
     topic: "betting",
     title: "The Kelly criterion",
-    benefit: "Size bets to grow your bankroll fastest",
-    idea: "The Kelly rule stakes your win chance minus (lose chance ÷ payout): bigger edge, bigger bet.",
+    benefit: "Find how much of your money to bet",
+    idea: "Bet this share of your money: your chance of winning, minus your chance of losing divided by the payout.",
     targetSeconds: 30,
     example: kelly({ winPercent: 60, pays: 1 }),
     generate: (random) => {

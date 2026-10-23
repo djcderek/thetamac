@@ -42,11 +42,11 @@ export function QuantResult({
   const rows = [
     {
       label: "Mastery",
-      value: outcome.mastered ? "Mastered" : `${QUANT_MASTERY_FIRST_TRY} of ${QUANT_SOLO} under ${outcome.targetSeconds}s to master`,
+      value: outcome.mastered ? "Mastered" : `Get ${QUANT_MASTERY_FIRST_TRY} of ${QUANT_SOLO} in under ${outcome.targetSeconds}s each`,
       className: outcome.mastered ? "text-success" : undefined,
     },
     {
-      label: "Average on your own",
+      label: "Average time",
       value: outcome.soloAverageSeconds === null ? "–" : `${outcome.soloAverageSeconds.toFixed(1)}s`,
     },
   ];
@@ -75,7 +75,7 @@ export function QuantResult({
         <p className="mt-2 text-[88px] font-semibold leading-none tracking-[-0.05em] tabular-nums sm:text-[112px]">
           {outcome.soloFirstTry}
         </p>
-        <p className="mt-2 text-[17px] text-muted-foreground">of {QUANT_SOLO} on your own, right first time</p>
+        <p className="mt-2 text-[17px] text-muted-foreground">of {QUANT_SOLO} right on the first try</p>
       </div>
 
       <dl className="divide-y divide-border rounded-[22px] bg-secondary px-5">
@@ -118,10 +118,10 @@ export function QuantResult({
         <div className="flex flex-col gap-4 rounded-[22px] bg-secondary p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-[17px] font-semibold tracking-tight">
-              {QUANT_LESSONS.length - FREE_QUANT_LESSON_IDS.length} more quant lessons with Pro
+              Unlock {QUANT_LESSONS.length - FREE_QUANT_LESSON_IDS.length} more lessons with Pro
             </div>
             <div className="mt-0.5 text-[15px] text-muted-foreground">
-              Up next: {outcome.next.title}. Pro opens every probability, expected value and betting lesson.
+              Next up is {outcome.next.title}. Pro unlocks every lesson.
             </div>
           </div>
           <Link
@@ -147,14 +147,14 @@ export function QuantResult({
           <Link href="/auth/signin?callbackUrl=%2Fquant" className="font-medium text-foreground underline underline-offset-4">
             Sign in
           </Link>{" "}
-          to keep your progress and mastery.
+          to save your progress.
         </p>
       )}
 
       {outcome.misses.length > 0 && (
         <section aria-labelledby="quant-misses" className="space-y-2">
           <h2 id="quant-misses" className="px-1 text-[15px] font-semibold">
-            Worth another look
+            Questions you missed
           </h2>
           <ul className="space-y-2">
             {outcome.misses.map((problem) => (

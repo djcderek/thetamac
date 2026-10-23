@@ -292,7 +292,7 @@ test("mastery needs four of the five solo problems right first time, within the 
 
 test("every lesson says what it's for in one short line", () => {
   for (const lesson of QUANT_LESSONS) {
-    assert.ok(lesson.benefit.length > 0 && lesson.benefit.length <= 44, `${lesson.id}: "${lesson.benefit}"`);
+    assert.ok(lesson.benefit.length > 0 && lesson.benefit.length <= 40, `${lesson.id}: "${lesson.benefit}"`);
     assert.ok(!lesson.benefit.endsWith("."), `${lesson.id}: a list line, not a sentence`);
   }
 });

@@ -184,7 +184,7 @@ export function QuantRun({
 
         {phase === "answering" && wrongTries > 0 && (
           <p role="status" className="mt-3 text-center text-[15px] text-muted-foreground">
-            Not quite. Try again, or show the answer.
+            That’s not it. Try again.
           </p>
         )}
 
