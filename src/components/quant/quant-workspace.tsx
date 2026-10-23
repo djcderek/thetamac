@@ -33,6 +33,7 @@ import { StepIcon } from "@/components/quant/step-icon";
 import { AnswerBox } from "@/components/quant/answer-box";
 import { LessonReader } from "@/components/quant/lesson-reader";
 import { markPuzzle, markType, usePuzzleMarks, useTypeMarks } from "@/components/quant/type-progress";
+import { MathExpr, MathText } from "@/components/quant/math";
 
 /** How long a right answer stays on screen before the next question. */
 const RIGHT_PAUSE_MS = 900;
@@ -121,9 +122,8 @@ function HintStep({ step, hideResult }: { step: QuantProblem["steps"][number]; h
       <StepIcon name={step.icon} className="size-7" />
       <div className="min-w-0">
         <p className="text-[13px] text-muted-foreground">{step.label}</p>
-        <p className="text-[15px] font-medium tabular-nums">
-          {step.work}
-          {(step.result || hideResult) && <> = {hideResult ? "?" : step.result}</>}
+        <p className="text-[15px] font-medium leading-7">
+          <MathExpr expr={step.result || hideResult ? `${step.work} = ${hideResult ? "?" : step.result}` : step.work} />
         </p>
       </div>
     </li>
@@ -386,7 +386,9 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
               </button>
             ))}
           </div>
-          <p className="text-[17px] leading-7">{reviewing.problem.prompt}</p>
+          <p className="text-[17px] leading-7">
+            <MathText text={reviewing.problem.prompt} />
+          </p>
           <Walkthrough key={reviewing.problem.key} problem={reviewing.problem} startWithAll={reviewing.result === "missed"} />
         </div>
       ) : (
@@ -646,7 +648,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
               <p className="text-[13px] font-medium text-muted-foreground">{guided ? "Guided · the steps are shown" : "On your own"}</p>
             )}
             <p data-problem className="text-[19px] leading-8">
-              {problem.prompt}
+              <MathText text={problem.prompt} />
             </p>
             {problem.visual && (
               <div className="rounded-[18px] bg-secondary px-3 py-4">

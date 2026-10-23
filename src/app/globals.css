@@ -417,3 +417,19 @@ h1, h2, h3, .font-serif {
 @media (prefers-reduced-motion: reduce) {
   .quant-pop { animation: none; }
 }
+
+/* KaTeX in quant copy: a touch larger than the text, and a display line with room above and
+   below that scrolls sideways rather than overflowing a phone. */
+.quant-tex .katex {
+  font-size: 1.1em;
+}
+.quant-tex-display {
+  margin: 0.85rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.15rem 0;
+  scrollbar-width: none;
+}
+.quant-tex-display .katex-display {
+  margin: 0;
+}

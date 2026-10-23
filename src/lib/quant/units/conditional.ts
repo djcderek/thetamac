@@ -533,7 +533,7 @@ function takeTurns(params: { event: string; who: "first" | "second" }) {
       work: `${chance} ÷ (1 − ${formatFraction(round)})`,
       result: formatFraction(first),
       icon: "divide",
-      explain: `Call A’s chance p. A wins at once with chance ${chance}, or both miss and A is back to chance p: p = ${chance} + ${formatFraction(round)} × p. Solving for p gives this division.`,
+      explain: `Call A’s chance \`p\`. A wins at once, or both miss and A is back to chance \`p\`: {{p = ${chance} + ${formatFraction(round)} × p}} Solving for \`p\` gives this division.`,
       visual: round1("hit", "muted", "known"),
     },
   ];
@@ -589,7 +589,7 @@ function turnsDifferent(params: { totalA: number; totalB: number; who: "first" |
       work: `${formatFraction(a)} ÷ (1 − ${formatFraction(bothMiss)})`,
       result: formatFraction(first),
       icon: "divide",
-      explain: `Call A’s chance p. A wins at once with chance ${formatFraction(a)}, or both miss and A is back to chance p: p = ${formatFraction(a)} + ${formatFraction(bothMiss)} × p. Solving for p gives this division.`,
+      explain: `Call A’s chance \`p\`. A wins at once, or both miss and A is back to chance \`p\`: {{p = ${formatFraction(a)} + ${formatFraction(bothMiss)} × p}} Solving for \`p\` gives this division.`,
       visual: round1("hit", "muted", "known"),
     },
   ];
@@ -663,14 +663,14 @@ function randomRolls(params: { trial: string }) {
         label: `Chance it takes n ${source.unit}`,
         work: `(${formatFraction(stay)})ⁿ⁻¹ × ${pText}`,
         icon: "split",
-        explain: `Split into cases by n. It takes n ${source.unit} when the first n − 1 miss and the next one hits.`,
+        explain: `Split into cases by \`n\`. It takes \`n\` ${source.unit} when the first \`n - 1\` miss and the next one hits.`,
         visual: tree([]),
       },
       {
         label: `Given n, chance of none in n tries`,
         work: `(${missText})ⁿ`,
         icon: "multiply",
-        explain: `In each case the n tries are independent, and each misses with chance ${missText}.`,
+        explain: `In each case the \`n\` tries are independent, and each misses with chance ${missText}.`,
         visual: tree(["known", "known", "known"]),
       },
       {
@@ -678,7 +678,7 @@ function randomRolls(params: { trial: string }) {
         work: `${pText} × ${missText} ÷ (1 − ${formatFraction(stay)} × ${missText})`,
         result: formatFraction(none),
         icon: "add",
-        explain: "Multiply the two chances for each n and add them all up. They form a geometric series, which adds up to this.",
+        explain: "Multiply the two chances for each `n` and add them all up. They form a geometric series, which adds up to this.",
         visual: tree(["known", "known", "known", "known"]),
       },
       {
@@ -1168,13 +1168,19 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
         heading: "Why counting again works",
         body: [
           "The 5 squares that are left were equally likely before your friend spoke, and a total of 8 doesn’t favour any one of them. So they’re still equally likely, and you can count inside them as if they were the whole set.",
-          "The chance of A given B is written P(A | B), and the bar is read “given”. Here A is “at least one 6” and B is “the total is 8”.",
+          "The chance of `A` given `B` is written `P(A \\mid B)`, and the bar is read “given”. Here `A` is “at least one 6” and `B` is “the total is 8”.",
         ],
       },
       {
         type: "rule",
-        rule: "P(A | B) = P(A and B) ÷ P(B)",
-        note: "With the dice, P(a 6 and a total of 8) = 2/36 and P(a total of 8) = 5/36. Dividing gives 2/5. The 36s cancel, which is why counting inside the smaller set gives the same answer.",
+        name: "Conditional probability",
+        lines: [
+          { lead: "For events `A` and `B` with `P(B) > 0`, the probability of `A` given `B` is defined as", tex: "P(A \\mid B) = \\frac{P(A \\cap B)}{P(B)}" },
+          { lead: "When every outcome is equally likely, this is a count inside `B`:", tex: "P(A \\mid B) = \\frac{|A \\cap B|}{|B|}" },
+        ],
+        where: ["`P(A \\mid B)` is read “the probability of `A` given `B`”"],
+        plain: "Keep only the outcomes where `B` happened, and find the share of them where `A` happens too.",
+        note: "Here `A` is “at least one 6” and `B` is “the total is 8”. Of the 36 rolls, 2 are in both and 5 have a total of 8: {{P(A | B) = (2/36)/(5/36) = 2/5}} The 36s cancel, which is why counting inside the 5 squares gives the same answer.",
       },
       {
         type: "check",
@@ -1182,7 +1188,7 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
         choices: ["1/6", "2/5", "1/36", "5/36"],
         answer: 0,
         explain:
-          "Knowing the first die is a 6 leaves 6 results, one for each value of the second die, and only a 2 makes 8. P(total is 8 | first is 6) and P(a 6 | total is 8) ask different questions, so their answers differ.",
+          "Knowing the first die is a 6 leaves 6 results, one for each value of the second die, and only a 2 makes 8. `P(\\text{total is 8} \\mid \\text{first is 6})` and `P(\\text{a 6} \\mid \\text{total is 8})` ask different questions, so their answers differ.",
       },
       {
         type: "example",
@@ -1317,8 +1323,13 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "P(A) = P(case 1) × P(A | case 1) + P(case 2) × P(A | case 2) + …",
-        note: "For the machines: 0.6 × 0.02 + 0.4 × 0.05 = 0.032. Use as many cases as you need, as long as exactly one of them always happens.",
+        name: "The law of total probability",
+        lines: [
+          { lead: "Let `B_1, \\dots, B_n` be a partition of the sample space with every `P(B_i) > 0`. Then for any event `A`,", tex: "P(A) = \\sum_{i=1}^{n} P(A \\mid B_i)\\, P(B_i)" },
+        ],
+        where: ["A partition is a set of events that don’t overlap and together cover every outcome, so exactly one of them happens"],
+        plain: "Split into cases, find the chance in each case, weight it by how likely the case is, and add.",
+        note: "Take `B_1` as “made by machine A”, `B_2` as “made by machine B”, and `F` as “faulty”. Then {{P(F) = 0.02 × 0.6 + 0.05 × 0.4 = 0.032}} Use as many cases as you need, as long as exactly one of them always happens.",
       },
       {
         type: "check",
@@ -1326,7 +1337,7 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
         choices: ["6/11", "1/2", "1/6", "5/11"],
         answer: 0,
         explain:
-          "Split on the first round. You win at once with chance 1/6. With chance 5/6 × 5/6 = 25/36 nobody rolls a 6 and the game starts over, so you win with the same chance p as before. p = 1/6 + 25/36 × p gives p = 6/11.",
+          "Split on the first round. You win at once with chance 1/6. Otherwise, with chance 25/36, neither of you rolls a 6 and the game starts over, so you win with the same chance `p` as before: {{p = 1/6 + 25/36 × p}} Solving gives `p = 6/11`.",
       },
       {
         type: "example",
@@ -1449,7 +1460,7 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "Now keep only the people who tested positive. There are 28, and 9 of them have the disease. Your chance is 9 in 28, about 32%.",
+            text: "Now keep only the people who tested positive. There are 28, and 9 of them have the disease: {{9/(9 + 19) = 9/28 ≈ 32%}}",
             visual: {
               type: "people",
               groups: [
@@ -1471,8 +1482,14 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "P(A | B) = P(A and B) ÷ P(B)",
-        note: "Here A is “has the disease” and B is “tests positive”. The top is the share of people who are sick and positive: 0.05 × 0.9 = 0.045. The bottom is everyone positive, from both groups: 0.045 + 0.95 × 0.1 = 0.14. So the answer is 0.045 ÷ 0.14 ≈ 0.32.",
+        name: "Bayes’ rule",
+        lines: [
+          { lead: "For events `A` and `B` with `P(A) > 0` and `P(B) > 0`,", tex: "P(A \\mid B) = \\frac{P(B \\mid A)\\, P(A)}{P(B)}" },
+          { lead: "The denominator comes from the law of total probability, splitting on whether `A` happens:", tex: "P(B) = P(B \\mid A)\\, P(A) + P(B \\mid A^c)\\, P(A^c)" },
+        ],
+        where: ["`P(A)` is the prior: the probability of `A` before you learn `B`", "`P(A \\mid B)` is the posterior: the probability of `A` once you know `B`", "`A^c` is the event that `A` doesn’t happen"],
+        plain: "Of all the ways to test positive, find the share that come from having the disease.",
+        note: "Here `A` is “has the disease” and `B` is “tests positive”, so `P(A) = 0.05`, `P(B \\mid A) = 0.9` and `P(B \\mid A^c) = 0.1`. The denominator counts every positive, from both groups: {{P(B) = 0.9 × 0.05 + 0.1 × 0.95 = 0.14}} So {{P(A | B) = (0.9 × 0.05)/0.14 ≈ 0.32}}",
       },
       {
         type: "check",
@@ -1488,7 +1505,7 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "trap",
-        body: "Giving the test’s accuracy as the answer. “Positive for 90% of sick people” is P(positive | sick). The question asks for P(sick | positive). They’re only equal when the prior is 50%.",
+        body: "Giving the test’s accuracy as the answer. “Positive for 90% of sick people” is `P(\\text{positive} \\mid \\text{sick})`. The question asks for `P(\\text{sick} \\mid \\text{positive})`. They’re only equal when the prior is 50%.",
       },
       {
         type: "list",

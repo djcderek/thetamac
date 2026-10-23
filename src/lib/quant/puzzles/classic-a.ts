@@ -323,7 +323,7 @@ const bubblePass: QuantPuzzle = {
         label: "So number k must start in the first k + 1 places",
         work: "1 in place 1 or 2, 2 in places 1 to 3, and so on",
         icon: "filter",
-        explain: "To end in place k, number k can start at most one place to its right. That’s the only thing that can go wrong.",
+        explain: "To end in place `k`, number `k` can start at most one place to its right. That’s the only thing that can go wrong.",
       },
       {
         label: "Place 1, then 2, then 3 …",
@@ -627,7 +627,7 @@ const hundredSwitches: QuantPuzzle = {
         label: "Switch k is flipped by each person whose number divides k",
         work: "switch 12: people 1, 2, 3, 4, 6, 12",
         icon: "count",
-        explain: "Person m flips switches m, 2m, 3m, …, so a switch is flipped once for each of its divisors.",
+        explain: "Person `m` flips switches `m, 2m, 3m, \\dots`, so a switch is flipped once for each of its divisors.",
         visual: {
           type: "bars",
           bars: Array.from({ length: 16 }, (_, i) => {
@@ -642,7 +642,7 @@ const hundredSwitches: QuantPuzzle = {
         label: "On at the end means an odd number of flips",
         work: "divisors pair up: 2 × 6, 3 × 4 …",
         icon: "idea",
-        explain: "Divisors come in pairs that multiply to k. Only a perfect square has one divisor paired with itself, so only squares have an odd count.",
+        explain: "Divisors come in pairs that multiply to `k`. Only a perfect square has one divisor paired with itself, so only squares have an odd count.",
       },
       {
         label: "Perfect squares up to 100",

@@ -193,7 +193,7 @@ function uniformNumber(params: UniformParams): QuantProblem {
             label: "Variance is length² ÷ 12",
             work: `${length}² ÷ 12`,
             icon: "divide",
-            explain: "For an even spread, the variance (the average squared distance from the middle) is always length² ÷ 12.",
+            explain: "For an even spread from `a` to `b`, the variance (the average squared distance from the middle) is always `(b - a)^2/12`.",
           },
         ],
         params,
@@ -320,7 +320,7 @@ function areaProblem(params: AreaParams): QuantProblem {
             label: `Triangle below the line x + y = ${tText}`,
             work: `(${tText})² ÷ 2`,
             icon: "target",
-            explain: `Points with a sum under ${tText} sit below the line x + y = ${tText}: a triangle with both sides ${tText} long.`,
+            explain: `Points with a sum under ${tText} sit below the line \`x + y = ${tText}\`: a triangle with both sides ${tText} long.`,
             visual: {
               type: "square",
               ...unitAxis,
@@ -347,7 +347,7 @@ function areaProblem(params: AreaParams): QuantProblem {
           work: `(2 − ${tText})² ÷ 2`,
           result: formatFraction(corner),
           icon: "split",
-          explain: `Above the line x + y = ${tText} is only a small top-right corner: a triangle with sides 2 − ${tText}. It’s easier to find that and take it away.`,
+          explain: `Above the line \`x + y = ${tText}\` is only a small top-right corner: a triangle with sides 2 − ${tText}. It’s easier to find that and take it away.`,
           visual: {
             type: "square",
             ...unitAxis,
@@ -396,7 +396,7 @@ function areaProblem(params: AreaParams): QuantProblem {
         work: `1 ÷ ${multiple(k)}`,
         result: formatFraction(height),
         icon: "target",
-        explain: `x > ${multiple(k)}y means y is less than x ÷ ${multiple(k)}. That’s a thin triangle along the bottom, reaching height 1 ÷ ${multiple(k)} at the right edge.`,
+        explain: `\`x > ${multiple(k)}y\` means \`y < x/${multiple(k)}\`. That’s a thin triangle along the bottom, reaching height \`1/${multiple(k)}\` at the right edge.`,
         visual: wedge,
       },
       {
@@ -448,8 +448,8 @@ function highestOrLowest(params: { type: "highest" | "lowest"; dice: number; sid
         icon: "count",
         explain:
           type === "highest"
-            ? `The highest is at most k when every die is k or less: k${power} ways. Take away the ways where all are k − 1 or less, and the highest is exactly k.`
-            : `The lowest is at least k when every die is k or more. Take away the ways where all are k + 1 or more, and the lowest is exactly k.`,
+            ? `The highest is at most \`k\` when every die is \`k\` or less: \`k^${dice}\` ways. Take away the ways where all are \`k - 1\` or less, leaving exactly \`k\`.`
+            : `The lowest is at least \`k\` when every die is \`k\` or more. Take away the ways where all are \`k + 1\` or more, leaving exactly \`k\`.`,
         ...(gridFits
           ? {
               visual: {
@@ -685,7 +685,7 @@ function brokenStick(params: StickParams): QuantProblem {
             work: `${L} ÷ (${k} + 1)`,
             result: `${formatResult(cut, "number")} cm`,
             icon: "divide",
-            explain: `If the short piece is s, the long one is ${L} − s. ${L} − s > ${k}s means s < ${L} ÷ ${k + 1}.`,
+            explain: `If the short piece is \`s\`, the long one is \`${L} - s\`, and \`${L} - s > ${k}s\` means \`s < ${L}/${k + 1}\`.`,
             visual: stick(
               [
                 { from: 0, to: value(cut), tone: "hit" },
@@ -737,7 +737,7 @@ function targetRing(params: { r1: number; r2: number; r3: number; ring: "inner" 
         work: `π × (${ringWork})`,
         result: `${areas[index]}π`,
         icon: "subtract",
-        explain: "A circle of radius r has area π × r². A ring is the bigger circle minus the smaller one inside it.",
+        explain: "A circle of radius `r` has area `\\pi r^2`. A ring is the bigger circle minus the smaller one inside it.",
         visual: bars(true),
       },
       {
@@ -751,7 +751,7 @@ function targetRing(params: { r1: number; r2: number; r3: number; ring: "inner" 
         label: "Chance: its share of the area, π cancels",
         work: `${areas[index]} ÷ ${r3 * r3}`,
         icon: "divide",
-        explain: "Every point is equally likely, so the chance is the area you want divided by the whole area. The π is on both, so it cancels.",
+        explain: "Every point is equally likely, so the chance is the area you want divided by the whole area. The `\\pi` is on both, so it cancels.",
       },
     ],
     params,
@@ -779,8 +779,8 @@ function ratioRange(params: { mN: number; mD: number; MN: number; MD: number }):
   const belowWork = (k: Rational) => (value(k) <= 1 ? `${show(k)} ÷ 2` : `1 − 1 ÷ (2 × ${show(k)})`);
   const belowExplain = (k: Rational) =>
     value(k) <= 1
-      ? `a ÷ b < ${show(k)} means b > a ÷ ${show(k)}: above that line is a triangle of area ${show(k)} ÷ 2.`
-      : `a ÷ b < ${show(k)} means b > a ÷ ${show(k)}. Only a thin triangle below that line is left out, area 1 ÷ (2 × ${show(k)}).`;
+      ? `\`a/b < ${show(k)}\` means \`b > a \\div ${show(k)}\`: above that line is a triangle of area ${show(k)} ÷ 2.`
+      : `\`a/b < ${show(k)}\` means \`b > a \\div ${show(k)}\`. Only a thin triangle below that line is left out, with area \`1/(2 \\times ${show(k)})\`.`;
   return problem(
     `ratio-range-${params.mN}-${params.mD}-${params.MN}-${params.MD}`,
     `Two numbers a and b are picked at random between 0 and 1, every value equally likely. What’s the chance a ÷ b is between ${show(m)} and ${show(M)}?`,
@@ -998,8 +998,14 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "P(c < X < d) = (d − c) ÷ (b − a); average = (a + b) ÷ 2",
-        note: "X is uniform from a to b. For the bus, a = 0 and b = 12, so P(wait > 9) = (12 − 9) ÷ 12 = 1/4 and the average wait is (0 + 12) ÷ 2 = 6 minutes.",
+        name: "The uniform distribution",
+        lines: [
+          { lead: "`X \\sim U(a, b)` has density `f(x) = 1/(b - a)` for `a \\le x \\le b`, so for `a \\le c \\le d \\le b`,", tex: "P(c \\le X \\le d) = \\frac{d - c}{b - a}" },
+          { lead: "Its mean and variance are", tex: "\\begin{aligned} E[X] &= \\frac{a + b}{2} \\\\[1ex] \\operatorname{Var}(X) &= \\frac{(b - a)^2}{12} \\end{aligned}" },
+        ],
+        where: ["Every single value has probability 0, so `<` and `\\le` give the same answers", "Given `X \\ge c`, `X` is uniform on `[c, b]`"],
+        plain: "A chance is the length of the stretch divided by the length of the whole range.",
+        note: "For the bus, the wait `X` is `U(0, 12)`, so the chance of waiting more than 9 minutes is {{P(X > 9) = (12 − 9)/(12 − 0) = 1/4}} The average wait is `E[X] = (0 + 12)/2 = 6` minutes.",
       },
       {
         type: "check",
@@ -1007,7 +1013,7 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
         choices: ["1/4", "2/5", "1/2", "1/5"],
         answer: 0,
         explain:
-          "The stretch from 5 to 10 is 5 long and the whole range is 20 long, so the chance is 5 ÷ 20 = 1/4. 2/5 comes from dividing 10 by 25, as if the range started at 0.",
+          "The stretch from 5 to 10 is 5 long and the whole range is 20 long, so the chance is 5 ÷ 20 = 1/4. The answer 2/5 comes from dividing 10 by 25, as if the range started at 0.",
       },
       {
         type: "example",
@@ -1113,13 +1119,18 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
         heading: "Why area works",
         body: [
           "Two independent uniform numbers make a point that’s equally likely to be anywhere in the square. So the chance of a condition is the share of the square where it holds.",
-          "Most questions draw one or two lines: x + y = 1 for a sum, y = x for which number is bigger, or y = x ± 0.25 for a gap. The pieces they cut off are triangles and strips, and a triangle’s area is half its base times its height.",
+          "Most questions draw one or two lines: `x + y = 1` for a sum, `y = x` for which number is bigger, or `y = x \\pm 0.25` for a gap. The pieces they cut off are triangles and strips, and a triangle’s area is half its base times its height.",
         ],
       },
       {
         type: "rule",
-        rule: "Chance = area where it happens ÷ area of the square",
-        note: "With numbers from 0 to 1 the square has area 1, so the chance is the area itself. For a sum below 1, that’s the triangle under x + y = 1, with area ½ × 1 × 1 = 1/2.",
+        name: "Probability as area",
+        lines: [
+          { lead: "If `X` and `Y` are independent and each uniform on `[0, 1]`, the point `(X, Y)` is uniform on the unit square. For any region `R` of the square,", tex: "P\\big((X, Y) \\in R\\big) = \\operatorname{area}(R)" },
+        ],
+        where: ["For ranges other than `[0, 1]`, divide the region’s area by the area of the whole rectangle"],
+        plain: "Draw the square, shade where the condition holds, and measure the shaded area.",
+        note: "For a sum below 1, `R` is the triangle under the line `x + y = 1`: {{P(X + Y < 1) = 1/2 × 1 × 1 = 1/2}} The square has area 1, so the chance is the area itself.",
       },
       {
         type: "check",
@@ -1127,11 +1138,11 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
         choices: ["1/8", "1/4", "1/2", "1/16"],
         answer: 0,
         explain:
-          "The region is the triangle under x + y = 1/2, with both short sides 1/2 long. Its area is ½ × ½ × ½ = 1/8. Moving the line from 1 to 1/2 halves the triangle in both directions, so its area is a quarter of 1/2, not half of it.",
+          "The region is the triangle under `x + y = 1/2`, with both short sides 1/2 long, so its area is {{1/2 × 1/2 × 1/2 = 1/8}} Moving the line from 1 to 1/2 halves the triangle in both directions, so its area is a quarter of 1/2, not half of it.",
       },
       {
         type: "example",
-        lead: "Meeting problems are the classic case. Two arrival times are close enough when the point lands in a band along the diagonal y = x.",
+        lead: "Meeting problems are the classic case. Two arrival times are close enough when the point lands in a band along the diagonal `y = x`.",
       },
       {
         type: "trap",
@@ -1225,7 +1236,7 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
         heading: "Take one count from another",
         beats: [
           {
-            text: "“Every die is at most 4” covers 4 × 4 × 4 = 64 of the 216 rolls.",
+            text: "“Every die is at most 4” covers 64 of the 216 rolls: {{4 × 4 × 4 = 64}}",
             visual: {
               type: "bars",
               bars: [
@@ -1240,7 +1251,7 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "“Every die is at most 3” covers 3 × 3 × 3 = 27 rolls. Those are inside the 64, and in each of them the highest is 3 or less.",
+            text: "“Every die is at most 3” covers 27 rolls: {{3 × 3 × 3 = 27}} Those are inside the 64, and in each of them the highest is 3 or less.",
             visual: {
               type: "bars",
               bars: [
@@ -1255,7 +1266,7 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "Take them away. The 64 − 27 = 37 rolls left are the ones whose highest is exactly 4, so the chance is 37/216, about 17%.",
+            text: "Take them away. The 37 rolls left are the ones whose highest is exactly 4, so the chance is {{(64 − 27)/216 = 37/216 ≈ 17%}}",
             visual: {
               type: "bars",
               bars: [
@@ -1273,15 +1284,21 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "P(highest = k) = (kⁿ − (k − 1)ⁿ) ÷ sⁿ",
-        note: "This is for n dice with s sides each. For three dice and k = 4, it’s (64 − 27) ÷ 216 = 37/216. For the lowest, count the rolls where every die is at least k instead.",
+        name: "The maximum and minimum",
+        lines: [
+          { lead: "Let `X_1, \\dots, X_n` be independent with distribution function `F(x) = P(X_i \\le x)`. Then", tex: "\\begin{aligned} P(\\max_i X_i \\le x) &= F(x)^n \\\\ P(\\min_i X_i > x) &= \\big(1 - F(x)\\big)^n \\end{aligned}" },
+          { lead: "For `n` fair dice with `s` sides each,", tex: "P(\\max = k) = \\frac{k^n - (k-1)^n}{s^n}" },
+          { lead: "For `n` independent uniforms on `[0, 1]`,", tex: "\\begin{aligned} E[\\max] &= \\frac{n}{n + 1} \\\\[1ex] E[\\min] &= \\frac{1}{n + 1} \\end{aligned}" },
+        ],
+        plain: "“All at most `k`” minus “all at most `k - 1`” leaves “the highest is exactly `k`”.",
+        note: "For three six-sided dice, `n = 3`, `s = 6` and `k = 4`: {{P(max = 4) = (4³ − 3³)/6³ = 37/216}} For the lowest, count the rolls where every die is at least `k` instead.",
       },
       {
         type: "text",
         heading: "Random numbers in a range",
         body: [
-          "The same idea works for uniform numbers. For n numbers between 0 and 1, the largest is below x only if every one of them is, which has chance xⁿ.",
-          "For averages there’s a shortcut. n random points cut the range into n + 1 gaps, and on average the gaps are equal. So the largest sits n gaps up, at n ÷ (n + 1), and the smallest sits one gap up, at 1 ÷ (n + 1).",
+          "The same idea works for uniform numbers. For `n` numbers between 0 and 1, the largest is below `x` only if every one of them is, which has chance `x^n`.",
+          "There’s a shortcut for averages: `n` random points cut the range into `n + 1` gaps, and on average the gaps are equal. So the largest sits `n` gaps up, at `n/(n + 1)`, and the smallest sits one gap up, at `1/(n + 1)`.",
         ],
       },
       {
@@ -1290,7 +1307,7 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
         choices: ["12", "15", "30", "48"],
         answer: 0,
         explain:
-          "Four points cut the range into five gaps of 12 on average, and the smallest sits one gap up. 15 divides by the number of points instead of the number of gaps. 48 is the average of the largest.",
+          "Four points cut the range into five gaps of 12 on average, and the smallest sits one gap up. The answer 15 divides by the number of points instead of the number of gaps, and 48 is the average of the largest.",
       },
       {
         type: "example",
@@ -1305,7 +1322,7 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
         heading: "Use it when",
         items: [
           "The question asks for the largest, smallest, first or last of several results",
-          "“Every result is below x” is easier to count than “the largest is x”",
+          "“Every result is below `x`” is easier to count than “the largest is `x`”",
           "Several times, prices or points are picked at random in a range",
         ],
       },

@@ -1250,8 +1250,13 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "P(event) = outcomes in the event ÷ all outcomes",
-        note: "For a total of 7: 6 outcomes in the event out of 36, so P(total is 7) = 6/36 = 1/6. P(…) is shorthand for “the chance of”.",
+        name: "Equally likely outcomes",
+        lines: [
+          { lead: "Let `S` be a finite sample space whose outcomes are all equally likely. For any event `A \\subseteq S`,", tex: "P(A) = \\frac{|A|}{|S|}" },
+        ],
+        where: ["The sample space `S` is the set of all possible outcomes, such as the 36 ordered rolls of two dice", "An event is a set of outcomes, such as “the total is 7”"],
+        plain: "The chance of an event is the outcomes in it divided by all the outcomes, as long as every outcome is equally likely.",
+        note: "For two dice, `S` is the 36 ordered rolls and `A` is the 6 rolls that total 7, so `|S| = 36` and `|A| = 6`: {{P(total is 7) = 6/36 = 1/6}} `P(\\cdot)` is shorthand for “the chance of”.",
       },
       {
         type: "check",
@@ -1376,7 +1381,7 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
             visual: { type: "die-faces", sides: 6, marks: [{ faces: [1, 2, 3, 4, 5], tone: "known" }], caption: "The 5 faces that aren’t a six" },
           },
           {
-            text: "By the multiplying rule, 4 rolls have 6 × 6 × 6 × 6 = 1,296 possible sequences. Of those, 5 × 5 × 5 × 5 = 625 have no six, a chance of 625/1296, about 48%.",
+            text: "By the multiplying rule, 4 rolls have 6⁴ = 1,296 possible sequences. Of those, 5⁴ = 625 have no six: {{P(no six) = 625/1296 ≈ 48%}}",
             visual: {
               type: "slots",
               op: "×",
@@ -1391,7 +1396,7 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "Every sequence has either no six or at least one, so the two chances add up to 1. The chance of at least one six is 1 − 625/1296 = 671/1296, about 52%.",
+            text: "Every sequence has either no six or at least one, so the two chances add up to 1: {{P(at least one six) = 1 − 625/1296 ≈ 52%}}",
             visual: {
               type: "bars",
               bars: [
@@ -1412,8 +1417,14 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "P(event) = 1 − P(not the event)",
-        note: "For four rolls: P(at least one six) = 1 − P(no six) = 1 − (5/6)⁴ ≈ 0.52.",
+        name: "The complement rule",
+        lines: [
+          { lead: "For any event `A`,", tex: "P(A^c) = 1 - P(A)" },
+          { lead: "So for `n` independent tries that each succeed with probability `p`,", tex: "P(\\text{at least one success}) = 1 - (1-p)^n" },
+        ],
+        where: ["`A^c` is the complement of `A`: every outcome not in `A`"],
+        plain: "The chance something happens is 1 minus the chance it doesn’t.",
+        note: "Here `A` is “at least one six” and `A^c` is “no six”, with `n = 4` rolls and `p = 1/6`: {{P(A) = 1 − (5/6)⁴ ≈ 0.52}}",
       },
       {
         type: "check",
@@ -1421,12 +1432,12 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
         choices: ["27%", "28%", "30%", "72%"],
         answer: 1,
         explain:
-          "The complement is “all three different”: 10 × 9 × 8 = 720 of the 10 × 10 × 10 = 1,000 possible picks, or 72%. So the chance of a match is 1 − 0.72 = 28%. This is the birthday problem with 10 days instead of 365.",
+          "The complement is “all three different”, which covers 720 of the 1,000 possible picks: {{(10 × 9 × 8)/10³ = 720/1000 = 0.72}} So the chance of a match is 1 − 0.72 = 28%. This is the birthday problem with 10 days instead of 365.",
       },
       { type: "example", lead: "The same working for three rolls instead of four." },
       {
         type: "trap",
-        body: "Adding the chance for each try. 1/6 + 1/6 + 1/6 + 1/6 = 2/3 counts rolls with two or more sixes more than once, and with seven rolls the sum would go over 1.",
+        body: "Adding the chance for each try: {{1/6 + 1/6 + 1/6 + 1/6 = 2/3}} That counts rolls with two or more sixes more than once, and with seven rolls the sum would go over 1.",
       },
       {
         type: "list",
@@ -1485,7 +1496,7 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
         prompt: "What’s the chance of a double or a red 6?",
         choices: ["1/36", "1/6", "11/36", "1/3"],
         answer: 2,
-        explain: "It’s 11/36. There are 6 doubles and 6 rolls with a red 6, but double six is in both lists. That leaves 6 + 6 − 1 = 11 rolls. The answer 1/3 is 12/36, which counts double six twice.",
+        explain: "It’s 11/36. There are 6 doubles and 6 rolls with a red 6, but double six is in both lists, so the number of rolls is {{6 + 6 − 1 = 11}} The answer 1/3 is 12/36, which counts double six twice.",
       },
       {
         type: "story",
@@ -1527,8 +1538,14 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "P(A or B) = P(A) + P(B) − P(A and B)",
-        note: "For the dice: 6/36 + 6/36 − 1/36 = 11/36. If A and B can’t both happen, P(A and B) = 0 and the chances add.",
+        name: "The addition rule",
+        lines: [
+          { lead: "For any events `A` and `B`,", tex: "P(A \\cup B) = P(A) + P(B) - P(A \\cap B)" },
+          { lead: "If `A` and `B` are mutually exclusive, meaning `A \\cap B = \\varnothing`, this becomes", tex: "P(A \\cup B) = P(A) + P(B)" },
+        ],
+        where: ["`A \\cup B` is the event that `A` or `B` or both happen", "`A \\cap B` is the event that both happen"],
+        plain: "Add the two chances, then take off the chance of both once.",
+        note: "With `A` the doubles and `B` the rolls with a red 6, `A \\cap B` is double six: {{P(A ∪ B) = 6/36 + 6/36 − 1/36 = 11/36}}",
       },
       {
         type: "check",
@@ -1536,7 +1553,7 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
         choices: ["2/13", "1/2", "15/26", "7/13"],
         answer: 3,
         explain:
-          "26 red cards plus 4 kings counts the king of hearts and the king of diamonds twice. 26 + 4 − 2 = 28 cards, and 28/52 = 7/13. The answer 15/26 is 30/52, which forgets the overlap.",
+          "26 red cards plus 4 kings counts the king of hearts and the king of diamonds twice, so the chance is {{(26 + 4 − 2)/52 = 28/52 = 7/13}} The answer 15/26 is 30/52, which forgets the overlap.",
       },
       { type: "example", lead: "With one card the overlap is the cards that meet both conditions. Here those are the spade face cards." },
       {
@@ -1627,7 +1644,7 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "Both are black in 5/9 of the 6/10 of cases where the first one is. A fraction of a fraction is a product: 6/10 × 5/9 = 1/3.",
+            text: "Both are black in 5/9 of the 6/10 of cases where the first one is. A fraction of a fraction is a product: {{6/10 × 5/9 = 1/3}}",
             visual: {
               type: "marbles",
               groups: [
@@ -1649,8 +1666,14 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "P(A and B) = P(A) × P(B given A)",
-        note: "For the socks: P(first black) × P(second black given the first was) = 6/10 × 5/9 = 1/3. With replacement, or for independent events, P(B given A) is the same as P(B).",
+        name: "The multiplication rule",
+        lines: [
+          { lead: "For any events `A` and `B` with `P(A) > 0`,", tex: "P(A \\cap B) = P(A)\\, P(B \\mid A)" },
+          { lead: "`A` and `B` are independent when `P(B \\mid A) = P(B)`, and then", tex: "P(A \\cap B) = P(A)\\, P(B)" },
+        ],
+        where: ["`P(B \\mid A)` is the probability of `B` given that `A` has happened"],
+        plain: "Multiply the chance of the first by the chance of the second, given the first.",
+        note: "For the socks, `A` is “the first is black” and `B` is “the second is black”: {{P(A ∩ B) = 6/10 × 5/9 = 1/3}} If you put the first sock back, `P(B \\mid A) = P(B) = 6/10` and the answer would be 9/25.",
       },
       {
         type: "check",
@@ -1658,7 +1681,7 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
         choices: ["1/6", "1/5", "27/125", "1/3"],
         answer: 0,
         explain:
-          "Each black sock you take leaves one fewer black and one fewer sock: 6/10 × 5/9 × 4/8 = 1/6. The answer 27/125 is (6/10)³, which assumes you put each sock back.",
+          "Each black sock you take leaves one fewer black and one fewer sock: {{6/10 × 5/9 × 4/8 = 1/6}} The answer 27/125 is (6/10)³, which assumes you put each sock back.",
       },
       { type: "example", lead: "The same working with marbles: 5 red and 3 blue in a bag, two drawn without putting any back." },
       {

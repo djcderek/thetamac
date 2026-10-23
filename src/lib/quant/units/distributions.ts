@@ -152,7 +152,7 @@ function binomial(params: { trial: string; tries: number; successes: number; ask
           work: `C(${n}, ${k})`,
           result: `${ways}`,
           icon: "count",
-          explain: `Any ${k} of the ${n} ${trial.noun} can be the successes. C(${n}, ${k}) counts the ways to choose them.`,
+          explain: `Any ${k} of the ${n} ${trial.noun} can be the successes, and there are \`\\binom{${n}}{${k}}\` ways to choose them.`,
           visual: oneOrderVisual(trial, n, k),
         },
         {
@@ -191,7 +191,7 @@ function binomial(params: { trial: string; tries: number; successes: number; ask
         explain:
           j === n
             ? `All ${n} succeed: there’s only one order, so multiply ${formatFraction(p)} by itself ${n} times.`
-            : `C(${n}, ${j}) counts which ${j} of the ${n} succeed, and each of those orders has the same chance.`,
+            : `\`\\binom{${n}}{${j}}\` counts which ${j} of the ${n} succeed, and each of those orders has the same chance.`,
         visual: distributionBars(n, p, [j], trial.noun),
       })),
       {
@@ -260,13 +260,13 @@ function oddHeads(params: { type: "odd"; flips: number; headsN: number; headsD: 
             work: `(1 − 2 × ${formatFraction(p)})${sup(n)} = (${formatFraction(r)})${sup(n)}`,
             result: formatFraction(diff),
             icon: "idea",
-            explain: "Expand ((1 − p) − p)ⁿ like (a + b)ⁿ. Outcomes with an even number of heads add their chance and odd ones take it away, giving P(even) − P(odd).",
+            explain: "Expand `((1-p) - p)^n` like `(a + b)^n`. Outcomes with an even number of heads add their chance and odd ones take it away, giving `P(\\text{even}) - P(\\text{odd})`.",
           },
           {
             label: "An odd number of heads",
             work: `(1 − ${formatFraction(diff)}) ÷ 2`,
             icon: "divide",
-            explain: "P(even) + P(odd) = 1, and P(even) − P(odd) is the number above. Take it from 1 and halve.",
+            explain: "The two chances add up to 1, and their difference is the number above. Take that difference from 1 and halve.",
             visual: bars(true),
           },
         ],
@@ -298,7 +298,7 @@ function equalGroups(params: { type: "groups"; first: number; last: number }): Q
         work: ks.map((k) => `${choose(a, k)}×${choose(b, k)}`).join(" + "),
         result: `${total}`,
         icon: "count",
-        explain: `For k heads in each group, choose which of the first ${a} and which of the last ${b} are heads, and multiply. Then add over every k.`,
+        explain: `For \`k\` heads in each group, choose which of the first ${a} and which of the last ${b} are heads, and multiply. Then add over every \`k\`.`,
         visual: waysBars,
       },
       {
@@ -691,7 +691,7 @@ function geometric(params: GeometricParams): QuantProblem {
             work: `${formatFraction(heads)} × ${formatFraction(div(q(1), tails))} + ${formatFraction(tails)} × ${formatFraction(div(q(1), heads))}`,
             result: formatFraction(afterFirst),
             icon: "split",
-            explain: "If the first flip was heads, waiting for tails takes 1 ÷ P(tails) flips; if tails, 1 ÷ P(heads). Weight each case by its chance.",
+            explain: "If the first flip was heads, waiting for tails takes `1/P(T)` flips, and if it was tails, `1/P(H)`. Weight each case by its chance.",
             visual: {
               type: "tree",
               root: {
@@ -941,7 +941,7 @@ function waitGiven(params: { type: "given"; forbidden: string }): QuantProblem {
         label: "Average rolls",
         work: `1 ÷ ${formatFraction(chance)}`,
         icon: "divide",
-        explain: "So it’s a plain wait for any of those faces: 1 ÷ their chance, counting the last roll.",
+        explain: "So it’s a plain wait for any of those faces. The average is 1 divided by their chance, counting the last roll.",
       },
     ],
     params,
@@ -990,7 +990,7 @@ function multipleOf(params: { type: "multiple"; sides: number; m: number }): Qua
         label: "Average rolls",
         work: `1 ÷ 1/${m}`,
         icon: "divide",
-        explain: "The chance is the same on every roll, so it’s a plain wait: 1 ÷ the chance, counting the last roll.",
+        explain: "The chance is the same on every roll, so it’s a plain wait. The average is 1 divided by the chance, counting the last roll.",
       },
     ],
     params,
@@ -1508,10 +1508,10 @@ function symmetry(params: { type: "symmetry"; variant: string }): QuantProblem {
   }
   const move =
     variant.move === "both"
-      ? { label: "Flip the sign of both", work: "(X, Y) → (−X, −Y)", explain: "With mean 0, each normal is as likely to be −x as x, so (−X, −Y) has exactly the same chances as (X, Y)." }
+      ? { label: "Flip the sign of both", work: "(X, Y) → (−X, −Y)", explain: "With mean 0, each normal is as likely to be `-x` as `x`, so `(-X, -Y)` has exactly the same chances as `(X, Y)`." }
       : variant.move === "one"
-        ? { label: "Flip the sign of Y", work: "(X, Y) → (X, −Y)", explain: "With mean 0, Y is as likely to be −y as y, so (X, −Y) has exactly the same chances as (X, Y)." }
-        : { label: "Swap X and Y", work: "(X, Y) → (Y, X)", explain: "X and Y have the same distribution and are independent, so swapping them changes no chances." };
+        ? { label: "Flip the sign of Y", work: "(X, Y) → (X, −Y)", explain: "With mean 0, `Y` is as likely to be `-y` as `y`, so `(X, -Y)` has exactly the same chances as `(X, Y)`." }
+        : { label: "Swap X and Y", work: "(X, Y) → (Y, X)", explain: "`X` and `Y` have the same distribution and are independent, so swapping them changes no chances." };
   return problem(
     `symmetry-${variant.id}`,
     variant.prompt,
@@ -1614,7 +1614,7 @@ function sumOfNormals(params: { type: "sum"; setting: string; a: number; b: numb
         work: `√(${a}² + ${b}²) = √${a * a + b * b}`,
         result: `${c}`,
         icon: "idea",
-        explain: "For independent parts the variances (SD²) add, so the total’s SD is √(a² + b²), which is less than a + b.",
+        explain: "For independent parts the variances add, so SDs of `a` and `b` give the total an SD of `\\sqrt{a^2 + b^2}`, which is less than `a + b`.",
       },
       {
         label: "How far out, in standard deviations",
@@ -1686,7 +1686,7 @@ function averageOfNormals(params: { type: "average"; setting: string; sd: number
         work: `${sd} ÷ √${n}`,
         result: `${s}`,
         icon: "divide",
-        explain: `An average of ${n} independent values keeps the same mean, but its SD shrinks by √${n}: the ups and downs partly cancel out.`,
+        explain: `An average of ${n} independent values keeps the same mean, but its SD shrinks by a factor of \`\\sqrt{${n}}\`: the ups and downs partly cancel out.`,
       },
       {
         label: "How far out, in standard deviations",
@@ -1739,14 +1739,14 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         choices: ["(1/6)² × (5/6)²", "2 × 1/6", "(1/6)²", "6 × (1/6)²"],
         answer: 0,
         explain:
-          "The rolls don’t affect each other, so multiply: 1/6 for each six and 5/6 for each roll that isn’t one. That’s 25/1296, about 1.9%. (1/6)² leaves out the two rolls that must miss.",
+          "The rolls don’t affect each other, so multiply 1/6 for each six by 5/6 for each roll that isn’t one: {{1/6 × 1/6 × 5/6 × 5/6 = 25/1296 ≈ 1.9%}} The choice (1/6)² leaves out the two rolls that must miss.",
       },
       {
         type: "story",
         heading: "From one order to all of them",
         beats: [
           {
-            text: "Six, six, other, other has chance 1/6 × 1/6 × 5/6 × 5/6 = 25/1296.",
+            text: "Six, six, other, other has chance {{1/6 × 1/6 × 5/6 × 5/6 = 25/1296}}",
             visual: {
               type: "slots",
               slots: [
@@ -1774,7 +1774,7 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "The two sixes can be on any 2 of the 4 rolls. There are C(4, 2) = 6 ways to choose which.",
+            text: "The two sixes can be on any 2 of the 4 rolls. There are `\\binom{4}{2} = 6` ways to choose which.",
             visual: {
               type: "bars",
               bars: [
@@ -1789,7 +1789,7 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "The six orders can’t happen together, so add them: 6 × 25/1296 = 25/216, about 11.6%.",
+            text: "The six orders can’t happen together, so add their chances: {{6 × 25/1296 = 25/216 ≈ 11.6%}}",
             visual: {
               type: "bars",
               bars: [
@@ -1808,22 +1808,28 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         type: "text",
         heading: "Why it works",
         body: [
-          "Every roll has the same chance of a six, and no roll changes the next. So any order with k sixes and n − k other numbers has the same chance, pᵏ × (1 − p)ⁿ⁻ᵏ, and you only have to count the orders.",
-          "The number of successes in n tries like this has a binomial distribution. n is the number of tries and p is the chance of success on each one.",
+          "Every roll has the same chance of a six, and no roll changes the next. So any order with `k` sixes and `n - k` other numbers has the same chance, `p^k (1-p)^{n-k}`, and you only have to count the orders.",
+          "The number of successes in tries like these has a binomial distribution. Here `n` is the number of tries and `p` is the chance of success on each one.",
         ],
       },
       {
         type: "rule",
-        rule: "P(exactly k) = C(n, k) × pᵏ × (1 − p)ⁿ⁻ᵏ",
-        note: "For two sixes in four rolls, n = 4, k = 2 and p = 1/6. C(4, 2) = 6 counts the orders, and (1/6)² × (5/6)² is the chance of each. For “at least k”, add the exact chances for k, k + 1 and so on up to n.",
+        name: "The binomial distribution",
+        lines: [
+          { lead: "Let `X` be the number of successes in `n` independent trials, each a success with probability `p`. Then `X \\sim \\operatorname{Bin}(n, p)`, and for `k = 0, 1, \\dots, n`,", tex: "P(X = k) = \\binom{n}{k}\\, p^k (1-p)^{n-k}" },
+          { lead: "Its mean and variance are", tex: "\\begin{aligned} E[X] &= np \\\\ \\operatorname{Var}(X) &= np(1-p) \\end{aligned}" },
+        ],
+        where: ["`\\binom{n}{k}` counts the ways to choose which `k` trials are the successes", "`p^k (1-p)^{n-k}` is the probability of any one of those orders"],
+        plain: "Count the orders, then multiply by the chance of one order.",
+        note: "For two sixes in four rolls, `n = 4`, `k = 2` and `p = 1/6`: {{P(X = 2) = C(4, 2) × (1/6)² × (5/6)² = 25/216}} For “at least `k`”, add `P(X = j)` for every `j` from `k` up to `n`.",
       },
       {
         type: "check",
         prompt: "Same 4 rolls. What’s the chance of at least one six?",
-        choices: ["1 − (5/6)⁴ ≈ 52%", "4 × 1/6 = 2/3", "C(4, 1) × 1/6 × (5/6)³ ≈ 39%", "1/6"],
+        choices: ["1 − (5/6)⁴ ≈ 52%", "4 × 1/6 = 2/3", "`\\binom{4}{1} \\times 1/6 \\times (5/6)^3 \\approx 39\\%`", "1/6"],
         answer: 0,
         explain:
-          "“At least one” is every count except zero, so take the chance of no sixes, (5/6)⁴ = 625/1296, away from 1. The 39% choice is the chance of exactly one six. 4 × 1/6 counts a roll with two sixes twice.",
+          "“At least one” is every count except zero, so take the chance of no sixes away from 1: {{1 − (5/6)⁴ = 1 − 625/1296 ≈ 52%}} The 39% choice is the chance of exactly one six. Adding 4 × 1/6 counts a roll with two sixes twice.",
       },
       {
         type: "example",
@@ -1831,14 +1837,14 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "trap",
-        body: "Leaving out C(n, k). (1/6)² × (5/6)² ≈ 1.9% is the chance of one order, such as six, six, other, other. Two sixes can come in 6 different orders, so the answer is 6 times that.",
+        body: "Leaving out `\\binom{n}{k}`. This is the chance of one order, such as six, six, other, other: {{(1/6)² × (5/6)² ≈ 1.9%}} Two sixes can come in 6 different orders, so the answer is 6 times that.",
       },
       {
         type: "list",
         heading: "Use it when",
         items: [
           "There’s a fixed number of flips, rolls, shots or days, each with the same chance",
-          "The question asks for exactly k, at least k or at most k successes",
+          "The question asks for exactly `k`, at least `k` or at most `k` successes",
           "Nothing about one try changes the chance on the next",
         ],
       },
@@ -1892,7 +1898,7 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         choices: ["Rolls 1 to 3 all miss, then roll 4 is a 6", "Roll 4 is a 6", "At least one of rolls 1 to 4 is a 6", "Exactly one of rolls 1 to 4 is a 6"],
         answer: 0,
         explain:
-          "“First” means no 6 before it. Rolls 1, 2 and 3 each miss with chance 5/6, and roll 4 hits with chance 1/6. That’s (5/6)³ × 1/6 = 125/1296, about 9.6%.",
+          "“First” means no 6 before it. Rolls 1, 2 and 3 each miss with chance 5/6, and roll 4 hits with chance 1/6: {{(5/6)³ × 1/6 = 125/1296 ≈ 9.6%}}",
       },
       {
         type: "story",
@@ -1937,7 +1943,7 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "Roll 4 needs three misses and then a 6: (5/6)³ × 1/6 ≈ 9.6%. The bars keep shrinking but never reach zero, and all of them together add up to 1.",
+            text: "Roll 4 needs three misses and then a 6: {{(5/6)³ × 1/6 ≈ 9.6%}} The bars keep shrinking but never reach zero, and all of them together add up to 1.",
             visual: {
               type: "bars",
               bars: [
@@ -1961,14 +1967,20 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         type: "text",
         heading: "The average wait",
         body: [
-          "Call the average number of rolls E, and look at the first roll. With chance 1/6 it’s a 6 and you’re done after 1 roll. With chance 5/6 it isn’t, and you’ve used one roll and are back where you started, still expecting E more.",
-          "So E = 1 + (5/6) × E. Solving gives E = 6. Any chance p gives E = 1 + (1 − p) × E in the same way, so the average wait is 1 ÷ p.",
+          "Call the average number of rolls `E`, and look at the first roll. With chance 1/6 it’s a 6 and you’re done after 1 roll. With chance 5/6 it isn’t, and you’ve used one roll and are back where you started, still expecting `E` more.",
+          "That gives an equation for `E`: {{E = 1 + 5/6 × E}} Solving it gives `E = 6`. With any chance `p` the same argument gives `E = 1 + (1 - p)E`, so the average wait is `1/p`.",
         ],
       },
       {
         type: "rule",
-        rule: "P(first success on try k) = (1 − p)ᵏ⁻¹ × p; average tries = 1 ÷ p",
-        note: "For a die and a 6, p = 1/6. The first 6 comes on roll 4 with chance (5/6)³ × 1/6 ≈ 9.6%, and you need 6 rolls on average. The number of tries up to the first success has a geometric distribution.",
+        name: "The geometric distribution",
+        lines: [
+          { lead: "Let `X` be the number of independent trials up to and including the first success, where each trial succeeds with probability `p`. Then for `k = 1, 2, 3, \\dots`,", tex: "P(X = k) = (1-p)^{k-1}\\, p" },
+          { lead: "Its mean and variance are", tex: "\\begin{aligned} E[X] &= \\frac{1}{p} \\\\[1ex] \\operatorname{Var}(X) &= \\frac{1-p}{p^2} \\end{aligned}" },
+        ],
+        where: ["Some books count only the failures before the first success. That count is `X - 1`, with mean `(1-p)/p`"],
+        plain: "The first success on try `k` needs `k - 1` misses and then a hit. On average it takes `1/p` tries.",
+        note: "For a die and a 6, `p = 1/6`, so the first 6 comes on roll 4 with chance {{P(X = 4) = (5/6)³ × 1/6 ≈ 9.6%}} On average you need `E[X] = 1/p = 6` rolls.",
       },
       {
         type: "check",
@@ -1976,11 +1988,11 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         choices: ["6", "3", "8", "4"],
         answer: 0,
         explain:
-          "Each head takes 2 flips on average, and once one arrives the wait for the next starts over. Three waits of 2 flips each make 6. 3 would only be right if every flip were a head.",
+          "Each head takes 2 flips on average, and once one arrives the wait for the next starts over. Three waits of 2 flips each make 6. The answer 3 would only be right if every flip were a head.",
       },
       {
         type: "example",
-        lead: "When more than one outcome ends the wait, add their chances first to get p.",
+        lead: "When more than one outcome ends the wait, add their chances first to get `p`.",
       },
       {
         type: "trap",
@@ -2079,7 +2091,7 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         type: "text",
         body: [
           "Heights, test scores and measurement errors tend to pile up around an average and thin out evenly on both sides. That bell shape is the normal distribution.",
-          "A normal distribution is fixed by two numbers. The mean is its centre. The standard deviation, or SD, measures spread: most values are within one or two SDs of the mean.",
+          "A normal distribution is fixed by two numbers. The mean `\\mu` is its centre. The standard deviation `\\sigma`, or SD, measures spread: most values are within one or two SDs of the mean.",
           "Scores on a test are normal with mean 500 and SD 100. What share of people score between 400 and 700?",
         ],
       },
@@ -2147,7 +2159,7 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "Add the two halves: 34% + 47.5% = 81.5% of people score between 400 and 700.",
+            text: "Add the two halves to get the share who score between 400 and 700: {{34% + 47.5% = 81.5%}}",
             visual: {
               type: "normal",
               shade: [{ from: -1, to: 2, tone: "hit", text: "81.5%" }],
@@ -2168,14 +2180,21 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         type: "text",
         heading: "Count in standard deviations",
         body: [
-          "First turn each value into a number of SDs from the mean. 700 is 200 above 500, which is 2 SDs. 400 is 1 SD below. This count is called a z-score.",
+          "First turn each value into its z-score, the number of SDs it sits from the mean: {{z = (700 − 500)/100 = 2}} So 700 is 2 SDs above the mean, and 400, with `z = -1`, is 1 SD below.",
           "After that the question depends only on the shape, and every normal distribution has the same shape. That’s why the same three percentages work for every normal distribution, whatever it measures.",
         ],
       },
       {
         type: "rule",
-        rule: "Within 1 SD: 68%. Within 2 SDs: 95%. Within 3 SDs: 99.7%.",
-        note: "What’s outside splits evenly between the two sides. 5% of scores are more than 2 SDs from 500, so 2.5% are above 700 and 2.5% are below 300.",
+        name: "The normal distribution",
+        lines: [
+          { lead: "If `X \\sim N(\\mu, \\sigma^2)`, with mean `\\mu` and standard deviation `\\sigma`, its z-score", tex: "Z = \\frac{X - \\mu}{\\sigma}" },
+          { lead: "has the standard normal distribution `N(0, 1)`, and", tex: "\\begin{aligned} P(|Z| \\le 1) &\\approx 0.68 \\\\ P(|Z| \\le 2) &\\approx 0.95 \\\\ P(|Z| \\le 3) &\\approx 0.997 \\end{aligned}" },
+          { lead: "If `X` and `Y` are independent and normal, `X + Y` is normal with", tex: "\\begin{aligned} E[X + Y] &= \\mu_X + \\mu_Y \\\\ \\operatorname{SD}(X + Y) &= \\sqrt{\\sigma_X^2 + \\sigma_Y^2} \\end{aligned}" },
+          { lead: "and the average `\\bar{X}` of `n` independent values with standard deviation `\\sigma` has", tex: "\\operatorname{SD}(\\bar{X}) = \\frac{\\sigma}{\\sqrt{n}}" },
+        ],
+        plain: "Turn each value into a number of standard deviations from the mean, then use 68%, 95% and 99.7%.",
+        note: "For the test, `\\mu = 500` and `\\sigma = 100`, so a score between 400 and 700 means `-1 \\le Z \\le 2`: {{P(−1 ≤ Z ≤ 2) ≈ 34% + 47.5% = 81.5%}} What lies outside a range splits evenly between the two ends, so 2.5% score above 700.",
       },
       {
         type: "check",
@@ -2183,14 +2202,14 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         choices: ["16%", "32%", "34%", "84%"],
         answer: 0,
         explain:
-          "68% score between 400 and 600, so 32% are outside that range. Half of them are on the high side, which is 16%. 32% counts both ends.",
+          "68% score between 400 and 600, so 32% are outside that range. Half of them are on the high side, which is 16%. The answer 32% counts both ends.",
       },
       {
         type: "text",
         heading: "Sums and averages",
         body: [
-          "Add two independent normal values and the total is normal too. The means add, and so do the squares of the SDs. Two trips with SDs of 3 and 4 minutes give a total with SD √(9 + 16) = 5 minutes, not 7.",
-          "An average of n independent values has the same mean but its SD is divided by √n. Average 25 values with SD 10 and the average has SD 2.",
+          "Add two independent normal values and the total is normal too. The means add, and so do the squares of the SDs. Two trips with SDs of 3 and 4 minutes give a total with SD {{√(3² + 4²) = √25 = 5}} That’s 5 minutes, not 7.",
+          "An average of `n` independent values has the same mean, but its SD is divided by `\\sqrt{n}`. Average 25 values with SD 10, and the average has SD {{10 ÷ √25 = 2}}",
         ],
       },
       {

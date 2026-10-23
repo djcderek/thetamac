@@ -16,6 +16,7 @@ import { AnswerBox } from "@/components/quant/answer-box";
 import { Walkthrough } from "@/components/quant/walkthrough";
 import { QuantFigure } from "@/components/quant/visuals";
 import { markType } from "@/components/quant/type-progress";
+import { MathText } from "@/components/quant/math";
 
 /** Wrong submits before the answer is shown, as in a lesson. */
 const WRONG_TRIES = 2;
@@ -213,7 +214,9 @@ export function QuantShuffle() {
                 transition={runEnter}
                 className="space-y-5"
               >
-                <p className="text-[19px] leading-8">{problem.prompt}</p>
+                <p className="text-[19px] leading-8">
+                  <MathText text={problem.prompt} />
+                </p>
                 {problem.visual && (
                   <div className="rounded-[18px] bg-secondary px-3 py-4">
                     <QuantFigure visual={problem.visual} />

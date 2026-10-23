@@ -70,8 +70,22 @@ export type LessonPart =
   | { type: "text"; heading?: string; body: string[]; visual?: QuantVisual }
   /** An explanation told in beats over one figure that changes with each beat. */
   | { type: "story"; heading?: string; beats: { text: string; visual: QuantVisual }[] }
-  /** The rule, written as a formula, with a line or two on reading it. */
-  | { type: "rule"; rule: string; note?: string }
+  /**
+   * The rule stated formally, then in plain words. `lines` are display formulas in LaTeX, each
+   * with an optional lead-in sentence; text fields may hold inline LaTeX in `backticks`.
+   */
+  | {
+      type: "rule";
+      /** The result's usual name, e.g. "Bayes’ rule". */
+      name: string;
+      lines: { lead?: string; tex: string }[];
+      /** What each symbol means, and any conditions. */
+      where?: string[];
+      /** The same rule in one plain sentence. */
+      plain: string;
+      /** The rule applied to the lesson's opening numbers. */
+      note?: string;
+    }
   /** A quick multiple-choice question; the reader picks before moving on. */
   | { type: "check"; prompt: string; visual?: QuantVisual; choices: string[]; answer: number; explain: string }
   /** The lesson's worked example, stepped through. `lead` introduces it. */

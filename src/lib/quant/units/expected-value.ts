@@ -270,7 +270,7 @@ function cappedDoubling(params: { cap: number }) {
         work: `${m} × (1/2ⁿ × $2ⁿ)`,
         result: `$${m}`,
         icon: "multiply",
-        explain: `A game of n flips happens with chance 1/2ⁿ and pays $2ⁿ, so each of these ${m} lengths adds exactly $1 to the average.`,
+        explain: `A game of \`n\` flips happens with chance \`1/2^n\` and pays \`\\$2^n\`, so each of these ${m} lengths adds exactly $1 to the average.`,
         visual: bars,
       },
       {
@@ -1203,8 +1203,13 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "E[X] = x₁ × P(x₁) + x₂ × P(x₂) + …",
-        note: "X is the amount a ticket pays and E[X] is its expected value: $100 × 1/100 + $25 × 2/100 + $0 × 97/100 = $1.50. Losses go in as negative amounts.",
+        name: "Expected value",
+        lines: [
+          { lead: "For a discrete random variable `X` with possible values `x_1, x_2, \\dots`, the expected value is", tex: "E[X] = \\sum_{i} x_i\\, P(X = x_i)" },
+        ],
+        where: ["A random variable is a number set by a random outcome, such as the amount a ticket pays", "`E[X]` is also called the mean of `X`"],
+        plain: "Multiply each result by its chance, and add.",
+        note: "Here `X` is the amount one ticket pays: {{E[X] = $100 × 1/100 + $25 × 2/100 = $1.50}} The 97 tickets that win nothing add $0. Losses go in as negative amounts.",
       },
       {
         type: "check",
@@ -1212,7 +1217,7 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
         choices: ["−$0.50", "$2.50", "$1.50", "$3"],
         answer: 0,
         explain:
-          "The win adds $10 × 1/4 = $2.50 and the loss adds −$4 × 3/4 = −$3. Together that’s −$0.50, so the bet loses 50 cents a time on average. Leaving out the loss gives $2.50.",
+          "Weight each result by its chance: {{$10 × 1/4 − $4 × 3/4 = −$0.50}} The bet loses 50 cents a time on average. Leaving out the loss gives $2.50.",
       },
       {
         type: "example",
@@ -1341,7 +1346,7 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "The expected number of matches is the sum of those chances: 40 × 1/40 = 1.",
+            text: "The expected number of matches is the sum of those chances: {{40 × 1/40 = 1}}",
             visual: {
               type: "slots",
               slots: [
@@ -1367,8 +1372,14 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "E[X₁ + X₂ + … + Xₙ] = E[X₁] + E[X₂] + … + E[Xₙ]",
-        note: "When each Xᵢ is 1 for yes and 0 for no, E[Xᵢ] is the chance of yes. For the hats there are 40 pieces, each with chance 1/40, so the total is 1.",
+        name: "Linearity of expectation",
+        lines: [
+          { lead: "For any random variables `X_1, \\dots, X_n`, whether or not they are independent,", tex: "E[X_1 + \\cdots + X_n] = E[X_1] + \\cdots + E[X_n]" },
+          { lead: "and for constants `a` and `b`,", tex: "E[aX + b] = a\\,E[X] + b" },
+          { lead: "The indicator `I_A` of an event `A` is 1 when `A` happens and 0 when it doesn’t, so", tex: "E[I_A] = P(A)" },
+        ],
+        plain: "The average of a sum is the sum of the averages. Write a count as a sum of 0-or-1 pieces and add their chances.",
+        note: "Let `X_i` be 1 if person `i` gets their own hat and 0 if not, so `E[X_i] = 1/40`. The number of matches is `X_1 + \\cdots + X_{40}`, so {{E[X₁ + … + X₄₀] = 40 × 1/40 = 1}}",
       },
       {
         type: "check",
@@ -1464,7 +1475,7 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "Each result is $10 from the average. Variance squares those distances and averages them: (10² + 10²) ÷ 2 = 100.",
+            text: "Each result is $10 from the average. Variance squares those distances and averages them: {{(10² + 10²) ÷ 2 = 100}}",
             visual: {
               type: "number-line",
               min: 0,
@@ -1504,20 +1515,26 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
         choices: ["300", "100", "400", "30"],
         answer: 0,
         explain:
-          "$0 is 10 from the average and $40 is 30 away. Average the squared distances by their chances: 3/4 × 10² + 1/4 × 30² = 75 + 225 = 300. Same average as game B, three times the variance.",
+          "$0 is 10 from the average and $40 is 30 away. Average the squared distances by their chances: {{3/4 × 10² + 1/4 × 30² = 75 + 225 = 300}} Same average as game B, three times the variance.",
       },
       {
         type: "text",
         heading: "A faster way to work it out",
         body: [
-          "Finding every distance gets slow. The same number comes from the average of the squares minus the square of the average. For game B the squares are 0 and 400, which average 200, and 200 − 10² = 100.",
+          "Finding every distance gets slow. The same number comes from the average of the squares minus the square of the average. For game B the squares are 0 and 400, which average 200: {{E[X²] − (E[X])² = 200 − 10² = 100}}",
           "When two results don’t affect each other, their variances add. Play game B twice and the total has variance 100 + 100 = 200, so its standard deviation is √200 ≈ $14.14.",
         ],
       },
       {
         type: "rule",
-        rule: "Var(X) = E[X²] − (E[X])², and SD(X) = √Var(X)",
-        note: "For independent X and Y, Var(X + Y) = Var(X) + Var(Y). Add the variances first, then take the square root to get the standard deviation of the total.",
+        name: "Variance and standard deviation",
+        lines: [
+          { lead: "For a random variable `X` with mean `\\mu = E[X]`,", tex: "\\operatorname{Var}(X) = E\\big[(X - \\mu)^2\\big] = E[X^2] - \\mu^2" },
+          { lead: "and the standard deviation is `\\operatorname{SD}(X) = \\sqrt{\\operatorname{Var}(X)}`. For constants `a` and `b`,", tex: "\\operatorname{Var}(aX + b) = a^2 \\operatorname{Var}(X)" },
+          { lead: "If `X` and `Y` are independent,", tex: "\\operatorname{Var}(X + Y) = \\operatorname{Var}(X) + \\operatorname{Var}(Y)" },
+        ],
+        plain: "Variance is the average squared distance from the mean. Its square root, the standard deviation, is back in the original units.",
+        note: "For game B, `X` is $0 or $20 with chance 1/2 each, and `\\mu = 10`: {{Var(X) = 1/2 × 20² − 10² = 100}} Two independent plays add their variances, {{Var(X₁ + X₂) = 100 + 100 = 200}} so the total has standard deviation `\\sqrt{200} \\approx 14.14`.",
       },
       {
         type: "check",
@@ -1525,7 +1542,7 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
         choices: ["5", "25", "50", "10"],
         answer: 0,
         explain:
-          "One flip counts 1 for heads and 0 for tails: its average is 1/2 and its average square is 1/2, so its variance is 1/2 − 1/4 = 1/4. The 100 flips are independent, so the variances add to 25, and the standard deviation is √25 = 5.",
+          "One flip `X` counts 1 for heads and 0 for tails, so `E[X] = E[X^2] = 1/2` and {{Var(X) = 1/2 − (1/2)² = 1/4}} The 100 flips are independent, so the variances add to 25, and the standard deviation is √25 = 5.",
       },
       {
         type: "example",

@@ -122,7 +122,7 @@ test("every lesson teaches: a problem first, the rule, checks, the worked exampl
       }
       if (part.type === "story") assert.ok(part.beats.length >= 2, `${id} story beats`);
       if (part.type === "text") for (const paragraph of part.body) assert.ok(paragraph.length <= 340, `${id} long paragraph: ${paragraph}`);
-      if (part.type === "rule") assert.ok(part.rule.length <= 90, `${id} rule: ${part.rule}`);
+      if (part.type === "rule") assert.ok(part.lines.length >= 1 && part.plain.length <= 160 && part.name.length <= 40, `${id} rule: ${part.name}`);
       if (part.type === "list") assert.ok(part.items.length >= 2 && part.items.length <= 4, `${id} list`);
     }
   }
@@ -141,7 +141,7 @@ function lessonCopy(lesson: (typeof QUANT_LESSONS)[number]): string[] {
         case "story":
           return [part.heading ?? "", ...part.beats.map((beat) => beat.text)];
         case "rule":
-          return [part.rule, part.note ?? ""];
+          return [part.name, ...part.lines.map((line) => line.lead ?? ""), ...(part.where ?? []), part.plain, part.note ?? ""];
         case "check":
           return [part.prompt, ...part.choices, part.explain];
         case "example":
@@ -246,6 +246,39 @@ function checkVisual(visual: QuantVisual, label: string) {
       break;
   }
 }
+
+/** The {{display}} calculations in a piece of copy, checking the braces pair up. */
+function displays(text: string, label: string): string[] {
+  const opens = text.split("{{").length - 1;
+  const closes = text.split("}}").length - 1;
+  assert.equal(opens, closes, `${label}: unpaired braces in "${text}"`);
+  assert.ok(!/\{\{[^}]*\{\{/.test(text), `${label}: nested braces in "${text}"`);
+  return [...text.matchAll(/\{\{(.+?)\}\}/g)].map((m) => m[1]);
+}
+
+test("display math is a calculation on its own, where the copy allows it", () => {
+  for (const lesson of QUANT_LESSONS) {
+    // Short, single-line copy stays plain.
+    for (const text of [lesson.title, lesson.benefit, lesson.summary]) assert.equal(displays(text, lesson.id).length, 0, `${lesson.id}: ${text}`);
+    for (const part of lesson.parts) {
+      if (part.type === "check") for (const choice of part.choices) assert.equal(displays(choice, lesson.id).length, 0, `${lesson.id}: ${choice}`);
+      if (part.type === "list") for (const item of part.items) assert.equal(displays(item, lesson.id).length, 0, `${lesson.id}: ${item}`);
+      if (part.type === "rule") assert.equal(displays(part.plain, lesson.id).length, 0, `${lesson.id}: ${part.plain}`);
+    }
+    for (const text of lessonCopy(lesson)) {
+      for (const math of displays(text, lesson.id)) {
+        assert.ok(/[=×÷+−≈<>]/.test(math), `${lesson.id}: no operator in {{${math}}}`);
+        assert.ok(math.length <= 64 && !/[.;:] /.test(math) && !/\.$/.test(math), `${lesson.id}: prose in {{${math}}}`);
+      }
+    }
+  }
+  for (const lesson of QUANT_LESSONS) {
+    for (const problem of sample(lesson.id, 30)) {
+      assert.equal(displays(problem.prompt, problem.key).length, 0, `${problem.key}: prompts stay prose`);
+      for (const step of problem.steps) displays(step.explain ?? "", problem.key);
+    }
+  }
+});
 
 test("lesson figures are drawable", () => {
   for (const lesson of QUANT_LESSONS) {

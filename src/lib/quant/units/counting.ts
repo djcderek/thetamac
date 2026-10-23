@@ -385,7 +385,7 @@ function permutations(params: PermutationsParams): QuantProblem {
             label: "Divide by the ways to shuffle each repeat",
             work: `${commas(all)} ÷ (${repeats.map(([, count]) => `${count}!`).join(" × ")})`,
             icon: "divide",
-            explain: "A letter that appears k times can be shuffled k! ways without changing the word, so divide by that for each repeat.",
+            explain: "A letter that appears `k` times can be shuffled `k!` ways without changing the word, so divide by that for each repeat.",
           },
         ],
         params,
@@ -1019,7 +1019,7 @@ function subsetsProblem(params: SubsetParams): QuantProblem {
           work: "in A and B, in B only, or in neither",
           result: "3",
           icon: "count",
-          explain: "An item can’t be in A without also being in B, so each item has exactly 3 options.",
+          explain: "An item can’t be in `A` without also being in `B`, so each item has exactly 3 options.",
           visual: slots(boxes("Item")),
         },
         {
@@ -1115,7 +1115,7 @@ function arrangements(params: ArrangeParams): QuantProblem {
           work: `${people - 1}!`,
           result: commas(factorial(people - 1)),
           icon: "count",
-          explain: `The block and the other people can go in any order: ${people - 1} × ${people - 2} × … × 1.`,
+          explain: `The block and the other people are ${people - 1} things in a row, and any order of them works.`,
         },
         {
           label: "Ana and Ben can swap inside the block",
@@ -1412,7 +1412,7 @@ function groups(params: GroupParams): QuantProblem {
             label: "Multiply",
             work: `${commas(first)} × ${commas(second)}`,
             icon: "multiply",
-            explain: `Every choice of researchers goes with every choice of traders. This equals ${n}! ÷ (${a}! × ${b}! × ${c}!).`,
+            explain: `Every choice of researchers goes with every choice of traders. The product equals {{${n}!/(${a}! × ${b}! × ${c}!)}}`,
           },
         ],
         params,
@@ -1677,7 +1677,7 @@ function moreInclusion(params: MoreInclusionParams): QuantProblem {
             label: "Results where a chosen j people get their own",
             work: `C(${n}, j) × (${n} − j)! = ${n}! ÷ j!`,
             icon: "filter",
-            explain: "Fix j people with their own gifts; the rest go out in any order. Inclusion–exclusion adds and takes these off in turn.",
+            explain: "Fix `j` people with their own gifts; the rest go out in any order. Inclusion–exclusion adds and takes these off in turn.",
           },
           {
             label: "Nobody gets their own",
@@ -1718,7 +1718,7 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         prompt: "How many different lunches?",
         choices: ["9", "14", "24", "36"],
         answer: 2,
-        explain: "It’s 4 × 3 × 2 = 24. The answer 9 adds the options, 4 + 3 + 2, which counts items on the menu rather than lunches.",
+        explain: "It’s {{4 × 3 × 2 = 24}} The answer 9 adds the options, 4 + 3 + 2, which counts items on the menu rather than lunches.",
       },
       {
         type: "story",
@@ -1777,8 +1777,12 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "Ways = (options at step 1) × (options at step 2) × …",
-        note: "For the lunch: 4 × 3 × 2 = 24. Leaving something out counts as an option. If the side were cookie, apple or none, that step would have 3 options and there’d be 4 × 3 × 3 = 36 lunches.",
+        name: "The multiplication principle",
+        lines: [
+          { lead: "Suppose an outcome is built in `k` steps, and step `i` can be done in `n_i` ways however the earlier steps went. Then the number of possible outcomes is", tex: "n_1 \\times n_2 \\times \\cdots \\times n_k" },
+        ],
+        plain: "Multiply the number of options at each step.",
+        note: "The lunch has `k = 3` steps, with `n_1 = 4` sandwiches, `n_2 = 3` drinks and `n_3 = 2` sides: {{4 × 3 × 2 = 24}} Leaving something out counts as an option. If the side were cookie, apple or none, then `n_3 = 3` and the count would be {{4 × 3 × 3 = 36}}",
       },
       {
         type: "check",
@@ -1786,12 +1790,12 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         choices: ["40", "5,040", "9,999", "10,000"],
         answer: 3,
         explain:
-          "Each of the 4 digits has 10 options, so 10 × 10 × 10 × 10 = 10,000. The answer 5,040 is 10 × 9 × 8 × 7, which would be right if no digit could be used twice. That case is the next lesson.",
+          "Each of the 4 digits has 10 options, so the count is {{10 × 10 × 10 × 10 = 10,000}} The answer 5,040 would be right if no digit could be used twice: {{10 × 9 × 8 × 7 = 5,040}} That case is the next lesson.",
       },
       { type: "example", lead: "The same count for outfits: a shirt, then trousers, then shoes." },
       {
         type: "trap",
-        body: "Adding instead of multiplying. 4 + 3 + 2 = 9 is how many items are on the menu. A lunch is one of each, and every sandwich can go with every drink and every side.",
+        body: "Adding instead of multiplying: {{4 + 3 + 2 = 9}} That’s how many items are on the menu. A lunch is one of each, and every sandwich can go with every drink and every side.",
       },
       {
         type: "list",
@@ -1860,7 +1864,7 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         choices: ["15", "25", "120", "3,125"],
         answer: 2,
         explain:
-          "It’s 5 × 4 × 3 × 2 × 1 = 120. The answer 3,125 is 5 × 5 × 5 × 5 × 5, which would let the same friend stand in more than one spot.",
+          "It’s {{5 × 4 × 3 × 2 × 1 = 120}} The answer 3,125 is 5⁵, which would let the same friend stand in more than one spot.",
       },
       {
         type: "story",
@@ -1903,13 +1907,20 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         heading: "Why the options shrink",
         body: [
           "This is the multiplying rule from the last lesson with one change: each pick uses someone up, so every step has one fewer option. An ordering of things is called a permutation.",
-          "The product 5 × 4 × 3 × 2 × 1 is written 5! and read “5 factorial”. If only some spots are filled, stop when they’re full. Choosing a president, a secretary and a treasurer from 10 people gives 10 × 9 × 8 = 720.",
+          "The product of the whole numbers from 5 down to 1 is written `5!` and read “5 factorial”. If only some spots are filled, stop when they’re full. Choosing a president, a secretary and a treasurer from 10 people gives {{10 × 9 × 8 = 720}}",
         ],
       },
       {
         type: "rule",
-        rule: "n different things in a row: n! = n × (n − 1) × … × 1",
-        note: "Filling only k of the spots: n × (n − 1) × … for k terms. Five friends in five spots: 5! = 120. Five friends and a bench with room for 2: 5 × 4 = 20.",
+        name: "Permutations",
+        lines: [
+          { lead: "The number of ways to arrange `n` distinct objects in a row is", tex: "n! = n \\times (n-1) \\times \\cdots \\times 2 \\times 1" },
+          { lead: "The number of ways to fill `k` ordered places from `n` distinct objects is", tex: "\\frac{n!}{(n-k)!} = n \\times (n-1) \\times \\cdots \\times (n-k+1)" },
+          { lead: "If the `n` objects fall into groups of identical ones, of sizes `n_1, \\dots, n_r`, the number of distinct arrangements is", tex: "\\frac{n!}{n_1!\\, n_2! \\cdots n_r!}" },
+        ],
+        where: ["`0! = 1`, so the second formula also holds when `k = n`"],
+        plain: "Each place you fill has one fewer option than the one before. Divide out the orders of identical objects.",
+        note: "Five friends in a row is `n = 5`: {{5! = 120}} A bench with room for 2 of them is `k = 2` ordered places: {{5!/(5 − 2)! = 5 × 4 = 20}}",
       },
       {
         type: "text",
@@ -1924,12 +1935,12 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         choices: ["20", "30", "60", "120"],
         answer: 1,
         explain:
-          "Told apart, the 5 letters have 5! = 120 orders. Swapping the two L’s or the two E’s gives the same word, so divide by 2 × 2: 120 ÷ 4 = 30. The answer 60 only allows for one of the repeated letters.",
+          "Told apart, the 5 letters have 5! = 120 orders. Swapping the two L’s or the two E’s gives the same word, so divide by the orders of each pair: {{5!/(2! × 2!) = 120/4 = 30}} The answer 60 only allows for one of the repeated letters.",
       },
       { type: "example", lead: "When only the top places matter, stop once they’re filled. Here 8 runners race for 3 medals." },
       {
         type: "trap",
-        body: "Using 5 × 5 × 5 × 5 × 5 as if a friend could stand in two spots at once. Once someone is placed, they’re out of the running for the other spots, so each step has one fewer option.",
+        body: "Using 5⁵ = 3,125, as if a friend could stand in two spots at once. Once someone is placed, they’re out of the running for the other spots, so each step has one fewer option.",
       },
       {
         type: "list",
@@ -2045,16 +2056,22 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "text",
-        heading: "Why you divide by k!",
+        heading: "Why you divide",
         body: [
-          "A group of 3 can be picked in 3! = 6 orders, so counting ordered picks counts each group of 3 six times. In general a group of k can be ordered k! ways, and dividing by k! leaves each group counted once.",
-          "The number of ways to choose k things from n is written C(n, k) and read “n choose k”. A group chosen this way, with no order, is called a combination.",
+          "A group of 3 can be picked in 3! = 6 orders, so counting ordered picks counts each group of 3 six times. In general a group of `k` can be ordered `k!` ways, and dividing by `k!` leaves each group counted once.",
+          "The number of ways to choose `k` things from `n` is written `\\binom{n}{k}` and read “`n` choose `k`”. A group chosen this way, with no order, is called a combination.",
         ],
       },
       {
         type: "rule",
-        rule: "C(n, k) = n × (n − 1) × … (k terms) ÷ k!",
-        note: "For the club: C(6, 2) = 6 × 5 ÷ 2! = 15. Sending 3 of the 6 would be 6 × 5 × 4 ÷ 3! = 20.",
+        name: "Combinations",
+        lines: [
+          { lead: "For `0 \\le k \\le n`, the number of ways to choose `k` of `n` distinct objects, when order doesn’t matter, is", tex: "\\binom{n}{k} = \\frac{n!}{k!\\,(n-k)!}" },
+          { lead: "Choosing the `k` to take is the same as choosing the `n - k` to leave, so", tex: "\\binom{n}{k} = \\binom{n}{n-k}" },
+        ],
+        where: ["`\\binom{n}{k}` is read “`n` choose `k`”, and is also written `C(n, k)`"],
+        plain: "Count the ordered picks, then divide by the number of orders each group can be picked in.",
+        note: "For the club, `n = 6` and `k = 2`: {{C(6, 2) = (6 × 5)/2! = 15}} Sending 3 of the 6 would be {{C(6, 3) = (6 × 5 × 4)/3! = 20}}",
       },
       {
         type: "check",
@@ -2062,7 +2079,7 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         choices: ["15", "24", "30", "360"],
         answer: 0,
         explain:
-          "Picking 4 to go is the same as picking 2 to stay home, so C(6, 4) = C(6, 2) = 15. The long way gives the same: 6 × 5 × 4 × 3 ÷ 4! = 360 ÷ 24 = 15.",
+          "Picking 4 to go is the same as picking 2 to stay home, so {{C(6, 4) = C(6, 2) = 15}} The long way gives the same: {{(6 × 5 × 4 × 3)/4! = 360/24 = 15}}",
       },
       { type: "example", lead: "The same count for packing 3 books out of 10, where each set can be packed in 3! = 6 orders." },
       {
@@ -2197,8 +2214,14 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "Count of A or B = count of A + count of B − count of both",
-        note: "For the class: 18 + 12 − 5 = 25. For three groups: A + B + C − (A and B) − (A and C) − (B and C) + (all three).",
+        name: "Inclusion–exclusion",
+        lines: [
+          { lead: "For finite sets `A` and `B`,", tex: "|A \\cup B| = |A| + |B| - |A \\cap B|" },
+          { lead: "For three sets,", tex: "\\begin{aligned} |A \\cup B \\cup C| &= |A| + |B| + |C| \\\\ &\\quad - |A \\cap B| - |A \\cap C| - |B \\cap C| \\\\ &\\quad + |A \\cap B \\cap C| \\end{aligned}" },
+        ],
+        where: ["`|A|` is the number of elements in `A`", "`A \\cup B` means in `A` or `B` or both, and `A \\cap B` means in both"],
+        plain: "Add the sizes of the groups, then take off what was counted twice.",
+        note: "For the class, `|A| = 18` play football, `|B| = 12` play tennis and `|A \\cap B| = 5` play both, so the number who play at least one is {{18 + 12 − 5 = 25}}",
       },
       {
         type: "check",
@@ -2206,7 +2229,7 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         choices: ["0", "5", "10", "15"],
         answer: 1,
         explain:
-          "The rule works backwards too. 30 people drink at least one, so 20 + 15 − both = 30, which makes both = 5.",
+          "The rule works backwards too. 40 − 10 = 30 people drink at least one, so {{20 + 15 − both = 30}} That makes both equal to 5.",
       },
       { type: "example", lead: "The same count with numbers. Here the two groups are the multiples of 2 and the multiples of 3 up to 100." },
       {

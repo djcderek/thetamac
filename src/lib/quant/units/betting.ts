@@ -116,7 +116,7 @@ function oddsToChance(
             label: "Decimal odds are 1 ÷ chance",
             work: `${odds} = 1 ÷ chance`,
             icon: "idea",
-            explain: "At a fair price, a $1 bet that wins with chance p pays back 1 ÷ p in total, so the odds are 1 ÷ chance.",
+            explain: "At a fair price, a $1 bet that wins with chance `p` pays back `1/p` in total, so the odds are 1 ÷ chance.",
           },
           {
             label: "Chance",
@@ -881,7 +881,7 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "The odds also set the payout. A winning $1 bet at 4 to 1 makes $4. Over 5 races you’d win $4 once and lose $1 four times, which comes to $0. That’s what makes 4 to 1 the fair price for a 20% chance.",
+            text: "The odds also set the payout. A winning $1 bet at 4 to 1 makes $4. Over 5 races you’d win $4 once and lose $1 four times: {{$4 − 4 × $1 = $0}} That’s what makes 4 to 1 the fair price for a 20% chance.",
             visual: {
               type: "bars",
               bars: [
@@ -898,13 +898,20 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         heading: "Decimal and American odds",
         body: [
           "Many bookmakers quote decimal odds: the total a winning $1 bet pays back, your $1 included. The 4 to 1 horse is 5.00 in decimal odds, since a win returns $4 profit plus your $1. A fair decimal price is 1 ÷ chance, so the chance is 1 ÷ 5.00 = 20%.",
-          "American odds are written per $100. +300 means a $100 bet wins $300, and −150 means you bet $150 to win $100. Either way, the implied chance is what you risk ÷ (what you risk + what you win): 100 ÷ 400 = 25% for +300, and 150 ÷ 250 = 60% for −150.",
+          "American odds are written per $100. +300 means a $100 bet wins $300, and −150 means you bet $150 to win $100. Either way, the implied chance is what you risk divided by what you risk plus what you win. For +300: {{100/(100 + 300) = 25%}} For −150: {{150/(150 + 100) = 60%}}",
         ],
       },
       {
         type: "rule",
-        rule: "a to b against: chance = b ÷ (a + b). Decimal odds d: chance = 1 ÷ d",
-        note: "For the horse at 4 to 1 against, b = 1 and a + b = 5, so the chance is 1/5. Its decimal price is 5.00, and 1 ÷ 5.00 gives the same 20%.",
+        name: "Implied probability",
+        lines: [
+          { lead: "Odds of `a` to `b` against an outcome imply the probability", tex: "p = \\frac{b}{a + b}" },
+          { lead: "Decimal odds `d`, the total returned per unit staked, imply", tex: "p = \\frac{1}{d}" },
+          { lead: "American odds of `+m` and `-m` imply", tex: "\\begin{aligned} +m&\\colon\\quad p = \\frac{100}{100 + m} \\\\[1ex] -m&\\colon\\quad p = \\frac{m}{m + 100} \\end{aligned}" },
+        ],
+        where: ["Fair implied probabilities over every outcome of one event add up to 1. Anything above 1 is the bookmaker’s margin, called the overround"],
+        plain: "The chance a price implies is what you risk divided by what you risk plus what you’d win.",
+        note: "For the horse at 4 to 1 against, `a = 4` and `b = 1`: {{1/(4 + 1) = 1/5 = 20%}} Its decimal price is `d = 5.00`, and `1/d` gives the same 20%.",
       },
       {
         type: "check",
@@ -991,7 +998,7 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         choices: ["About +$0.67", "$0", "About −$0.17", "About −$0.83"],
         answer: 2,
         explain:
-          "You win $4 on one roll in six and lose $1 on the other five: (4 − 5) ÷ 6 = −$1/6, about 17 cents lost per roll. The bet would need to pay 5 to 1 just to break even.",
+          "You win $4 on one roll in six and lose $1 on the other five: {{4 × 1/6 − 1 × 5/6 = −1/6}} That’s about 17 cents lost per roll. The bet would need to pay 5 to 1 just to break even.",
       },
       {
         type: "story",
@@ -1047,8 +1054,13 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "Expected profit = win × P(win) − stake × P(lose)",
-        note: "For the die bet: 4 × 1/6 − 1 × 5/6 = −1/6. The win here is your profit only. The $1 you get back on a win was yours already, so it isn’t counted.",
+        name: "Expected profit of a bet",
+        lines: [
+          { lead: "A bet that wins with probability `p`, makes a profit `w` when it wins, and loses the stake `s` otherwise has expected profit", tex: "E[\\text{profit}] = p\\,w - (1-p)\\,s" },
+        ],
+        where: ["`w` is profit only. The stake you get back on a win isn’t counted", "The bet is worth taking when `E[\\text{profit}] > 0`, which is when `p > s/(s + w)`"],
+        plain: "Profit times the chance of winning, minus the stake times the chance of losing.",
+        note: "For the die bet, `p = 1/6`, `w = 4` and `s = 1`: {{1/6 × 4 − 5/6 × 1 = −1/6}} The win `w` is your profit only. The $1 you get back on a win was yours already, so it isn’t counted.",
       },
       {
         type: "check",
@@ -1056,7 +1068,7 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         choices: ["+$16", "+$10", "+$22"],
         answer: 0,
         explain:
-          "A win collects the $80 pot and their $20 bet: $100 × 0.3 = $30. A loss costs your $20 call: $20 × 0.7 = $14. $30 − $14 = +$16, so you should call. Counting your own $20 as part of the win gives the wrong +$22.",
+          "A win collects the $80 pot and their $20 bet, and a loss costs your $20 call: {{0.3 × $100 − 0.7 × $20 = $30 − $14 = $16}} So you should call. Counting your own $20 as part of the win gives the wrong +$22.",
       },
       {
         type: "example",
@@ -1184,8 +1196,13 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "House edge = P(lose) × $1 − P(win) × payout, per $1 bet",
-        note: "For red: 20/38 × $1 − 18/38 × $1 = 2/38, about 5.3 cents of every dollar. The payout is profit, so a 1 to 1 bet that wins pays $1.",
+        name: "House edge",
+        lines: [
+          { lead: "For a bet of 1 unit that wins with probability `p` and pays `b` to 1, the house edge is the expected loss per unit staked:", tex: "\\text{edge} = (1-p) - p\\,b = 1 - p\\,(b + 1)" },
+          { lead: "The fair payout is the one with zero edge:", tex: "b_{\\text{fair}} = \\frac{1-p}{p}" },
+        ],
+        plain: "The house edge is what you lose on average for every dollar you bet.",
+        note: "For red, `p = 18/38` and `b = 1`: {{1 − 18/38 × (1 + 1) = 2/38 ≈ 5.3%}} So you lose about 5.3 cents of every dollar. The payout `b` is profit, so a 1 to 1 bet that wins pays $1.",
       },
       {
         type: "check",
@@ -1193,7 +1210,7 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         choices: ["About 16.7%", "About 33.3%", "0%", "About 20%"],
         answer: 0,
         explain:
-          "Per $1, you win $4 on 1 face in 6 and lose $1 on the other 5: 4/6 won against 5/6 lost. The house keeps 1/6 of each dollar, about 16.7%. A fair game would pay 5 to 1.",
+          "Per $1, you win $4 on 1 face in 6 and lose $1 on the other 5: {{5/6 − 1/6 × 4 = 1/6 ≈ 16.7%}} The house keeps 1/6 of each dollar. A fair game would pay 5 to 1.",
       },
       {
         type: "example",
@@ -1285,7 +1302,7 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "Stake half each time and you end with about $71. Each loss halves your money, and the 50% gain from a win doesn’t make it back: 1.5 × 0.5 is 0.75.",
+            text: "Stake half each time and you end with about $71. Each loss halves your money, and the 50% gain from a win doesn’t make it back: 1.5 × 0.5 = 0.75.",
             visual: {
               type: "bars",
               bars: [
@@ -1335,8 +1352,14 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "rule",
-        rule: "Kelly stake = P(win) − P(lose) ÷ payout",
-        note: "The payout is the profit per $1 staked. At even money it’s 1, so the stake is 0.6 − 0.4 = 20%. If the same coin paid 3 to 1, you’d stake 0.6 − 0.4 ÷ 3 ≈ 47%.",
+        name: "The Kelly criterion",
+        lines: [
+          { lead: "Take a bet that wins with probability `p`, loses with probability `q = 1 - p`, and pays `b` to 1. Staking a fraction `f` of your bankroll every time, your money grows in the long run at the rate", tex: "g(f) = p \\log(1 + bf) + q \\log(1 - f)" },
+          { lead: "per bet. This is largest at the Kelly fraction", tex: "f^* = p - \\frac{q}{b} = \\frac{bp - q}{b}" },
+        ],
+        where: ["If `f^* \\le 0` the bet has no edge, and you stake nothing", "Staking `2f^*` gives a growth rate of about 0"],
+        plain: "Stake your chance of winning minus your chance of losing divided by the payout.",
+        note: "Here `p = 0.6` and `q = 0.4`, and even money means `b = 1`, so the Kelly fraction is {{0.6 − 0.4/1 = 20%}} If the same coin paid 3 to 1, then `b = 3` and you’d stake {{0.6 − 0.4/3 ≈ 47%}}",
       },
       {
         type: "check",
@@ -1344,7 +1367,7 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         choices: ["10%", "40%", "−20%", "20%"],
         answer: 0,
         explain:
-          "0.4 − 0.6 ÷ 2 = 0.4 − 0.3 = 10%. Forgetting to divide by the payout gives 0.4 − 0.6 = −20%, which would wrongly turn down a bet that makes +$0.20 per $1 on average.",
+          "Here `p = 0.4`, `q = 0.6` and `b = 2`: {{0.4 − 0.6/2 = 0.4 − 0.3 = 10%}} Forgetting to divide by the payout gives 0.4 − 0.6 = −20%, which would wrongly turn down a bet that makes +$0.20 per $1 on average.",
       },
       {
         type: "example",

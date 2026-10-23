@@ -90,7 +90,7 @@ function collectThemAll(params: { collection: string }): QuantProblem {
         work: `${n} ÷ (${n} − k) tries on average`,
         result: "",
         icon: "split",
-        explain: `Split the wait into stages, one per new ${one}. With k already seen, ${n} − k of the ${n} are new, so each try finds one with chance (${n} − k) ÷ ${n}.`,
+        explain: `Split the wait into stages, one per new ${one}. With \`k\` already seen, \`${n} - k\` of the ${n} are new, so each try finds one with chance \`(${n} - k)/${n}\`.`,
         visual: types(
           [
             { faces: range(1, seen), tone: "known" },
@@ -218,7 +218,7 @@ function patternWait(params: PatternParams): QuantProblem {
         label: "Add 1 ÷ the chance of each piece",
         work: overlaps.map((k) => `${base}${sup(k)}`).join(" + "),
         icon: "add",
-        explain: `A piece of length k comes up with chance 1 ÷ ${base}ᵏ, so it adds ${base}ᵏ ${flipWord}s to the wait.`,
+        explain: `A piece of length \`k\` comes up with chance \`1/${base}^k\`, so it adds \`${base}^k\` ${flipWord}s to the wait.`,
         visual: {
           type: "bars",
           bars: overlaps.map((k) => ({ label: shown(k), value: base ** k, tone: "hit" as const, text: `${base ** k}` })),
@@ -362,14 +362,14 @@ function randomWalk(params: WalkParams): QuantProblem {
       work: `${formatFraction(lose)} ÷ ${formatFraction(win)}`,
       result: formatFraction(r),
       icon: "divide",
-      explain: `r says how strongly the bets lean against you. Above 1, each bet is more likely to lose than win.`,
+      explain: `\`r\` says how strongly the bets lean against you. Above 1, each bet is more likely to lose than win.`,
     });
     steps.push({
       label: `Chance to reach $${target}`,
       work: `(r${sup(start)} − 1) ÷ (r${sup(target)} − 1)`,
       result: formatFraction(reach),
       icon: "target",
-      explain: `Raise r to your starting amount and to the target, take 1 off each, and divide. It comes from linking the chance at each amount to the amounts either side.`,
+      explain: `Raise \`r\` to your starting amount and to the target, take 1 off each, and divide. It comes from linking the chance at each amount to the amounts either side.`,
     });
   }
   if (ask === "broke") {
@@ -583,7 +583,7 @@ function someTypes(params: { n: number; k: number; context: "die" | "stamps" }):
         work: `${n} ÷ (${n} − j) tries on average`,
         result: "",
         icon: "split",
-        explain: `Split the wait into stages, one per new ${one}. With j seen, ${n} − j of the ${n} are new, so a new one turns up with chance (${n} − j) ÷ ${n}.`,
+        explain: `Split the wait into stages, one per new ${one}. With \`j\` seen, \`${n} - j\` of the ${n} are new, so a new one turns up with chance \`(${n} - j)/${n}\`.`,
         visual: {
           type: "die-faces",
           sides: n,
@@ -682,7 +682,7 @@ function streak(params: { pN: number; pD: number; k: number; context: "meter" | 
         work: `every run of 1 to ${k} successes`,
         result: "",
         icon: "filter",
-        explain: `A run of successes overlaps itself at every length: the first i ${one}s and the last i ${one}s are both i successes.`,
+        explain: `A run of successes overlaps itself at every length: the first \`i\` ${one}s and the last \`i\` ${one}s are both \`i\` successes.`,
         visual: {
           type: "states",
           nodes: range(0, k).map((i) => ({ id: `r${i}`, label: i === 0 ? "0" : `${i} in a row`, tone: i === k ? ("hit" as const) : i === 0 ? ("known" as const) : undefined })),
@@ -697,7 +697,7 @@ function streak(params: { pN: number; pD: number; k: number; context: "meter" | 
         label: `Add 1 ÷ ${pText} to the power 1 to ${k}`,
         work: range(1, k).map((i) => `(1 ÷ ${pText})${sup(i)}`).join(" + "),
         icon: "add",
-        explain: `A run of i successes has chance (${pText})ⁱ, so it adds 1 ÷ (${pText})ⁱ to the wait. The longest run adds the most.`,
+        explain: `A run of \`i\` successes has chance \`(${pText})^i\`, so it adds \`1/(${pText})^i\` to the wait. The longest run adds the most.`,
         visual: {
           type: "bars",
           bars: terms.map((t, i) => ({ label: `${i + 1}`, value: value(t), tone: "hit" as const, text: formatResult(t, "number") })),
@@ -750,14 +750,14 @@ function evenFlips(params: { headsN: number; headsD: number; ask: "even" | "odd"
       work: "(1/2)ⁿ⁻¹",
       result: "",
       icon: "repeat",
-      explain: "The first flip can be anything. Each later flip matches the one before with chance 1/2, so stopping on flip n takes n − 2 switches, then a match.",
+      explain: "The first flip can be anything. Each later flip matches the one before with chance 1/2, so stopping on flip `n` takes `n - 2` switches, then a match.",
       visual: bars,
     });
     steps.push({
       label: ask === "even" ? "Add the even flips" : "Add the odd flips",
       work: ask === "even" ? "1/2 + 1/8 + 1/32 + … = (1/2) ÷ (1 − 1/4)" : "1/4 + 1/16 + … = (1/4) ÷ (1 − 1/4)",
       icon: "add",
-      explain: "Each term is 1/4 of the one before, so the sum is the first term ÷ (1 − 1/4).",
+      explain: "Each term is 1/4 of the one before, so the series sums to the first term divided by `1 - 1/4`.",
     });
   } else {
     steps.push({
@@ -774,8 +774,8 @@ function evenFlips(params: { headsN: number; headsD: number; ask: "even" | "odd"
       icon: "add",
       explain:
         ask === "even"
-          ? "An even stop is H H or T T after some extra pairs: (p² + q²) × (1 + pq + (pq)² + …)."
-          : "An odd stop needs one switch first, then a match (H T T or T H H, pq in total), then any number of extra pairs.",
+          ? "An even stop is H H or T T after some extra pairs: `(p^2 + q^2)(1 + pq + (pq)^2 + \\cdots)`."
+          : "An odd stop needs one switch first, then a match (H T T or T H H, `pq` in total), then any number of extra pairs.",
     });
   }
   return problem(
@@ -979,7 +979,7 @@ function diceTokens(params: { tokens: number; aTotal: number; bTotal: number; di
         label: `Chance to reach ${2 * tokens} from ${tokens}`,
         work: `(r${sup(tokens)} − 1) ÷ (r${sup(2 * tokens)} − 1) = 1 ÷ (1 + r${sup(tokens)})`,
         icon: "target",
-        explain: "Use the random-walk rule. Starting halfway, it simplifies to 1 ÷ (1 + rᵗ), where t is the starting tokens.",
+        explain: "Use the random-walk rule. Starting halfway, it simplifies to `1/(1 + r^t)`, where `t` is the number of tokens you start with.",
       },
     ],
     params,
@@ -1105,7 +1105,7 @@ function paidReroll(params: { sides: number; costN: number; costD: number; ask: 
         work: `average kept − ${costText} × rerolls`,
         result: "",
         icon: "split",
-        explain: `Keeping the faces from k up, each roll is kept with chance (${sides} − k + 1) ÷ ${sides}, so you pay for ${sides} ÷ (${sides} − k + 1) − 1 rerolls on average.`,
+        explain: `Keeping faces \`k\` and up, a roll is kept with chance \`(${sides} - k + 1)/${sides}\`, so you pay for \`${sides}/(${sides} - k + 1) - 1\` rerolls on average.`,
         visual: {
           type: "bars",
           bars: shown.map((o) => ({ label: `${o.k}+`, value: value(o.value), tone: o.k === best.k ? ("hit" as const) : ("muted" as const), text: formatDollars(o.value) })),
@@ -1185,7 +1185,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "With 1 toy in hand, 3 of the 4 are new, so each box gives a new one with chance 3/4. A wait for something with chance p takes 1 ÷ p tries on average, so this stage takes 4/3 boxes.",
+            text: "With 1 toy in hand, 3 of the 4 are new, so each box gives a new one with chance 3/4. A wait for something with chance `p` takes `1/p` tries on average, so this stage takes 4/3 boxes.",
             visual: {
               type: "bars",
               bars: [
@@ -1211,7 +1211,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "For the last toy the chance is 1/4, so 4 boxes. Add the four stages: 1 + 4/3 + 2 + 4 = 25/3, about 8.3 boxes.",
+            text: "For the last toy the chance is 1/4, so 4 boxes. Add the four stages: {{1 + 4/3 + 2 + 4 = 25/3 ≈ 8.3}}",
             visual: {
               type: "bars",
               bars: [
@@ -1230,20 +1230,26 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         heading: "Why the stages add",
         body: [
           "Within a stage, every box has the same chance of giving a new toy, so each stage is a plain wait with average 1 ÷ chance. The total wait is the sum of the stages, and the average of a sum is the sum of the averages.",
-          "The stages get slower as the set fills. With n types the last one alone takes n tries, and the total grows a little faster than n: about 14.7 rolls to see every face of a die, and about 236 draws, with replacement, to see every card in a deck.",
+          "The stages get slower as the set fills. With `n` types the last one alone takes `n` tries, and the total grows a little faster than `n`: about 14.7 rolls to see every face of a die, and about 236 draws, with replacement, to see every card in a deck.",
         ],
       },
       {
         type: "rule",
-        rule: "Average tries = n × (1 + 1/2 + 1/3 + … + 1/n)",
-        note: "For 4 toys: 4 × (1 + 1/2 + 1/3 + 1/4) = 4 × 25/12 = 25/3. Each term is one stage read backwards: 4 × 1 is the last toy, and 4 × 1/4 is the first.",
+        name: "The coupon collector’s problem",
+        lines: [
+          { lead: "Each draw is independent and equally likely to be any of `n` types. Let `T` be the number of draws until every type has appeared. Then", tex: "E[T] = n \\left(1 + \\frac{1}{2} + \\cdots + \\frac{1}{n}\\right) = n H_n" },
+          { lead: "More generally, the expected number of draws until `k` different types have appeared is", tex: "\\sum_{i=0}^{k-1} \\frac{n}{n - i}" },
+        ],
+        where: ["`H_n` is the `n`th harmonic number, about `\\ln n + 0.577` for large `n`"],
+        plain: "Split the wait into one stage per new type. Each stage is a geometric wait, and the stage waits add.",
+        note: "For `n = 4` toys: {{4 × (1 + 1/2 + 1/3 + 1/4) = 4 × 25/12 = 25/3}} Each term is one stage read backwards: 4 × 1 is the last toy, and 4 × 1/4 is the first.",
       },
       {
         type: "check",
         prompt: "How many boxes do you expect to open to get 2 different toys out of the 4?",
         choices: ["2", "About 2.3", "6", "About 8.3"],
         answer: 1,
-        explain: "Only the first two stages happen: 1 box for the first toy and 4/3 for the second, 7/3 ≈ 2.3 in all. The slow last stages are what make a full set take so long.",
+        explain: "Only the first two stages happen, 1 box for the first toy and 4/3 for the second: {{1 + 4/3 = 7/3 ≈ 2.3}} The slow last stages are what make a full set take so long.",
       },
       {
         type: "example",
@@ -1251,7 +1257,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "trap",
-        body: "Answering n. Seeing all 6 faces of a die in 6 rolls means no repeats at all, which happens only 6!/6⁶ ≈ 1.5% of the time. The average is 14.7 rolls.",
+        body: "Answering `n`. Seeing all 6 faces of a die in 6 rolls means no repeats at all, which happens only 6!/6⁶ ≈ 1.5% of the time. The average is 14.7 rolls.",
       },
       {
         type: "list",
@@ -1259,7 +1265,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         items: [
           "You keep drawing until you’ve seen every face, toy, suit or type",
           "Each draw is equally likely to be any type, and repeats are allowed",
-          "You’re asked how long until you’ve seen k different types out of n",
+          "You’re asked how long until you’ve seen `k` different types out of `n`",
         ],
       },
     ],
@@ -1340,20 +1346,25 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         heading: "A rule for any pattern",
         body: [
           "Find each piece of the pattern that is both how it starts and how it ends. For H T H those pieces are H and the whole H T H. For H H T, only the whole pattern counts.",
-          "With a fair coin, each piece of length k adds 2ᵏ flips to the wait. So H T H takes 2 + 8 = 10, H H T takes 8, and H H H, which overlaps itself at every length, takes 2 + 4 + 8 = 14.",
+          "With a fair coin, each piece of length `k` adds `2^k` flips to the wait. For H T H that’s {{2¹ + 2³ = 2 + 8 = 10}} H H T takes 2³ = 8. H H H overlaps itself at every length, so it takes {{2 + 4 + 8 = 14}}",
         ],
       },
       {
         type: "rule",
-        rule: "Average wait = sum of 1 ÷ P(piece) over pieces that start and end it",
-        note: "For H T H the pieces are H, with chance 1/2, and H T H, with chance 1/8: 2 + 8 = 10. On a die a piece of length k has chance 1/6ᵏ, so waiting for 6 6 takes 6 + 36 = 42 rolls.",
+        name: "Waiting for a pattern",
+        lines: [
+          { lead: "Flip a fair coin until a pattern `w` of length `m` first appears, and let `T_w` be the number of flips. Then", tex: "E[T_w] = \\sum_{k \\in O(w)} 2^k" },
+        ],
+        where: ["`O(w)` is the set of lengths `k \\le m` for which the first `k` symbols of `w` match its last `k`. It always includes `m`", "With `s` equally likely symbols, such as the faces of a die, use `s^k` in place of `2^k`"],
+        plain: "Add `2^k` for every length `k` at which the pattern’s start matches its end.",
+        note: "For H T H, `O(w) = \\{1, 3\\}`: the first letter matches the last, and the whole pattern matches itself. So {{E[T] = 2¹ + 2³ = 10}} On a die, the pattern 6 6 has `O(w) = \\{1, 2\\}`, so the wait is {{6¹ + 6² = 42}}",
       },
       {
         type: "check",
         prompt: "How many flips of a fair coin do you expect until H H H?",
         choices: ["8", "14", "10", "6"],
         answer: 1,
-        explain: "H, H H and H H H all both start and end H H H, so the wait is 2 + 4 + 8 = 14 flips.",
+        explain: "H, H H and H H H all both start and end H H H, so the wait is {{2¹ + 2² + 2³ = 14}}",
       },
       {
         type: "example",
@@ -1369,7 +1380,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         items: [
           "You flip or roll until a particular run appears",
           "Two patterns of the same length are compared, like H T H against H H T",
-          "You need k successes in a row, which overlaps itself at every length",
+          "You need `k` successes in a row, which overlaps itself at every length",
         ],
       },
     ],
@@ -1462,7 +1473,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
             },
           },
           {
-            text: "The game stops with $5 or $0. If p is the chance of $5, the average final amount is 5p. Setting 5p = 3 gives p = 3/5.",
+            text: "The game stops with $5 or $0. If `p` is the chance of ending at $5, the average final amount is `5p`. It must equal the $3 you started with: {{5p = 3 → p = 3/5}}",
             visual: {
               type: "number-line",
               min: 0,
@@ -1482,14 +1493,19 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         type: "text",
         heading: "When the bets aren’t fair",
         body: [
-          "If each bet wins with chance 2/5, the walk drifts down and 3 ÷ 5 is too high. Let r = lose chance ÷ win chance, here 3/2. Starting with $a and aiming for $N, the chance of reaching N is (rᵃ − 1) ÷ (rᴺ − 1).",
-          "From $3 aiming for $5, that’s (1.5³ − 1) ÷ (1.5⁵ − 1) ≈ 36%, down from 60%. For fair bets you can also find how long the game lasts: a × (N − a) bets on average, so 3 × 2 = 6 here.",
+          "If each bet wins with chance 2/5, the walk drifts down and 3/5 is too high. Let `r` be the chance of losing a bet divided by the chance of winning it, here `r = 3/2`. Starting with `a` dollars and aiming for `N`, the chance of reaching `N` is {{(rᵃ − 1)/(rᴺ − 1)}}",
+          "From $3 aiming for $5, that’s {{(1.5³ − 1)/(1.5⁵ − 1) ≈ 36%}} That’s down from 60% with fair bets. Fair bets also tell you how long the game lasts: `a(N - a)` bets on average, or 3 × 2 = 6 here.",
         ],
       },
       {
         type: "rule",
-        rule: "Fair bets: P(reach N from a) = a ÷ N, average bets = a × (N − a)",
-        note: "From $3 with a $5 target: 3 ÷ 5 = 60% to reach it, and 3 × 2 = 6 bets on average. For unfair bets, use (rᵃ − 1) ÷ (rᴺ − 1) with r = lose chance ÷ win chance.",
+        name: "Gambler’s ruin",
+        lines: [
+          { lead: "Start with `a` and bet 1 at a time, winning each bet with probability `p` and losing with probability `q = 1 - p`, until you reach `N` or 0, where `0 < a < N`. With `r = q/p`,", tex: "P(\\text{reach } N) = \\begin{cases} \\dfrac{a}{N} & \\text{if } p = \\tfrac{1}{2} \\\\[2ex] \\dfrac{r^a - 1}{r^N - 1} & \\text{if } p \\ne \\tfrac{1}{2} \\end{cases}" },
+          { lead: "For fair bets, the expected number of bets until the game ends is", tex: "E[T] = a\\,(N - a)" },
+        ],
+        plain: "With fair bets, your chance of reaching the target is your starting amount as a share of the target.",
+        note: "With fair bets, `a = 3` and `N = 5`: {{P(reach 5) = 3/5 = 60%}} On average the game lasts this many bets: {{E[T] = 3 × (5 − 3) = 6}}",
       },
       {
         type: "check",
@@ -1504,7 +1520,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
       },
       {
         type: "trap",
-        body: "Using a ÷ N when the bets aren’t fair. With a 2/5 chance per bet, starting at $3 and aiming for $6 succeeds only about 23% of the time, well below the 50% that 3 ÷ 6 suggests.",
+        body: "Using `a/N` when the bets aren’t fair. With a 2/5 chance per bet, starting at $3 and aiming for $6 succeeds only about 23% of the time, well below the 50% that 3 ÷ 6 suggests.",
       },
       {
         type: "list",
@@ -1609,7 +1625,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         heading: "Start from the end",
         beats: [
           {
-            text: "If you roll again, you’re stuck with whatever comes up. A fresh roll averages (1 + 2 + 3 + 4 + 5 + 6) ÷ 6 = $3.50.",
+            text: "If you roll again, you’re stuck with whatever comes up. A fresh roll averages {{(1 + 2 + 3 + 4 + 5 + 6)/6 = $3.50}}",
             visual: { type: "die-faces", sides: 6, marks: [], caption: "A fresh roll is worth $3.50" },
           },
           {
@@ -1617,7 +1633,7 @@ export const STATES_LESSONS: QuantLessonDef[] = [
             visual: { type: "die-faces", sides: 6, marks: [{ faces: [4, 5, 6], tone: "hit" }, { faces: [1, 2, 3], tone: "muted" }], caption: "Keep 4, 5 or 6" },
           },
           {
-            text: "Half the time you keep, and the kept rolls average $5. The other half you reroll, which is worth $3.50. The game is worth 1/2 × $5 + 1/2 × $3.50 = $4.25.",
+            text: "Half the time you keep, and the kept rolls average $5. The other half you reroll, which is worth $3.50. The game is worth {{1/2 × $5 + 1/2 × $3.50 = $4.25}}",
             visual: {
               type: "tree",
               root: {
@@ -1637,20 +1653,24 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         heading: "Work backwards",
         body: [
           "You can put a value on the last decision first, because after it there are no choices left. Once you know what going on is worth, each earlier decision is a comparison: keep what’s in front of you if it beats that number. This method is called backward induction.",
-          "With two rerolls, the one-reroll game becomes what rerolling is worth: $4.25. So on the first roll you keep only a 5 or 6, and the game is worth 1/3 × $5.50 + 2/3 × $4.25 ≈ $4.67.",
+          "With two rerolls, the one-reroll game becomes what rerolling is worth: $4.25. So on the first roll you keep only a 5 or 6, and the game is worth {{1/3 × $5.50 + 2/3 × $4.25 ≈ $4.67}}",
         ],
       },
       {
         type: "rule",
-        rule: "Value = P(keep) × average kept + P(go on) × value of going on",
-        note: "For one reroll: you keep half the time, the kept rolls average $5, and going on is worth $3.50. 1/2 × $5 + 1/2 × $3.50 = $4.25.",
+        name: "Backward induction",
+        lines: [
+          { lead: "Let `X` be the result of one draw, and `V_k` the value of the game with `k` draws left, played well. With one draw left you must keep it, so `V_1 = E[X]`. With more left, keep a draw `x` exactly when `x > V_{k-1}`, so", tex: "V_k = E\\big[\\max(X,\\, V_{k-1})\\big]" },
+        ],
+        plain: "Work out what going on is worth first, then keep any result that beats it.",
+        note: "With one reroll left, `V_1 = E[X] = 3.5`, so you keep a first roll `x` when `x > 3.5`. Half the rolls are kept, and they average 5: {{V₂ = 1/2 × 5 + 1/2 × 3.5 = 4.25}}",
       },
       {
         type: "check",
         prompt: "A computer picks a random number between 0 and 1, and you score that number. You may ask for one new number, but then you must keep it. Above what value should you keep the first number?",
         choices: ["1/2", "3/4", "5/8", "1/3"],
         answer: 0,
-        explain: "A new number is worth 1/2 on average, so keep anything above 1/2. The game itself is worth 5/8: half the time you keep a number that averages 3/4, and half the time you take a new one worth 1/2.",
+        explain: "A new number is worth 1/2 on average, so keep anything above 1/2. Half the time you keep a number that averages 3/4, and half the time you take a new one worth 1/2, so the game is worth {{1/2 × 3/4 + 1/2 × 1/2 = 5/8}}",
       },
       {
         type: "example",

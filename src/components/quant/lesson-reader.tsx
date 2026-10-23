@@ -11,6 +11,7 @@ import type { QuantVisual } from "@/lib/quant/visual";
 import { DifficultyPill } from "@/components/quant/difficulty";
 import { Walkthrough } from "@/components/quant/walkthrough";
 import { QuantFigure } from "@/components/quant/visuals";
+import { MathText, Tex } from "@/components/quant/math";
 
 // ─── Reading progress (this browser only: a convenience, not a record) ───────────────────
 
@@ -55,7 +56,7 @@ function Paragraphs({ body }: { body: string[] }) {
     <div className="space-y-3">
       {body.map((paragraph) => (
         <p key={paragraph} className="text-[17px] leading-7">
-          {paragraph}
+          <MathText text={paragraph} />
         </p>
       ))}
     </div>
@@ -109,7 +110,9 @@ function Story({ part, onDone }: { part: Extract<LessonPart, { type: "story" }>;
             >
               {i + 1}
             </span>
-            <span>{b.text}</span>
+            <span className="min-w-0 flex-1">
+              <MathText text={b.text} />
+            </span>
           </motion.li>
         ))}
       </ol>
@@ -159,7 +162,9 @@ function CheckQuestion({ part, picked, onPick }: { part: Extract<LessonPart, { t
   const right = picked === part.answer;
   return (
     <div className="space-y-4">
-      <p className="text-[17px] font-semibold leading-7">{part.prompt}</p>
+      <p className="text-[17px] font-semibold leading-7">
+        <MathText text={part.prompt} />
+      </p>
       {part.visual && <FigureCard visual={part.visual} />}
       <div className="grid gap-2" role="group" aria-label="Choices">
         {part.choices.map((choice, i) => {
@@ -182,7 +187,9 @@ function CheckQuestion({ part, picked, onPick }: { part: Extract<LessonPart, { t
                 answered && !isAnswer && !isPicked && "border-border bg-background opacity-50",
               )}
             >
-              {choice}
+              <span className="min-w-0">
+                <MathText text={choice} />
+              </span>
               {answered && isAnswer && <Check aria-hidden="true" className="size-5 shrink-0 text-success" strokeWidth={2.5} />}
               {answered && isPicked && !isAnswer && <X aria-hidden="true" className="size-5 shrink-0 text-destructive" strokeWidth={2.5} />}
             </motion.button>
@@ -199,7 +206,9 @@ function CheckQuestion({ part, picked, onPick }: { part: Extract<LessonPart, { t
           >
             <div role="status" className={cn("rounded-[18px] px-5 py-4", right ? "bg-success/10" : "bg-secondary")}>
               <p className={cn("text-[15px] font-semibold", right ? "text-success" : "text-foreground")}>{right ? "Correct" : "Not quite"}</p>
-              <p className="mt-1 text-[15px] leading-6">{part.explain}</p>
+              <p className="mt-1 text-[15px] leading-6">
+                <MathText text={part.explain} />
+              </p>
             </div>
           </motion.div>
         )}
@@ -234,11 +243,43 @@ function Part({
       return <Story part={part} onDone={onStoryDone} />;
     case "rule":
       return (
-        <div className="space-y-3">
-          <Heading>The rule</Heading>
+        <div className="space-y-4">
+          <Heading>{part.name}</Heading>
+          {/* The formal statement, set like a textbook's boxed result. */}
+          <div className="rounded-[18px] border border-border px-5 py-4 text-[16px] leading-7">
+            {part.lines.map((line, i) => (
+              <div key={i}>
+                {line.lead && (
+                  <p>
+                    <MathText text={line.lead} />
+                  </p>
+                )}
+                <Tex tex={line.tex} display />
+              </div>
+            ))}
+            {part.where && (
+              <ul className="mt-1 space-y-1.5 border-t border-border pt-3 text-[15px] leading-6 text-muted-foreground">
+                {part.where.map((item) => (
+                  <li key={item} className="flex gap-2">
+                    <span aria-hidden="true" className="mt-[11px] size-1 shrink-0 rounded-full bg-current" />
+                    <span>
+                      <MathText text={item} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <div className="rounded-[18px] bg-secondary px-5 py-4">
-            <p className="text-[19px] font-semibold leading-7 tracking-[-0.01em] tabular-nums">{part.rule}</p>
-            {part.note && <p className="mt-2 text-[15px] leading-6 text-muted-foreground">{part.note}</p>}
+            <p className="text-[13px] font-medium text-muted-foreground">In words</p>
+            <p className="mt-1 text-[17px] font-medium leading-7">
+              <MathText text={part.plain} />
+            </p>
+            {part.note && (
+              <p className="mt-2 text-[15px] leading-6 text-muted-foreground">
+                <MathText text={part.note} />
+              </p>
+            )}
           </div>
         </div>
       );
@@ -248,8 +289,14 @@ function Part({
       return (
         <div className="space-y-4">
           <Heading>Worked example</Heading>
-          {part.lead && <p className="text-[17px] leading-7">{part.lead}</p>}
-          <p className="text-[17px] font-semibold leading-7">{lesson.example.prompt}</p>
+          {part.lead && (
+            <p className="text-[17px] leading-7">
+              <MathText text={part.lead} />
+            </p>
+          )}
+          <p className="text-[17px] font-semibold leading-7">
+            <MathText text={lesson.example.prompt} />
+          </p>
           <Walkthrough problem={lesson.example} />
         </div>
       );
@@ -261,7 +308,9 @@ function Part({
             {part.items.map((item) => (
               <li key={item} className="flex gap-2.5 text-[16px] leading-6">
                 <Check aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-success" strokeWidth={2.5} />
-                {item}
+                <span>
+                  <MathText text={item} />
+                </span>
               </li>
             ))}
           </ul>
@@ -274,7 +323,9 @@ function Part({
             <AlertTriangle aria-hidden="true" className="size-[18px] text-warning" />
             Watch out
           </h2>
-          <p className="rounded-[18px] bg-secondary px-5 py-4 text-[16px] leading-6">{part.body}</p>
+          <p className="rounded-[18px] bg-secondary px-5 py-4 text-[16px] leading-6">
+            <MathText text={part.body} />
+          </p>
         </div>
       );
   }

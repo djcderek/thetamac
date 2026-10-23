@@ -11,6 +11,7 @@ import type { QuantVisual } from "@/lib/quant/visual";
 import { formatAnswer } from "@/lib/quant/rational";
 import { QuantFigure } from "@/components/quant/visuals";
 import { StepIcon } from "@/components/quant/step-icon";
+import { MathExpr, MathText } from "@/components/quant/math";
 
 /**
  * A problem worked out one step at a time: the figure on top changes with each step, and the
@@ -83,11 +84,14 @@ export function Walkthrough({ problem, startWithAll = false }: { problem: QuantP
                 <p className="text-[13px] font-medium text-muted-foreground">
                   Step {index + 1} · {step.label}
                 </p>
-                <p className={cn("mt-0.5 text-[17px] leading-7 tabular-nums", last ? "font-semibold" : "font-medium")}>
-                  {step.work}
-                  {step.result && <> = {step.result}</>}
+                <p className={cn("mt-0.5 text-[17px] leading-8", last ? "font-semibold" : "font-medium")}>
+                  <MathExpr expr={step.result ? `${step.work} = ${step.result}` : step.work} />
                 </p>
-                {step.explain && <p className="mt-1 text-[15px] leading-6 text-muted-foreground">{step.explain}</p>}
+                {step.explain && (
+                  <p className="mt-2 text-[15px] leading-6 text-muted-foreground">
+                    <MathText text={step.explain} />
+                  </p>
+                )}
               </div>
             </motion.li>
           );
@@ -102,7 +106,7 @@ export function Walkthrough({ problem, startWithAll = false }: { problem: QuantP
           className="border-t border-border/70 px-3 pt-4 text-[22px] font-semibold tracking-[-0.02em] tabular-nums"
         >
           <span className="mr-2 text-[15px] font-medium tracking-normal text-muted-foreground">Answer</span>
-          {formatAnswer(problem.answer, problem.kind)}
+          <MathExpr expr={formatAnswer(problem.answer, problem.kind)} />
         </motion.p>
       )}
 

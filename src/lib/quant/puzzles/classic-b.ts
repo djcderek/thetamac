@@ -285,7 +285,7 @@ const twoWaits = (() => {
         label: "Alice takes a flips and Bob takes more",
         work: "(1/2)ᵃ × (1/2)ᵃ = (1/4)ᵃ",
         icon: "multiply",
-        explain: "Alice’s first head comes on flip a with chance (1/2)ᵃ. Bob needs more than a flips, so his first a flips are all tails: (1/2)ᵃ.",
+        explain: "Alice’s first head comes on flip `a` with chance `(1/2)^a`. Bob needs more than `a` flips, so his first `a` flips are all tails, also chance `(1/2)^a`.",
         visual: { type: "coins", flips: ["T", "H", "T", "T", "?"], tones: ["alt", "alt", "hit", "hit", "muted"], caption: "Alice (blue) gets heads on flip 2; Bob (orange) is still on tails after 2 flips." },
       },
       {
@@ -293,7 +293,7 @@ const twoWaits = (() => {
         work: "1/4 + 1/16 + 1/64 + …",
         result: formatFraction(bobMore),
         icon: "add",
-        explain: "Add (1/4)ᵃ over every a. This is what you’re told happened.",
+        explain: "Add `(1/4)^a` over every `a`. This is what you’re told happened.",
       },
       {
         label: "Given that, Alice took a flips",
@@ -336,7 +336,7 @@ const untilRepeat = (() => {
         label: "Average rolls = chances you’re still rolling, added up",
         work: "add the chance the first r rolls are all different, for r = 0 to 6",
         icon: "idea",
-        explain: "You make roll r + 1 only if the first r rolls were all different. Adding the chance of making each roll gives the average count.",
+        explain: "You make roll `r + 1` only if the first `r` rolls were all different. Adding the chance of making each roll gives the average count.",
       },
       {
         label: "First r rolls all different",
@@ -380,7 +380,7 @@ const iceCream = (() => {
         label: "Chance place n wins",
         work: "(the n − 1 people ahead all differ) × (n − 1) ÷ 365",
         icon: "multiply",
-        explain: "Nobody ahead of you can have won, so their birthdays all differ. Then yours must match one of those n − 1.",
+        explain: "Nobody ahead of you can have won, so their birthdays all differ. Then yours must match one of those `n - 1`.",
         visual: {
           type: "bars",
           bars: Array.from({ length: 24 }, (_, i) => ({ label: String(i + 1), value: winChance(i + 1), tone: i + 1 === 20 ? ("hit" as const) : ("muted" as const) })),
@@ -397,7 +397,7 @@ const iceCream = (() => {
         label: "Best place: just after n² − n reaches 365",
         work: "19² − 19 = 342 is under 365; 20² − 20 = 380 isn’t",
         icon: "target",
-        explain: "The chance rises while the ratio is above 1, which simplifies to n² − n < 365. It peaks one place after that stops.",
+        explain: "The chance rises while the ratio is above 1, which simplifies to `n^2 - n < 365`. It peaks one place after that stops.",
       },
     ],
     { days: 365 },
