@@ -5,8 +5,12 @@ import { db } from "@/lib/db";
 import { checkPremiumAccess } from "@/lib/subscription";
 import { trainingRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import { MOCK_FREE, MOCK_MINUTES, isMockShape, scoreMock } from "@/lib/quant/mock";
+import { mockTopics } from "@/lib/quant/mock-progress";
 
 export const dynamic = "force-dynamic";
+
+/** Past mocks sent: enough for the progress chart; the list shows the latest few. */
+const HISTORY_SIZE = 20;
 
 /** Past mocks, newest first, and whether another can be taken (Pro, or a free one left). */
 export async function GET() {
@@ -22,12 +26,18 @@ export async function GET() {
       db.quantMock.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
-        take: 10,
-        select: { id: true, score: true, correct: true, total: true, seconds: true, createdAt: true },
+        take: HISTORY_SIZE,
+        select: { id: true, score: true, correct: true, total: true, seconds: true, createdAt: true, questions: true },
       }),
     ]);
     const freeLeft = isPremium ? null : Math.max(0, MOCK_FREE - count);
-    return NextResponse.json({ locked: !isPremium && count >= MOCK_FREE, pro: isPremium, freeLeft, history });
+    return NextResponse.json({
+      locked: !isPremium && count >= MOCK_FREE,
+      pro: isPremium,
+      freeLeft,
+      // Each mock's right and total by unit, for the progress chart; the questions stay here.
+      history: history.map(({ questions, ...mock }) => ({ ...mock, topics: mockTopics(questions) })),
+    });
   } catch (error) {
     console.error("Error loading quant mocks:", error);
     return NextResponse.json({ error: "Failed to load mocks" }, { status: 500 });

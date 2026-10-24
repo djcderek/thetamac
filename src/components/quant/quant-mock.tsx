@@ -27,6 +27,8 @@ import { AnswerBox } from "@/components/quant/answer-box";
 import { QuantFigure } from "@/components/quant/visuals";
 import { Walkthrough } from "@/components/quant/walkthrough";
 import { MathText } from "@/components/quant/math";
+import { MockProgress } from "@/components/quant/mock-progress";
+import type { MockTopics } from "@/lib/quant/mock-progress";
 import { trackQuantUpgradeClick, useQuantGateViewed } from "@/components/quant/quant-analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
@@ -35,7 +37,7 @@ type Summary = {
   locked: boolean;
   pro: boolean;
   freeLeft: number | null;
-  history: { id: string; score: number; correct: number; total: number; seconds: number; createdAt: string }[];
+  history: { id: string; score: number; correct: number; total: number; seconds: number; createdAt: string; topics: MockTopics }[];
 };
 
 type Test = {
@@ -601,14 +603,16 @@ export function QuantMock() {
         )}
       </div>
 
+      <MockProgress history={s.history} />
+
       {s.history.length > 0 && (
         <div className="mt-10 space-y-2">
           <div className="flex items-baseline justify-between px-1">
             <p className="text-[15px] font-semibold">Your mocks</p>
-            {best !== null && <p className="text-[14px] tabular-nums text-muted-foreground">Best {best}</p>}
+            {best !== null && s.history.length < 2 && <p className="text-[14px] tabular-nums text-muted-foreground">Best {best}</p>}
           </div>
           <ol className="divide-y divide-border border-y border-border">
-            {s.history.map((mock) => {
+            {s.history.slice(0, 10).map((mock) => {
               const rating = mockRating(mock.score);
               return (
                 <li key={mock.id} className="flex items-center justify-between gap-3 px-2 py-3 text-[15px]">
