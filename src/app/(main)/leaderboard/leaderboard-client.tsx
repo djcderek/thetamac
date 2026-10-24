@@ -730,7 +730,7 @@ export function LeaderboardClient({
                             </div>
                           ) : null}
                           <div className="text-xs text-muted-foreground">
-                            Scores from every timed run on the default settings
+                            Scores from every full timed run on the default settings
                           </div>
                         </div>
                       </div>

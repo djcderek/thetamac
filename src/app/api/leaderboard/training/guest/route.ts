@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { GUEST_COOKIE_NAME, verifyGuestToken } from "@/lib/guest";
 import { checkRateLimit, guestLeaderboardRatelimit } from "@/lib/rate-limit";
+import { MAX_STANDARD_SCORE } from "@/lib/standard-timed-sessions";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 function isDefaultSettings(payload: {
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
       total > MAX_PROBLEMS_PER_SUBMISSION ||
       correct < 0 ||
       correct > total ||
+      correct > MAX_STANDARD_SCORE ||
       avgTime < 0 ||
       avgTime > MAX_AVERAGE_TIME_SECONDS ||
       streak < 0 ||
