@@ -15,8 +15,13 @@ export type TimedSetup = { difficulty: (typeof DIFFICULTIES)[number]; operations
 /** Runs needed before a placement means much, and how many different players they come from. */
 export const MIN_RUNS = 30;
 export const MIN_PLAYERS = 8;
-/** Each player counts for at most this many of their latest runs, so heavy players don't set the curve. */
-export const RUNS_PER_PLAYER = 20;
+/**
+ * A guest run stores no duration; it counts as played to the end when its answering time
+ * (average time per correct answer × correct answers) is at least this share of the limit.
+ */
+export const GUEST_FULL_RUN_SHARE = 0.75;
+/** Same as the all-time leaderboard: past this, a guest's unverified runs are left out. */
+export const MAX_LEGACY_GUEST_TOTAL = 5000;
 /** A stopped run needs this long, and this many answers, before its pace says anything. */
 export const MIN_PACE_SECONDS = 20;
 export const MIN_PACE_ANSWERS = 3;

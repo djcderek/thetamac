@@ -133,7 +133,7 @@ export function ScoreDistributionCard({
 
           <div className="text-xs text-muted-foreground">
             {data.setupLabel
-              ? `Everyone's full timed runs on ${data.setupLabel}, up to 20 per player`
+              ? `Everyone's full timed runs on ${data.setupLabel}`
               : "Scores from every timed run on the default settings"}
           </div>
         </div>

@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { STANDARD_TIMED_LIMIT_SECONDS, standardTimedSessionSql } from "@/lib/standard-timed-sessions";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
-import { FULL_RUN_SLACK_SECONDS, RUNS_PER_PLAYER, type TimedSetup } from "@/lib/run-placement";
+import { FULL_RUN_SLACK_SECONDS, GUEST_FULL_RUN_SHARE, MAX_LEGACY_GUEST_TOTAL, type TimedSetup } from "@/lib/run-placement";
 
 /**
  * The timed leaderboard's totals, worked out in the database. Loading every run and adding
@@ -39,7 +39,7 @@ function windowSql(column: Prisma.Sql, window: RunWindow) {
 function guestRunsCte(window: RunWindow, unverifiedLimit: number) {
   return Prisma.sql`
     WITH plausible AS (
-      SELECT g."guestId", g."displayName", g."identityVerified", g."correctAnswers", g."bestStreak", g."createdAt"
+      SELECT g."guestId", g."displayName", g."identityVerified", g."correctAnswers", g."bestStreak", g."averageTime", g."createdAt"
       FROM guest_training_scores g
       WHERE g."guestId" ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         AND (
@@ -161,40 +161,51 @@ export async function loadGuestNames(
 }
 
 /**
- * Scores of full-length timed runs on one setup (difficulty, the exact set of operations,
- * time limit, preset ranges), with each player's latest RUNS_PER_PLAYER runs at most. A
- * stopped run is saved like a finished one, so runs shorter than their limit are left out.
- * Guest runs carry no settings and aren't counted.
+ * Scores of full-length timed runs on one setup: difficulty, the exact set of operations,
+ * time limit, preset ranges. A stopped run is saved like a finished one, so a signed-in run
+ * shorter than its limit is left out. Guest runs are only ever on the default setup, so they
+ * count there; they store no duration, so a guest run counts as full when its answering time
+ * (average time per correct answer, times correct answers) covers most of the limit.
  */
 export async function loadSetupScoreCounts(setup: TimedSetup): Promise<{ counts: { score: number; count: number }[]; players: number }> {
   const isStandard =
     setup.difficulty === DEFAULT_TIMED_TRAINING_SETTINGS.difficulty &&
     setup.timeLimitSeconds === STANDARD_TIMED_LIMIT_SECONDS &&
     setup.operations.length === DEFAULT_TIMED_TRAINING_SETTINGS.operations.length;
-  const runs = Prisma.sql`
-    WITH runs AS (
-      SELECT s."userId", s."correctAnswers" AS score,
-        ROW_NUMBER() OVER (PARTITION BY s."userId" ORDER BY s."completedAt" DESC) AS n
-      FROM training_sessions s
-      WHERE s."gameMode" = 'timed'
-        AND s."completedAt" IS NOT NULL
-        AND s."totalProblems" > 0
-        AND s."difficulty" = ${setup.difficulty}
-        AND s."operations" @> ${setup.operations}::text[]
-        AND s."operations" <@ ${setup.operations}::text[]
-        AND s."duration" >= ${setup.timeLimitSeconds - FULL_RUN_SLACK_SECONDS}
-        AND (
-          (s."timeLimitSeconds" = ${setup.timeLimitSeconds} AND s."customRanges" = false)
-          ${isStandard ? Prisma.sql`OR (s."timeLimitSeconds" IS NULL AND s."customRanges" IS NULL)` : Prisma.empty}
-        )
-    )
+  const sessions = Prisma.sql`
+    SELECT s."userId" AS player, s."correctAnswers" AS score
+    FROM training_sessions s
+    WHERE s."gameMode" = 'timed'
+      AND s."completedAt" IS NOT NULL
+      AND s."totalProblems" > 0
+      AND s."difficulty" = ${setup.difficulty}
+      AND s."operations" @> ${setup.operations}::text[]
+      AND s."operations" <@ ${setup.operations}::text[]
+      AND s."duration" >= ${setup.timeLimitSeconds - FULL_RUN_SLACK_SECONDS}
+      AND (
+        (s."timeLimitSeconds" = ${setup.timeLimitSeconds} AND s."customRanges" = false)
+        ${isStandard ? Prisma.sql`OR (s."timeLimitSeconds" IS NULL AND s."customRanges" IS NULL)` : Prisma.empty}
+      )
   `;
+  const runs = isStandard
+    ? Prisma.sql`
+        ${guestRunsCte({}, MAX_LEGACY_GUEST_TOTAL)},
+        runs AS (
+          ${sessions}
+          UNION ALL
+          SELECT "guestId" AS player, "correctAnswers" AS score
+          FROM guest_runs
+          WHERE "correctAnswers" > 0
+            AND "averageTime" * "correctAnswers" >= ${setup.timeLimitSeconds * GUEST_FULL_RUN_SHARE}
+        )
+      `
+    : Prisma.sql`WITH runs AS (${sessions})`;
   const [counts, [{ players }]] = await Promise.all([
     db.$queryRaw<{ score: number; count: number }[]>`
       ${runs}
-      SELECT score, COUNT(*)::int AS count FROM runs WHERE n <= ${RUNS_PER_PLAYER} GROUP BY score ORDER BY score
+      SELECT score, COUNT(*)::int AS count FROM runs GROUP BY score ORDER BY score
     `,
-    db.$queryRaw<{ players: number }[]>`${runs} SELECT COUNT(DISTINCT "userId")::int AS players FROM runs`,
+    db.$queryRaw<{ players: number }[]>`${runs} SELECT COUNT(DISTINCT player)::int AS players FROM runs`,
   ]);
   return { counts, players };
 }
