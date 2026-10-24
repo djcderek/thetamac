@@ -27,6 +27,9 @@ import { AnswerBox } from "@/components/quant/answer-box";
 import { QuantFigure } from "@/components/quant/visuals";
 import { Walkthrough } from "@/components/quant/walkthrough";
 import { MathText } from "@/components/quant/math";
+import { trackQuantUpgradeClick, useQuantGateViewed } from "@/components/quant/quant-analytics";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 type Summary = {
   locked: boolean;
@@ -138,6 +141,10 @@ export function QuantMock() {
     setConfirming(false);
     setOpenResult(null);
     window.scrollTo({ top: 0, behavior: "instant" });
+    captureAnalyticsEvent(ANALYTICS_EVENTS.quantMockStarted, {
+      plan: summary?.pro ? "premium" : "free",
+      mock_number: (summary?.history.length ?? 0) + 1,
+    });
   };
 
   /** The test with the time on the open question counted. */
@@ -155,11 +162,23 @@ export function QuantMock() {
     requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
   };
 
-  const finish = (t: Test) => {
+  const finish = (t: Test, timedOut = false) => {
     const done = banked(t);
     const correct = done.questions.map((q, i) => done.answers[i].trim() !== "" && isRightAnswer(done.answers[i], q.problem.answer, q.problem.kind));
     const seconds = Math.min(LIMIT_SECONDS, (performance.now() - done.startedAt) / 1000);
     setFinished({ questions: done.questions, answers: done.answers, spent: done.spent, correct, seconds });
+    const result = scoreMock(done.questions.map((q, i) => ({ lessonId: q.lessonId, family: q.family, correct: correct[i], seconds: done.spent[i] })));
+    captureAnalyticsEvent(ANALYTICS_EVENTS.quantMockCompleted, {
+      plan: summary?.pro ? "premium" : "free",
+      mock_number: (summary?.history.length ?? 0) + 1,
+      score: result?.score,
+      rating: result ? mockRating(result.score).label : undefined,
+      correct: result?.correct,
+      answered: done.answers.filter((a) => a.trim()).length,
+      flagged: done.flagged.filter(Boolean).length,
+      seconds_used: Math.round(seconds),
+      timed_out: timedOut,
+    });
     setTest(null);
     setConfirming(false);
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -182,9 +201,12 @@ export function QuantMock() {
   // Time's up: the test ends with what's been answered.
   const timeUp = !!test && remaining <= 0;
   useEffect(() => {
-    if (timeUp && test) finish(test);
+    if (timeUp && test) finish(test, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeUp]);
+
+  useQuantGateViewed("quant_mock", !test && !finished && !!summary?.locked, signedIn, { mocks_taken: summary?.history.length ?? 0 });
+  useQuantGateViewed("quant_mock_results", !!finished && !!summary && !summary.pro, signedIn);
 
   // ── Signed out, loading, locked ──
   if (status === "loading" || (signedIn && !summary && !failed)) return <Shell>{null}</Shell>;
@@ -481,7 +503,11 @@ export function QuantMock() {
                 <p className="mt-1 text-[15px] leading-6 text-muted-foreground">
                   That was your free mock. Pro has unlimited mocks with fresh questions every time, and brings every miss back in review until it sticks.
                 </p>
-                <Link href={getUpgradeUrl({ feature: "quant", source: "quant_mock_results", next: "/quant/mock" })} className={cn(buttonVariants({ variant: "brand", size: "lg" }), "mt-4")}>
+                <Link
+                  href={getUpgradeUrl({ feature: "quant", source: "quant_mock_results", next: "/quant/mock" })}
+                  onClick={() => trackQuantUpgradeClick("quant_mock_results", { score: result.score })}
+                  className={cn(buttonVariants({ variant: "brand", size: "lg" }), "mt-4")}
+                >
                   <Lock aria-hidden="true" className="size-4" />
                   Unlock with Pro
                 </Link>
@@ -554,7 +580,11 @@ export function QuantMock() {
       <div className="mt-6 px-1">
         {s.locked ? (
           <>
-            <Link href={getUpgradeUrl({ feature: "quant", source: "quant_mock", next: "/quant/mock" })} className={buttonVariants({ variant: "brand", size: "lg" })}>
+            <Link
+              href={getUpgradeUrl({ feature: "quant", source: "quant_mock", next: "/quant/mock" })}
+              onClick={() => trackQuantUpgradeClick("quant_mock", { mocks_taken: s.history.length })}
+              className={buttonVariants({ variant: "brand", size: "lg" })}
+            >
               <Lock aria-hidden="true" className="size-4" />
               Unlock mock tests
             </Link>

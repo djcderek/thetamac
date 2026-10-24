@@ -36,7 +36,9 @@ export function useQuantProgress() {
 
   // Pro lessons are open to Pro accounts (the session's plan until progress arrives).
   const locked = lessons ? lessons.locked : !session?.user?.isPremium;
-  return { lessons, setLessons, locked, signedIn };
+  // Whether `locked` is settled: signed out, or the account's progress has arrived.
+  const ready = status === "unauthenticated" || lessons !== null;
+  return { lessons, setLessons, locked, signedIn, ready };
 }
 
 export function lessonStatus(lessons: LessonsSummary | null, id: string): Status {

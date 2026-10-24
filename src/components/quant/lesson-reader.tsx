@@ -13,6 +13,8 @@ import { Walkthrough } from "@/components/quant/walkthrough";
 import { QuantFigure } from "@/components/quant/visuals";
 import { MathText, Tex } from "@/components/quant/math";
 import { setLessonRead, useLessonReadHere } from "@/components/quant/type-progress";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 // ─── Parts ───────────────────────────────────────────────────────────────────────────────
 
@@ -353,7 +355,10 @@ export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What c
     const next = revealed + 1;
     scrollTo.current = revealed;
     setRevealed(next);
-    if (next >= parts.length) setLessonRead(lesson.id, true);
+    if (next >= parts.length) {
+      setLessonRead(lesson.id, true);
+      captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonRead, { lesson_id: lesson.id, topic: lesson.topic, method: "read", checks: Object.keys(picks).length });
+    }
   };
 
   return (
@@ -382,7 +387,10 @@ export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What c
             {!done && (
               <button
                 type="button"
-                onClick={() => setLessonRead(lesson.id, true)}
+                onClick={() => {
+                  setLessonRead(lesson.id, true);
+                  captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonRead, { lesson_id: lesson.id, topic: lesson.topic, method: "show_all", parts_read: revealed, parts: parts.length });
+                }}
                 className="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Show it all
