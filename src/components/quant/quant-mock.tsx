@@ -28,6 +28,8 @@ import { QuantFigure } from "@/components/quant/visuals";
 import { Walkthrough } from "@/components/quant/walkthrough";
 import { MathText } from "@/components/quant/math";
 import { MockProgress } from "@/components/quant/mock-progress";
+import { MockPlanCard } from "@/components/quant/mock-plan";
+import { buildMockPlan, type MockPlan } from "@/lib/quant/plan";
 import type { MockTopics } from "@/lib/quant/mock-progress";
 import { trackQuantUpgradeClick, useQuantGateViewed } from "@/components/quant/quant-analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -38,6 +40,10 @@ type Summary = {
   pro: boolean;
   freeLeft: number | null;
   history: { id: string; score: number; correct: number; total: number; seconds: number; createdAt: string; topics: MockTopics }[];
+  /** The plan from the latest mock. */
+  plan: MockPlan | null;
+  /** Lessons read, for a new mock's plan. */
+  read: string[];
 };
 
 type Test = {
@@ -398,21 +404,14 @@ export function QuantMock() {
   if (finished && summary) {
     const result = scoreMock(finished.questions.map((q, i) => ({ lessonId: q.lessonId, family: q.family, correct: finished.correct[i], seconds: finished.spent[i] })))!;
     const rating = mockRating(result.score);
-    // What to work on: the misses that cost the most points, a few lessons at most.
-    const lost = new Map<string, number>();
-    finished.questions.forEach((q, i) => {
-      if (finished.correct[i]) return;
-      const topic = getQuantLesson(q.lessonId)!.topic;
-      lost.set(topic, (lost.get(topic) ?? 0) + q.points);
-    });
-    const costliest = [...lost.entries()].sort((a, b) => b[1] - a[1])[0];
-    const costliestTitle = costliest ? QUANT_TOPICS.find((t) => t.id === costliest[0])!.title : null;
-    const missedLessons = finished.questions
-      .filter((_, i) => !finished.correct[i])
-      .sort((a, b) => (lost.get(getQuantLesson(b.lessonId)!.topic) ?? 0) - (lost.get(getQuantLesson(a.lessonId)!.topic) ?? 0) || b.points - a.points)
-      .slice(0, 3)
-      .map((q) => getQuantLesson(q.lessonId)!);
-    const missedCount = finished.correct.filter((c) => !c).length;
+    // The plan from this mock; nothing is right since yet, so it starts at the first lesson.
+    const plan = buildMockPlan(
+      { id: "latest", score: result.score, questions: finished.questions.map((q, i) => ({ lessonId: q.lessonId, correct: finished.correct[i] })) },
+      new Map(),
+      new Set(summary.read),
+    );
+    // On the free plan the plan's own button opens Pro when it has Pro lessons in it.
+    const planUpgrade = !summary.pro && !!plan?.steps.some((step) => !step.free);
 
     return (
       <Shell>
@@ -469,23 +468,7 @@ export function QuantMock() {
             </ul>
           </div>
 
-          {missedLessons.length > 0 && (
-            <div className="space-y-2">
-              <p className="px-1 text-[15px] font-semibold">Work on next</p>
-              <p className="px-1 text-[15px] leading-6 text-muted-foreground">
-                {costliestTitle && lost.size > 1 ? `${costliestTitle} cost you the most points. ` : ""}
-                {missedCount > missedLessons.length ? "Start with these lessons. " : "Drill these lessons. "}Every question you missed also comes back in your review.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {missedLessons.map((lesson) => (
-                  <Link key={lesson.id} href={`/quant/${lesson.id}?step=drill`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
-                    {lesson.title}
-                    <ChevronRight aria-hidden="true" />
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
+          {plan && <MockPlanCard plan={plan} pro={summary.pro} upgrade={planUpgrade} />}
 
           <div className="space-y-2">
             {summary.pro ? (
@@ -494,13 +477,13 @@ export function QuantMock() {
                   <RotateCcw aria-hidden="true" />
                   Take another mock
                 </Button>
-                {missedLessons.length > 0 && (
+                {plan && (
                   <Link href="/quant/review" className={buttonVariants({ variant: "secondary", size: "lg" })}>
                     Review the misses
                   </Link>
                 )}
               </div>
-            ) : (
+            ) : planUpgrade ? null : (
               <div className="rounded-[22px] bg-secondary p-5">
                 <p className="text-[17px] font-semibold">Keep testing with Pro</p>
                 <p className="mt-1 text-[15px] leading-6 text-muted-foreground">
@@ -591,7 +574,9 @@ export function QuantMock() {
               <Lock aria-hidden="true" className="size-4" />
               Unlock mock tests
             </Link>
-            <p className="mt-3 text-[15px] leading-6 text-muted-foreground">You’ve taken your free mock. Pro has unlimited mocks, with new questions every time.</p>
+            <p className="mt-3 text-[15px] leading-6 text-muted-foreground">
+              You’ve taken your free mock. Pro has unlimited mocks, with new questions every time{s.plan?.steps.some((step) => !step.free) ? ", and opens every lesson in your plan" : ""}.
+            </p>
           </>
         ) : (
           <>
@@ -603,6 +588,8 @@ export function QuantMock() {
           </>
         )}
       </div>
+
+      {s.plan && <MockPlanCard plan={s.plan} pro={s.pro} className="mt-10" />}
 
       <MockProgress history={s.history} />
 
