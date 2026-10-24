@@ -3,6 +3,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ScoreDistribution } from "@/components/training/training-types";
 import { formatPlacement } from "@/lib/placement";
+import { MIN_PLAYERS, MIN_RUNS } from "@/lib/run-placement";
 
 export function ScoreDistributionCard({
   data,
@@ -25,8 +26,14 @@ export function ScoreDistributionCard({
           </p>
         </div>
         {typeof data.total === "number" ? (
-          <div className="shrink-0 text-[13px] text-muted-foreground tabular-nums">
+          <div className="shrink-0 text-right text-[13px] text-muted-foreground tabular-nums">
             {data.total} {data.total === 1 ? "run" : "runs"}
+            {typeof data.players === "number" && (
+              <>
+                <br />
+                {data.players} {data.players === 1 ? "player" : "players"}
+              </>
+            )}
           </div>
         ) : null}
       </div>
@@ -36,7 +43,9 @@ export function ScoreDistributionCard({
         <span className="font-mono tabular-nums text-foreground">
           {typeof data.score === "number" ? data.score : "—"}
         </span>{" "}
-        {data.bucket ? <span className="text-muted-foreground">(bucket {data.bucket})</span> : null}
+        {data.bucket && data.bucket.split("-")[0] !== data.bucket.split("-")[1] ? (
+          <span className="text-muted-foreground">(bucket {data.bucket})</span>
+        ) : null}
       </div>
 
       {hasBuckets ? (
@@ -123,12 +132,16 @@ export function ScoreDistributionCard({
           </div>
 
           <div className="text-xs text-muted-foreground">
-            Scores from every timed run on the default settings
+            {data.setupLabel
+              ? `Everyone's full timed runs on ${data.setupLabel}, up to 20 per player`
+              : "Scores from every timed run on the default settings"}
           </div>
         </div>
       ) : (
         <div className="mt-4 rounded-2xl bg-background p-3 text-sm text-muted-foreground">
-          Distribution will appear once enough runs have been recorded.
+          {data.setupLabel
+            ? `Not enough runs on ${data.setupLabel} yet. Placement shows once ${MIN_RUNS} full runs from ${MIN_PLAYERS} players are in.`
+            : "Distribution will appear once enough runs have been recorded."}
         </div>
       )}
     </div>

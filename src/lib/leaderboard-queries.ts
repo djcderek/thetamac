@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { standardTimedSessionSql } from "@/lib/standard-timed-sessions";
+import { STANDARD_TIMED_LIMIT_SECONDS, standardTimedSessionSql } from "@/lib/standard-timed-sessions";
+import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
+import { FULL_RUN_SLACK_SECONDS, RUNS_PER_PLAYER, type TimedSetup } from "@/lib/run-placement";
 
 /**
  * The timed leaderboard's totals, worked out in the database. Loading every run and adding
@@ -156,4 +158,43 @@ export async function loadGuestNames(
     ORDER BY "guestId", "identityVerified" DESC, "createdAt" DESC
   `;
   return new Map(rows.map((row) => [row.guestId, row.displayName]));
+}
+
+/**
+ * Scores of full-length timed runs on one setup (difficulty, the exact set of operations,
+ * time limit, preset ranges), with each player's latest RUNS_PER_PLAYER runs at most. A
+ * stopped run is saved like a finished one, so runs shorter than their limit are left out.
+ * Guest runs carry no settings and aren't counted.
+ */
+export async function loadSetupScoreCounts(setup: TimedSetup): Promise<{ counts: { score: number; count: number }[]; players: number }> {
+  const isStandard =
+    setup.difficulty === DEFAULT_TIMED_TRAINING_SETTINGS.difficulty &&
+    setup.timeLimitSeconds === STANDARD_TIMED_LIMIT_SECONDS &&
+    setup.operations.length === DEFAULT_TIMED_TRAINING_SETTINGS.operations.length;
+  const runs = Prisma.sql`
+    WITH runs AS (
+      SELECT s."userId", s."correctAnswers" AS score,
+        ROW_NUMBER() OVER (PARTITION BY s."userId" ORDER BY s."completedAt" DESC) AS n
+      FROM training_sessions s
+      WHERE s."gameMode" = 'timed'
+        AND s."completedAt" IS NOT NULL
+        AND s."totalProblems" > 0
+        AND s."difficulty" = ${setup.difficulty}
+        AND s."operations" @> ${setup.operations}::text[]
+        AND s."operations" <@ ${setup.operations}::text[]
+        AND s."duration" >= ${setup.timeLimitSeconds - FULL_RUN_SLACK_SECONDS}
+        AND (
+          (s."timeLimitSeconds" = ${setup.timeLimitSeconds} AND s."customRanges" = false)
+          ${isStandard ? Prisma.sql`OR (s."timeLimitSeconds" IS NULL AND s."customRanges" IS NULL)` : Prisma.empty}
+        )
+    )
+  `;
+  const [counts, [{ players }]] = await Promise.all([
+    db.$queryRaw<{ score: number; count: number }[]>`
+      ${runs}
+      SELECT score, COUNT(*)::int AS count FROM runs WHERE n <= ${RUNS_PER_PLAYER} GROUP BY score ORDER BY score
+    `,
+    db.$queryRaw<{ players: number }[]>`${runs} SELECT COUNT(DISTINCT "userId")::int AS players FROM runs`,
+  ]);
+  return { counts, players };
 }

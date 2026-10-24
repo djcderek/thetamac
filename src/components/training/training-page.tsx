@@ -38,6 +38,7 @@ import {
 } from "@/lib/practice-set";
 import { DAILY_SIZE } from "@/lib/daily-session";
 import { problemKey } from "@/lib/practice-set";
+import { describeTimedSetup, type PlacementResponse } from "@/lib/run-placement";
 import { ANALYTICS_EVENTS, type AnalyticsProperties } from "@/lib/analytics";
 import {
   captureAnalyticsEvent,
@@ -61,7 +62,6 @@ import type {
   PracticeProgress,
   Problem,
   ReviewSummary,
-  ScoreBucket,
   ScoreDistribution,
   SubmitMode,
 } from "@/components/training/training-types";
@@ -1581,75 +1581,41 @@ export default function TrainingPage() {
       await submitGuestScore(solved, correct, bestStreak, avgTimeVal);
     }
 
-    // Placement is shown on the results screen for signed-in players and guests alike.
-    if (outcome === "completed" && gameMode === "timed" && isDefaultTimedConfig()) {
-      const scoreForDistribution = correct;
+    // Placement: where this run lands among everyone's timed runs on the same settings
+    // (preset ranges only). A stopped run is placed by its pace over the full time.
+    if (gameMode === "timed" && !showAdvanced && (outcome === "completed" || endReason === "manual_stop")) {
+      const elapsed = outcome === "completed" ? null : stoppedAfterSeconds;
+      const query = new URLSearchParams({
+        difficulty,
+        operations: selectedOperations.join(","),
+        limit: String(timedModeLimit),
+        score: String(correct),
+        ...(elapsed !== null ? { elapsed: String(Math.round(elapsed)) } : {}),
+      });
       try {
-        const res = await fetch("/api/leaderboard/training/distribution");
+        const res = await fetch(`/api/training/placement?${query}`);
         // A new run started meanwhile: this placement belongs to the previous one.
         if (res.ok && trainingRunIdRef.current === endingRunId) {
-          const data = await res.json();
-          const buckets: ScoreBucket[] = data.buckets || [];
-          const total: number = data.total || 0;
-          const maxCount = buckets.reduce((max, bucket) => Math.max(max, bucket.count), 0);
-
-          if (!total || buckets.length === 0) {
+          const data: PlacementResponse = await res.json();
+          if (data.available) {
+            const bucket = data.buckets[data.userBucketIndex];
             setScorePercentile({
-              percentile: null,
-              bucket: null,
-              total,
-              score: scoreForDistribution,
-              buckets,
-              maxCount,
-              userBucketIndex: null,
-            });
-          } else {
-            let cumulative = 0;
-            let bucketLabel: string | null = null;
-            let userBucketIndex: number | null = null;
-
-            for (let i = 0; i < buckets.length; i++) {
-              const b = buckets[i];
-              if (scoreForDistribution > b.to) {
-                cumulative += b.count;
-                continue;
-              }
-
-              if (scoreForDistribution >= b.from) {
-                bucketLabel = `${b.from}-${b.to}`;
-                userBucketIndex = i;
-                cumulative += b.count;
-                break;
-              }
-
-              // Score is below the first bucket; place marker at the start
-              if (i === 0) {
-                userBucketIndex = 0;
-                bucketLabel = `${b.from}-${b.to}`;
-              }
-              break;
-            }
-
-            if (userBucketIndex === null && buckets.length > 0) {
-              userBucketIndex = buckets.length - 1;
-              bucketLabel = `${buckets[buckets.length - 1].from}-${buckets[buckets.length - 1].to}`;
-              cumulative = total;
-            }
-
-            const percentile = Math.min(100, total ? Math.round((cumulative / total) * 1000) / 10 : 0);
-            setScorePercentile({
-              percentile,
-              bucket: bucketLabel,
-              total,
-              score: scoreForDistribution,
-              buckets,
-              maxCount,
-              userBucketIndex,
+              percentile: data.percentile,
+              bucket: bucket ? `${bucket.from}-${bucket.to}` : null,
+              total: data.runs,
+              score: data.score,
+              buckets: data.buckets,
+              maxCount: data.maxCount,
+              userBucketIndex: data.userBucketIndex,
+              basis: data.basis,
+              players: data.players,
+              setupLabel: describeTimedSetup(difficulty, selectedOperations, timedModeLimit),
             });
           }
+          // No placement (too few runs on these settings, or too short a stop): nothing shows.
         }
       } catch (error) {
-        console.error("Failed to compute percentile", error);
+        console.error("Failed to place the run", error);
       }
     }
   };
@@ -2228,7 +2194,12 @@ export default function TrainingPage() {
             >
             <TrainingSetup
               scorePercentile={scorePercentile}
-              showLastRunPlacementCard={!!scorePercentile && gameMode === "timed" && isDefaultTimedConfig()}
+              showLastRunPlacementCard={
+                !!scorePercentile &&
+                gameMode === "timed" &&
+                !showAdvanced &&
+                scorePercentile.setupLabel === describeTimedSetup(difficulty, selectedOperations, timedModeLimit)
+              }
               gameMode={gameMode}
               setGameMode={setGameMode}
               lessonId={lessonId}

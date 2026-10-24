@@ -19,6 +19,7 @@ import type {
 import { LESSONS, LESSON_MASTERY_FIRST_TRY, LESSON_SOLO, FREE_LESSON_COUNT } from "@/lib/lessons";
 import { getUpgradeUrl } from "@/lib/upgrade";
 import { cn } from "@/lib/utils";
+import { RunPlacement } from "@/components/training/run-placement";
 
 /** A Practice set's results: how many were right first time, and what to go over. */
 export type PracticeSummary = {
@@ -41,7 +42,6 @@ const MISSES_SHOWN = 8;
 function formatDuration(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
-import { ScoreDistributionCard } from "@/components/training/score-distribution-card";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
@@ -203,6 +203,10 @@ export function TrainingGameOver({
                 ? practice.complete ? `of ${practice.size} right first time` : "right first time"
                 : totalSolved === 1 ? "problem solved" : "problems solved"}
           </p>
+          {/* How the run ranks against everyone's on the same settings, when there's enough to say. */}
+          {!lesson && !practice && !daily && scorePercentile?.percentile != null && (
+            <RunPlacement data={{ ...scorePercentile, percentile: scorePercentile.percentile }} />
+          )}
           {daily && (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
@@ -391,10 +395,6 @@ export function TrainingGameOver({
               <Button size="sm">Unlock review</Button>
             </Link>
           </div>
-        )}
-
-        {scorePercentile && (
-          <ScoreDistributionCard data={scorePercentile} heading="Your placement" scoreLabel="Best score this run:" />
         )}
 
         {showAuthCallout && (
