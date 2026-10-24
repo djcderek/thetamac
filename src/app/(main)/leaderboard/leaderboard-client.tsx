@@ -34,6 +34,8 @@ interface LeaderboardClientProps {
   initialDistributionMedian: number | null;
   initialDistributionMean: number | null;
   initialDistributionStdDev: number | null;
+  /** Correct answers across every default timed run, stopped ones included. */
+  initialProblemsSolved: number;
   initialTopScores: TrainingTopScoresResult;
   initialMode: Mode;
   initialPeriod: Period;
@@ -145,6 +147,7 @@ export function LeaderboardClient({
   initialDistributionMedian,
   initialDistributionMean,
   initialDistributionStdDev,
+  initialProblemsSolved,
   initialTopScores,
   initialMode,
   initialPeriod,
@@ -176,6 +179,7 @@ export function LeaderboardClient({
   );
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
   const [isDistributionLoading, setIsDistributionLoading] = useState(false);
+  const [problemsSolved, setProblemsSolved] = useState(initialProblemsSolved);
   const [topScores, setTopScores] = useState<TrainingTopScoreEntry[]>(
     initialTopScores.leaderboard
   );
@@ -234,6 +238,7 @@ export function LeaderboardClient({
           setDistributionMedian(typeof data.median === "number" ? data.median : null);
           setDistributionMean(typeof data.mean === "number" ? data.mean : null);
           setDistributionStdDev(typeof data.stdDev === "number" ? data.stdDev : null);
+          if (typeof data.problemsSolved === "number") setProblemsSolved(data.problemsSolved);
         }
       } catch (error) {
         console.error("Failed to fetch distribution", error);
@@ -709,9 +714,7 @@ export function LeaderboardClient({
                                 σ: {formatStatValue(distributionStdDev)}
                               </span>
                             ) : null}
-                            <span>
-                              {totalRuns.toLocaleString()} run{totalRuns === 1 ? "" : "s"}
-                            </span>
+                            <span>{problemsSolved.toLocaleString()} problems solved</span>
                           </div>
                           {showAdvancedStats &&
                           typeof distributionMean === "number" &&

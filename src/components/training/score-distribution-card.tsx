@@ -24,17 +24,6 @@ export function ScoreDistributionCard({
             {formatPlacement(data.percentile)}
           </p>
         </div>
-        {typeof data.total === "number" ? (
-          <div className="shrink-0 text-right text-[13px] text-muted-foreground tabular-nums">
-            {data.total} {data.total === 1 ? "run" : "runs"}
-            {typeof data.players === "number" && (
-              <>
-                <br />
-                {data.players} {data.players === 1 ? "player" : "players"}
-              </>
-            )}
-          </div>
-        ) : null}
       </div>
 
       <div className="mt-2 text-sm text-muted-foreground">

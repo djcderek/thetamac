@@ -49,7 +49,7 @@ export default async function InterviewMathInsightsPage() {
       "@type": "Organization",
       name: "thetamac",
     },
-    variableMeasured: ["totalRuns", "medianScore", "meanScore", "stdDev"],
+    variableMeasured: ["problemsSolved", "medianScore", "meanScore", "stdDev"],
   };
 
   return (
@@ -74,8 +74,8 @@ export default async function InterviewMathInsightsPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-10">
         <div className="border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground">Total timed runs</p>
-          <p className="text-2xl font-semibold mt-1">{distribution.total.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">Problems solved</p>
+          <p className="text-2xl font-semibold mt-1">{distribution.problemsSolved.toLocaleString()}</p>
         </div>
         <div className="border-t border-border pt-4">
           <p className="text-xs text-muted-foreground">Median score</p>

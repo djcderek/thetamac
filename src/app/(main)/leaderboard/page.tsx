@@ -33,6 +33,7 @@ export default async function LeaderboardPage() {
       initialDistributionMedian={distributionResult.median}
       initialDistributionMean={distributionResult.mean}
       initialDistributionStdDev={distributionResult.stdDev}
+      initialProblemsSolved={distributionResult.problemsSolved}
       initialTopScores={initialTopScores}
       initialMode="training"
       initialPeriod="all"

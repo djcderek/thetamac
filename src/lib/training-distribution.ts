@@ -1,5 +1,5 @@
 import { getCached } from "@/lib/server-cache";
-import { loadSetupScoreCounts } from "@/lib/leaderboard-queries";
+import { loadProblemsSolved, loadSetupScoreCounts } from "@/lib/leaderboard-queries";
 import { summarizeScoreCounts, type DistributionResult } from "@/lib/score-summary";
 import { canonicalOperations, type TimedSetup } from "@/lib/run-placement";
 import { STANDARD_TIMED_LIMIT_SECONDS } from "@/lib/standard-timed-sessions";
@@ -14,8 +14,11 @@ export { summarizeScoreCounts, type DistributionBucket, type DistributionResult 
 // briefly; a new score shifts it by at most one run.
 const DISTRIBUTION_TTL_SECONDS = 30;
 
-export function getTrainingDistribution(): Promise<DistributionResult> {
-  return getCached("training-distribution", DISTRIBUTION_TTL_SECONDS, loadTrainingDistribution);
+/** The distribution, plus correct answers across every default timed run (stopped ones too). */
+export type TrainingDistribution = DistributionResult & { problemsSolved: number };
+
+export function getTrainingDistribution(): Promise<TrainingDistribution> {
+  return getCached("training-distribution:v2", DISTRIBUTION_TTL_SECONDS, loadTrainingDistribution);
 }
 
 const DEFAULT_SETUP: TimedSetup = {
@@ -24,7 +27,7 @@ const DEFAULT_SETUP: TimedSetup = {
   timeLimitSeconds: STANDARD_TIMED_LIMIT_SECONDS,
 };
 
-async function loadTrainingDistribution(): Promise<DistributionResult> {
-  const { counts } = await loadSetupScoreCounts(DEFAULT_SETUP);
-  return summarizeScoreCounts(counts);
+async function loadTrainingDistribution(): Promise<TrainingDistribution> {
+  const [{ counts }, problemsSolved] = await Promise.all([loadSetupScoreCounts(DEFAULT_SETUP), loadProblemsSolved()]);
+  return { ...summarizeScoreCounts(counts), problemsSolved };
 }

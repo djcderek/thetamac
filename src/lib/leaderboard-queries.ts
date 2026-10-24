@@ -188,3 +188,20 @@ export async function loadSetupScoreCounts(setup: TimedSetup): Promise<{
     guestRuns: rows[0]?.guestRuns ?? 0,
   };
 }
+
+/**
+ * Correct answers across every default timed run, signed-in and guest. Stopped runs count
+ * (their answers were solved); scores too high to be real, and the leaderboard's implausible
+ * guest runs, don't.
+ */
+export async function loadProblemsSolved(): Promise<number> {
+  const [{ total }] = await db.$queryRaw<{ total: bigint | number | null }[]>`
+    ${guestRunsCte({}, MAX_LEGACY_GUEST_TOTAL)}
+    SELECT
+      (SELECT COALESCE(SUM(s."correctAnswers"), 0) FROM training_sessions s
+        WHERE ${standardTimedSessionSql} AND s."completedAt" IS NOT NULL)
+      + (SELECT COALESCE(SUM("correctAnswers"), 0) FROM guest_runs) AS total
+  `;
+  return Number(total ?? 0);
+}
+
