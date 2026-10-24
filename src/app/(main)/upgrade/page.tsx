@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Check, ArrowLeft } from "lucide-react";
 
 import { getCurrentUserPremiumStatus, subscriptionNeedsAttention } from "@/lib/subscription";
-import { getUpgradeUrl, type UpgradeFeature } from "@/lib/upgrade";
+import { getUpgradeUrl, safeNextPath, type UpgradeFeature } from "@/lib/upgrade";
 import { QUANT_LESSONS } from "@/lib/quant/lessons";
 
 import { SubscribeButton } from "@/components/billing/subscribe-button";
@@ -12,6 +12,7 @@ import { UpgradeAuthLink } from "@/components/billing/upgrade-auth-link";
 
 import { UpgradeAutoScroll } from "./upgrade-auto-scroll";
 import { UpgradePendingRefresh } from "./upgrade-pending-refresh";
+import { UpgradeReturn } from "./upgrade-return";
 import { UpgradeTelemetry } from "./upgrade-telemetry";
 
 function normalizeFeature(feature?: string | string[] | null): UpgradeFeature | undefined {
@@ -55,6 +56,7 @@ const proFeatures = [
   "Review: your past misses come back until they stick",
   "All 12 Learning lessons",
   `All ${QUANT_LESSONS.length} quant lessons, from counting to continuous probability`,
+  "Timed quant mock tests, scored like a first-round interview screen",
   "Advanced analytics & charts",
   "Weak point training",
   "Skill breakdowns & trends",
@@ -71,6 +73,8 @@ export default async function UpgradePage({
   const resolvedSearchParams = (await searchParams) ?? {};
   const activeFeature = normalizeFeature(resolvedSearchParams.feature);
   const source = normalizeString(resolvedSearchParams.source);
+  // Where the upgrade started, to go back to once Pro is active.
+  const next = safeNextPath(normalizeString(resolvedSearchParams.next)) ?? undefined;
   const upgraded = resolvedSearchParams.upgraded === "1";
   const cancelled = resolvedSearchParams.cancelled === "1";
 
@@ -83,7 +87,9 @@ export default async function UpgradePage({
   const needsBillingAttention =
     !isPremium && subscriptionNeedsAttention(subscriptionStatus);
 
-  const upgradeUrl = getUpgradeUrl({ feature: activeFeature, source });
+  // Kept through sign-in and checkout, so Stripe returns here with `next` still on it.
+  const upgradeUrl = getUpgradeUrl({ feature: activeFeature, source, next });
+  const returning = upgraded && isPremium && Boolean(next);
 
   return (
     <div className="min-h-screen bg-background">
@@ -91,11 +97,11 @@ export default async function UpgradePage({
       <div className="px-4 md:px-6 pt-6">
         <div className="max-w-5xl mx-auto">
           <Link
-            href={userId ? "/dashboard" : "/"}
+            href={next ?? (userId ? "/dashboard" : "/")}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
-            {userId ? "Back to Dashboard" : "Back to Training"}
+            {next ? "Back" : userId ? "Back to Dashboard" : "Back to Training"}
           </Link>
         </div>
       </div>
@@ -178,7 +184,9 @@ export default async function UpgradePage({
               <p className="relative mt-5 font-mono text-xs text-muted-foreground">
                 {confirmingUpgrade
                   ? "Payment received. Activating Pro…"
-                  : upgraded && isPremium
+                  : returning
+                    ? "You're on Pro. Taking you back…"
+                    : upgraded && isPremium
                     ? "You're on Pro"
                     : trialEligible
                   ? "7-day free trial included"
@@ -280,6 +288,7 @@ export default async function UpgradePage({
       />
       <UpgradeAutoScroll feature={activeFeature} upgraded={upgraded} />
       {confirmingUpgrade ? <UpgradePendingRefresh /> : null}
+      {returning && next ? <UpgradeReturn next={next} /> : null}
     </div>
   );
 }

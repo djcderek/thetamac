@@ -9,7 +9,7 @@ import { QUANT_PUZZLES, getQuantLesson, isFreeQuantLesson } from "@/lib/quant/le
 import type { QuantDifficulty } from "@/lib/quant/build";
 import { DifficultyLabel } from "@/components/quant/difficulty";
 import { useQuantProgress } from "@/components/quant/quant-list";
-import { usePuzzleMarks } from "@/components/quant/type-progress";
+import { usePuzzleMarks, useQuantAccountSync } from "@/components/quant/type-progress";
 
 const DIFFICULTIES: QuantDifficulty[] = ["Easy", "Medium", "Hard"];
 
@@ -33,6 +33,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 export function QuantPuzzles() {
   const { locked } = useQuantProgress();
   const marks = usePuzzleMarks();
+  useQuantAccountSync();
   const [query, setQuery] = useState("");
   const [difficulty, setDifficulty] = useState<QuantDifficulty | null>(null);
   const [todo, setTodo] = useState(false);

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { motion } from "motion/react";
-import { Check, ChevronRight, CircleDashed, Lock, Puzzle, RotateCcw, Search, Shuffle } from "lucide-react";
+import { Check, ChevronRight, CircleDashed, Lock, Puzzle, RotateCcw, Search, Shuffle, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { snapSpring } from "@/lib/motion";
 import { buttonVariants } from "@/components/ui/button";
@@ -200,7 +200,7 @@ function UpgradeCard() {
         Pro opens all {QUANT_LESSONS.length} lessons, from conditional probability to random walks.
       </p>
       <Link
-        href={getUpgradeUrl({ feature: "quant", source: "quant_list" })}
+        href={getUpgradeUrl({ feature: "quant", source: "quant_list", next: "/quant" })}
         onClick={() =>
           captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, { feature: "quant", surface: "quant_list", action: "open_pricing" })
         }
@@ -261,6 +261,10 @@ export function QuantList() {
               )}
             </Link>
           )}
+          <Link href="/quant/mock" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            <Timer aria-hidden="true" />
+            Mock test
+          </Link>
           <Link href="/quant/shuffle" className={buttonVariants({ variant: "secondary", size: "sm" })}>
             <Shuffle aria-hidden="true" />
             Shuffle questions

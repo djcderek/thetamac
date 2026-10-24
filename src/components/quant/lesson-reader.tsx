@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,31 +12,7 @@ import { DifficultyPill } from "@/components/quant/difficulty";
 import { Walkthrough } from "@/components/quant/walkthrough";
 import { QuantFigure } from "@/components/quant/visuals";
 import { MathText, Tex } from "@/components/quant/math";
-
-// ─── Reading progress (this browser only: a convenience, not a record) ───────────────────
-
-const readKey = (lessonId: string) => `quant-read:${lessonId}`;
-const readListeners = new Set<() => void>();
-function readDone(lessonId: string) {
-  try {
-    return localStorage.getItem(readKey(lessonId)) === "1";
-  } catch {
-    return false;
-  }
-}
-function setDone(lessonId: string, done: boolean) {
-  try {
-    if (done) localStorage.setItem(readKey(lessonId), "1");
-    else localStorage.removeItem(readKey(lessonId));
-  } catch {}
-  readListeners.forEach((listener) => listener());
-}
-const subscribeRead = (listener: () => void) => {
-  readListeners.add(listener);
-  return () => readListeners.delete(listener);
-};
-/** Whether this lesson has been read to the end in this browser. */
-export const useLessonRead = (lessonId: string) => useSyncExternalStore(subscribeRead, () => readDone(lessonId), () => false);
+import { setLessonRead, useLessonReadHere } from "@/components/quant/type-progress";
 
 // ─── Parts ───────────────────────────────────────────────────────────────────────────────
 
@@ -356,7 +332,7 @@ export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What c
   const topic = QUANT_TOPICS.find((t) => t.id === lesson.topic)!;
   const free = isFreeQuantLesson(lesson.id);
   const parts = lesson.parts;
-  const done = useLessonRead(lesson.id);
+  const done = useLessonReadHere(lesson.id);
   const [revealed, setRevealed] = useState(1);
   const [picks, setPicks] = useState<Record<number, number>>({});
   const shown = done ? parts.length : revealed;
@@ -377,7 +353,7 @@ export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What c
     const next = revealed + 1;
     scrollTo.current = revealed;
     setRevealed(next);
-    if (next >= parts.length) setDone(lesson.id, true);
+    if (next >= parts.length) setLessonRead(lesson.id, true);
   };
 
   return (
@@ -406,7 +382,7 @@ export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What c
             {!done && (
               <button
                 type="button"
-                onClick={() => setDone(lesson.id, true)}
+                onClick={() => setLessonRead(lesson.id, true)}
                 className="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Show it all
@@ -452,7 +428,7 @@ export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What c
                 size="sm"
                 className="rounded-full text-muted-foreground"
                 onClick={() => {
-                  setDone(lesson.id, false);
+                  setLessonRead(lesson.id, false);
                   setRevealed(1);
                   setPicks({});
                   window.scrollTo({ top: 0 });

@@ -54,6 +54,8 @@ model User {
   lessonProgress   LessonProgress[]
   dailySessions    DailySession[]
   quantAttempts    QuantAttempt[]
+  quantReads       QuantRead[]
+  quantMocks       QuantMock[]
   featureRequests  FeatureRequest[]
 
   @@map("users")
@@ -310,6 +312,37 @@ model QuantAttempt {
 
   @@index([userId, createdAt])
   @@map("quant_attempts")
+}
+
+// A quant lesson read to the end, so the Learn step shows as done on every device.
+model QuantRead {
+  userId   String
+  lessonId String
+  readAt   DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, lessonId])
+  @@map("quant_reads")
+}
+
+// A finished quant mock test: a timed set across the course, scored out of 100.
+model QuantMock {
+  id        String   @id @default(cuid())
+  userId    String
+  score     Int
+  correct   Int
+  total     Int
+  // Time used, in seconds.
+  seconds   Int
+  // Each question: { lessonId, family, correct, seconds }, in the order asked.
+  questions Json
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("quant_mocks")
 }
 
 // ============================================
