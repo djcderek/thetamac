@@ -332,48 +332,49 @@ export function QuantList() {
             {rows.length === 0 && (
               <p className="rounded-[22px] bg-secondary px-5 py-8 text-center text-[15px] text-muted-foreground">No lessons match.</p>
             )}
-            {rows.map(({ lesson, number }, index) => {
-              const topic = unitOf(lesson);
-              const isLocked = locked && !isFreeQuantLesson(lesson.id);
-              return (
-                <Link
-                  key={lesson.id}
-                  role="row"
-                  href={`/quant/${lesson.id}`}
-                  className={cn(
-                    "grid grid-cols-[28px_minmax(0,1fr)] items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-control-hover sm:grid-cols-[40px_minmax(0,1fr)_190px_80px]",
-                    index % 2 === 0 && "bg-secondary",
-                  )}
-                >
-                  <span role="cell" className="grid place-items-center sm:place-items-start sm:pl-1">
-                    <StatusIcon status={lessonStatus(lessons, lesson.id)} locked={isLocked} />
-                  </span>
-                  <span role="cell" className="min-w-0">
-                    <span className="block truncate text-[15px] font-medium">
-                      <span className="tabular-nums">{number}.</span> {lesson.title}
+            <div className="divide-y divide-border border-t border-border">
+              {rows.map(({ lesson, number }) => {
+                const topic = unitOf(lesson);
+                const isLocked = locked && !isFreeQuantLesson(lesson.id);
+                return (
+                  <Link
+                    key={lesson.id}
+                    role="row"
+                    href={`/quant/${lesson.id}`}
+                    className={cn(
+                      "grid grid-cols-[28px_minmax(0,1fr)] items-center gap-3 px-3 py-3.5 transition-colors hover:bg-secondary sm:grid-cols-[40px_minmax(0,1fr)_190px_80px]",
+                        )}
+                  >
+                    <span role="cell" className="grid place-items-center sm:place-items-start sm:pl-1">
+                      <StatusIcon status={lessonStatus(lessons, lesson.id)} locked={isLocked} />
                     </span>
-                    <span className="block truncate text-[13px] text-muted-foreground">
-                      {lesson.benefit}
-                      <span className="hidden sm:inline"> · {lesson.families.length} question types</span>
-                    </span>
-                    {/* Phones fold the unit and level into the row. */}
-                    <span className="mt-0.5 block text-[13px] sm:hidden">
-                      <DifficultyLabel difficulty={lesson.difficulty} />
-                      <span className="text-muted-foreground">
-                        {" "}
-                        · {topic.title} · {lesson.families.length} types
+                    <span role="cell" className="min-w-0">
+                      <span className="block truncate text-[15px] font-medium">
+                        <span className="tabular-nums">{number}.</span> {lesson.title}
+                      </span>
+                      <span className="block truncate text-[13px] text-muted-foreground">
+                        {lesson.benefit}
+                        <span className="hidden sm:inline"> · {lesson.families.length} question types</span>
+                      </span>
+                      {/* Phones fold the unit and level into the row. */}
+                      <span className="mt-0.5 block text-[13px] sm:hidden">
+                        <DifficultyLabel difficulty={lesson.difficulty} />
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {topic.title} · {lesson.families.length} types
+                        </span>
                       </span>
                     </span>
-                  </span>
-                  <span role="cell" className="hidden truncate text-[14px] text-muted-foreground sm:block">
-                    {topic.title}
-                  </span>
-                  <span role="cell" className="hidden text-[14px] sm:block">
-                    <DifficultyLabel difficulty={lesson.difficulty} />
-                  </span>
-                </Link>
-              );
-            })}
+                    <span role="cell" className="hidden truncate text-[14px] text-muted-foreground sm:block">
+                      {topic.title}
+                    </span>
+                    <span role="cell" className="hidden text-[14px] sm:block">
+                      <DifficultyLabel difficulty={lesson.difficulty} />
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
 

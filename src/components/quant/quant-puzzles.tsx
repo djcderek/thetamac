@@ -102,48 +102,49 @@ export function QuantPuzzles() {
           <span role="columnheader">Level</span>
         </div>
         {rows.length === 0 && <p className="rounded-[22px] bg-secondary px-5 py-8 text-center text-[15px] text-muted-foreground">No puzzles match.</p>}
-        {rows.map(({ puzzle, number }, index) => {
-          const lesson = getQuantLesson(puzzle.lesson)!;
-          const isLocked = locked && !isFreeQuantLesson(lesson.id);
-          const mark = marks[puzzle.id];
-          return (
-            <Link
-              key={puzzle.id}
-              role="row"
-              href={`/quant/${lesson.id}?puzzle=${puzzle.id}`}
-              className={cn(
-                "grid grid-cols-[28px_minmax(0,1fr)] items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-control-hover sm:grid-cols-[40px_minmax(0,1fr)_200px_80px]",
-                index % 2 === 0 && "bg-secondary",
-              )}
-            >
-              <span role="cell" className="grid place-items-center sm:place-items-start sm:pl-1">
-                {mark === "solved" ? (
-                  <Check aria-label="Solved" className="h-4 w-4 text-success" strokeWidth={2.5} />
-                ) : mark === "tried" ? (
-                  <CircleDashed aria-label="Tried" className="h-4 w-4 text-warning" />
-                ) : isLocked ? (
-                  <Lock aria-label="Pro" className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : null}
-              </span>
-              <span role="cell" className="min-w-0">
-                <span className="block truncate text-[15px] font-medium">
-                  <span className="tabular-nums">{number}.</span> {puzzle.title}
+        <div className="divide-y divide-border border-t border-border">
+          {rows.map(({ puzzle, number }) => {
+            const lesson = getQuantLesson(puzzle.lesson)!;
+            const isLocked = locked && !isFreeQuantLesson(lesson.id);
+            const mark = marks[puzzle.id];
+            return (
+              <Link
+                key={puzzle.id}
+                role="row"
+                href={`/quant/${lesson.id}?puzzle=${puzzle.id}`}
+                className={cn(
+                  "grid grid-cols-[28px_minmax(0,1fr)] items-center gap-3 px-3 py-3.5 transition-colors hover:bg-secondary sm:grid-cols-[40px_minmax(0,1fr)_200px_80px]",
+                )}
+              >
+                <span role="cell" className="grid place-items-center sm:place-items-start sm:pl-1">
+                  {mark === "solved" ? (
+                    <Check aria-label="Solved" className="h-4 w-4 text-success" strokeWidth={2.5} />
+                  ) : mark === "tried" ? (
+                    <CircleDashed aria-label="Tried" className="h-4 w-4 text-warning" />
+                  ) : isLocked ? (
+                    <Lock aria-label="Pro" className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : null}
                 </span>
-                <span className="block truncate text-[13px] text-muted-foreground">{puzzle.problem.prompt}</span>
-                <span className="mt-0.5 block text-[13px] sm:hidden">
+                <span role="cell" className="min-w-0">
+                  <span className="block truncate text-[15px] font-medium">
+                    <span className="tabular-nums">{number}.</span> {puzzle.title}
+                  </span>
+                  <span className="block truncate text-[13px] text-muted-foreground">{puzzle.problem.prompt}</span>
+                  <span className="mt-0.5 block text-[13px] sm:hidden">
+                    <DifficultyLabel difficulty={puzzle.difficulty} />
+                    <span className="text-muted-foreground"> · {lesson.title}</span>
+                  </span>
+                </span>
+                <span role="cell" className="hidden truncate text-[14px] text-muted-foreground sm:block">
+                  {lesson.title}
+                </span>
+                <span role="cell" className="hidden text-[14px] sm:block">
                   <DifficultyLabel difficulty={puzzle.difficulty} />
-                  <span className="text-muted-foreground"> · {lesson.title}</span>
                 </span>
-              </span>
-              <span role="cell" className="hidden truncate text-[14px] text-muted-foreground sm:block">
-                {lesson.title}
-              </span>
-              <span role="cell" className="hidden text-[14px] sm:block">
-                <DifficultyLabel difficulty={puzzle.difficulty} />
-              </span>
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
