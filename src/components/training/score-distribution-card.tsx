@@ -50,8 +50,7 @@ export function ScoreDistributionCard({
       {data.percentile !== null ? (
         <div className="mt-4 rounded-2xl bg-background p-3">
           {/* The percentile as area under a bell curve: the shaded part is the share of runs beaten. */}
-          <NormalCurve percentile={data.percentile} surface="background" className="mx-auto mt-5 max-w-md" />
-          <p className="mb-2 mt-3 text-xs text-muted-foreground">The shaded area is the {Math.round(data.percentile)}% of runs you beat.</p>
+          <NormalCurve percentile={data.percentile} surface="background" className="mx-auto mb-3 mt-5 max-w-md" />
 
           <div className="text-xs text-muted-foreground">
             {data.setupLabel

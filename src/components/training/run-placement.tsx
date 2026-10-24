@@ -84,9 +84,6 @@ function PlacedRun({ data }: { data: ScoreDistribution & { percentile: number } 
       {/* The percentile as area under a bell curve: the shaded part is the share of runs beaten. */}
       <div className="mx-auto mt-6 max-w-md">
         <NormalCurve percentile={data.percentile} />
-        <p className="mt-3 text-[13px] text-muted-foreground">
-          The shaded area is the {Math.round(data.percentile)}% of runs you beat.
-        </p>
       </div>
     </motion.section>
   );
