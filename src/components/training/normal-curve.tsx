@@ -56,14 +56,14 @@ export function NormalCurve({
           </clipPath>
         </defs>
         {/* The whole curve, faint; then the runs beaten, filled and in full ink. */}
-        <path d={outline} fill="none" stroke="currentColor" strokeOpacity={0.18} strokeWidth={2} strokeLinecap="round" />
+        <path d={outline} fill="none" stroke="currentColor" strokeOpacity={0.18} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         <g clipPath={`url(#${id}-beaten)`}>
           <path d={area} fill={`url(#${id}-fill)`} />
-          <path d={outline} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+          <path d={outline} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         </g>
-        <line x1={0} x2={WIDTH} y1={BASE} y2={BASE} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />
+        <line x1={0} x2={WIDTH} y1={BASE} y2={BASE} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} vectorEffect="non-scaling-stroke" />
         <motion.g initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: reduceMotion ? 0 : 0.9, duration: 0.2 }}>
-          <line x1={x} x2={x} y1={y} y2={BASE} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="2 3" />
+          <line x1={x} x2={x} y1={y} y2={BASE} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="2 3" vectorEffect="non-scaling-stroke" />
           <circle cx={x} cy={y} r={5} fill="var(--foreground)" stroke={`var(--${surface})`} strokeWidth={2} />
         </motion.g>
       </svg>
