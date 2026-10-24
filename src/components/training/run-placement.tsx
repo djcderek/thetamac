@@ -5,7 +5,7 @@ import { animate, motion, useReducedMotion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
 import type { ScoreDistribution } from "@/components/training/training-types";
 import { NormalCurve } from "@/components/training/normal-curve";
-import { MIN_RUNS, MIN_PLAYERS, MIN_PACE_SECONDS, MIN_PACE_ANSWERS } from "@/lib/run-placement";
+import { MIN_PACE_SECONDS, MIN_PACE_ANSWERS } from "@/lib/run-placement";
 
 function ordinal(value: number): string {
   const lastTwo = value % 100;
@@ -32,7 +32,7 @@ export function RunPlacement({ data }: { data: ScoreDistribution }) {
           ? "Custom number ranges vary between runs, so we can’t give them a comparable percentile yet."
           : short
             ? `Play for at least ${MIN_PACE_SECONDS} seconds and answer ${MIN_PACE_ANSWERS} problems correctly for an estimated pace placement.`
-            : `${data.total ?? 0} runs from ${data.players ?? 0} players on ${data.setupLabel}. Placement appears once there are ${MIN_RUNS} comparable runs from ${MIN_PLAYERS} players.`}
+            : `There aren’t enough runs on ${data.setupLabel} to compare with yet.`}
       </p>
     </section>
   );
@@ -84,9 +84,6 @@ function PlacedRun({ data }: { data: ScoreDistribution & { percentile: number } 
       {/* The percentile as area under a bell curve: the shaded part is the share of runs beaten. */}
       <div className="mx-auto mt-6 max-w-md">
         <NormalCurve percentile={data.percentile} />
-        <p className="mt-3 text-[13px] text-muted-foreground">
-          The shaded area is the {Math.round(data.percentile)}% of runs you beat.
-        </p>
       </div>
     </motion.section>
   );
