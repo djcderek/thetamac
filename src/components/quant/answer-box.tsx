@@ -32,6 +32,7 @@ export function AnswerBox({
   onSubmit,
   disabled,
   inputRef,
+  submitLabel = "Submit",
 }: {
   kind: AnswerKind;
   value: string;
@@ -39,6 +40,7 @@ export function AnswerBox({
   onSubmit: (event: FormEvent) => void;
   disabled: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
+  submitLabel?: string;
 }) {
   // Ready to type, without scrolling the question out of view to reach the field.
   useEffect(() => {
@@ -90,7 +92,7 @@ export function AnswerBox({
             </button>
           ))}
           <Button type="submit" disabled={!value.trim()} className={cn("min-h-11 rounded-full", HELPER_KEYS[kind].length ? "flex-[2]" : "flex-1")}>
-            Submit
+            {submitLabel}
           </Button>
         </div>
       )}

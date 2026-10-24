@@ -33,9 +33,9 @@ import { Walkthrough } from "@/components/quant/walkthrough";
 import { QuantFigure } from "@/components/quant/visuals";
 import { StepIcon } from "@/components/quant/step-icon";
 import { AnswerBox } from "@/components/quant/answer-box";
-import { LessonReader, RuleStatement, useLessonRead } from "@/components/quant/lesson-reader";
+import { LessonReader, RuleStatement } from "@/components/quant/lesson-reader";
 import { recordQuantAttempt } from "@/components/quant/quant-attempts";
-import { markPuzzle, markType, usePuzzleMarks, useTypeMarks } from "@/components/quant/type-progress";
+import { markPuzzle, markType, useLessonRead, usePuzzleMarks, useQuantAccountSync, useTypeMarks } from "@/components/quant/type-progress";
 import { MathExpr, MathText } from "@/components/quant/math";
 
 /** How long a right answer stays on screen before the next question. */
@@ -211,6 +211,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
   const typeMarks = useTypeMarks(lessonId);
   const puzzleMarks = usePuzzleMarks();
   const read = useLessonRead(lessonId);
+  useQuantAccountSync();
   const params = useSearchParams();
   const initialPuzzle = params.get("puzzle");
   const step = params.get("step");
@@ -435,7 +436,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
         Every lesson is open to read. Pro opens practice and drills for all {QUANT_LESSONS.length} lessons.
       </p>
       <Link
-        href={getUpgradeUrl({ feature: "quant", source: "quant_lesson" })}
+        href={getUpgradeUrl({ feature: "quant", source: "quant_lesson", next: `/quant/${lesson.id}?step=${stage === "drill" ? "drill" : "practice"}` })}
         onClick={() => captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, { feature: "quant", surface: "quant_practice", action: "open_pricing", lesson_id: lesson.id })}
         className={cn(buttonVariants({ variant: "brand", size: "lg" }), "mt-2")}
       >
@@ -694,7 +695,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
           </Button>
         )}
         {next && locked && !isFreeQuantLesson(next.id) && (
-          <Link href={getUpgradeUrl({ feature: "quant", source: "quant_results" })} className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "w-full")}>
+          <Link href={getUpgradeUrl({ feature: "quant", source: "quant_results", next: `/quant/${next.id}` })} className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "w-full")}>
             <Lock aria-hidden="true" className="h-4 w-4" />
             Unlock the next lessons with Pro
           </Link>

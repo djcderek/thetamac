@@ -125,7 +125,7 @@ export function QuantReview() {
               ? `${summary.dueCount === 1 ? "" : "Including "}“${summary.example.title}”, missed ${summary.example.misses === 1 ? "once" : `${summary.example.misses} times`}. Pro brings ${summary.dueCount === 1 ? "it" : "each one"} back with new numbers until it sticks.`
               : "Your misses are saved as you practise. Pro brings each one back with new numbers until it sticks."}
           </p>
-          <Link href={getUpgradeUrl({ feature: "review", source: "quant_review" })} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
+          <Link href={getUpgradeUrl({ feature: "review", source: "quant_review", next: "/quant/review" })} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
             Unlock review
           </Link>
         </Panel>
