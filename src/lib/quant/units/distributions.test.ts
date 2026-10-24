@@ -64,6 +64,37 @@ const FORBIDDEN_FACES: Record<string, number[]> = {
   "five-up": [1, 2, 3, 4],
 };
 
+/** The mock's repeated-try settings, by counting sectors and balls where there are some. */
+const MOCK_TRY_CHANCES: Record<string, number> = {
+  spinner: share(faces(5), (sector) => sector === 1),
+  seeds: 3 / 4,
+  drum: share(faces(10), (ball) => ball >= 8),
+  trades: 0.6,
+};
+const MOCK_FIRST_CHANCES: Record<string, number> = {
+  calls: 1 / 4,
+  spinner: share(["red", "green", "blue"], (c) => c === "red"),
+  archer: 2 / 5,
+};
+
+/**
+ * The 68–95–99.7 share for a mock region, from its cut-offs in the question's units: turn each
+ * cut-off into a z-score, then add the rule's one-sided bands that lie inside.
+ */
+function cutOffShare(p: QuantProblem["params"], mean: number, sd: number, key: string) {
+  const z = (x: number) => {
+    const raw = (x - mean) / sd;
+    if (Math.abs(raw - Math.round(raw)) > 1e-9) throw new Error(`${key}: cut-off isn't a whole number of SDs`);
+    return Math.round(raw);
+  };
+  const region = String(p.region ?? "within");
+  const z1 = z(+p.x1);
+  if (region.startsWith("above")) return bandShare((band) => band.a >= z1);
+  if (region.startsWith("below")) return bandShare((band) => band.b <= z1);
+  const z2 = z(+p.x2);
+  return bandShare((band) => band.a >= z1 && band.b <= z2);
+}
+
 /** Standard normal density, and its integral from a to b by Simpson's rule. */
 const phi = (x: number) => Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI);
 function integrate(f: (x: number) => number, a: number, b: number, steps = 4000) {
@@ -96,6 +127,20 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "binomial": {
+      if (p.type === "mock-exactly") {
+        const k = +p.successes;
+        return weightedSequences(+p.tries, MOCK_TRY_CHANCES[p.setting as string])
+          .filter(({ seq }) => seq.reduce((sum, hit) => sum + hit, 0) === k)
+          .reduce((sum, { weight }) => sum + weight, 0);
+      }
+      if (p.type === "mock-majority") {
+        // Every way the three can come out, right (1) or wrong (0), with its chance.
+        const good = +p.percent / 100;
+        const chances = p.third === "random" ? [good, good, 0.5] : [good, good, good];
+        return sequences([1, 0], 3)
+          .filter((calls) => calls.reduce((sum, c) => sum + c, 0) >= 2)
+          .reduce((sum, calls) => sum + calls.reduce((w, c, i) => w * (c ? chances[i] : 1 - chances[i]), 1), 0);
+      }
       if (p.type === "odd") {
         return weightedSequences(+p.flips, +p.headsN / +p.headsD)
           .filter(({ seq }) => seq.reduce((sum, hit) => sum + hit, 0) % 2 === 1)
@@ -126,6 +171,19 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
         .reduce((sum, { weight }) => sum + weight, 0);
     }
     case "geometric": {
+      if (p.type === "mock-first-on") {
+        // P(first success on try k) = P(more than k − 1 tries) − P(more than k tries).
+        const miss = 1 - MOCK_FIRST_CHANCES[p.setting as string], on = +p.on;
+        return miss ** (on - 1) - miss ** on;
+      }
+      if (p.type === "mock-colours") {
+        // It ends on try t when the first t − 1 are all one colour and try t is the other: Σ t P(N = t).
+        const marbles = [...Array(+p.red).fill("red"), ...Array(+p.blue).fill("blue")];
+        const red = share(marbles, (m) => m === "red"), blue = 1 - red;
+        let expected = 0;
+        for (let t = 2; t < 3000; t++) expected += t * (red ** (t - 1) * blue + blue ** (t - 1) * red);
+        return expected;
+      }
       if (p.type === "wait") {
         const pairs = sequences(faces(6), 2);
         const chance: Record<string, number> = {
@@ -210,6 +268,8 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return (p.last === "with" ? target : 0) + others;
     }
     case "normal": {
+      if (p.type === "mock-between") return cutOffShare(p, +p.mean, +p.sd, problem.key);
+      if (p.type === "mock-sum") return cutOffShare(p, +p.m1 + +p.m2, Math.hypot(+p.a, +p.b), problem.key);
       if (p.type === "symmetry") {
         const v = String(p.variant);
         const positive = integrate(phi, 0, 10);

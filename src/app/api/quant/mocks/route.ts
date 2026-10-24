@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { checkPremiumAccess } from "@/lib/subscription";
 import { trainingRatelimit, checkRateLimit } from "@/lib/rate-limit";
-import { MOCK_FREE, MOCK_MINUTES, isMockShape, scoreMock } from "@/lib/quant/mock";
+import { MOCK_FREE, MOCK_MINUTES, isMockShape, practiceTypeOf, scoreMock } from "@/lib/quant/mock";
 import { mockTopics } from "@/lib/quant/mock-progress";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +60,7 @@ const MockSchema = z.object({
 
 /**
  * Saves a finished mock. The score is worked out here from the questions, and each answer is
- * also saved as an attempt, so a missed type comes back in review.
+ * also saved as an attempt on the practice type it mirrors, so a missed type comes back in review.
  */
 export async function POST(request: Request) {
   try {
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
         select: { id: true },
       }),
       db.quantAttempt.createMany({
-        data: questions.map((q) => ({ userId, lessonId: q.lessonId, family: q.family, correct: q.correct, seconds: q.seconds })),
+        data: questions.map((q) => ({ userId, lessonId: q.lessonId, family: practiceTypeOf(q.lessonId, q.family), correct: q.correct, seconds: q.seconds })),
       }),
     ]);
     return NextResponse.json({ id: mock.id, score: result.score });

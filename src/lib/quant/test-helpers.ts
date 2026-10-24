@@ -12,12 +12,16 @@ export function seeded(seed: number) {
   };
 }
 
-/** Problems from every one of a lesson's question types (at least 30 each), plus its worked example. */
+/**
+ * Problems from every one of a lesson's question types, practice and mock (at least 30 each),
+ * plus its worked example.
+ */
 export function sample(lessonId: string, count = 300) {
   const lesson = getQuantLesson(lessonId)!;
   const random = seeded(lessonId.length * 97 + 11);
-  const each = Math.max(30, Math.ceil(count / lesson.families.length));
-  return [lesson.example, ...lesson.families.flatMap((family) => Array.from({ length: each }, () => generateFromFamily(family, random)))];
+  const types = [...lesson.families, ...lesson.mockFamilies];
+  const each = Math.max(30, Math.ceil(count / types.length));
+  return [lesson.example, ...types.flatMap((family) => Array.from({ length: each }, () => generateFromFamily(family, random)))];
 }
 
 /** All sequences of `length` picks from `values` (with repeats). */

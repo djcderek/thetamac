@@ -24,6 +24,23 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "uniform": {
+      if (p.type === "mock-rod") {
+        // Count rod lengths on a fine even grid across the range that land in the asked stretch.
+        const low = +p.low, high = +p.high, steps = 400000;
+        let hits = 0;
+        for (let i = 0; i < steps; i++) {
+          const x = low + ((i + 0.5) / steps) * (high - low);
+          if (x > +p.from && x < +p.to) hits++;
+        }
+        return hits / steps;
+      }
+      if (p.type === "mock-reading") {
+        // E[X | X in [a, b]] = ∫ x f(x) dx ÷ ∫ f(x) dx over what's left, with Simpson's rule.
+        const a = p.ask === "above" ? +p.cut : +p.low;
+        const b = p.ask === "below" ? +p.cut : +p.high;
+        const density = 1 / (+p.high - +p.low);
+        return simpson((x) => x * density, a, b) / simpson(() => density, a, b);
+      }
       if (p.type === "short" || p.type === "long" || p.type === "under" || p.type === "ratio") {
         // Integrate over the break point u, spread evenly on [0, L].
         const L = +p.length;
@@ -48,6 +65,16 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return simpson((x) => (x - mean) ** 2 * density, low, high);
     }
     case "area": {
+      if (p.type === "mock-berth") {
+        // The gap |X − Y| between two uniforms on [0, W] has density 2(W − g) ÷ W²; integrate it up to the stay.
+        const W = +p.window;
+        return simpson((g) => (2 * (W - g)) / (W * W), 0, +p.stay);
+      }
+      if (p.type === "mock-jug") {
+        // The sum of two uniforms on [0, 1] has a triangle density (s up to 1, then 2 − s); integrate it up to the jug's share.
+        const t = +p.jug / +p.pour;
+        return integrateLinearPieces((s) => (s <= 1 ? s : Math.max(0, 2 - s)), t, [1]);
+      }
       if (p.mN !== undefined) {
         // For each a, the b in [0, 1] with m ≤ a ÷ b ≤ M: from a ÷ M up to min(1, a ÷ m).
         const m = +p.mN / +p.mD, M = +p.MN / +p.MD;
@@ -83,6 +110,23 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return integrateLinearPieces((x) => Math.min(1, x / k), 1, [k]);
     }
     case "highest-lowest": {
+      if (p.type === "mock-spins") {
+        // Every sequence of spins, averaged.
+        const spins = sequences(faces(+p.sections), +p.spins);
+        const kept = (s: number[]) => (p.keep === "larger" ? Math.max(...s) : Math.min(...s));
+        return spins.reduce((sum, s) => sum + kept(s), 0) / spins.length;
+      }
+      if (p.type === "mock-arrivals") {
+        // E[first] = ∫ P(all later than x) dx; E[last] = ∫ P(not all earlier than x) dx, on [0, 1] then scaled.
+        const n = +p.n;
+        const tail = p.context === "replies" ? (x: number) => (1 - x) ** n : (x: number) => 1 - x ** n;
+        return simpson(tail, 0, 1) * +p.window;
+      }
+      if (p.type === "mock-all-by") {
+        // Integrate the density of the last finish (n·tⁿ⁻¹) or the first burnout (n·(1 − t)ⁿ⁻¹), on [0, 1].
+        const n = +p.n, x = +p.cut / +p.window;
+        return p.context === "downloads" ? simpson((t) => n * t ** (n - 1), 0, x) : simpson((t) => n * (1 - t) ** (n - 1), x, 1);
+      }
       if (p.length !== undefined) {
         // Integrate the density of the middle of three uniforms on [0, 1]: 6t(1 − t).
         const x = +p.x / +p.length;

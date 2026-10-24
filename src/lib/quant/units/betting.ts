@@ -825,6 +825,436 @@ const KELLY_BETS = [
   [55, 1], [60, 1], [65, 1], [70, 1], [75, 1], [40, 2], [50, 2], [60, 2], [30, 3], [40, 3], [25, 4], [30, 4], [20, 5],
 ] as const;
 
+// ─── Mock questions ──────────────────────────────────────────────────────────────────────
+// The mock test’s own question types: each mirrors a practice type above, in a setting
+// practice never uses.
+
+/** Settings for the mock’s “odds against” questions. */
+const MOCK_AGAINST: { id: string; prompt: (against: number, forOdds: number) => string }[] = [
+  {
+    id: "boxer",
+    prompt: (against, forOdds) => `A bookmaker prices a boxer at ${against} to ${forOdds} against for his next fight. What chance of winning does that price give him?`,
+  },
+  {
+    id: "film",
+    prompt: (against, forOdds) => `The odds on a film winning best picture are ${against} to ${forOdds} against. As a percentage, what chance of winning do they imply?`,
+  },
+  {
+    id: "candidate",
+    prompt: (against, forOdds) => `A candidate is quoted at ${against} to ${forOdds} against to win an election. What’s the implied probability that she wins?`,
+  },
+];
+
+function mockAgainst(params: { type: "mock-against"; setting: string; against: number; for: number }) {
+  const setting = MOCK_AGAINST.find((s) => s.id === params.setting)!;
+  const { against, for: forOdds } = params;
+  const total = against + forOdds;
+  const wins = (n: number) => `${n} ${n === 1 ? "win" : "wins"}`;
+  const losses = (n: number) => `${n} ${n === 1 ? "loss" : "losses"}`;
+  return problem(
+    `mock-against-${setting.id}-${against}-${forOdds}`,
+    setting.prompt(against, forOdds),
+    q(forOdds, total),
+    "percent",
+    [
+      {
+        label: `Wins out of every ${total}`,
+        work: `${forOdds} in every ${against} + ${forOdds}`,
+        result: `${forOdds}/${total}`,
+        icon: "count",
+        explain: `The odds say ${losses(against)} for every ${wins(forOdds)}. Put together, that’s ${wins(forOdds)} out of every ${total}.`,
+      },
+      {
+        label: "Chance",
+        work: `${forOdds} ÷ ${total}`,
+        icon: "divide",
+        explain: "The chance of a win is the share of wins: wins divided by wins and losses together.",
+        visual: chanceLine(q(forOdds, total)),
+      },
+    ],
+    params,
+    {
+      type: "number-line",
+      min: 0,
+      max: total,
+      ticks: Array.from({ length: total + 1 }, (_, i) => i),
+      shade: [
+        { from: 0, to: forOdds, tone: "win", text: wins(forOdds) },
+        { from: forOdds, to: total, tone: "lose", text: losses(against) },
+      ],
+      caption: `${wins(forOdds)} for every ${losses(against)}`,
+    },
+  );
+}
+
+/** A sportsbook’s moneyline: −150 means stake $150 to make $100; +150 means $100 makes $150. */
+function mockMoneyline(params: { type: "mock-moneyline"; line: number }) {
+  const { line } = params;
+  const favourite = line < 0;
+  const risk = favourite ? -line : 100;
+  const win = favourite ? 100 : line;
+  const chance = q(risk, risk + win);
+  return problem(
+    `mock-moneyline-${line}`,
+    favourite
+      ? `A sportsbook lists the home side at −${risk}, meaning you must stake $${risk} to make $100 profit. What win probability does the line imply?`
+      : `A sportsbook lists the away side at +${line}, meaning a $100 stake makes $${line} profit if it wins. What win probability does the line imply?`,
+    chance,
+    "percent",
+    [
+      {
+        label: "Stake and profit",
+        work: `$${risk} to make $${win}`,
+        icon: "count",
+        explain: `A winning bet returns the $${risk} stake plus $${win} profit, $${risk + win} in all.`,
+      },
+      {
+        label: "Stake ÷ total return",
+        work: `${risk} ÷ ${risk + win}`,
+        icon: "divide",
+        explain: "A fair line breaks even on average. That happens when the chance of winning is the stake’s share of the total return.",
+        visual: chanceLine(chance),
+      },
+    ],
+    params,
+    {
+      type: "slots",
+      op: "+",
+      slots: [
+        { label: "Stake", value: `$${risk}` },
+        { label: "Profit", value: `$${win}`, tone: "win" },
+      ],
+      result: `$${risk + win}`,
+      caption: "What a winning bet pays back",
+    },
+  );
+}
+
+/** A trade that risks a fixed amount, or a contract that pays $100 if it rains. */
+function mockTrade(params: { type: "mock-trade"; setting: "trade" | "contract"; risk: number; win: number; percent: number }) {
+  const { setting, risk, win, percent } = params;
+  const chance = q(percent, 100);
+  const gain = mul(q(win), chance);
+  const loss = mul(q(risk), sub(q(1), chance));
+  const trade = setting === "trade";
+  return problem(
+    `mock-trade-${setting}-${risk}-${win}-${percent}`,
+    trade
+      ? `A trade risks $${risk} to make $${win}, and it works ${percent}% of the time. What’s its expected profit?`
+      : `A contract costs $${risk} and pays $100 if it rains tomorrow, or nothing if it doesn’t. The chance of rain is ${percent}%. What’s your expected profit from buying one contract?`,
+    sub(gain, loss),
+    "dollars",
+    [
+      {
+        label: "Gain times its chance",
+        work: `$${win} × ${percent}%`,
+        result: formatDollars(gain),
+        icon: "multiply",
+        explain: trade
+          ? `When the trade works it makes $${win}. Weight that by the ${percent}% chance.`
+          : `If it rains, the $100 payout on a $${risk} cost is a $${win} gain. Weight it by the ${percent}% chance of rain.`,
+        visual: profitBars(gain, loss, "win"),
+      },
+      {
+        label: "Loss times its chance",
+        work: `$${risk} × ${100 - percent}%`,
+        result: formatDollars(loss),
+        icon: "multiply",
+        explain: trade
+          ? `When it fails, the $${risk} at risk is gone. That happens ${100 - percent}% of the time.`
+          : `If it stays dry, the $${risk} you paid is lost. That happens ${100 - percent}% of the time.`,
+        visual: profitBars(gain, loss, "both"),
+      },
+      {
+        label: "Expected profit",
+        work: `${formatDollars(gain)} − ${formatDollars(loss)}`,
+        icon: "subtract",
+        explain: "The average gain minus the average loss is what it makes each time, in the long run. Below zero, pass.",
+        visual: profitBars(gain, loss, "net"),
+      },
+    ],
+    params,
+    chanceLine(chance, trade ? "chance it works" : "chance of rain"),
+  );
+}
+
+/** Spinners and drums for the mock’s bets: sectors or balls, how many win, and the payout. */
+const MOCK_SPINS: [number, number, number][] = [
+  [4, 1, 2], [5, 1, 3], [5, 2, 2], [6, 1, 4], [8, 1, 6], [8, 1, 8], [10, 1, 8], [10, 2, 3], [10, 3, 2], [12, 1, 10], [12, 2, 6], [20, 1, 18], [20, 2, 10],
+];
+
+/** "7 or 8", "1, 2 or 3". */
+const orList = (numbers: number[]) => (numbers.length === 1 ? `${numbers[0]}` : `${numbers.slice(0, -1).join(", ")} or ${numbers.at(-1)}`);
+
+function mockSpinner(params: { type: "mock-spinner"; setting: "spinner" | "drum"; size: number; wins: number; pays: number; stake: number }) {
+  const { setting, size, wins, pays, stake } = params;
+  const spinner = setting === "spinner";
+  // A spinner bet takes the top numbers; a drum bet the bottom ones.
+  const numbers = Array.from({ length: wins }, (_, i) => (spinner ? size - wins + 1 + i : i + 1));
+  const chance = q(wins, size);
+  const winAmount = q(stake * pays);
+  const gain = mul(winAmount, chance);
+  const loss = mul(q(stake), sub(q(1), chance));
+  const things = spinner ? "sectors" : "balls";
+  return problem(
+    `mock-spinner-${setting}-${size}-${wins}-${pays}-${stake}`,
+    spinner
+      ? `A spinner has ${size} equal sectors, numbered 1 to ${size}. You stake $${stake} on it stopping on ${orList(numbers)}, at ${pays} to 1. What’s your expected profit?`
+      : `A lottery drum holds ${size} balls numbered 1 to ${size}, and one is drawn at random. A $${stake} bet that the ball shows ${orList(numbers)} pays ${pays} to 1. What’s the bet’s expected profit?`,
+    sub(gain, loss),
+    "dollars",
+    [
+      {
+        label: "Win times its chance",
+        work: `${formatDollars(winAmount)} × ${wins}/${size}`,
+        result: formatDollars(gain),
+        icon: "multiply",
+        explain: `${wins} of the ${size} ${things} ${wins === 1 ? "wins" : "win"}, and a win at ${pays} to 1 makes ${formatDollars(winAmount)} on the $${stake}.`,
+        visual: profitBars(gain, loss, "win"),
+      },
+      {
+        label: "Loss times its chance",
+        work: `$${stake} × ${size - wins}/${size}`,
+        result: formatDollars(loss),
+        icon: "multiply",
+        explain: `The other ${size - wins} ${things} lose the $${stake} stake.`,
+        visual: profitBars(gain, loss, "both"),
+      },
+      {
+        label: "Expected profit",
+        work: `${formatDollars(gain)} − ${formatDollars(loss)}`,
+        icon: "subtract",
+        explain: "The average win minus the average loss is the bet’s profit per play over the long run.",
+        visual: profitBars(gain, loss, "net"),
+      },
+    ],
+    params,
+    chanceLine(chance, "chance to win"),
+  );
+}
+
+/** A money wheel’s 54 segments: the bets on it, how many segments each covers, and what it pays. */
+const MONEY_WHEEL: { id: string; mark: string; count: number; pays: number }[] = [
+  { id: "1", mark: "“1”", count: 24, pays: 1 },
+  { id: "2", mark: "“2”", count: 15, pays: 2 },
+  { id: "5", mark: "“5”", count: 7, pays: 5 },
+  { id: "10", mark: "“10”", count: 4, pays: 10 },
+  { id: "20", mark: "“20”", count: 2, pays: 20 },
+  { id: "joker", mark: "a joker", count: 1, pays: 40 },
+];
+
+function mockWheel(params: { type: "mock-wheel"; bet: string }) {
+  const bet = MONEY_WHEEL.find((b) => b.id === params.bet)!;
+  const others = 54 - bet.count;
+  const win = q(bet.pays * bet.count, 54);
+  const lose = q(others, 54);
+  return problem(
+    `mock-wheel-${bet.id}`,
+    bet.count === 1
+      ? `A money wheel has 54 equal segments, and just one of them shows ${bet.mark}. A $1 bet on the joker pays ${bet.pays} to 1 if the wheel stops there. What’s the house edge on that bet?`
+      : `A money wheel has 54 equal segments, and ${bet.count} of them are marked ${bet.mark}. A $1 bet on ${bet.mark} pays ${bet.pays} to 1 if the wheel stops on one of them. What’s the house edge on that bet?`,
+    q(others - bet.pays * bet.count, 54),
+    "percent",
+    [
+      {
+        label: "Win times its chance",
+        work: `$${bet.pays} × ${bet.count}/54`,
+        result: formatDollars(win),
+        icon: "multiply",
+        explain: `The bet wins $${bet.pays} on ${bet.count === 1 ? "that one segment" : `any of its ${bet.count} segments`}, out of 54 equally likely stops.`,
+        visual: edgeBars(win, lose, "win"),
+      },
+      {
+        label: "Loss times its chance",
+        work: `$1 × ${others}/54`,
+        result: formatDollars(lose),
+        icon: "multiply",
+        explain: `The other ${others} segments lose the $1.`,
+        visual: edgeBars(win, lose, "both"),
+      },
+      {
+        label: "Average loss per $1",
+        work: `(${others} − ${bet.pays * bet.count}) ÷ 54`,
+        icon: "subtract",
+        explain: "What you lose on average, less what you win on average, is the house’s share of every $1 staked.",
+        visual: edgeBars(win, lose, "edge"),
+      },
+    ],
+    params,
+    {
+      type: "bars",
+      bars: [
+        { label: "Its segments", value: bet.count, tone: "win", text: `${bet.count}` },
+        { label: "Other segments", value: others, tone: "lose", text: `${others}` },
+      ],
+      caption: "Segments out of 54",
+    },
+  );
+}
+
+/** One winner among equally likely picks: a batch of scratch cards, or ducks at a fair. */
+function mockPrize(params: { type: "mock-prize"; setting: "scratch" | "ducks"; count: number; price: number; prize: number }) {
+  const { setting, count, price, prize } = params;
+  const average = q(prize, count);
+  const loss = sub(q(price), average);
+  const cards = setting === "scratch";
+  return problem(
+    `mock-prize-${setting}-${count}-${price}-${prize}`,
+    cards
+      ? `A batch of ${count} scratch cards sells at $${price} a card. Exactly one card in the batch wins $${prize}, and the rest win nothing. On average, what share of each card’s price does the seller keep?`
+      : `A fairground game has ${count} plastic ducks, and one of them has a star underneath. You pay $${price} to pick a duck, and finding the star wins $${prize}. What’s the game’s house edge, as a share of what you pay?`,
+    div(loss, q(price)),
+    "percent",
+    [
+      {
+        label: "Chance you get the winner",
+        work: `1 in ${count}`,
+        result: `1/${count}`,
+        icon: "count",
+        explain: `Every ${cards ? "card" : "duck"} is equally likely to be the one you get, so you find the winner 1 time in ${count}.`,
+      },
+      {
+        label: "Average prize",
+        work: `$${prize} × 1/${count}`,
+        result: formatDollars(average),
+        icon: "multiply",
+        explain: "Weight the prize by the chance you win it.",
+      },
+      {
+        label: "Average loss per play",
+        work: `$${price} − ${formatDollars(average)}`,
+        result: formatDollars(loss),
+        icon: "subtract",
+        explain: "You always pay the price, and on average get that much back.",
+        visual: {
+          type: "bars",
+          bars: [
+            { label: "Price", value: price, tone: "lose", text: `$${price}` },
+            { label: "Average prize", value: value(average), tone: "win", text: formatDollars(average) },
+            { label: "House keeps", value: value(loss), tone: "hit", text: formatDollars(loss) },
+          ],
+          caption: "Per play, on average",
+        },
+      },
+      {
+        label: "House edge",
+        work: `${formatDollars(loss)} ÷ $${price}`,
+        icon: "divide",
+        explain: "Divide by the price to get what the house keeps as a share of what you pay.",
+      },
+    ],
+    params,
+  );
+}
+
+/** Ducks and scratch cards: how many, the price, and the share of takings the prize pays back. */
+const MOCK_PRIZES = [
+  ...[20, 25, 40, 50].flatMap((count) =>
+    [1, 2, 5].flatMap((price) => [40, 50, 60, 75, 80].map((back) => ({ setting: "ducks" as const, count, price, prize: (count * price * back) / 100 }))),
+  ),
+  ...[100, 200, 250, 500].flatMap((count) =>
+    [1, 2, 5].flatMap((price) => [50, 60, 65, 70, 75].map((back) => ({ setting: "scratch" as const, count, price, prize: (count * price * back) / 100 }))),
+  ),
+].filter((p) => Number.isInteger(p.prize));
+
+/** A share of the bankroll on a 0–100% line. */
+function bankrollLine(stake: Rational): QuantVisual {
+  return {
+    type: "number-line",
+    min: 0,
+    max: 100,
+    ticks: [0, 25, 50, 75, 100],
+    shade: [
+      { from: 0, to: value(stake) * 100, tone: "hit", text: `${formatPercent(stake)} staked` },
+      { from: value(stake) * 100, to: 100, tone: "known", text: "kept back" },
+    ],
+    caption: "Share of your bankroll",
+  };
+}
+
+function winLoseBars(p: Rational, caption: string): QuantVisual {
+  return {
+    type: "bars",
+    bars: [
+      { label: "Win", value: value(p), tone: "win", text: formatPercent(p) },
+      { label: "Lose", value: value(sub(q(1), p)), tone: "lose", text: formatPercent(sub(q(1), p)) },
+    ],
+    caption,
+  };
+}
+
+/** Kelly at even money, on a biased coin or a game you usually win. */
+function mockEvenKelly(params: { type: "mock-even"; setting: "coin" | "chess"; winPercent: number }) {
+  const { setting, winPercent } = params;
+  const p = q(winPercent, 100);
+  const lose = sub(q(1), p);
+  const stake = sub(p, lose);
+  return problem(
+    `mock-even-${setting}-${winPercent}`,
+    setting === "coin"
+      ? `A coin lands heads ${winPercent}% of the time. You may bet any share of your money on heads at even money, as many times as you like. By the Kelly rule, what share should you bet each time?`
+      : `A friend will play you at chess for any stake, at even money, as often as you like. You win ${winPercent}% of your games against them, and there are no draws. By the Kelly rule, what share of your bankroll should you stake on each game?`,
+    stake,
+    "percent",
+    [
+      {
+        label: "Edge at even money",
+        work: `${winPercent}% − ${formatPercent(lose)}`,
+        icon: "subtract",
+        explain: "At even money a win and a loss are the same size, so Kelly stakes exactly your edge: the chance to win minus the chance to lose.",
+        visual: bankrollLine(stake),
+      },
+    ],
+    params,
+    winLoseBars(p, "Each bet pays 1 to 1"),
+  );
+}
+
+/** Kelly when a win pays more than the stake: a trading signal, or a bet on a putt. */
+function mockOddsKelly(params: { type: "mock-odds"; setting: "signal" | "putt"; winPercent: number; pays: number }) {
+  const { setting, winPercent, pays } = params;
+  const p = q(winPercent, 100);
+  const lose = sub(q(1), p);
+  const share = div(lose, q(pays));
+  const stake = sub(p, share);
+  return problem(
+    `mock-odds-${setting}-${winPercent}-${pays}`,
+    setting === "signal"
+      ? `A trading signal is right ${winPercent}% of the time. A right call makes a profit of ${pays} times the stake, and a wrong one loses the stake. By the Kelly rule, what share of your capital should each trade risk?`
+      : `A friend offers you ${pays} to 1 that you can’t sink a long putt, and you sink it ${winPercent}% of the time. You can repeat the bet as often as you like. By the Kelly rule, what share of your bankroll should you stake each time?`,
+    stake,
+    "percent",
+    [
+      {
+        label: "Chance to lose",
+        work: `100% − ${winPercent}%`,
+        result: formatPercent(lose),
+        icon: "subtract",
+        explain: "Each bet either wins or loses, so the two chances make 100%.",
+      },
+      {
+        label: "Chance to lose ÷ payout",
+        work: `${formatPercent(lose)} ÷ ${pays}`,
+        result: formatPercent(share),
+        icon: "divide",
+        explain: `A win is worth ${pays} times what a loss costs, so scale the lose chance down by ${pays}.`,
+      },
+      {
+        label: "Kelly stake",
+        work: `${winPercent}% − ${formatPercent(share)}`,
+        icon: "subtract",
+        explain: "Take that from the chance to win. The rest is the share of your money to put on each bet.",
+        visual: bankrollLine(stake),
+      },
+    ],
+    params,
+    winLoseBars(p, `A win pays ${pays} to 1`),
+  );
+}
+
+/** Kelly bets with an edge for the mock: win chance and payout to 1. */
+const MOCK_KELLY_ODDS = [[40, 2], [45, 2], [50, 2], [60, 2], [30, 3], [35, 3], [40, 3], [50, 3], [25, 4], [30, 4], [20, 5]] as const;
+
 export const BETTING_LESSONS: QuantLessonDef[] = [
   {
     id: "implied-probability",
@@ -977,6 +1407,24 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         },
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-against",
+        practice: "against",
+        title: "Odds against, quoted on a fight or a vote",
+        generate: (random) => {
+          const [against, forOdds] = pick(random, [[2, 1], [3, 1], [4, 1], [6, 1], [3, 2], [5, 2], [7, 2], [7, 3], [9, 4], [5, 4], [8, 5]] as const);
+          return mockAgainst({ type: "mock-against", setting: pick(random, MOCK_AGAINST).id, against, for: forOdds });
+        },
+      },
+      {
+        id: "mock-moneyline",
+        practice: "american",
+        title: "A sportsbook’s moneyline",
+        generate: (random) =>
+          mockMoneyline({ type: "mock-moneyline", line: pick(random, [-400, -300, -250, -200, -150, -125, 125, 150, 200, 250, 300, 400]) }),
+      },
+    ],
   },
   {
     id: "bet-ev",
@@ -1121,6 +1569,43 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
           betEv({ type: "break-even", pot: pick(random, [20, 40, 50, 60, 80, 100, 150, 200]), bet: pick(random, [10, 20, 25, 30, 40, 50, 100]) }),
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-trade",
+        practice: "stated-odds",
+        title: "A trade or contract with a known chance",
+        generate: (random) => {
+          for (;;) {
+            if (random() < 0.5) {
+              const risk = pick(random, [100, 200, 400, 500]);
+              const win = risk * pick(random, [0.5, 1, 1.5, 2, 3]);
+              const percent = pick(random, [20, 25, 30, 35, 40, 45, 55, 60, 65, 70, 75]);
+              if (win * percent !== risk * (100 - percent)) return mockTrade({ type: "mock-trade", setting: "trade", risk, win, percent });
+            } else {
+              const risk = pick(random, [15, 20, 25, 30, 40, 50, 60, 70, 75, 80]);
+              const percent = pick(random, [10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90]);
+              if (percent !== risk) return mockTrade({ type: "mock-trade", setting: "contract", risk, win: 100 - risk, percent });
+            }
+          }
+        },
+      },
+      {
+        id: "mock-spinner",
+        practice: "dice-bet",
+        title: "A bet on a spinner or a lottery drum",
+        generate: (random) => {
+          const [size, wins, pays] = pick(random, MOCK_SPINS);
+          return mockSpinner({
+            type: "mock-spinner",
+            setting: random() < 0.5 ? "spinner" : "drum",
+            size,
+            wins,
+            pays,
+            stake: pick(random, [5, 10, 20, 50, 100]),
+          });
+        },
+      },
+    ],
   },
   {
     id: "house-edge",
@@ -1259,6 +1744,20 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         id: "raffle",
         title: "A raffle ticket",
         generate: (random) => raffle({ type: "raffle", ...pick(random, RAFFLES) }),
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-wheel",
+        practice: "roulette-numbers",
+        title: "A bet on a money wheel",
+        generate: (random) => mockWheel({ type: "mock-wheel", bet: pick(random, MONEY_WHEEL).id }),
+      },
+      {
+        id: "mock-prize",
+        practice: "raffle",
+        title: "Scratch cards or a duck pond",
+        generate: (random) => mockPrize({ type: "mock-prize", ...pick(random, MOCK_PRIZES) }),
       },
     ],
   },
@@ -1417,6 +1916,27 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         generate: (random) => {
           const [winPercent, hundredths] = pick(random, KELLY_DECIMAL);
           return kellyDecimal({ type: "decimal", winPercent, hundredths });
+        },
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-even",
+        practice: "even-money",
+        title: "Kelly on a biased coin or a game you favour",
+        generate: (random) => {
+          const setting = random() < 0.5 ? "coin" : "chess";
+          const winPercent = pick(random, setting === "coin" ? [55, 60, 65, 70, 75, 80] : [55, 60, 65, 70]);
+          return mockEvenKelly({ type: "mock-even", setting, winPercent });
+        },
+      },
+      {
+        id: "mock-odds",
+        practice: "longer-odds",
+        title: "Kelly when a win pays more than the stake",
+        generate: (random) => {
+          const [winPercent, pays] = pick(random, MOCK_KELLY_ODDS);
+          return mockOddsKelly({ type: "mock-odds", setting: random() < 0.5 ? "signal" : "putt", winPercent, pays });
         },
       },
     ],

@@ -42,6 +42,17 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   switch (lessonId) {
     case "expected-value": {
       const key = String(problem.key);
+      if (p.type === "mock-wheel") {
+        // Write out what every slot pays, then average over the slots.
+        const n = +p.slots;
+        const pays = faces(n).map((slot) => (slot === n ? +p.top : slot >= n - +p.smallSlots ? +p.small : -p.cost));
+        return pays.reduce((a, b) => a + b, 0) / n;
+      }
+      if (p.type === "mock-raffle") {
+        // One entry per ticket, then the average payout.
+        const tickets = faces(+p.tickets).map((t) => (t <= +p.topCount ? +p.top : t <= +p.topCount + +p.secondCount ? +p.second : 0));
+        return tickets.reduce((a, b) => a + b, 0) / tickets.length;
+      }
       if (key.startsWith("capped-")) {
         let expected = 0;
         for (let n = 1; n < 300; n++) expected += 0.5 ** n * Math.min(2 ** n, +p.cap);
@@ -94,6 +105,24 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
     }
     case "linearity": {
       const key = String(problem.key);
+      if (p.type === "mock-choices") {
+        // Every sequence of choices, counting the different options in each.
+        const all = sequences(faces(+p.options), +p.people);
+        return all.reduce((s, picks) => s + new Set(picks).size, 0) / all.length;
+      }
+      if (p.type === "mock-first") {
+        // Every placement of the hits among the positions, equally likely; the first hit's position.
+        const r = +p.hits, n = r + +p.others;
+        let total = 0, rows = 0;
+        for (let mask = 0; mask < 1 << n; mask++) {
+          if (popcount(mask) !== r) continue;
+          let first = 0;
+          while (!((mask >> first) & 1)) first++;
+          total += first + 1;
+          rows++;
+        }
+        return total / rows;
+      }
       if (key.startsWith("couples-")) {
         // Every seating of the 2n people; partners are 2i and 2i + 1.
         const n = +p.couples, seats = 2 * n;
@@ -178,6 +207,11 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
     }
     case "variance": {
       const key = String(problem.key);
+      if (p.type === "mock-two-way") {
+        const c = +p.chanceN / +p.chanceD;
+        return moments([[+p.win, c], [-p.lose, 1 - c]]).variance;
+      }
+      if (p.type === "mock-trials") return moments(binomial(+p.trials, +p.chanceN / +p.chanceD)).variance;
       if (key.startsWith("without-")) {
         // The hypergeometric distribution of the count, then its variance.
         const pools: Record<string, [number, number]> = { clubs: [52, 13], aces: [52, 4], red: [52, 26], balls: [10, 4], "balls-12": [12, 6] };

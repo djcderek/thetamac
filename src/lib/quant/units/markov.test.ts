@@ -9,6 +9,34 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "coupon-collector": {
+      if (p.type === "mock-full-set") {
+        // P(T > t) = P(some type still missing after t tries), by inclusion–exclusion; E[T] = Σ P(T > t).
+        const n = +p.n;
+        let expected = 0;
+        for (let t = 0; t < 4000; t++) {
+          let missing = 0;
+          for (let j = 1; j <= n; j++) missing += (j % 2 ? 1 : -1) * choose(n, j) * (1 - j / n) ** t;
+          expected += missing;
+        }
+        return expected;
+      }
+      if (p.type === "mock-some-types") {
+        // Push the chance of each "different ones seen" count forward one try at a time.
+        const n = +p.n, k = +p.k;
+        let dist = Array(k + 1).fill(0);
+        dist[0] = 1;
+        let expected = 0;
+        for (let t = 0; t < 4000; t++) {
+          const next = Array(k + 1).fill(0);
+          for (let seen = 0; seen < k; seen++) {
+            expected += dist[seen];
+            next[seen] += dist[seen] * (seen / n);
+            next[seen + 1] += dist[seen] * ((n - seen) / n);
+          }
+          dist = next;
+        }
+        return expected;
+      }
       if (p.k !== undefined || p.red !== undefined) {
         // Push the distribution of the state forward turn by turn; E[T] = sum of P(not done yet).
         // some-types: state = types seen (done at k). swap-urn: state = red balls left (done at 0).
@@ -45,6 +73,34 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return expected;
     }
     case "patterns": {
+      if (p.type === "mock-streak") {
+        // Closed form for k in a row: (1 − pᵏ) ÷ ((1 − p) pᵏ).
+        const chance = +p.pN / +p.pD, k = +p.k;
+        return (1 - chance ** k) / ((1 - chance) * chance ** k);
+      }
+      if (p.type === "mock-fair-pattern" || p.type === "mock-weather") {
+        // Matched-so-far states, solved as a linear system: E[m] = 1 + Σ chance × E[next], E[full] = 0.
+        const pattern = String(p.pattern).split(" ");
+        const alphabet = p.type === "mock-weather" ? ["W", "D"] : ["0", "1"];
+        const wet = p.type === "mock-weather" ? +p.wetN / +p.wetD : 1 / 2;
+        const chance = (symbol: string) => (p.type === "mock-weather" ? (symbol === "W" ? wet : 1 - wet) : 1 / 2);
+        const size = pattern.length;
+        const next = (matched: number, symbol: string) => {
+          const text = [...pattern.slice(0, matched), symbol].join("");
+          for (let k = Math.min(text.length, size); k > 0; k--) if (text.endsWith(pattern.slice(0, k).join(""))) return k;
+          return 0;
+        };
+        const a = Array.from({ length: size }, () => Array(size).fill(0));
+        const b = Array(size).fill(1);
+        for (let m = 0; m < size; m++) {
+          a[m][m] += 1;
+          for (const symbol of alphabet) {
+            const to = next(m, symbol);
+            if (to < size) a[m][to] -= chance(symbol);
+          }
+        }
+        return solve(a, b)[0];
+      }
       if (p.k !== undefined) {
         // Run-length states 0..k−1: a success moves up one, a miss drops to 0. Solve the equations.
         const k = +p.k, chance = +p.pN / +p.pD;
@@ -102,6 +158,47 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return solve(a, b)[0];
     }
     case "random-walks": {
+      if (p.type === "mock-stock") {
+        // Solve P[x] = up·P[x+1] + down·P[x−1] over prices from the low order to the high one.
+        const size = +p.target + 1, up = +p.upN / +p.upD;
+        const a = Array.from({ length: size }, () => Array(size).fill(0));
+        const b = Array(size).fill(0);
+        a[0][0] = 1;
+        a[size - 1][size - 1] = 1;
+        b[size - 1] = 1;
+        for (let i = 1; i < size - 1; i++) {
+          a[i][i] = 1;
+          a[i][i + 1] = -up;
+          a[i][i - 1] = -(1 - up);
+        }
+        const high = solve(a, b)[+p.start];
+        return p.ask === "high" ? high : 1 - high;
+      }
+      if (p.type === "mock-frog") {
+        // Track where the frog might be, jump by jump; E[T] = Σ P(still on a stone in the stream).
+        const stones = +p.stones;
+        let where = Array(stones + 1).fill(0);
+        where[+p.start] = 1;
+        let expected = 0;
+        for (let t = 0; t < 20000; t++) {
+          const next = Array(stones + 1).fill(0);
+          for (let i = 1; i < stones; i++) {
+            expected += where[i];
+            next[i - 1] += where[i] / 2;
+            next[i + 1] += where[i] / 2;
+          }
+          where = next;
+        }
+        return expected;
+      }
+      if (p.type === "mock-two-clear") {
+        // Sum over the number of split pairs m before the deciding pair: chance (2pq)ᵐ each.
+        const win = +p.pN / +p.pD, split = 2 * win * (1 - win);
+        const settle = win * win + (1 - win) * (1 - win);
+        let total = 0;
+        for (let m = 0; m < 2000; m++) total += split ** m * (p.ask === "win" ? win * win : settle * (2 * m + 2));
+        return total;
+      }
       if (p.ask === "win" || p.ask === "points") {
         // States −2..2 (Ana's lead). Solve for the win chance or the expected points from deuce.
         const win = +p.pN / +p.pD;
@@ -173,6 +270,35 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return p.ask === "broke" ? 1 - result : result;
     }
     case "optimal-stopping": {
+      if (p.type === "mock-ticket") {
+        // Try every keep-threshold for the first ticket, averaging over both draws, and take the best.
+        const n = +p.tickets;
+        let best = -Infinity;
+        for (let keepFrom = 1; keepFrom <= n + 1; keepFrom++) {
+          let sum = 0;
+          for (const first of faces(n)) for (const second of faces(n)) sum += first >= keepFrom ? first : second;
+          best = Math.max(best, sum / (n * n));
+        }
+        return best;
+      }
+      if (p.type === "mock-wheel") {
+        // List the slices and find the first total where one more spin doesn't gain on average.
+        const n = +p.slices, busts = +p.busts;
+        const slices = faces(n).map((s) => (s > n - busts ? null : s));
+        for (let points = 0; points < 1000; points++) {
+          const change = slices.reduce((sum: number, s) => sum + (s === null ? -points : s), 0) / n;
+          if (change <= 1e-9) return points;
+        }
+        throw new Error("no stopping total");
+      }
+      if (p.type === "mock-paid-machine") {
+        // Value iteration: V = average of max(payout, V − fee), from V = 0 until it settles.
+        const top = +p.top, fee = +p.costN / +p.costD;
+        let worth = 0;
+        for (let i = 0; i < 20000; i++) worth = faces(top).reduce((sum, x) => sum + Math.max(x, worth - fee), 0) / top;
+        if (p.ask === "value") return worth;
+        return faces(top).find((x) => x >= worth - fee - 1e-9)!;
+      }
       if (p.type === "doubles" || p.type === "total" || p.type === "pig") {
         // For each score, list every outcome of one more roll and find the first score where it doesn't pay.
         const outcomes: { bust: boolean; add: number }[] = [];

@@ -1,5 +1,5 @@
 import { add, div, formatFraction, formatPercent, mul, pow, q, sub, value, type Rational } from "../rational";
-import { choose, int, pick, problem, sup, type QuantLessonDef, type QuantProblem, type Random } from "../build";
+import { choose, int, pick, problem, sup, timesWord, type QuantLessonDef, type QuantProblem, type Random } from "../build";
 import type { CardId, QuantVisual } from "../visual";
 
 // ─── Binomial ────────────────────────────────────────────────────────────────────────────
@@ -1718,6 +1718,544 @@ const NORMAL_GIVENS = [
   { condition: "above-mean", event: "above-2" },
 ] as const;
 
+// ─── Mock questions ──────────────────────────────────────────────────────────────────────
+// The mock test’s own question types: each mirrors a practice type above, in a setting
+// practice never uses.
+
+/** Settings for the mock’s “exactly k” questions. */
+const MOCK_TRIALS: {
+  id: string;
+  /** One try, for figure labels: "Spin". */
+  one: string;
+  chance: [number, number];
+  noun: string;
+  minTries: number;
+  maxTries: number;
+  prompt: (n: number, k: number) => string;
+}[] = [
+  {
+    id: "spinner",
+    one: "Spin",
+    chance: [1, 5],
+    noun: "spins",
+    minTries: 3,
+    maxTries: 6,
+    prompt: (n, k) => `A spinner has 5 equal sectors, one of them red. You spin it ${n} times. What’s the chance it stops on red exactly ${timesWord(k)}?`,
+  },
+  {
+    id: "seeds",
+    one: "Seed",
+    chance: [3, 4],
+    noun: "seeds",
+    minTries: 3,
+    maxTries: 6,
+    prompt: (n, k) =>
+      `Each seed in a packet sprouts with chance 3/4, independently of the rest. You plant ${n} of them. What’s the chance exactly ${k} ${k === 1 ? "sprouts" : "sprout"}?`,
+  },
+  {
+    id: "drum",
+    one: "Draw",
+    chance: [3, 10],
+    noun: "draws",
+    minTries: 3,
+    maxTries: 6,
+    prompt: (n, k) =>
+      `A drum holds 10 balls numbered 1 to 10. You draw one at random, note it and put it back, ${n} times in all. What’s the chance exactly ${k} of the draws ${k === 1 ? "shows" : "show"} an 8, 9 or 10?`,
+  },
+  {
+    id: "trades",
+    one: "Trade",
+    chance: [3, 5],
+    noun: "trades",
+    minTries: 3,
+    maxTries: 5,
+    prompt: (n, k) =>
+      `A strategy’s trades each make money with chance 60%, independently. Over its next ${n} trades, what’s the chance exactly ${k} ${k === 1 ? "makes" : "make"} money?`,
+  },
+];
+
+function mockExactly(params: { type: "mock-exactly"; setting: string; tries: number; successes: number }): QuantProblem {
+  const setting = MOCK_TRIALS.find((s) => s.id === params.setting)!;
+  const { tries: n, successes: k } = params;
+  const p = q(...setting.chance);
+  const miss = sub(q(1), p);
+  const ways = choose(n, k);
+  const oneOrder = mul(pow(p, k), pow(miss, n - k));
+  return problem(
+    `mock-exactly-${setting.id}-${n}-${k}`,
+    setting.prompt(n, k),
+    exactlyChance(n, k, p),
+    "probability",
+    [
+      {
+        label: `Which ${k} of the ${n} ${setting.noun}`,
+        work: `C(${n}, ${k})`,
+        result: `${ways}`,
+        icon: "count",
+        explain: `The successes can fall on any ${k} of the ${n} ${setting.noun}. Choosing which gives \`\\binom{${n}}{${k}}\` orders.`,
+        visual: {
+          type: "slots",
+          op: "×",
+          slots: Array.from({ length: n }, (_, i) => ({
+            label: `${setting.one} ${i + 1}`,
+            value: formatFraction(i < k ? p : miss),
+            tone: i < k ? "hit" : "muted",
+          })),
+          result: formatFraction(oneOrder),
+          caption: `One order: ${k} ${k === 1 ? "success" : "successes"} first, then ${n - k} ${n - k === 1 ? "miss" : "misses"}`,
+        },
+      },
+      {
+        label: "Chance of one order",
+        work: timesTerms(power(p, k), power(miss, n - k)),
+        result: formatFraction(oneOrder),
+        icon: "multiply",
+        explain: `Each of the ${setting.noun} is independent, so multiply along the order: ${formatFraction(p)} for a success, ${formatFraction(miss)} for a miss.`,
+      },
+      {
+        label: `Exactly ${k}`,
+        work: `${ways} × ${formatFraction(oneOrder)}`,
+        icon: "multiply",
+        explain: "No two orders can both happen, and each has the same chance, so multiply that chance by the number of orders.",
+        visual: distributionBars(n, p, [k], setting.noun),
+      },
+    ],
+    params,
+    distributionBars(n, p, [k], setting.noun, false),
+  );
+}
+
+/** Three independent voters, decided by majority: forecasting models or safety sensors. */
+const MOCK_PANELS: {
+  id: string;
+  /** "models", for labels. */
+  noun: string;
+  prompt: (pct: string, third: "same" | "random") => string;
+}[] = [
+  {
+    id: "models",
+    noun: "models",
+    prompt: (pct, third) =>
+      third === "same"
+        ? `You go with the majority of three weather models on whether it will rain tomorrow. Each model calls it correctly with chance ${pct}, independently. What’s the chance the majority call is correct?`
+        : `You go with the majority of three weather models on whether it will rain tomorrow. Two of them call it correctly with chance ${pct} each, independently, and the third is no better than a coin toss. What’s the chance the majority call is correct?`,
+  },
+  {
+    id: "sensors",
+    noun: "sensors",
+    prompt: (pct, third) =>
+      third === "same"
+        ? `A safety system acts on the majority reading of three sensors. Each sensor reads correctly with chance ${pct}, independently of the others. What’s the chance the system acts on a correct reading?`
+        : `A safety system acts on the majority reading of three sensors. Two read correctly with chance ${pct} each, independently, and the third is faulty and reads at random, right half the time. What’s the chance the system acts on a correct reading?`,
+  },
+];
+
+function mockMajority(params: { type: "mock-majority"; setting: string; third: "same" | "random"; percent: number }): QuantProblem {
+  const setting = MOCK_PANELS.find((s) => s.id === params.setting)!;
+  const { third, percent } = params;
+  const p = q(percent, 100);
+  const miss = sub(q(1), p);
+  const pct = `${percent}%`;
+  const missPct = formatPercent(miss);
+  const prompt = setting.prompt(pct, third);
+  const key = `mock-majority-${setting.id}-${third}-${percent}`;
+  if (third === "random") {
+    const both = mul(p, p);
+    const oneRight = mul(q(2), mul(p, miss));
+    const thirdAgrees = div(oneRight, q(2));
+    return problem(
+      key,
+      prompt,
+      add(both, thirdAgrees),
+      "percent",
+      [
+        {
+          label: "Both reliable ones right",
+          work: `${pct} × ${pct}`,
+          result: formatPercent(both),
+          icon: "multiply",
+          explain: "Two right answers out of three are already a majority, so the random one doesn’t matter here.",
+        },
+        {
+          label: "Exactly one reliable one right",
+          work: `2 × ${pct} × ${missPct}`,
+          result: formatPercent(oneRight),
+          icon: "multiply",
+          explain: `Either of the two reliable ${setting.noun} can be the right one, so there are 2 ways. Now the random one breaks the tie.`,
+        },
+        {
+          label: "…and the random one agrees",
+          work: `${formatPercent(oneRight)} × 1/2`,
+          result: formatPercent(thirdAgrees),
+          icon: "flip",
+          explain: "The random one is right half the time, whatever the others say.",
+        },
+        {
+          label: "Majority right",
+          work: `${formatPercent(both)} + ${formatPercent(thirdAgrees)}`,
+          icon: "add",
+          explain: `These are the only two ways to a right majority, and they can’t both happen, so add. It matches one reliable ${setting.noun.slice(0, -1)} on its own.`,
+        },
+      ],
+      params,
+      {
+        type: "tree",
+        root: {
+          label: `Reliable ${setting.noun}`,
+          children: [
+            { label: "Both right", edge: formatPercent(both), tone: "win" },
+            {
+              label: "One right",
+              edge: formatPercent(oneRight),
+              tone: "alt",
+              children: [
+                { label: "Third agrees", edge: "1/2", tone: "win" },
+                { label: "Third disagrees", edge: "1/2", tone: "lose" },
+              ],
+            },
+            { label: "Both wrong", edge: formatPercent(mul(miss, miss)), tone: "lose" },
+          ],
+        },
+        caption: "The majority is right on the green branches",
+      },
+    );
+  }
+  const all = pow(p, 3);
+  const two = mul(q(3), mul(pow(p, 2), miss));
+  return problem(
+    key,
+    prompt,
+    add(all, two),
+    "percent",
+    [
+      {
+        label: "All three right",
+        work: `${pct}³`,
+        result: formatPercent(all),
+        icon: "multiply",
+        explain: `The ${setting.noun} are independent, so the chance all three are right is the product.`,
+      },
+      {
+        label: "Exactly two right",
+        work: `3 × ${pct}² × ${missPct}`,
+        result: formatPercent(two),
+        icon: "multiply",
+        explain: "The one that’s wrong can be any of the 3, and each of those cases has the same chance.",
+      },
+      {
+        label: "Majority right",
+        work: `${formatPercent(all)} + ${formatPercent(two)}`,
+        icon: "add",
+        explain: "Two or three right make a right majority. The cases don’t overlap, so add them.",
+      },
+    ],
+    params,
+    distributionBars(3, p, [2, 3], setting.noun, false),
+  );
+}
+
+/** Settings for the mock’s “first success on try k” questions. */
+const MOCK_FIRSTS: {
+  id: string;
+  chance: [number, number];
+  /** One try, for figure labels: "Call". */
+  one: string;
+  /** The last try it can reasonably ask about. */
+  maxOn: number;
+  prompt: (on: number) => string;
+}[] = [
+  {
+    id: "calls",
+    chance: [1, 4],
+    one: "Call",
+    maxOn: 5,
+    prompt: (on) =>
+      `A salesperson rings one customer after another until someone buys. Each call ends in a sale with chance 1/4, independently. What’s the chance the ${ORDINALS[on]} call is the first to make a sale?`,
+  },
+  {
+    id: "spinner",
+    chance: [1, 3],
+    one: "Spin",
+    maxOn: 5,
+    prompt: (on) =>
+      `A spinner has three equal sectors: red, green and blue. You spin it until it stops on red. What’s the chance that takes exactly ${on} spins?`,
+  },
+  {
+    id: "archer",
+    chance: [2, 5],
+    one: "Arrow",
+    maxOn: 4,
+    prompt: (on) =>
+      `An archer hits the bullseye with chance 2/5 on each arrow, independently, and stops at her first bullseye. What’s the chance she shoots exactly ${on} arrows?`,
+  },
+];
+
+function mockFirstOn(params: { type: "mock-first-on"; setting: string; on: number }): QuantProblem {
+  const setting = MOCK_FIRSTS.find((s) => s.id === params.setting)!;
+  const chance = q(...setting.chance);
+  const miss = sub(q(1), chance);
+  const { on } = params;
+  const tries = (withHit: boolean): QuantVisual => ({
+    type: "slots",
+    op: "×",
+    slots: Array.from({ length: withHit ? on : on - 1 }, (_, i) => ({
+      label: `${setting.one} ${i + 1}`,
+      value: formatFraction(i === on - 1 ? chance : miss),
+      tone: i === on - 1 ? "hit" : "muted",
+    })),
+    result: formatFraction(withHit ? mul(pow(miss, on - 1), chance) : pow(miss, on - 1)),
+    caption: withHit ? `${on - 1} ${on - 1 === 1 ? "miss" : "misses"}, then a success` : `${on - 1} ${on - 1 === 1 ? "miss" : "misses"} in a row`,
+  });
+  return problem(
+    `mock-first-on-${setting.id}-${on}`,
+    setting.prompt(on),
+    mul(pow(miss, on - 1), chance),
+    "probability",
+    [
+      {
+        label: `${on - 1} ${on - 1 === 1 ? "miss" : "misses"} first`,
+        work: power(miss, on - 1),
+        result: formatFraction(pow(miss, on - 1)),
+        icon: "multiply",
+        explain: `${setting.one} ${on} can only be the first success if every one before it fails. Each fails with chance ${formatFraction(miss)}, independently, so multiply.`,
+        visual: tries(false),
+      },
+      {
+        label: `Then ${setting.one.toLowerCase()} ${on} succeeds`,
+        work: `${formatFraction(pow(miss, on - 1))} × ${formatFraction(chance)}`,
+        icon: "target",
+        explain: `Then ${setting.one.toLowerCase()} ${on} has to work, with chance ${formatFraction(chance)}.`,
+        visual: tries(true),
+      },
+    ],
+    params,
+    firstSuccessBars(chance, on, Math.max(6, on)),
+  );
+}
+
+/** Repeated draws with two colours, until both have come up. */
+const MOCK_COLOURS: { id: string; prompt: (red: number, blue: number) => string; one: string; tries: string }[] = [
+  {
+    id: "bag",
+    one: "draw",
+    tries: "draws",
+    prompt: (red, blue) =>
+      `A bag holds ${red} red and ${blue} blue ${red + blue === 2 ? "marble" : "marbles"}. You draw one at random, note its colour and put it back, until you’ve drawn both colours. How many draws do you expect to make?`,
+  },
+  {
+    id: "spinner",
+    one: "spin",
+    tries: "spins",
+    prompt: (red, blue) =>
+      `A spinner has ${red} red and ${blue} blue sectors, all the same size. You spin it until it has stopped on each colour at least once. How many spins do you expect?`,
+  },
+];
+
+function mockColours(params: { type: "mock-colours"; setting: string; red: number; blue: number }): QuantProblem {
+  const setting = MOCK_COLOURS.find((s) => s.id === params.setting)!;
+  const { red, blue } = params;
+  const pr = q(red, red + blue);
+  const pb = q(blue, red + blue);
+  const afterFirst = add(mul(pr, div(q(1), pb)), mul(pb, div(q(1), pr)));
+  return problem(
+    `mock-colours-${setting.id}-${red}-${blue}`,
+    setting.prompt(red, blue),
+    add(q(1), afterFirst),
+    "number",
+    [
+      {
+        label: `The first ${setting.one} shows a colour`,
+        work: `1 ${setting.one}`,
+        result: "",
+        icon: "flip",
+        explain: "Whatever comes up first, one colour is now seen. From here you’re waiting only for the other one.",
+      },
+      {
+        label: "Then wait for the other colour",
+        work: `${formatFraction(pr)} × ${formatFraction(div(q(1), pb))} + ${formatFraction(pb)} × ${formatFraction(div(q(1), pr))}`,
+        result: formatFraction(afterFirst),
+        icon: "split",
+        explain: "After a red, waiting for blue takes `1/P(\\text{blue})` more on average, and after a blue, `1/P(\\text{red})`. Weight each by how likely that first colour is.",
+        visual: {
+          type: "tree",
+          root: {
+            label: "First colour",
+            children: [
+              {
+                label: "Red",
+                edge: formatFraction(pr),
+                tone: "alt",
+                children: [{ label: `${formatFraction(div(q(1), pb))} more`, edge: "wait for blue", tone: "hit" }],
+              },
+              {
+                label: "Blue",
+                edge: formatFraction(pb),
+                tone: "alt",
+                children: [{ label: `${formatFraction(div(q(1), pr))} more`, edge: "wait for red", tone: "hit" }],
+              },
+            ],
+          },
+          caption: "The wait for the second colour, by which came first",
+        },
+      },
+      {
+        label: `Average ${setting.tries}`,
+        work: `1 + ${formatFraction(afterFirst)}`,
+        icon: "add",
+        explain: `Add the first ${setting.one} to the average wait for the other colour.`,
+      },
+    ],
+    params,
+    setting.id === "bag"
+      ? {
+          type: "marbles",
+          groups: [
+            { count: red, tone: "hit", label: "Red" },
+            { count: blue, tone: "alt", label: "Blue" },
+          ],
+          caption: "Each marble goes back after it’s drawn",
+        }
+      : {
+          type: "bars",
+          bars: [
+            { label: "Red", value: red, tone: "hit", text: `${red} of ${red + blue}` },
+            { label: "Blue", value: blue, tone: "alt", text: `${blue} of ${red + blue}` },
+          ],
+          caption: "The spinner’s sectors, by colour",
+        },
+  );
+}
+
+/** Normal measurements for the mock’s “between two values” questions. */
+const MOCK_SCALES: { id: string; setup: string; mean: number; sd: number; show: (x: number) => string; share: string }[] = [
+  {
+    id: "battery",
+    setup: "The battery in a phone model lasts a normal number of hours, with mean 20 hours and standard deviation 2 hours.",
+    mean: 20,
+    sd: 2,
+    show: (x) => `${x} hours`,
+    share: "about what share of phones last",
+  },
+  {
+    id: "coffee",
+    setup: "A coffee machine pours cups whose volume is normal, with mean 250 ml and standard deviation 5 ml.",
+    mean: 250,
+    sd: 5,
+    show: (x) => `${x} ml`,
+    share: "about what share of cups hold",
+  },
+  {
+    id: "pizza",
+    setup: "Pizza delivery times in a city are normal, with mean 30 min and standard deviation 6 min.",
+    mean: 30,
+    sd: 6,
+    show: (x) => `${x} min`,
+    share: "about what share of deliveries take",
+  },
+  {
+    id: "apples",
+    setup: "Apples from an orchard have normal weights, with mean 150 g and standard deviation 20 g.",
+    mean: 150,
+    sd: 20,
+    show: (x) => `${x} g`,
+    share: "about what share of the apples weigh",
+  },
+];
+
+function mockBetween(params: { type: "mock-between"; scale: string; lo: number; hi: number }): QuantProblem {
+  const setting = MOCK_SCALES.find((s) => s.id === params.scale)!;
+  const scale = scaleOf(setting.mean, setting.sd, setting.show);
+  const at = (z: number) => setting.show(setting.mean + z * setting.sd);
+  const { lo, hi } = params;
+  const pieces: Band[] = lo < 0 && hi > 0 ? [[lo, 0], [0, hi]] : [[lo, hi]];
+  const steps: (Omit<QuantProblem["steps"][number], "result"> & { result?: string })[] = pieces.map(([a, b]) => sideStep(a, b, scale));
+  if (pieces.length > 1) {
+    steps.push({
+      label: "Total",
+      work: steps.map((s) => s.result).join(" + "),
+      result: "",
+      icon: "add",
+      explain: "One piece is below the mean and the other above it, so they don’t overlap. Add them.",
+      visual: bellCurve(scale, [{ bands: pieces, tone: "hit", text: bandShare }], "Both pieces together"),
+    });
+  }
+  return problem(
+    `mock-between-${setting.id}-${lo}-${hi}`,
+    `${setting.setup} By the 68–95–99.7 rule, ${setting.share} between ${at(lo)} and ${at(hi)}?`,
+    shareBetween(lo, hi),
+    "percent",
+    steps,
+    { ...params, mean: setting.mean, sd: setting.sd, x1: setting.mean + lo * setting.sd, x2: setting.mean + hi * setting.sd },
+    bellCurve(scale, [{ bands: [[lo, hi]], tone: "hit" }], `Between ${at(lo)} and ${at(hi)}`),
+  );
+}
+
+/** Two independent normal parts of a total, for the mock. */
+const MOCK_SUM_SETTINGS: (typeof SUM_SETTINGS)[number][] = [
+  {
+    id: "relay",
+    means: [50, 52],
+    setup: (a, b) =>
+      `A relay team has two runners. The first leg takes a normal time with mean 50 s and standard deviation ${a} s. The second, independently, has mean 52 s and standard deviation ${b} s.`,
+    show: (x) => `${x} s`,
+    share: "in what share of races does the team",
+    words: { above: "take longer than", below: "finish in under", within: "finish between" },
+  },
+  {
+    id: "pumps",
+    means: [300, 200],
+    setup: (a, b) =>
+      `Two pumps fill a tank, independently. In an hour the first delivers a normal volume with mean 300 L and standard deviation ${a} L, and the second a normal volume with mean 200 L and standard deviation ${b} L.`,
+    show: (x) => `${x} L`,
+    share: "in what share of hours does the tank take in",
+    words: { above: "more than", below: "less than", within: "between" },
+  },
+];
+
+function mockSum(params: { type: "mock-sum"; setting: string; a: number; b: number; region: Region }): QuantProblem {
+  const setting = MOCK_SUM_SETTINGS.find((s) => s.id === params.setting)!;
+  const { a, b, region } = params;
+  const c = Math.round(Math.hypot(a, b));
+  const mean = setting.means[0] + setting.means[1];
+  const scale = scaleOf(mean, c, setting.show);
+  const at = (z: number) => setting.show(mean + z * c);
+  const [lo, hi] = regionBand(region);
+  const k = Number(region.split("-")[1]);
+  const edgeValue = region.startsWith("below") ? mean - k * c : mean + k * c;
+  return problem(
+    `mock-sum-${setting.id}-${a}-${b}-${region}`,
+    `${setting.setup(a, b)} By the 68–95–99.7 rule, ${setting.share} ${regionWords(region, at, setting.words)}?`,
+    shareBetween(lo, hi),
+    "percent",
+    [
+      {
+        label: "Mean of the total",
+        work: `${setting.means[0]} + ${setting.means[1]}`,
+        result: `${mean}`,
+        icon: "add",
+        explain: "The mean of a total is the sum of the parts’ means.",
+      },
+      {
+        label: "SD of the total",
+        work: `√(${a}² + ${b}²) = √${a * a + b * b}`,
+        result: `${c}`,
+        icon: "idea",
+        explain: "Variances of independent parts add, so the SDs combine as `\\sqrt{a^2 + b^2}`. That’s smaller than `a + b`, because the parts partly cancel.",
+      },
+      {
+        label: "Distance in standard deviations",
+        work: `(${edgeValue} − ${mean}) ÷ ${c}`,
+        result: `${region.startsWith("below") ? -k : k}`,
+        icon: "divide",
+        explain: "Measure how far the cut-off is from the total’s mean, in the total’s SDs.",
+        visual: bellCurve(scale, [{ bands: [[lo, hi]], tone: "hit" }], "The total’s bell curve"),
+      },
+      ruleStep(region, scale),
+    ],
+    { ...params, m1: setting.means[0], m2: setting.means[1], ...regionValues(region, mean, c) },
+  );
+}
+
 export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
   {
     id: "binomial",
@@ -1875,6 +2413,34 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         title: "A majority vote of three",
         generate: (random) =>
           majorityVote({ type: "vote", jury: random() < 0.5 ? "coin" : "three", percent: pick(random, [55, 60, 65, 70, 75, 80, 85, 90]) }),
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-exactly",
+        practice: "exactly",
+        title: "Exactly k of n independent tries",
+        generate: (random) => {
+          for (;;) {
+            const setting = pick(random, MOCK_TRIALS);
+            const n = int(random, setting.minTries, setting.maxTries);
+            const made = mockExactly({ type: "mock-exactly", setting: setting.id, tries: n, successes: int(random, 1, n - 1) });
+            const v = value(made.answer);
+            if (v >= 0.01 && v <= 0.99) return made;
+          }
+        },
+      },
+      {
+        id: "mock-majority",
+        practice: "majority-vote",
+        title: "The majority of three models or sensors",
+        generate: (random) =>
+          mockMajority({
+            type: "mock-majority",
+            setting: pick(random, MOCK_PANELS).id,
+            third: random() < 0.5 ? "random" : "same",
+            percent: pick(random, [55, 60, 65, 70, 75, 80, 85, 90, 95]),
+          }),
       },
     ],
   },
@@ -2079,6 +2645,27 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         generate: (random) => waitGiven({ type: "given", forbidden: pick(random, FORBIDDEN).id }),
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-first-on",
+        practice: "first-on",
+        title: "The first success on a given try",
+        generate: (random) => {
+          const setting = pick(random, MOCK_FIRSTS);
+          return mockFirstOn({ type: "mock-first-on", setting: setting.id, on: int(random, 2, setting.maxOn) });
+        },
+      },
+      {
+        id: "mock-colours",
+        practice: "both-sides",
+        title: "Draws until both colours appear",
+        generate: (random) => {
+          const [x, y] = pick(random, [[1, 1], [2, 2], [1, 2], [1, 3], [2, 3], [1, 4], [3, 4], [2, 5], [3, 5]] as const);
+          const [red, blue] = random() < 0.5 ? [x, y] : [y, x];
+          return mockColours({ type: "mock-colours", setting: pick(random, MOCK_COLOURS).id, red, blue });
+        },
+      },
+    ],
   },
   {
     id: "normal",
@@ -2276,6 +2863,27 @@ export const DISTRIBUTIONS_LESSONS: QuantLessonDef[] = [
         id: "symmetry",
         title: "Symmetry of normals centred on 0",
         generate: (random) => symmetry({ type: "symmetry", variant: pick(random, SYMMETRY).id }),
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-between",
+        practice: "between",
+        title: "Share between two cut-offs",
+        generate: (random) => {
+          const [lo, hi] = pick(random, NORMAL_RANGES.filter(([a, b]) => a !== -OPEN && b !== OPEN));
+          return mockBetween({ type: "mock-between", scale: pick(random, MOCK_SCALES).id, lo, hi });
+        },
+      },
+      {
+        id: "mock-sum",
+        practice: "sum",
+        title: "A total of two independent normal parts",
+        generate: (random) => {
+          const [a, b] = pick(random, TRIPLES);
+          const [x, y] = random() < 0.5 ? [a, b] : [b, a];
+          return mockSum({ type: "mock-sum", setting: pick(random, MOCK_SUM_SETTINGS).id, a: x, b: y, region: pick(random, REGIONS) });
+        },
       },
     ],
   },

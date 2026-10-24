@@ -1697,6 +1697,528 @@ function moreInclusion(params: MoreInclusionParams): QuantProblem {
   }
 }
 
+// ─── Mock test types ───────────────────────────────────────────────────────────────────
+// Each works like one practice type, in a setting practice never uses.
+
+type MockChoicesParams =
+  | { type: "mock-build"; colours: number; wheels: number; trims: number }
+  | { type: "mock-extras"; sizes: number; cases: number; plans: number }
+  | { type: "mock-lock"; wheels: number; letters: number }
+  | { type: "mock-bin"; letters: number; digits: number };
+
+function mockChoices(params: MockChoicesParams): QuantProblem {
+  switch (params.type) {
+    case "mock-build": {
+      const { colours, wheels, trims } = params;
+      const boxes = [{ label: "Paint", value: colours }, { label: "Wheels", value: wheels }, { label: "Trim", value: trims }];
+      return problem(
+        `mock-build-${colours}-${wheels}-${trims}`,
+        `A new car comes in ${colours} paint colours, with ${wheels} wheel designs and ${trims} interior trims. A buyer picks one of each. How many different cars can be ordered?`,
+        q(colours * wheels * trims),
+        "count",
+        [
+          {
+            label: "Options at each step",
+            work: `${colours} colours, ${wheels} wheels, ${trims} trims`,
+            icon: "count",
+            explain: "Count the options for each choice: the paint, then the wheels, then the trim.",
+          },
+          {
+            label: "Multiply them",
+            work: times([colours, wheels, trims]),
+            icon: "multiply",
+            explain: "Every colour goes with every wheel design, and each of those with every trim, so the counts multiply.",
+            visual: slots(boxes, String(colours * wheels * trims)),
+          },
+        ],
+        params,
+        slots(boxes),
+      );
+    }
+    case "mock-extras": {
+      const { sizes, cases, plans } = params;
+      const total = sizes * (cases + 1) * (plans + 1);
+      return problem(
+        `mock-extras-${sizes}-${cases}-${plans}`,
+        `A laptop comes in ${sizes} screen sizes. The buyer can add one of ${cases} cases or no case, and one of ${plans} support plans or no plan. How many different orders are possible?`,
+        q(total),
+        "count",
+        [
+          {
+            label: "Case options, counting “none”",
+            work: `${cases} + 1`,
+            result: `${cases + 1}`,
+            icon: "add",
+            explain: "Going without a case is one more way to choose, so add 1 to the number of cases.",
+          },
+          {
+            label: "Plan options, counting “none”",
+            work: `${plans} + 1`,
+            result: `${plans + 1}`,
+            icon: "add",
+            explain: "The same goes for the support plan: no plan is one more option.",
+          },
+          {
+            label: "Multiply with the screen sizes",
+            work: times([sizes, cases + 1, plans + 1]),
+            icon: "multiply",
+            explain: "Every screen size goes with every case choice and every plan choice, so multiply the three counts.",
+            visual: slots(
+              [
+                { label: "Screen", value: sizes },
+                { label: "Case or none", value: cases + 1 },
+                { label: "Plan or none", value: plans + 1 },
+              ],
+              String(total),
+            ),
+          },
+        ],
+        params,
+        slots([
+          { label: "Screen", value: sizes },
+          { label: "Case or none", value: `${cases} + 1` },
+          { label: "Plan or none", value: `${plans} + 1` },
+        ]),
+      );
+    }
+    case "mock-lock": {
+      const { wheels, letters } = params;
+      const last = String.fromCharCode(64 + letters);
+      return problem(
+        `mock-lock-${wheels}-${letters}`,
+        `A suitcase lock has ${wheels} wheels, and each wheel can show any of the ${letters} letters A to ${last}. How many different settings can the lock show?`,
+        q(letters ** wheels),
+        "count",
+        [
+          {
+            label: "Options for each wheel",
+            work: `A to ${last}`,
+            result: `${letters}`,
+            icon: "count",
+            explain: `Each wheel can show any of the ${letters} letters, whatever the other wheels show.`,
+          },
+          {
+            label: `Multiply for ${wheels} wheels`,
+            work: `${letters}${sup(wheels)}`,
+            icon: "multiply",
+            explain: `A setting is one letter on each of the ${wheels} wheels, so multiply ${letters} by itself ${wheels} times.`,
+            visual: slots(
+              Array.from({ length: wheels }, (_, i) => ({ label: `Wheel ${i + 1}`, value: letters })),
+              commas(letters ** wheels),
+            ),
+          },
+        ],
+        params,
+        slots(Array.from({ length: wheels }, (_, i) => ({ label: `Wheel ${i + 1}`, value: letters }))),
+      );
+    }
+    case "mock-bin": {
+      const { letters, digits } = params;
+      const total = 26 ** letters * 9 ** digits;
+      const boxes = [
+        ...Array.from({ length: letters }, (_, i) => ({ label: `Letter ${i + 1}`, value: 26 })),
+        ...Array.from({ length: digits }, (_, i) => ({ label: `Digit ${i + 1}`, value: 9, tone: "alt" as Tone })),
+      ];
+      return problem(
+        `mock-bin-${letters}-${digits}`,
+        `Every bin in a warehouse gets a label: ${letters === 1 ? "a letter" : `${letters} letters`} from A to Z, then ${digits} digits from 1 to 9. Any letter or digit can repeat. How many different labels are there?`,
+        q(total),
+        "count",
+        [
+          {
+            label: "Options for each letter, then each digit",
+            work: "26, then 9",
+            icon: "count",
+            explain: "Each letter spot has 26 options, A to Z. Each digit spot has 9, since 0 isn’t used.",
+          },
+          {
+            label: "Multiply them",
+            work: `${letters === 1 ? "26" : `26${sup(letters)}`} × 9${sup(digits)} = ${commas(26 ** letters)} × ${commas(9 ** digits)}`,
+            icon: "multiply",
+            explain: "Each spot is filled independently of the others, so multiply the options for every spot.",
+            visual: slots(boxes, commas(total)),
+          },
+        ],
+        params,
+        slots(boxes),
+      );
+    }
+  }
+}
+
+type MockPermutationsParams =
+  | { type: "mock-prizes"; teams: number; prizes: number }
+  | { type: "mock-playlist"; tracks: number; plays: number }
+  | { type: "mock-flags"; red: number; blue: number; white: number }
+  | { type: "mock-digits"; digits: string };
+
+/** Digit strings to rearrange, none with a 0, so every rearrangement is a proper number. */
+const MOCK_DIGIT_STRINGS = ["11223", "11122", "112233", "122333", "111223", "1122334", "1112233", "11223344"];
+
+function mockPermutations(params: MockPermutationsParams): QuantProblem {
+  switch (params.type) {
+    case "mock-prizes":
+    case "mock-playlist": {
+      const prizes = params.type === "mock-prizes";
+      const n = prizes ? params.teams : params.tracks;
+      const k = prizes ? params.prizes : params.plays;
+      const picks = falling(n, k);
+      const label = (i: number) => (prizes ? `${ordinal(i + 1)} prize` : `Track ${i + 1}`);
+      const awards = PLACE_NAMES.slice(0, k).map((place) => `a ${place}`).join(", ").replace(/, (?=[^,]*$)/, " and ");
+      return problem(
+        prizes ? `mock-prizes-${n}-${k}` : `mock-playlist-${n}-${k}`,
+        prizes
+          ? `${n} teams enter a hackathon, and the judges award ${awards} prize. No team can win more than one prize. How many different ways can the prizes go?`
+          : `An album has ${n} tracks. A playlist plays ${k} of them one after another, with no track repeated, and the order counts. How many different playlists are there?`,
+        q(product(picks)),
+        "count",
+        [
+          {
+            label: prizes ? `Options for each of the ${k} prizes` : "Options for each slot, one fewer each time",
+            work: picks.join(", then "),
+            icon: "count",
+            explain: prizes
+              ? "Any team can take first prize. That team can’t win again, so each later prize has one fewer team to go to."
+              : `The first slot can be any of the ${n} tracks. A track can’t play twice, so each later slot has one fewer.`,
+            visual: slots(picks.map((value, i) => ({ label: label(i), value }))),
+          },
+          {
+            label: "Multiply them",
+            work: times(picks),
+            icon: "multiply",
+            explain: `Each choice for one ${prizes ? "prize" : "slot"} goes with every choice for the next, so multiply.`,
+            visual: slots(
+              picks.map((value, i) => ({ label: label(i), value })),
+              commas(product(picks)),
+            ),
+          },
+        ],
+        params,
+      );
+    }
+    case "mock-flags":
+    case "mock-digits": {
+      const flags = params.type === "mock-flags";
+      const counts = flags
+        ? new Map([["Red", params.red], ["Blue", params.blue], ["White", params.white]])
+        : letterCounts(params.digits);
+      const n = [...counts.values()].reduce((a, b) => a + b, 0);
+      const repeats = [...counts].filter(([, count]) => count > 1);
+      const all = factorial(n);
+      const divisor = product(repeats.map(([, count]) => factorial(count)));
+      const figure: QuantVisual = {
+        type: "bars",
+        bars: [...counts].map(([name, count]) => ({ label: name, value: count, tone: count > 1 ? "hit" : "muted", text: `${count}` })),
+        caption: flags ? "Flags of each colour" : `Digits in ${params.digits}`,
+      };
+      const thing = flags ? "flag" : "digit";
+      return problem(
+        flags ? `mock-flags-${params.red}-${params.blue}-${params.white}` : `mock-digits-${params.digits}`,
+        flags
+          ? `A ship signals by flying ${n} flags in a column: ${params.red} red, ${params.blue} blue and ${params.white} white. Flags of one colour look exactly alike. How many different signals can it make?`
+          : `Using every digit of ${params.digits} exactly once, how many different ${n}-digit numbers can you make?`,
+        q(all / divisor),
+        "count",
+        [
+          {
+            label: `Arrange all ${n} ${thing}s as if they were different`,
+            work: `${n}!`,
+            result: commas(all),
+            icon: "count",
+            explain: `If every ${thing} could be told apart, there would be ${n}! orders, one for each way to fill the ${n} spots.`,
+            visual: slots(falling(n, n).map((value, i) => ({ label: `${ordinal(i + 1)} spot`, value }))),
+          },
+          {
+            label: flags ? "Colours that repeat" : "Digits that repeat",
+            work: repeats.map(([name, count]) => (flags ? `${name.toLowerCase()} ${count} times` : `${count} copies of ${name}`)).join(", "),
+            icon: "filter",
+            explain: `Swapping two ${flags ? "flags of the same colour" : "copies of the same digit"} gives the same ${flags ? "signal" : "number"}, so those orders were counted more than once.`,
+            visual: figure,
+          },
+          {
+            label: `Divide by the ways to shuffle each repeat`,
+            work: `${commas(all)} ÷ (${repeats.map(([, count]) => `${count}!`).join(" × ")})`,
+            icon: "divide",
+            explain: `${flags ? "A colour" : "A digit"} that appears \`k\` times can be shuffled \`k!\` ways without changing the ${flags ? "signal" : "number"}, so divide by that for each repeat.`,
+          },
+        ],
+        params,
+        figure,
+      );
+    }
+  }
+}
+
+type MockCombinationsParams =
+  | { type: "mock-panel"; context: string; first: number; second: number; size: number; picked: number }
+  | { type: "mock-vases"; items: number; boxes: number }
+  | { type: "mock-jars"; items: number; boxes: number };
+
+const PANEL_CONTEXTS: Record<string, { prompt: (size: number, a: number, b: number, k: number) => string; one: [string, string]; many: [string, string]; place: string }> = {
+  tasting: {
+    prompt: (size, a, b, k) => `A tasting panel of ${size} is drawn from ${a} chefs and ${b} food critics. How many different panels contain exactly ${k} ${k === 1 ? "chef" : "chefs"}?`,
+    one: ["chef", "critic"],
+    many: ["chefs", "critics"],
+    place: "seat",
+  },
+  station: {
+    prompt: (size, a, b, k) => `A research station needs a crew of ${size}, picked from ${a} scientists and ${b} engineers. How many different crews include exactly ${k} ${k === 1 ? "scientist" : "scientists"}?`,
+    one: ["scientist", "engineer"],
+    many: ["scientists", "engineers"],
+    place: "place",
+  },
+};
+
+function mockCombinations(params: MockCombinationsParams): QuantProblem {
+  if (params.type === "mock-panel") {
+    const { context, first, second, size, picked } = params;
+    const c = PANEL_CONTEXTS[context];
+    const rest = size - picked;
+    const firstWays = choose(first, picked);
+    const secondWays = choose(second, rest);
+    const cap = (s: string) => capitalise(s);
+    const figure = (a: number, b: number): QuantVisual => ({
+      type: "people",
+      groups: [
+        ...(a > 0 ? [{ count: a, tone: "hit" as Tone, label: `${cap(c.many[0])} picked` }] : []),
+        ...(first - a > 0 ? [{ count: first - a, tone: "muted" as Tone, label: a > 0 ? `Other ${c.many[0]}` : cap(c.many[0]) }] : []),
+        ...(b > 0 ? [{ count: b, tone: "alt" as Tone, label: `${cap(c.many[1])} picked` }] : []),
+        ...(second - b > 0 ? [{ count: second - b, tone: "known" as Tone, label: b > 0 ? `Other ${c.many[1]}` : cap(c.many[1]) }] : []),
+      ],
+    });
+    const who = (n: number, i: 0 | 1) => (n === 1 ? c.one[i] : c.many[i]);
+    return problem(
+      `mock-panel-${context}-${first}-${second}-${size}-${picked}`,
+      c.prompt(size, first, second, picked),
+      q(firstWays * secondWays),
+      "count",
+      [
+        {
+          label: `Ways to pick the ${picked} ${who(picked, 0)}`,
+          work: `C(${first}, ${picked})`,
+          result: `${firstWays}`,
+          icon: "count",
+          explain: `Choose which ${picked === 1 ? `of the ${first} ${c.many[0]} is` : `${picked} of the ${first} ${c.many[0]} are`} in. Order doesn’t matter, so it’s “${first} choose ${picked}”.`,
+          visual: figure(picked, 0),
+        },
+        {
+          label: `Ways to pick the ${rest} ${who(rest, 1)}`,
+          work: `C(${second}, ${rest})`,
+          result: `${secondWays}`,
+          icon: "count",
+          explain:
+            rest === 1
+              ? `The last ${c.place} goes to one of the ${second} ${c.many[1]}.`
+              : `The other ${rest} ${c.place}s go to ${c.many[1]}: choose them from the ${second} ${c.many[1]}.`,
+          visual: figure(picked, rest),
+        },
+        {
+          label: "Multiply them",
+          work: `${firstWays} × ${secondWays}`,
+          icon: "multiply",
+          explain: `Any choice of ${c.many[0]} goes with any choice of ${c.many[1]}, so multiply the two counts.`,
+        },
+      ],
+      params,
+      figure(0, 0),
+    );
+  }
+  const { items, boxes } = params;
+  const dividers = boxes - 1;
+  const dividerText = dividers === 1 ? "1 divider" : `${dividers} dividers`;
+  if (params.type === "mock-vases") {
+    const spots = items + dividers;
+    return problem(
+      `mock-vases-${items}-${boxes}`,
+      `A florist puts ${items} identical roses into ${boxes} different vases, and a vase may be left empty. In how many different ways can the roses be split between the vases?`,
+      q(choose(spots, dividers)),
+      "count",
+      [
+        {
+          label: `Line up the roses with ${dividerText} between vases`,
+          work: `${items} roses + ${dividerText}`,
+          result: `${spots} spots`,
+          icon: "split",
+          explain: "Put the roses in a row and drop in dividers: roses before the first divider go in vase 1, and so on.",
+        },
+        {
+          label: `Choose where the ${dividers === 1 ? "divider goes" : "dividers go"}`,
+          work: `C(${spots}, ${dividers})`,
+          icon: "count",
+          explain: `Every split is one way to place the ${dividerText} among the ${spots} spots, so choose ${dividers === 1 ? "its spot" : "their spots"}.`,
+        },
+      ],
+      params,
+      { type: "stars-bars", stars: items, bars: dividers, caption: `${items} roses, ${dividerText} between ${boxes} vases` },
+    );
+  }
+  const left = items - boxes;
+  return problem(
+    `mock-jars-${items}-${boxes}`,
+    `You drop ${items} identical coins into ${boxes} labelled jars, and no jar may stay empty. In how many different ways can the coins end up?`,
+    q(choose(left + dividers, dividers)),
+    "count",
+    [
+      {
+        label: "Put one coin in every jar first",
+        work: `${items} − ${boxes}`,
+        result: `${left} left`,
+        icon: "subtract",
+        explain: "One coin in each jar meets the rule. The coins left over can go anywhere, with empty allowed.",
+      },
+      {
+        label: "Share the rest with dividers",
+        work: `C(${left} + ${dividers}, ${dividers})`,
+        icon: "count",
+        explain: `Line up the ${left} coins with ${dividerText}. Choosing where ${dividers === 1 ? "it goes" : "they go"} fixes how many each jar gets.`,
+        visual: { type: "stars-bars", stars: Math.max(1, left), bars: dividers, caption: `${left} coins and ${dividerText}` },
+      },
+    ],
+    params,
+  );
+}
+
+type MockInclusionParams =
+  | { type: "mock-overlap"; context: string; total: number; a: number; b: number; both: number; ask: "either" | "neither" }
+  | { type: "mock-onto"; context: string; jobs: number; options: number };
+
+const OVERLAP_CONTEXTS: Record<string, { whole: (n: number) => string; a: string; b: string; both: string; aLabel: string; bLabel: string; either: string; neither: string; group: string }> = {
+  gym: {
+    whole: (n) => `A gym has ${n} members`,
+    a: "use the pool",
+    b: "use the sauna",
+    both: "use both",
+    aLabel: "Pool",
+    bLabel: "Sauna",
+    either: "How many members use at least one of the two?",
+    neither: "How many members use neither?",
+    group: "in the gym",
+  },
+  desk: {
+    whole: (n) => `A trading floor has ${n} traders`,
+    a: "trade options",
+    b: "trade futures",
+    both: "trade both",
+    aLabel: "Options",
+    bLabel: "Futures",
+    either: "How many traders trade options, futures or both?",
+    neither: "How many traders trade neither?",
+    group: "on the trading floor",
+  },
+  library: {
+    whole: (n) => `A book club has ${n} members`,
+    a: "read the novel this month",
+    b: "read the biography",
+    both: "read both",
+    aLabel: "Novel",
+    bLabel: "Biography",
+    either: "How many members read at least one of the two books?",
+    neither: "How many members read neither book?",
+    group: "in the club",
+  },
+};
+
+const ONTO_MOCK_CONTEXTS: Record<string, { prompt: (n: number, k: number) => string; item: string; items: string; option: string; options: string }> = {
+  couriers: {
+    prompt: (n, k) => `${n} delivery jobs are each given to one of ${k} couriers, chosen at random. Of all the possible assignments, how many leave no courier without a job?`,
+    item: "job",
+    items: "jobs",
+    option: "courier",
+    options: "couriers",
+  },
+  printers: {
+    prompt: (n, k) => `An office sends ${n} print jobs, and each one goes to any of its ${k} printers. Counting every way the jobs could be sent, in how many does each printer get at least one job?`,
+    item: "job",
+    items: "jobs",
+    option: "printer",
+    options: "printers",
+  },
+};
+
+function mockInclusion(params: MockInclusionParams): QuantProblem {
+  if (params.type === "mock-overlap") {
+    const { context, total, a, b, both, ask } = params;
+    const c = OVERLAP_CONTEXTS[context];
+    const either = a + b - both;
+    const sets = (highlight: ("a" | "b" | "both" | "outside")[]) =>
+      venn({ label: c.aLabel, total: a }, { label: c.bLabel, total: b }, both, total - either, highlight);
+    return problem(
+      `mock-overlap-${context}-${total}-${a}-${b}-${both}-${ask}`,
+      `${c.whole(total)}. Of them, ${a} ${c.a}, ${b} ${c.b}, and ${both} ${c.both}. ${ask === "either" ? c.either : c.neither}`,
+      q(ask === "either" ? either : total - either),
+      "count",
+      [
+        {
+          label: "At least one",
+          work: `${a} + ${b} − ${both}`,
+          result: `${either}`,
+          icon: "subtract",
+          explain: `The ${both} who ${c.both} sit in both groups, so adding ${a} and ${b} counts them twice. Take them off once.`,
+          visual: sets(["a", "b", "both"]),
+        },
+        ...(ask === "neither"
+          ? [
+              {
+                label: "Neither",
+                work: `${total} − ${either}`,
+                icon: "subtract" as const,
+                explain: `Everyone else ${c.group} is in neither group.`,
+                visual: sets(["outside"]),
+              },
+            ]
+          : []),
+      ],
+      params,
+      sets([]),
+    );
+  }
+  const { context, jobs, options } = params;
+  const c = ONTO_MOCK_CONTEXTS[context];
+  const terms = Array.from({ length: options }, (_, j) => ({ j, value: choose(options, j) * (options - j) ** jobs }));
+  const answer = terms.reduce((sum, t) => sum + (t.j % 2 ? -t.value : t.value), 0);
+  const missing = (j: number) => (j === 1 ? `leaving out a given ${c.option}` : `leaving out ${j} given ${c.options}`);
+  return problem(
+    `mock-onto-${context}-${jobs}-${options}`,
+    c.prompt(jobs, options),
+    q(answer),
+    "count",
+    [
+      {
+        label: "All possible assignments",
+        work: `${options}${sup(jobs)}`,
+        result: commas(terms[0].value),
+        icon: "count",
+        explain: `Each of the ${jobs} ${c.items} can go to any of the ${options} ${c.options}, so multiply.`,
+      },
+      ...terms.slice(1).map((t) => ({
+        label: `${t.j % 2 ? "Take off" : "Add back"} assignments ${missing(t.j)}`,
+        work: `C(${options}, ${t.j}) × ${options - t.j}${sup(jobs)}`,
+        result: commas(t.value),
+        icon: (t.j % 2 ? "subtract" : "add") as "subtract" | "add",
+        explain:
+          t.j === 1
+            ? `Pick a ${c.option} to leave idle, and every ${c.item} goes to the other ${options === 2 ? "one" : options - 1}.${options > 2 ? ` One leaving out two ${c.options} is taken off twice this way.` : ""}`
+            : `Assignments leaving out ${t.j} ${c.options} were ${t.j % 2 ? "added back too often" : "taken off too often"}, so ${t.j % 2 ? "take them off" : "add them back"} once.`,
+      })),
+      {
+        label: `Every ${c.option} busy`,
+        work: terms.map((t, i) => (i === 0 ? commas(t.value) : `${t.j % 2 ? "−" : "+"} ${commas(t.value)}`)).join(" "),
+        icon: "check",
+        explain:
+          options > 2
+            ? `Start from all assignments, take off those leaving out a ${c.option}, add back those leaving out two, and so on.`
+            : `Every assignment either uses both ${c.options} or leaves one out, so take those off.`,
+        visual: {
+          type: "bars",
+          bars: terms.map((t) => ({ label: t.j === 0 ? "All" : `Miss ${t.j}`, value: t.value, tone: (t.j % 2 ? "lose" : "win") as Tone, text: commas(t.value) })),
+          caption: "Added terms in green, taken-off terms in red",
+        },
+      },
+    ],
+    params,
+  );
+}
+
 const DIVISOR_PAIRS = [[2, 3], [2, 5], [3, 5], [3, 4], [4, 6], [2, 7], [3, 7], [6, 10]] as const;
 
 export const COUNTING_LESSONS: QuantLessonDef[] = [
@@ -1846,6 +2368,26 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         generate: (random) => subsetsProblem({ type: "nested", items: int(random, 2, 8) }),
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-configure",
+        title: "Configuring a product",
+        practice: "outfits-meals",
+        generate: (random) =>
+          random() < 0.5
+            ? mockChoices({ type: "mock-build", colours: int(random, 3, 9), wheels: int(random, 2, 5), trims: int(random, 2, 4) })
+            : mockChoices({ type: "mock-extras", sizes: int(random, 2, 4), cases: int(random, 2, 5), plans: int(random, 2, 4) }),
+      },
+      {
+        id: "mock-locks-labels",
+        title: "Lock settings and bin labels",
+        practice: "codes",
+        generate: (random) =>
+          random() < 0.5
+            ? mockChoices({ type: "mock-lock", wheels: int(random, 3, 5), letters: pick(random, [5, 6, 8, 10]) })
+            : mockChoices({ type: "mock-bin", letters: int(random, 1, 2), digits: int(random, 2, 4) }),
+      },
+    ],
   },
   {
     id: "permutations",
@@ -1990,6 +2532,27 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         generate: (random) => arrangements({ type: "seat-some", from: int(random, 6, 10), seats: int(random, 3, 5), mirror: random() < 0.5 ? 1 : 0 }),
       },
       { id: "fixed-positions", title: "Line-ups with a fixed pattern", generate: (random) => arrangements({ type: "heights", students: pick(random, [4, 6, 8, 10]) }) },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-prizes-playlists",
+        title: "Prizes and playlists",
+        practice: "fill-places",
+        generate: (random) =>
+          random() < 0.5
+            ? mockPermutations({ type: "mock-prizes", teams: int(random, 5, 12), prizes: int(random, 2, 4) })
+            : mockPermutations({ type: "mock-playlist", tracks: int(random, 6, 12), plays: int(random, 3, 5) }),
+      },
+      {
+        id: "mock-repeated-items",
+        title: "Flags and digits that repeat",
+        practice: "repeated-letters",
+        generate: (random) => {
+          if (random() < 0.5) return mockPermutations({ type: "mock-digits", digits: pick(random, MOCK_DIGIT_STRINGS) });
+          const [red, blue, white] = pick(random, [[2, 2, 1], [3, 2, 1], [3, 2, 2], [2, 2, 2], [4, 2, 1], [3, 3, 1], [4, 3, 1], [3, 3, 2]] as const);
+          return mockPermutations({ type: "mock-flags", red, blue, white });
+        },
+      },
     ],
   },
   {
@@ -2161,6 +2724,35 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
               : combinations(random() < 0.5 ? { type: "flush" } : { type: "red" }),
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-mixed-panels",
+        title: "Panels and crews with a mix",
+        practice: "committees",
+        generate: (random) => {
+          const first = int(random, 3, 7), second = int(random, 3, 7), size = int(random, 3, 5);
+          return mockCombinations({
+            type: "mock-panel",
+            context: pick(random, Object.keys(PANEL_CONTEXTS)),
+            first,
+            second,
+            size,
+            picked: int(random, Math.max(1, size - second), Math.min(size - 1, first)),
+          });
+        },
+      },
+      {
+        id: "mock-identical-items",
+        title: "Roses in vases, coins in jars",
+        practice: "sharing",
+        generate: (random) => {
+          const boxes = int(random, 2, 4);
+          return random() < 0.5
+            ? mockCombinations({ type: "mock-vases", items: int(random, 4, 12), boxes })
+            : mockCombinations({ type: "mock-jars", items: int(random, boxes + 2, 13), boxes });
+        },
+      },
+    ],
   },
   {
     id: "inclusion-exclusion",
@@ -2291,6 +2883,29 @@ export const COUNTING_LESSONS: QuantLessonDef[] = [
         },
       },
       { id: "nobody-own", title: "Nobody gets their own back", generate: (random) => moreInclusion({ type: "derange", n: int(random, 3, 6) }) },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-overlaps",
+        title: "Members in two overlapping groups",
+        practice: "surveys",
+        generate: (random) => {
+          const total = int(random, 30, 60);
+          const both = int(random, 3, 12);
+          const a = int(random, both + 4, Math.floor(total * 0.6));
+          const b = int(random, both + 3, Math.min(total - a + both - 1, Math.floor(total * 0.6)));
+          return mockInclusion({ type: "mock-overlap", context: pick(random, Object.keys(OVERLAP_CONTEXTS)), total, a, b, both, ask: random() < 0.5 ? "either" : "neither" });
+        },
+      },
+      {
+        id: "mock-no-one-idle",
+        title: "Jobs shared so no one is idle",
+        practice: "every-option",
+        generate: (random) => {
+          const options = int(random, 2, 4);
+          return mockInclusion({ type: "mock-onto", context: pick(random, Object.keys(ONTO_MOCK_CONTEXTS)), jobs: int(random, options + 1, 6), options });
+        },
+      },
     ],
   },
 ];

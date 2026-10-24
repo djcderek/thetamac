@@ -222,7 +222,8 @@ export function QuantMock() {
       </header>
       <ul className="mt-6 divide-y divide-border rounded-[22px] bg-secondary px-5">
         <Rule icon={<ListChecks aria-hidden="true" className="size-[18px]" />}>
-          {MOCK_QUESTIONS} questions from across the course: {MOCK_BLUEPRINT.Easy} easy, {MOCK_BLUEPRINT.Medium} medium and {MOCK_BLUEPRINT.Hard} hard.
+          {MOCK_QUESTIONS} questions from across the course: {MOCK_BLUEPRINT.Easy} easy, {MOCK_BLUEPRINT.Medium} medium and {MOCK_BLUEPRINT.Hard} hard. They’re
+          written for the mock, so you won’t have seen them in practice.
         </Rule>
         <Rule icon={<Clock aria-hidden="true" className="size-[18px]" />}>{MOCK_MINUTES} minutes. The test ends when the time runs out.</Rule>
         <Rule icon={<EyeOff aria-hidden="true" className="size-[18px]" />}>No hints, and no marking until the end. Skip a question and come back to it whenever you like.</Rule>

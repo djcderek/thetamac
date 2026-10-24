@@ -12,7 +12,7 @@ import { CLASSIC_A_PUZZLES } from "./puzzles/classic-a";
 import { CLASSIC_B_PUZZLES } from "./puzzles/classic-b";
 
 export { QUANT_LESSON_IDS, type QuantLessonId };
-export type { LessonPart, QuantFamily, QuantProblem, QuantPuzzle, QuantStep } from "./build";
+export type { LessonPart, MockFamily, QuantFamily, QuantProblem, QuantPuzzle, QuantStep } from "./build";
 
 /**
  * The quant course: probability and expected value, the way trading interviews ask it. Units
