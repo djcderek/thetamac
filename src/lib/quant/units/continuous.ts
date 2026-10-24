@@ -919,6 +919,403 @@ function medianThree(params: { length: number; x: number; side: "above" | "below
 
 const MEDIAN_CUTS: readonly (readonly [number, number])[] = [[4, 1], [4, 2], [4, 3], [3, 1], [3, 2], [10, 3], [10, 5], [10, 7], [12, 3], [12, 8]];
 
+// ─── Mock-test questions ─────────────────────────────────────────────────────────────────
+// Each mirrors one practice type above: the same method and working, in a setting practice never uses.
+
+/** A rod cut to a random length: the chance it falls in a range of lengths. */
+function mockRod(params: { type: "mock-rod"; low: number; high: number; from: number; to: number; ask: "between" | "longer" | "shorter" }): QuantProblem {
+  const { low, high, from, to, ask } = params;
+  const setup = `A machine cuts rods to a random length between ${low} and ${high} cm, every length equally likely.`;
+  const question =
+    ask === "between" ? `What’s the chance a rod is between ${from} and ${to} cm long?` : ask === "longer" ? `What’s the chance a rod is longer than ${from} cm?` : `What’s the chance a rod is shorter than ${to} cm?`;
+  const want = ask === "between" ? `${to} − ${from}` : ask === "longer" ? `${high} − ${from}` : `${to} − ${low}`;
+  const ticks = ask === "between" ? [low, from, to, high] : ask === "longer" ? [low, from, high] : [low, to, high];
+  const reason =
+    ask === "between"
+      ? `Every length is equally likely, so only how long the stretch is matters: ${from} to ${to} cm.`
+      : ask === "longer"
+        ? `Longer than ${from} cm means anywhere from ${from} up to the longest rod, ${high} cm.`
+        : `Shorter than ${to} cm means anywhere from the shortest rod, ${low} cm, up to ${to}.`;
+  return problem(
+    `mock-rod-${low}-${high}-${from}-${to}-${ask}`,
+    `${setup} ${question}`,
+    q(to - from, high - low),
+    "probability",
+    [
+      {
+        label: "Stretch of lengths you want",
+        work: want,
+        result: `${to - from} cm`,
+        icon: "subtract",
+        explain: reason,
+        visual: line(low, high, [{ from, to, tone: "hit", text: `${to - from} cm` }], `Rods from ${from} to ${to} cm.`, { ticks }),
+      },
+      {
+        label: "Stretch of all possible lengths",
+        work: `${high} − ${low}`,
+        result: `${high - low} cm`,
+        icon: "subtract",
+        explain: `A rod can come out anywhere from ${low} to ${high} cm.`,
+        visual: line(low, high, [{ from: low, to: high, tone: "known", text: `${high - low} cm` }, { from, to, tone: "hit" }], `All rods fall in a stretch ${high - low} cm long.`, { ticks }),
+      },
+      {
+        label: "Chance",
+        work: `${to - from} ÷ ${high - low}`,
+        icon: "divide",
+        explain: "The chance is the share of all possible lengths that you want: one stretch divided by the other.",
+      },
+    ],
+    params,
+    line(low, high, [{ from: low, to: high, tone: "known" }], `Every length from ${low} to ${high} cm is equally likely.`),
+  );
+}
+
+/** A sensor reading spread evenly over a range: its expected value, or its expected value once you know a bound. */
+function mockReading(params: { type: "mock-reading"; low: number; high: number; cut: number; ask: "mean" | "above" | "below" }): QuantProblem {
+  const { low, high, cut, ask } = params;
+  const setup = `A sensor’s reading is equally likely to be anywhere from ${low} to ${high} degrees.`;
+  const whole: Band[] = [{ from: low, to: high, tone: "known" }];
+  const opening = line(low, high, whole, `Every reading from ${low} to ${high} degrees is equally likely.`);
+  if (ask === "mean") {
+    const mean = q(low + high, 2);
+    return problem(
+      `mock-reading-${low}-${high}`,
+      `${setup} What reading do you expect on average?`,
+      mean,
+      "number",
+      [
+        {
+          label: "Expected reading: halfway along the range",
+          work: `(${low} + ${high}) ÷ 2`,
+          icon: "divide",
+          explain: "The readings are spread evenly, so each one above the middle is matched by one the same distance below it.",
+          visual: line(low, high, whole, "The expected reading is the middle of the range.", { points: [{ at: (low + high) / 2, label: `${formatResult(mean, "number")}°`, tone: "hit" }] }),
+        },
+      ],
+      params,
+      opening,
+    );
+  }
+  const [a, b] = ask === "above" ? [cut, high] : [low, cut];
+  const mean = q(a + b, 2);
+  const shade: Band[] = ask === "above" ? [{ from: low, to: cut, tone: "muted" }, { from: cut, to: high, tone: "known" }] : [{ from: low, to: cut, tone: "known" }, { from: cut, to: high, tone: "muted" }];
+  return problem(
+    `mock-reading-${low}-${high}-${ask}-${cut}`,
+    `${setup} You learn the reading is ${ask === "above" ? "above" : "below"} ${cut} degrees. Given that, what’s its expected value?`,
+    mean,
+    "number",
+    [
+      {
+        label: "Given that, the reading is equally likely anywhere from",
+        work: `${a} to ${b}`,
+        result: "",
+        icon: "filter",
+        explain: `Knowing it’s ${ask} ${cut} rules out the rest of the range. What’s left is still spread evenly.`,
+        visual: line(low, high, shade, `Only ${a} to ${b} degrees is still possible.`, { ticks: [low, cut, high] }),
+      },
+      {
+        label: "Expected reading: halfway along what’s left",
+        work: `(${a} + ${b}) ÷ 2`,
+        icon: "divide",
+        explain: "An even spread averages its midpoint, so take the middle of the stretch that’s left.",
+        visual: line(low, high, shade, "The new expected reading is the middle of what’s left.", {
+          ticks: [low, cut, high],
+          points: [{ at: (a + b) / 2, label: `${formatResult(mean, "number")}°`, tone: "hit" }],
+        }),
+      },
+    ],
+    params,
+    opening,
+  );
+}
+
+const MOCK_ROD_RANGES = [[40, 60], [20, 50], [90, 110], [10, 30], [100, 150], [60, 80], [25, 45], [50, 80]] as const;
+const MOCK_READING_RANGES = [[10, 30], [15, 25], [0, 40], [18, 24], [5, 35], [20, 50], [12, 20]] as const;
+
+/** Two ships sharing one berth: the chance their stays overlap. */
+function mockBerth(params: { type: "mock-berth"; window: number; stay: number }): QuantProblem {
+  const { window, stay } = params;
+  const gap = window - stay;
+  const apart = q(gap * gap, window * window);
+  const d = stay / window;
+  const axis = { xLabel: "First ship arrives", yLabel: "Second ship arrives", max: `${window} h` };
+  const below: [number, number][] = [[d, 0], [1, 0], [1, 1 - d]];
+  const above: [number, number][] = [[0, d], [0, 1], [1 - d, 1]];
+  const band: [number, number][] = [[0, 0], [d, 0], [1, 1 - d], [1, 1], [1 - d, 1], [0, d]];
+  return problem(
+    `mock-berth-${window}-${stay}`,
+    `A small port has one berth. Two ships will each arrive at a random time in the same ${window}-hour period, independently, and each stays at the berth for ${stay} hour${stay === 1 ? "" : "s"}. What’s the chance their stays overlap?`,
+    sub(q(1), apart),
+    "probability",
+    [
+      {
+        label: `Two corner triangles: arrivals ${stay} h or more apart`,
+        work: `(${gap}/${window})²`,
+        result: formatFraction(apart),
+        icon: "split",
+        explain: `The stays miss each other when the arrivals are at least ${stay} hours apart. Those pairs fill two corner triangles that join into a ${gap} by ${gap} square.`,
+        visual: {
+          type: "square",
+          ...axis,
+          regions: [
+            { points: below, tone: "alt", text: "no overlap" },
+            { points: above, tone: "alt" },
+          ],
+          caption: `Each triangle has sides ${gap} h long. Together they fill (${gap}/${window})² of the square.`,
+        },
+      },
+      {
+        label: "Chance the stays overlap",
+        work: `1 − ${formatFraction(apart)}`,
+        icon: "subtract",
+        explain: "Every pair outside the two triangles has the ships closer than a stay, so take the triangles away from 1.",
+        visual: {
+          type: "square",
+          ...axis,
+          regions: [
+            { points: band, tone: "hit", text: "overlap" },
+            { points: below, tone: "muted" },
+            { points: above, tone: "muted" },
+          ],
+          caption: `The orange band is where the arrivals are less than ${stay} hours apart.`,
+        },
+      },
+    ],
+    params,
+    { type: "square", ...axis, regions: [], caption: "Each point in the square is one pair of arrival times." },
+  );
+}
+
+/** Two random pours into one jug: the chance it doesn’t overflow. */
+function mockJug(params: { type: "mock-jug"; pour: number; jug: number }): QuantProblem {
+  const { pour, jug } = params;
+  const t = q(jug, pour);
+  const tv = jug / pour;
+  const axis = { xLabel: "First pour", yLabel: "Second pour", max: `${pour} ml` };
+  const empty: QuantVisual = { type: "square", ...axis, regions: [], caption: "Each point in the square is one pair of pours." };
+  const prompt = `Two friends each pour a random amount of water into an empty jug that holds ${jug} ml. Each pours anywhere from 0 to ${pour} ml, every amount equally likely, independently of the other. What’s the chance the jug doesn’t overflow?`;
+  const key = `mock-jug-${pour}-${jug}`;
+  if (jug <= pour) {
+    return problem(
+      key,
+      prompt,
+      div(mul(t, t), q(2)),
+      "probability",
+      [
+        {
+          label: `Triangle where the pours add to under ${jug} ml`,
+          work: `(${jug}/${pour})² ÷ 2`,
+          icon: "target",
+          explain: `Pairs that fit sit below the line where the pours add to ${jug} ml. That’s a triangle with both short sides ${jug} ml, out of a square ${pour} ml wide.`,
+          visual: {
+            type: "square",
+            ...axis,
+            regions: [{ points: [[0, 0], [tv, 0], [0, tv]], tone: "hit", text: "fits" }],
+            caption: `A right triangle with sides ${jug} ml: half of (${jug}/${pour})² of the square.`,
+          },
+        },
+      ],
+      params,
+      empty,
+    );
+  }
+  const spill = 2 * pour - jug;
+  const corner = div(pow(q(spill, pour), 2), q(2));
+  const c = tv - 1;
+  const cornerPoints: [number, number][] = [[c, 1], [1, 1], [1, c]];
+  return problem(
+    key,
+    prompt,
+    sub(q(1), corner),
+    "probability",
+    [
+      {
+        label: `Corner triangle where the pours add to over ${jug} ml`,
+        work: `(${spill}/${pour})² ÷ 2`,
+        result: formatFraction(corner),
+        icon: "split",
+        explain: `Only the top-right corner overflows: a triangle with sides ${2 * pour} − ${jug} = ${spill} ml. It’s quicker to find that and take it away.`,
+        visual: {
+          type: "square",
+          ...axis,
+          regions: [{ points: cornerPoints, tone: "alt", text: "overflows" }],
+          caption: `The corner triangle has both sides ${spill} ml long.`,
+        },
+      },
+      {
+        label: "Chance it doesn’t overflow",
+        work: `1 − ${formatFraction(corner)}`,
+        icon: "subtract",
+        explain: "Everywhere else in the square, the two pours fit in the jug, so take the corner away from 1.",
+        visual: {
+          type: "square",
+          ...axis,
+          regions: [
+            { points: [[0, 0], [1, 0], [1, c], [c, 1], [0, 1]], tone: "hit", text: "fits" },
+            { points: cornerPoints, tone: "muted" },
+          ],
+          caption: "The orange area is everything but the corner.",
+        },
+      },
+    ],
+    params,
+    empty,
+  );
+}
+
+const MOCK_JUGS: readonly (readonly [number, number])[] = [
+  [400, 100], [400, 200], [400, 300], [400, 500], [400, 600], [400, 700], [600, 200], [600, 400], [600, 800], [600, 900], [600, 1000],
+];
+
+/** The larger or smaller number from two or three spins of a numbered spinner. */
+function mockSpins(params: { type: "mock-spins"; spins: number; sections: number; keep: "larger" | "smaller" }): QuantProblem {
+  const { spins, sections: n, keep } = params;
+  const larger = keep === "larger";
+  const ways = range(1, n).map((k) => {
+    const atMost = larger ? k : n - k + 1;
+    return atMost ** spins - (atMost - 1) ** spins;
+  });
+  const total = n ** spins;
+  const sum = ways.reduce((acc, w, i) => acc + (i + 1) * w, 0);
+  const power = sup(spins);
+  const word = spins === 2 ? (larger ? "larger" : "smaller") : larger ? "largest" : "smallest";
+  const k = Math.ceil(n / 2);
+  const cells: [number, number][] = [];
+  for (let a = 1; a <= n; a++) for (let b = 1; b <= n; b++) if ((larger ? Math.max(a, b) : Math.min(a, b)) === k) cells.push([a, b]);
+  const gridFits = spins === 2 && n <= 8;
+  return problem(
+    `mock-spins-${spins}-${n}-${keep}`,
+    `A spinner has ${n} equal sections numbered 1 to ${n}. You spin it ${spins === 2 ? "twice" : "three times"} and note the ${word} number you get. What’s that number on average?`,
+    q(sum, total),
+    "number",
+    [
+      {
+        label: `Spins where the ${word} is exactly k`,
+        work: larger ? `k${power} − (k − 1)${power}` : `(${n + 1} − k)${power} − (${n} − k)${power}`,
+        icon: "count",
+        explain: larger
+          ? `Every spin is \`k\` or less in \`k^${spins}\` ways. Take away the ways where every spin is \`k - 1\` or less, and the ${word} is exactly \`k\`.`
+          : `Every spin is \`k\` or more in \`(${n + 1} - k)^${spins}\` ways. Take away the ways where every spin is \`k + 1\` or more.`,
+        ...(gridFits
+          ? { visual: { type: "dice-grid" as const, sides: n, marks: [{ cells, tone: "hit" as const }], caption: `The ${cells.length} pairs of spins where the ${word} is ${k}.` } }
+          : {}),
+      },
+      {
+        label: `Ways for k = 1 to ${n}`,
+        work: ways.join(", "),
+        result: "",
+        icon: "repeat",
+        explain: `Count the same way for each number from 1 to ${n}. Together the counts cover all ${total} equally likely results.`,
+        visual: {
+          type: "bars",
+          bars: ways.map((w, i) => ({ label: `${i + 1}`, value: w, tone: "hit" as const, text: `${w}` })),
+          caption: `Ways the ${word} number is each value, out of ${total}.`,
+        },
+      },
+      {
+        label: "Average",
+        work: `(${ways.map((w, i) => `${i + 1}×${w}`).join(" + ")}) ÷ ${total}`,
+        icon: "divide",
+        explain: "Weight each value by its ways, add them up, and divide by all the results.",
+      },
+    ],
+    params,
+    gridFits
+      ? { type: "dice-grid", sides: n, marks: [], caption: `All ${total} pairs of spins: first spin down, second across.` }
+      : { type: "die-faces", sides: n, marks: [], caption: `The ${n} sections. Each spin lands on one of them.` },
+  );
+}
+
+/** First of several replies, or last of several exam papers, at random times in a window. */
+function mockArrivals(params: { type: "mock-arrivals"; context: "replies" | "exam"; n: number; window: number }): QuantProblem {
+  const { context, n, window } = params;
+  const first = context === "replies";
+  const gaps = first ? 1 : n;
+  const answer = q(gaps * window, n + 1);
+  const Count = `${COUNT_WORDS[n][0].toUpperCase()}${COUNT_WORDS[n].slice(1)}`;
+  const prompt = first
+    ? `You message ${COUNT_WORDS[n]} friends at once, and each replies at a random moment in the next ${window} minutes, independently. On average, how many minutes until the first reply comes in?`
+    : `${Count} students sit a ${window}-minute exam, and each hands in their paper at a random moment during it, independently. On average, how many minutes into the exam does the last paper come in?`;
+  const spots = range(1, n).map((i) => (i * window) / (n + 1));
+  const asked = first ? 0 : n - 1;
+  const gapsLine = (highlight: boolean, caption: string): QuantVisual =>
+    line(0, window, highlight ? [{ from: 0, to: spots[asked], tone: "hit", text: `${gaps} gap${gaps === 1 ? "" : "s"}` }] : [], caption, {
+      ticks: range(0, n + 1).map((i) => (i * window) / (n + 1)),
+      points: spots.map((at, i) => ({ at, label: highlight && i === asked ? formatResult(answer, "number") : "", tone: highlight && i === asked ? ("hit" as const) : ("known" as const) })),
+    });
+  return problem(
+    `mock-arrivals-${context}-${n}-${window}`,
+    prompt,
+    answer,
+    "number",
+    [
+      {
+        label: `${n} random times make ${n + 1} gaps, equal on average`,
+        work: `${window} ÷ ${n + 1} minutes each`,
+        result: "",
+        icon: "split",
+        explain: `The ${n} times cut the ${window} minutes into ${n + 1} pieces. No piece is special, so on average each is 1/${n + 1} of the window.`,
+        visual: gapsLine(false, `On average the ${n} times sit evenly, leaving ${n + 1} equal gaps.`),
+      },
+      {
+        label: first ? "The first is 1 gap in" : `The last is ${n} gaps in`,
+        work: `${gaps} ÷ ${n + 1} × ${window}`,
+        icon: "multiply",
+        explain: first ? "Only the first gap comes before the first reply." : `Every gap but the one after it comes before the last paper: ${n} of the ${n + 1}.`,
+        visual: gapsLine(true, `The ${first ? "first reply" : "last paper"} sits ${gaps} gap${gaps === 1 ? "" : "s"} in.`),
+      },
+    ],
+    params,
+    line(0, window, [{ from: 0, to: window, tone: "known" }], `${Count} times, each anywhere in the ${window} minutes.`),
+  );
+}
+
+/** All downloads done by a time, or no bulb failing before a time: every one of n must pass. */
+function mockAllBy(params: { type: "mock-all-by"; context: "downloads" | "bulbs"; n: number; window: number; cut: number }): QuantProblem {
+  const { context, n, window, cut } = params;
+  const downloads = context === "downloads";
+  const each = downloads ? q(cut, window) : q(window - cut, window);
+  const unit = downloads ? "minutes" : "months";
+  const prompt = downloads
+    ? `${COUNT_WORDS[n][0].toUpperCase()}${COUNT_WORDS[n].slice(1)} downloads each finish at a random moment in the next ${window} minutes, independently. What’s the chance they’re ${n === 2 ? "both" : "all"} done within ${cut} minutes?`
+    : `${COUNT_WORDS[n][0].toUpperCase()}${COUNT_WORDS[n].slice(1)} new bulbs each burn out at a random moment in the next ${window} months, every moment equally likely and independently. What’s the chance none of them burns out in the first ${cut} months?`;
+  return problem(
+    `mock-all-by-${context}-${n}-${window}-${cut}`,
+    prompt,
+    pow(each, n),
+    "probability",
+    [
+      {
+        label: downloads ? `One download is done by ${cut} minutes with chance` : `One bulb lasts past ${cut} months with chance`,
+        work: downloads ? `${cut} ÷ ${window}` : `(${window} − ${cut}) ÷ ${window}`,
+        result: formatFraction(each),
+        icon: "target",
+        explain: downloads
+          ? `The last download is done by ${cut} minutes exactly when every one is. Each lands in that stretch with chance ${cut}/${window}.`
+          : `The first bulb to go lasts past ${cut} months exactly when every bulb does. Each lasts that long with chance ${formatFraction(each)}.`,
+        visual: line(
+          0,
+          window,
+          [downloads ? { from: 0, to: cut, tone: "hit", text: formatFraction(each) } : { from: cut, to: window, tone: "hit", text: formatFraction(each) }],
+          downloads ? "Where one download must finish." : "Where one bulb must burn out.",
+          { ticks: [0, cut, window] },
+        ),
+      },
+      {
+        label: `All ${n} must ${downloads ? "be done" : "last"}`,
+        work: `(${formatFraction(each)})${sup(n)}`,
+        icon: "multiply",
+        explain: `The ${downloads ? "downloads" : "bulbs"} are independent, so multiply the chance for each of the ${n}.`,
+      },
+    ],
+    params,
+    line(0, window, [{ from: 0, to: window, tone: "known" }], `${n} times, each anywhere in the ${window} ${unit}.`),
+  );
+}
+
+const MOCK_DOWNLOAD_CUTS = [20, 30, 40, 45, 48, 50, 54] as const;
+const MOCK_BULB_CUTS = [1, 2, 3, 4, 6] as const;
+
 export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
   {
     id: "uniform",
@@ -1050,6 +1447,33 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
             () => brokenStick({ type: "under", length, under: int(random, 1, length / 2 - 1) }),
             () => brokenStick({ type: "ratio", length, k: int(random, 2, 5) }),
           ])();
+        },
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-rod",
+        title: "Chance a cut rod’s length is in a range",
+        practice: "chance-range",
+        generate: (random) => {
+          const [low, high] = pick(random, MOCK_ROD_RANGES);
+          const inside = () => int(random, low + 1, high - 1);
+          const ask = pick(random, ["between", "longer", "shorter"] as const);
+          if (ask === "longer") return mockRod({ type: "mock-rod", low, high, from: inside(), to: high, ask });
+          if (ask === "shorter") return mockRod({ type: "mock-rod", low, high, from: low, to: inside(), ask });
+          const a = inside();
+          let b = inside();
+          while (b === a) b = inside();
+          return mockRod({ type: "mock-rod", low, high, from: Math.min(a, b), to: Math.max(a, b), ask });
+        },
+      },
+      {
+        id: "mock-reading",
+        title: "The expected reading, and once you know more",
+        practice: "average",
+        generate: (random) => {
+          const [low, high] = pick(random, MOCK_READING_RANGES);
+          return mockReading({ type: "mock-reading", low, high, cut: int(random, low + 1, high - 1), ask: pick(random, ["mean", "above", "below"] as const) });
         },
       },
     ],
@@ -1208,6 +1632,26 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
         generate: (random) => halfCircle({ n: int(random, 3, 7), ask: random() < 0.5 ? "half" : "centre" }),
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-berth",
+        title: "Two ships sharing one berth",
+        practice: "meeting",
+        generate: (random) =>
+          random() < 0.6
+            ? mockBerth({ type: "mock-berth", window: 24, stay: pick(random, [1, 2, 3, 4, 6, 8, 12]) })
+            : mockBerth({ type: "mock-berth", window: 12, stay: pick(random, [1, 2, 3, 4, 6]) }),
+      },
+      {
+        id: "mock-jug",
+        title: "Two random pours into one jug",
+        practice: "sum-below",
+        generate: (random) => {
+          const [pour, jug] = pick(random, MOCK_JUGS);
+          return mockJug({ type: "mock-jug", pour, jug });
+        },
+      },
+    ],
   },
   {
     id: "highest-lowest",
@@ -1360,6 +1804,36 @@ export const CONTINUOUS_LESSONS: QuantLessonDef[] = [
           const [length, x] = pick(random, MEDIAN_CUTS);
           return medianThree({ length, x, side: random() < 0.6 ? "above" : "below" });
         },
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-spins",
+        title: "Larger or smaller of several spins",
+        practice: "dice",
+        generate: (random) => {
+          const spins = random() < 0.6 ? 2 : 3;
+          const sections = pick(random, spins === 2 ? [3, 4, 5, 6, 8, 10] : [3, 4, 5, 6]);
+          return mockSpins({ type: "mock-spins", spins, sections, keep: random() < 0.6 ? "larger" : "smaller" });
+        },
+      },
+      {
+        id: "mock-arrivals",
+        title: "First reply or last exam paper in",
+        practice: "uniform-extreme",
+        generate: (random) =>
+          random() < 0.5
+            ? mockArrivals({ type: "mock-arrivals", context: "replies", n: int(random, 2, 6), window: pick(random, [10, 20, 30, 60]) })
+            : mockArrivals({ type: "mock-arrivals", context: "exam", n: int(random, 2, 6), window: pick(random, [60, 90, 120]) }),
+      },
+      {
+        id: "mock-all-by",
+        title: "Chance every download or bulb passes a time",
+        practice: "all-past",
+        generate: (random) =>
+          random() < 0.6
+            ? mockAllBy({ type: "mock-all-by", context: "downloads", n: int(random, 2, 4), window: 60, cut: pick(random, MOCK_DOWNLOAD_CUTS) })
+            : mockAllBy({ type: "mock-all-by", context: "bulbs", n: int(random, 2, 4), window: 12, cut: pick(random, MOCK_BULB_CUTS) }),
       },
     ],
   },

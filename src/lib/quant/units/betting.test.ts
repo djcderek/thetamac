@@ -7,11 +7,47 @@ import { checkAgainstIndependentWorking, faces, sequences } from "../test-helper
 const averageProfit = <T>(outcomes: T[], profit: (outcome: T) => number) =>
   outcomes.reduce((sum, outcome) => sum + profit(outcome), 0) / outcomes.length;
 
+/** The win chance at which a bet risking `risk` to make `win` breaks even, found by bisection. */
+function breakEvenChance(risk: number, win: number) {
+  let low = 0, high = 1;
+  for (let i = 0; i < 200; i++) {
+    const mid = (low + high) / 2;
+    if (mid * win - (1 - mid) * risk < 0) low = mid;
+    else high = mid;
+  }
+  return low;
+}
+
+/** The money wheel's full layout, segment by segment: what each one shows and pays to 1. */
+const MONEY_WHEEL_LAYOUT: [string, number, number][] = [["1", 24, 1], ["2", 15, 2], ["5", 7, 5], ["10", 4, 10], ["20", 2, 20], ["joker", 1, 40], ["logo", 1, 40]];
+const MONEY_WHEEL_SEGMENTS = MONEY_WHEEL_LAYOUT.flatMap(([mark, count]) => Array<string>(count).fill(mark));
+const MONEY_WHEEL_PAYS = Object.fromEntries(MONEY_WHEEL_LAYOUT.map(([mark, , pays]) => [mark, pays]));
+
+/**
+ * The Kelly stake from the first-order condition: growth p log(1 + bf) + (1 − p) log(1 − f) peaks
+ * where its slope p b ÷ (1 + bf) − (1 − p) ÷ (1 − f) is zero, found by bisection.
+ */
+function kellyRoot(win: number, b: number) {
+  let low = 0, high = 0.999999;
+  for (let i = 0; i < 200; i++) {
+    const mid = (low + high) / 2;
+    if ((win * b) / (1 + b * mid) - (1 - win) / (1 - mid) > 0) low = mid;
+    else high = mid;
+  }
+  return low;
+}
+
 /** An independent answer for each problem, worked out by brute force or a different formula. */
 function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "implied-probability": {
+      // "a to b against" risks b to win a; a moneyline risks its stake to win its profit.
+      if (p.type === "mock-against") return breakEvenChance(+p.for, +p.against);
+      if (p.type === "mock-moneyline") {
+        const line = +p.line;
+        return line < 0 ? breakEvenChance(-line, 100) : breakEvenChance(100, line);
+      }
       if (p.type === "against") return +p.for / (+p.against + +p.for);
       // "a to b on" turned round into "b to a against", then 1 − the underdog's share.
       if (p.type === "on") return 1 - +p.against / (+p.on + +p.against);
@@ -27,6 +63,16 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return 1 / decimal;
     }
     case "bet-ev": {
+      if (p.type === "mock-trade") {
+        // 100 equally likely outcomes, `percent` of them a gain.
+        return averageProfit(faces(100), (i) => (i <= +p.percent ? +p.win : -p.risk));
+      }
+      if (p.type === "mock-spinner") {
+        // Every sector or ball: the spinner bet takes the top numbers, the drum bet the bottom ones.
+        const size = +p.size, wins = +p.wins;
+        const winning = (n: number) => (p.setting === "spinner" ? n > size - wins : n <= wins);
+        return averageProfit(faces(size), (n) => (winning(n) ? +p.stake * +p.pays : -p.stake));
+      }
       if (p.type === "odds") {
         const stake = +p.stake;
         const bet = String(p.bet);
@@ -51,6 +97,15 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return low;
     }
     case "house-edge": {
+      if (p.type === "mock-wheel") {
+        // Spin the whole wheel once: average a $1 bet's profit over every segment.
+        return -averageProfit(MONEY_WHEEL_SEGMENTS, (mark) => (mark === p.bet ? MONEY_WHEEL_PAYS[mark] : -1));
+      }
+      if (p.type === "mock-prize") {
+        // Average over every card or duck you could get, as a share of the price.
+        const count = +p.count, price = +p.price, prize = +p.prize;
+        return -averageProfit(faces(count), (pick) => (pick === 1 ? prize - price : -price)) / price;
+      }
       if (p.type === "die") return -(faces(6).reduce((sum, f) => sum + (f === 1 ? +p.pays : -1), 0) / 6);
       if (p.type === "dice") {
         // Every roll of two dice, re-listing what each bet wins on.
@@ -77,6 +132,8 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return -(pockets.reduce((sum, pocket) => sum + (pocket < covered[bet] ? pays[bet] : -1), 0) / pockets.length);
     }
     case "kelly": {
+      if (p.type === "mock-even") return kellyRoot(+p.winPercent / 100, 1);
+      if (p.type === "mock-odds") return kellyRoot(+p.winPercent / 100, +p.pays);
       // The stake that maximizes expected log growth, by golden-section search.
       const win = +p.winPercent / 100, b = p.type === "decimal" ? +p.hundredths / 100 - 1 : +p.pays;
       const growth = (f: number) => win * Math.log(1 + b * f) + (1 - win) * Math.log(1 - f);

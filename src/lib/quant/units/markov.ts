@@ -1144,6 +1144,650 @@ function paidRerollTies(sides: number, cost: Rational) {
   return values.filter((v) => Math.abs(v - best) < 1e-12).length > 1;
 }
 
+// ─── Mock-test questions ─────────────────────────────────────────────────────────────────
+// Each mirrors one practice type above: the same method and working, in a setting practice never uses.
+
+/** Every song on a shuffled playlist, or every colour on a spinner. */
+function mockFullSet(params: { type: "mock-full-set"; context: "playlist" | "spinner"; n: number }): QuantProblem {
+  const { context, n } = params;
+  let expected = q(0);
+  for (let k = 1; k <= n; k++) expected = add(expected, q(n, k));
+  const harmonic = n <= 6 ? range(1, n).map((i) => (i === 1 ? "1" : `1/${i}`)).join(" + ") : `1 + 1/2 + … + 1/${n}`;
+  const one = context === "playlist" ? "song" : "colour";
+  const go = context === "playlist" ? "play" : "spin";
+  const prompt =
+    context === "playlist"
+      ? `A playlist of ${n} songs is on shuffle. Each play is any of the ${n} songs with equal chance, and repeats are allowed. How many plays do you expect it to take to hear every song?`
+      : `A spinner has ${n} equal sections, each a different colour. You spin it until every colour has come up at least once. How many spins do you expect to need?`;
+  const half = Math.floor(n / 2);
+  const boxes = (marks: { faces: number[]; tone: "known" | "hit" }[], caption: string): QuantVisual => ({ type: "die-faces", sides: n, marks, caption });
+  return problem(
+    `mock-full-set-${context}-${n}`,
+    prompt,
+    expected,
+    "number",
+    [
+      {
+        label: `Once k ${one}s have come up, the next new one takes`,
+        work: `${n} ÷ (${n} − k) ${go}s on average`,
+        result: "",
+        icon: "split",
+        explain: `Count the wait one new ${one} at a time. With \`k\` seen, a ${go} is new with chance \`(${n} - k)/${n}\`, so that stage averages \`${n}/(${n} - k)\` ${go}s.`,
+        visual: boxes(
+          [
+            { faces: range(1, half), tone: "known" },
+            { faces: range(half + 1, n), tone: "hit" },
+          ],
+          `With ${half} of ${n} seen (grey), each ${go} is new with chance ${n - half}/${n}.`,
+        ),
+      },
+      {
+        label: `Add the stages for k = 0 up to ${n - 1}`,
+        work: `${n} × (${harmonic})`,
+        icon: "add",
+        explain: "The whole wait is the stages one after another. Averages add, so the expected total is the sum of the stage averages.",
+        visual: {
+          type: "bars",
+          bars: range(0, n - 1).map((k) => ({ label: ORDINAL(k + 1), value: n / (n - k), tone: "hit" as const, text: formatResult(q(n, n - k), "number") })),
+          caption: `Average ${go}s to find each new ${one}. The last one alone takes ${n}.`,
+        },
+      },
+    ],
+    params,
+    boxes([], `Each box is one ${one}. All ${n} have to come up.`),
+  );
+}
+
+/** k different numbers from a lottery drum, or k different students picked from a class. */
+function mockSomeTypes(params: { type: "mock-some-types"; context: "drum" | "class"; n: number; k: number }): QuantProblem {
+  const { context, n, k } = params;
+  let expected = q(0);
+  for (let j = 0; j < k; j++) expected = add(expected, q(n, n - j));
+  const one = context === "drum" ? "number" : "student";
+  const go = context === "drum" ? "draw" : "morning";
+  const prompt =
+    context === "drum"
+      ? `A lottery drum holds ${n} balls numbered 1 to ${n}. Each draw takes one ball at random, reads its number and puts it back. How many draws do you expect it to take to see ${k} different numbers?`
+      : `Each morning a teacher picks one of her ${n} students at random to read aloud, and the same student can be picked again. How many mornings do you expect before ${k} different students have read?`;
+  const waits = range(0, k - 1).map((j) => q(n, n - j));
+  return problem(
+    `mock-some-${context}-${n}-${k}`,
+    prompt,
+    expected,
+    "number",
+    [
+      {
+        label: `With j different ${one}s so far, a new one takes`,
+        work: `${n} ÷ (${n} − j) ${go}s on average`,
+        result: "",
+        icon: "split",
+        explain: `Split the wait at each new ${one}. With \`j\` seen, \`${n} - j\` of the ${n} are new, so each ${go} brings one with chance \`(${n} - j)/${n}\`.`,
+        visual: {
+          type: "die-faces",
+          sides: n,
+          marks: [
+            { faces: range(1, k - 1), tone: "known" },
+            { faces: range(k, n), tone: "hit" },
+          ],
+          caption: `With ${k - 1} seen (grey), any of the other ${n - k + 1} is new.`,
+        },
+      },
+      {
+        label: `Add the stages for j = 0 up to ${k - 1}`,
+        work: waits.map((w) => formatFraction(w)).join(" + "),
+        icon: "add",
+        explain: `Only ${k} of the ${n} are needed, so the wait ends at the ${ORDINAL(k)} new ${one}. The slow late stages never happen.`,
+        visual: {
+          type: "bars",
+          bars: waits.map((w, j) => ({ label: ORDINAL(j + 1), value: value(w), tone: "hit" as const, text: formatResult(w, "number") })),
+          caption: `Average ${go}s for each new ${one}, up to the ${ORDINAL(k)}.`,
+        },
+      },
+    ],
+    params,
+    { type: "die-faces", sides: n, marks: [], caption: `Each box is one ${one}. You need ${k} different ones.` },
+  );
+}
+
+/** A two-symbol pattern with equal chances: printed bits, or a half-red, half-blue spinner. */
+function mockFairPattern(params: { type: "mock-fair-pattern"; context: "bits" | "spinner"; pattern: string }): QuantProblem {
+  const { context } = params;
+  const bits = params.pattern.split(" ");
+  // The spinner reads 1 as red and 0 as blue.
+  const symbols = context === "bits" ? bits : bits.map((b) => (b === "1" ? "R" : "B"));
+  const m = symbols.length;
+  const overlaps = patternOverlaps(symbols);
+  const shown = (k: number) => symbols.slice(0, k).join(" ");
+  const go = context === "bits" ? "bit" : "spin";
+  const prompt =
+    context === "bits"
+      ? `A program prints random bits, each a 0 or a 1 with equal chance and independent of the rest. How many bits do you expect it to print until the last ${m} it has printed are ${symbols.join(" ")}?`
+      : new Set(bits).size === 1
+        ? `A spinner is half red and half blue. You spin it until it has come up ${bits[0] === "1" ? "red" : "blue"} ${m} times in a row. How many spins do you expect it to take?`
+        : `A spinner is half red and half blue. You spin it until your last ${m} spins have come up ${bits.map((b) => (b === "1" ? "red" : "blue")).join(", ")}, in that order. How many spins do you expect it to take?`;
+  return problem(
+    `mock-fair-${context}-${bits.join("")}`,
+    prompt,
+    q(overlaps.reduce((sum, k) => sum + 2 ** k, 0)),
+    "number",
+    [
+      {
+        label: "Lengths where the pattern’s start matches its end",
+        work: overlaps.map(shown).join(", "),
+        result: "",
+        icon: "filter",
+        explain: "List each piece the pattern both begins and ends with. A fresh copy can start inside the last one there. The full pattern always counts.",
+        visual: {
+          type: "states",
+          nodes: range(0, m).map((k) => ({
+            id: `m${k}`,
+            label: k === 0 ? "Start" : shown(k),
+            tone: overlaps.includes(k) ? ("hit" as const) : k === 0 ? ("known" as const) : ("muted" as const),
+          })),
+          edges: range(1, m).map((k) => ({ from: `m${k - 1}`, to: `m${k}`, label: `${symbols[k - 1]} · 1/2` })),
+          caption: `${context === "bits" ? "" : "R is red, B is blue. "}Each state is how much of the pattern your last ${go}s match. Orange ones both start and end it.`,
+        },
+      },
+      {
+        label: "Each piece adds 2 to the power of its length",
+        work: overlaps.map((k) => `2${sup(k)}`).join(" + "),
+        icon: "add",
+        explain: `A piece of length \`k\` turns up with chance \`1/2^k\`, so it adds \`2^k\` ${go}s to the expected wait.`,
+        visual: {
+          type: "bars",
+          bars: overlaps.map((k) => ({ label: shown(k), value: 2 ** k, tone: "hit" as const, text: `${2 ** k}` })),
+          caption: "What each piece adds to the expected wait.",
+        },
+      },
+    ],
+    params,
+    { type: "slots", slots: symbols.map((s, i) => ({ label: `${ORDINAL(i + 1)}`, value: s, tone: "hit" as const })), op: "", caption: `The run you’re waiting for.` },
+  );
+}
+
+/** Wet and dry days, where a day is wet with chance p: the wait for a run of weather. */
+function mockWeather(params: { type: "mock-weather"; pattern: string; wetN: number; wetD: number }): QuantProblem {
+  const symbols = params.pattern.split(" ");
+  const wet = q(params.wetN, params.wetD);
+  const dry = sub(q(1), wet);
+  const chanceOf = (s: string) => (s === "W" ? wet : dry);
+  const overlaps = patternOverlaps(symbols);
+  const shown = (k: number) => symbols.slice(0, k).join(" ");
+  const chance = (k: number) => symbols.slice(0, k).reduce((product, s) => mul(product, chanceOf(s)), q(1));
+  const factors = (k: number) => {
+    const parts = symbols.slice(0, k).map((s) => formatFraction(chanceOf(s)));
+    return parts.length === 1 ? parts[0] : `(${parts.join(" × ")})`;
+  };
+  const words = symbols.map((s) => (s === "W" ? "wet" : "dry"));
+  const run = words.length === 2 ? `${words[0]} then ${words[1]}` : `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
+  return problem(
+    `mock-weather-${params.wetN}-${params.wetD}-${symbols.join("")}`,
+    `Each day is wet with chance ${formatFraction(wet)} and dry otherwise, independent of every other day. Counting from today, how many days do you expect until ${new Set(words).size === 1 ? `it has been ${words[0]} ${symbols.length} days in a row` : `the last ${symbols.length} days have gone ${run}, in that order`}?`,
+    overlaps.reduce((sum, k) => add(sum, div(q(1), chance(k))), q(0)),
+    "number",
+    [
+      {
+        label: "Lengths where the pattern’s start matches its end",
+        work: overlaps.map(shown).join(", "),
+        result: "",
+        icon: "filter",
+        explain: "List each piece the run both begins and ends with. A fresh copy can start inside the last one there. The full run always counts.",
+        visual: {
+          type: "states",
+          nodes: range(0, symbols.length).map((k) => ({
+            id: `w${k}`,
+            label: k === 0 ? "Start" : shown(k),
+            tone: overlaps.includes(k) ? ("hit" as const) : k === 0 ? ("known" as const) : ("muted" as const),
+          })),
+          edges: range(1, symbols.length).map((k) => ({ from: `w${k - 1}`, to: `w${k}`, label: `${symbols[k - 1]} · ${formatFraction(chanceOf(symbols[k - 1]))}` })),
+          caption: "W is wet, D is dry. Each state is how much of the run the last few days match. Orange ones both start and end it.",
+        },
+      },
+      {
+        label: "Add 1 ÷ the chance of each piece",
+        work: overlaps.map((k) => `1 ÷ ${factors(k)}`).join(" + "),
+        icon: "add",
+        explain: "Each piece adds 1 ÷ its chance to the wait. Multiply the day chances along the piece to get that chance.",
+        visual: {
+          type: "bars",
+          bars: overlaps.map((k) => ({ label: shown(k), value: value(div(q(1), chance(k))), tone: "hit" as const, text: formatResult(div(q(1), chance(k)), "number") })),
+          caption: "What each piece adds to the expected wait, in days.",
+        },
+      },
+    ],
+    params,
+    { type: "slots", slots: words.map((w, i) => ({ label: `Day ${i + 1}`, value: w, tone: "hit" as const })), op: "", caption: "The run of days you’re waiting for." },
+  );
+}
+
+/** k successes in a row, where a failure starts the count again: game jumps or a machine’s trial days. */
+function mockStreak(params: { type: "mock-streak"; context: "game" | "machine"; pN: number; pD: number; k: number }): QuantProblem {
+  const { context, k } = params;
+  const p = q(params.pN, params.pD);
+  const pText = formatFraction(p);
+  const terms = range(1, k).map((i) => div(q(1), pow(p, i)));
+  const one = context === "game" ? "jump" : "day";
+  const prompt =
+    context === "game"
+      ? `In a video game you must clear ${k} jumps in a row to finish a level, and any failed jump sends you back to the first. You clear each jump with chance ${pText}. How many jumps do you expect to attempt?`
+      : `A new machine passes its trial once it runs ${k} days in a row without a fault, and a fault restarts the count. Each day it runs cleanly with chance ${pText}, independently. How many days do you expect the trial to last?`;
+  return problem(
+    `mock-streak-${context}-${params.pN}-${params.pD}-${k}`,
+    prompt,
+    terms.reduce((sum, t) => add(sum, t), q(0)),
+    "number",
+    [
+      {
+        label: "Lengths where the run’s start matches its end",
+        work: `every length from 1 to ${k}`,
+        result: "",
+        icon: "filter",
+        explain: `A run of successes matches itself at every length: its first \`i\` ${one}s and its last \`i\` ${one}s are both \`i\` successes.`,
+        visual: {
+          type: "states",
+          nodes: range(0, k).map((i) => ({ id: `c${i}`, label: i === 0 ? "0" : `${i} clean`, tone: i === k ? ("hit" as const) : i === 0 ? ("known" as const) : undefined })),
+          edges: [
+            ...range(1, k).map((i) => ({ from: `c${i - 1}`, to: `c${i}`, label: pText })),
+            { from: `c${Math.min(2, k)}`, to: "c0", label: `fail ${formatFraction(sub(q(1), p))}` },
+          ],
+          caption: `Each success moves one step right. A failure sends you back to 0.`,
+        },
+      },
+      {
+        label: `Add (1 ÷ ${pText}) to the powers 1 to ${k}`,
+        work: range(1, k).map((i) => `(1 ÷ ${pText})${sup(i)}`).join(" + "),
+        icon: "add",
+        explain: `A run of \`i\` successes has chance \`(${pText})^i\`, so it adds \`1/(${pText})^i\` ${one}s. The full run adds the most.`,
+        visual: {
+          type: "bars",
+          bars: terms.map((t, i) => ({ label: `${i + 1}`, value: value(t), tone: "hit" as const, text: formatResult(t, "number") })),
+          caption: "What each run length adds to the expected wait.",
+        },
+      },
+    ],
+    params,
+    {
+      type: "slots",
+      slots: range(1, k).map((i) => ({ label: `${ORDINAL(i)}`, value: context === "game" ? "clear" : "clean", tone: "hit" as const })),
+      op: "",
+      caption: `You need ${k} in a row.`,
+    },
+  );
+}
+
+/** A share price moving $1 a minute until it hits a sell order above or below. */
+function mockStock(params: { type: "mock-stock"; low: number; start: number; target: number; upN: number; upD: number; ask: "high" | "low" }): QuantProblem {
+  const { low, start, target, ask } = params;
+  const up = q(params.upN, params.upD);
+  const down = sub(q(1), up);
+  const r = div(down, up);
+  const reach = div(sub(pow(r, start), q(1)), sub(pow(r, target), q(1)));
+  const high = low + target;
+  const price = (x: number) => `$${x}`;
+  const nodes = range(low, high).map((x) => ({
+    id: price(x),
+    label: price(x),
+    tone:
+      x === low + start
+        ? ("known" as const)
+        : (ask === "high" ? x === high : x === low)
+          ? ("hit" as const)
+          : x === low || x === high
+            ? ("muted" as const)
+            : undefined,
+  }));
+  const steps: Parameters<typeof problem>[4] = [
+    {
+      label: "r = chance down ÷ chance up",
+      work: `${formatFraction(down)} ÷ ${formatFraction(up)}`,
+      result: formatFraction(r),
+      icon: "divide",
+      explain: `Measure the price from your lower order at $${low}: you start ${start} above it, and the upper order is ${target} above it.`,
+    },
+    {
+      label: `Chance the price reaches $${high} first`,
+      work: `(r${sup(start)} − 1) ÷ (r${sup(target)} − 1)`,
+      result: formatFraction(reach),
+      icon: "target",
+      explain: `This is the ruin rule with \`a = ${start}\` and \`N = ${target}\`: raise \`r\` to each, take 1 off both, and divide.`,
+    },
+  ];
+  if (ask === "low") {
+    steps.push({
+      label: `Chance you sell at $${low}`,
+      work: `1 − ${formatFraction(reach)}`,
+      icon: "subtract",
+      explain: "One of the two orders always fills, so selling low is everything that isn’t selling high.",
+    });
+  }
+  return problem(
+    `mock-stock-${low}-${start}-${target}-${params.upN}-${params.upD}-${ask}`,
+    `A share trades at $${low + start}. Each minute its price moves up $1 with chance ${formatFraction(up)} or down $1 with chance ${formatFraction(down)}. You have orders to sell at $${high} and at $${low}, and whichever price comes first fills. What’s the chance you sell at $${ask === "high" ? high : low}?`,
+    ask === "high" ? reach : sub(q(1), reach),
+    "probability",
+    steps,
+    params,
+    {
+      type: "states",
+      nodes,
+      edges: [
+        { from: price(low + start), to: price(low + start + 1), label: `up ${formatFraction(up)}` },
+        { from: price(low + start), to: price(low + start - 1), label: `down ${formatFraction(down)}` },
+      ],
+      caption: `Every minute the price ticks up or down $1. It stops at $${low} or $${high}.`,
+    },
+  );
+}
+
+/** A frog hopping between stones until it reaches either bank. */
+function mockFrog(params: { type: "mock-frog"; start: number; stones: number }): QuantProblem {
+  const { start, stones } = params;
+  return problem(
+    `mock-frog-${start}-${stones}`,
+    `Stones numbered 0 to ${stones} cross a stream, with 0 and ${stones} on the two banks. A frog sits on stone ${start}. Each jump takes it one stone left or right, with equal chance, and it stops once it reaches a bank. How many jumps do you expect it to make?`,
+    q(start * (stones - start)),
+    "number",
+    [
+      {
+        label: "Distance to one bank × distance to the other",
+        work: `${start} × (${stones} − ${start})`,
+        icon: "multiply",
+        explain: "Left and right are equally likely, so this is a fair walk. Its expected length is the distance to one end times the distance to the other.",
+      },
+    ],
+    params,
+    {
+      type: "number-line",
+      min: 0,
+      max: stones,
+      ticks: range(0, stones),
+      shade: [],
+      points: [
+        { at: start, label: "Frog", tone: "known" },
+        { at: 0, label: "Bank", tone: "hit" },
+        { at: stones, label: "Bank", tone: "hit" },
+      ],
+      caption: `The frog is ${start} stones from one bank and ${stones - start} from the other.`,
+    },
+  );
+}
+
+/** A tied volleyball set or table tennis game: the first to lead by two wins. */
+function mockTwoClear(params: { type: "mock-two-clear"; sport: "volleyball" | "table-tennis"; pN: number; pD: number; ask: "win" | "points" }): QuantProblem {
+  const { sport, ask } = params;
+  const p = q(params.pN, params.pD);
+  const other = sub(q(1), p);
+  const both = mul(p, p), lose = mul(other, other);
+  const decided = add(both, lose);
+  const pText = formatFraction(p), qText = formatFraction(other);
+  const volley = sport === "volleyball";
+  const us = volley ? "Home" : "Mei";
+  const them = volley ? "Away" : "Opp.";
+  const point = volley ? "rally" : "point";
+  const chain: QuantVisual = {
+    type: "states",
+    nodes: [
+      { id: "lose", label: `${them} wins`, tone: ask === "win" ? "muted" : "hit" },
+      { id: "behind", label: `${them} +1` },
+      { id: "level", label: volley ? "24–24" : "10–10", tone: "known" },
+      { id: "ahead", label: `${us} +1` },
+      { id: "win", label: `${us} wins`, tone: "hit" },
+    ],
+    edges: [
+      { from: "level", to: "ahead", label: pText },
+      { from: "ahead", to: "win", label: pText },
+      { from: "ahead", to: "level", label: qText },
+      { from: "level", to: "behind", label: qText },
+      { from: "behind", to: "lose", label: qText },
+      { from: "behind", to: "level", label: pText },
+    ],
+    caption: `${volley ? "The home team" : "Mei"} wins each ${point} with chance ${pText}. One ${point} each puts the score level again.`,
+  };
+  const setup = volley
+    ? `A volleyball set is tied at 24–24, and play goes on until one team is two points clear. The home team wins each rally with chance ${pText}, independently.`
+    : `A table tennis game is level at 10–10, and from here a player must get two points ahead to win. Mei wins each point with chance ${pText}, independently.`;
+  const question =
+    ask === "win"
+      ? volley
+        ? "What’s the chance the home team takes the set?"
+        : "What’s the chance Mei wins the game?"
+      : volley
+        ? "How many more rallies do you expect?"
+        : "How many more points do you expect to be played?";
+  const pairStep = {
+    label: `Next two ${point === "rally" ? "rallies" : "points"}: ${volley ? "home" : "Mei"} takes both / ${volley ? "away" : "her opponent"} takes both`,
+    work: `(${pText})² and (${qText})²`,
+    result: `${formatFraction(both)} and ${formatFraction(lose)}`,
+    icon: "multiply" as const,
+    explain: `Take the ${point === "rally" ? "rallies" : "points"} in pairs. Two in a row for either side ends it. A split leaves the score level, the same as now.`,
+    visual: chain,
+  };
+  if (ask === "win") {
+    return problem(
+      `mock-two-clear-${sport}-${params.pN}-${params.pD}-win`,
+      `${setup} ${question}`,
+      div(both, decided),
+      "probability",
+      [
+        pairStep,
+        {
+          label: `${volley ? "The home team’s" : "Mei’s"} share of the pairs that settle it`,
+          work: `${formatFraction(both)} ÷ (${formatFraction(both)} + ${formatFraction(lose)})`,
+          icon: "divide",
+          explain: `A split changes nothing, so only the deciding pairs count. ${volley ? "The home team wins" : "Mei wins"} if the first of those is ${volley ? "theirs" : "hers"}.`,
+        },
+      ],
+      params,
+      chain,
+    );
+  }
+  return problem(
+    `mock-two-clear-${sport}-${params.pN}-${params.pD}-points`,
+    `${setup} ${question}`,
+    div(q(2), decided),
+    "number",
+    [
+      pairStep,
+      {
+        label: "A pair settles it with chance",
+        work: `${formatFraction(both)} + ${formatFraction(lose)}`,
+        result: formatFraction(decided),
+        icon: "add",
+        explain: "It ends when either side takes both of a pair.",
+      },
+      {
+        label: `${volley ? "Rallies" : "Points"}: 2 × expected pairs`,
+        work: `2 × (1 ÷ ${formatFraction(decided)})`,
+        icon: "multiply",
+        explain: `Waiting for a deciding pair takes 1 ÷ its chance pairs on average, and each pair is 2 ${point === "rally" ? "rallies" : "points"}.`,
+      },
+    ],
+    params,
+    chain,
+  );
+}
+
+/** Tickets numbered 1 to n in a hat: draw, and you may put it back and draw once more. */
+function mockTicketRedraw(params: { type: "mock-ticket"; tickets: number }): QuantProblem {
+  const n = params.tickets;
+  const fresh = q(n + 1, 2);
+  const keepFrom = Math.floor(value(fresh)) + 1;
+  const keepCount = n - keepFrom + 1;
+  const keptAverage = q(keepFrom + n, 2);
+  const tickets = (keep: boolean, caption: string): QuantVisual => ({
+    type: "bars",
+    bars: range(1, n).map((t) => ({ label: `${t}`, value: t, tone: keep && t >= keepFrom ? ("hit" as const) : ("muted" as const) })),
+    caption,
+  });
+  return problem(
+    `mock-ticket-${n}`,
+    `A hat holds ${n} tickets numbered 1 to ${n}. You draw one at random and win its number in dollars. If you don’t like it, you may put it back and draw once more, but the second ticket is final. With the best strategy, what’s your expected payout?`,
+    rerollValue(n, 1),
+    "dollars",
+    [
+      {
+        label: "A second draw is worth",
+        work: `(1 + ${n}) ÷ 2`,
+        result: formatDollars(fresh),
+        icon: "idea",
+        explain: "Work from the end. The second ticket must be kept, so drawing again is worth an average ticket.",
+        visual: tickets(false, `Each ticket pays its number. A fresh draw averages ${formatDollars(fresh)}.`),
+      },
+      {
+        label: `Keep ${keepFrom} or more, since they beat ${formatDollars(fresh)}`,
+        work: `${keepCount} of ${n} tickets, averaging ${formatResult(keptAverage, "number")}`,
+        icon: "filter",
+        explain: `Keep the first ticket only if it pays more than drawing again. ${keepFrom} and up beat ${formatDollars(fresh)}; put anything lower back.`,
+        visual: tickets(true, `Keep the orange tickets (${keepFrom} and up). Draw again on the grey ones.`),
+      },
+      {
+        label: "Expected payout",
+        work: `${frac(keepCount, n)} × ${formatResult(keptAverage, "number")} + ${frac(n - keepCount, n)} × ${formatResult(fresh, "number")}`,
+        icon: "add",
+        explain: "Weight each branch by its chance. Keeping pays the average kept ticket; drawing again pays an average ticket.",
+        visual: {
+          type: "tree",
+          root: {
+            label: "First ticket",
+            children: [
+              { label: `Keep: $${formatResult(keptAverage, "number")}`, edge: frac(keepCount, n), tone: "hit" },
+              { label: `Draw again: ${formatDollars(fresh)}`, edge: frac(n - keepCount, n), tone: "muted" },
+            ],
+          },
+          caption: "Each branch’s value times its chance, added up.",
+        },
+      },
+    ],
+    params,
+    tickets(false, `${n} tickets, each paying its number in dollars.`),
+  );
+}
+
+/** A wheel of numbered slices and Bust slices: spin to add points, or stop and bank them. */
+function mockBustWheel(params: { type: "mock-wheel"; slices: number; busts: number }): QuantProblem {
+  const { slices: n, busts: b } = params;
+  const top = n - b;
+  const bust = q(b, n);
+  const keep = sub(q(1), bust);
+  const gain = q(top + 1, 2);
+  const threshold = div(mul(keep, gain), bust);
+  const stopAt = Math.ceil(value(threshold) - 1e-12);
+  const exact = threshold.d === 1;
+  const bustText = b === 1 ? "the Bust slice" : "a Bust slice";
+  const wheel: QuantVisual = {
+    type: "bars",
+    bars: [
+      ...range(1, top).map((s) => ({ label: `${s}`, value: s, tone: "win" as const })),
+      ...range(1, b).map(() => ({ label: "Bust", value: top, tone: "lose" as const })),
+    ],
+    caption: `Green slices add their number. A red Bust slice wipes your points.`,
+  };
+  const end = Math.ceil((stopAt * 1.5) / 10) * 10;
+  return problem(
+    `mock-wheel-${n}-${b}`,
+    `A wheel has ${n} equal slices. ${b === 1 ? "One says Bust" : `${b === 2 ? "Two" : b} say Bust`}, and the rest are numbered 1 to ${top}. You spin again and again, adding each number to your points, but landing on Bust wipes your points to 0 and ends the game. You may stop before any spin and bank your points. To score the most on average, what’s the lowest total at which you should stop?`,
+    q(stopAt),
+    "count",
+    [
+      {
+        label: "What one more spin gains on average",
+        work: `${formatFraction(keep)} × ${formatResult(gain, "number")}`,
+        result: formatResult(mul(keep, gain), "number"),
+        icon: "multiply",
+        explain: `If you miss ${bustText}, you add a number from 1 to ${top}, which averages ${formatResult(gain, "number")}.`,
+        visual: wheel,
+      },
+      {
+        label: "What one more spin risks",
+        work: `${formatFraction(bust)} × your points`,
+        result: "",
+        icon: "target",
+        explain: `With chance ${formatFraction(bust)} you land on Bust and lose everything, so the risk grows with your total.`,
+      },
+      {
+        label: "Stop once the risk is at least the gain",
+        work: `points ≥ ${formatResult(mul(keep, gain), "number")} ÷ ${formatFraction(bust)}${exact ? "" : ` = ${formatResult(threshold, "number")}, so`}`,
+        icon: "check",
+        explain: exact
+          ? "Below this total, a spin adds more than it risks. At exactly this total it’s even, so you can stop."
+          : "Below this total, a spin adds more than it risks. Round up to the first whole total where it doesn’t.",
+        visual: {
+          type: "number-line",
+          min: 0,
+          max: end,
+          shade: [
+            { from: 0, to: stopAt, tone: "win", text: "Spin" },
+            { from: stopAt, to: end, tone: "lose", text: "Stop" },
+          ],
+          points: [{ at: stopAt, label: `${stopAt}`, tone: "hit" }],
+          caption: `Keep spinning below ${stopAt}; bank at ${stopAt} or more.`,
+        },
+      },
+    ],
+    params,
+    wheel,
+  );
+}
+
+/** A machine paying $1 to $n at random, where each new go costs a fee. */
+function mockPaidMachine(params: { type: "mock-paid-machine"; top: number; costN: number; costD: number; ask: "value" | "keep" }): QuantProblem {
+  const { top, ask } = params;
+  const cost = q(params.costN, params.costD);
+  const options = paidRerollValues(top, cost);
+  const best = options.reduce((a, b) => (value(b.value) > value(a.value) ? b : a));
+  const costText = formatDollars(cost);
+  const setup = `A machine pays out a whole number of dollars from 1 to ${top}, each equally likely. After seeing the amount you can take it, or pay ${costText} to run the machine again, as many times as you like.`;
+  return problem(
+    `mock-paid-machine-${top}-${params.costN}-${params.costD}-${ask}`,
+    `${setup} ${ask === "value" ? "With the best strategy, what’s the machine worth to you?" : "With the best strategy, what’s the smallest payout you should accept?"}`,
+    ask === "value" ? best.value : q(best.k),
+    ask === "value" ? "dollars" : "count",
+    [
+      {
+        label: "If you accept k or more",
+        work: `average accepted − ${costText} × reruns`,
+        result: "",
+        icon: "split",
+        explain: `Accepting \`k\` and up, a run is accepted with chance \`(${top} - k + 1)/${top}\`, so you pay for \`${top}/(${top} - k + 1) - 1\` reruns on average.`,
+        visual: {
+          type: "bars",
+          bars: options
+            .filter((o) => value(o.value) > 0)
+            .map((o) => ({ label: `${o.k}+`, value: value(o.value), tone: o.k === best.k ? ("hit" as const) : ("muted" as const), text: formatDollars(o.value) })),
+          caption: "What the machine is worth for each cutoff. The best one is orange.",
+        },
+      },
+      ask === "value"
+        ? {
+            label: `Best: accept ${best.k} or more`,
+            work: `${formatDollars(best.average)} − ${costText} × ${formatResult(best.rerolls, "number")}`,
+            icon: "check",
+            explain: `Accepting ${best.k} and up does best: those payouts average ${formatDollars(best.average)}, less the fees for the reruns.`,
+          }
+        : {
+            label: "Best cutoff",
+            work: `accept ${best.k} or more: ${formatDollars(best.average)} − ${costText} × ${formatResult(best.rerolls, "number")} = ${formatDollars(best.value)}`,
+            icon: "check",
+            explain: `Accepting ${best.k} and up is worth the most. A lower cutoff takes worse payouts; a higher one pays too many fees.`,
+          },
+    ],
+    params,
+    {
+      type: "bars",
+      bars: range(1, top).map((x) => ({ label: `${x}`, value: x, tone: "muted" as const })),
+      caption: `Each payout from $1 to $${top} is equally likely. Each rerun costs ${costText}.`,
+    },
+  );
+}
+
+const MOCK_FAIR_PATTERNS = ["1 1", "0 1", "1 1 1", "1 0 1", "0 1 1", "0 0 1", "1 1 1 1", "0 1 0 1", "1 0 0 1", "0 1 1 0", "1 1 0 1"];
+const MOCK_WEATHER_PATTERNS = ["D W", "W D", "W D W", "D W W", "W W D", "D D W", "D W D", "W D D"];
+const MOCK_WET_CHANCES = [[1, 3], [1, 4], [2, 5], [2, 3], [3, 4], [3, 5]] as const;
+const MOCK_JUMP_CHANCES = [[1, 2], [3, 5], [2, 3], [3, 4]] as const;
+const MOCK_CLEAN_CHANCES = [[2, 3], [3, 4], [4, 5], [5, 6], [9, 10]] as const;
+const MOCK_RALLY_CHANCES = [[3, 5], [2, 3], [3, 4], [2, 5], [1, 3], [5, 9], [4, 7], [3, 8]] as const;
+const MOCK_MACHINE_COSTS: readonly (readonly [number, number])[] = [[1, 2], [1, 1], [3, 2], [2, 1], [3, 1]];
+
 export const STATES_LESSONS: QuantLessonDef[] = [
   {
     id: "coupon-collector",
@@ -1296,6 +1940,27 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         generate: (random) => swapUrn({ red: int(random, 1, 4), blue: int(random, 1, 4) }),
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-full-set",
+        title: "Every song on shuffle, or every colour",
+        practice: "every-prize",
+        generate: (random) =>
+          random() < 0.5
+            ? mockFullSet({ type: "mock-full-set", context: "playlist", n: int(random, 4, 10) })
+            : mockFullSet({ type: "mock-full-set", context: "spinner", n: int(random, 3, 8) }),
+      },
+      {
+        id: "mock-some-types",
+        title: "Some different numbers or names, not all",
+        practice: "some-types",
+        generate: (random) => {
+          const context = random() < 0.5 ? "drum" : "class";
+          const n = context === "drum" ? int(random, 5, 12) : int(random, 8, 16);
+          return mockSomeTypes({ type: "mock-some-types", context, n, k: int(random, 2, Math.min(n - 1, 7)) });
+        },
+      },
+    ],
   },
   {
     id: "patterns",
@@ -1411,6 +2076,36 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         generate: (random) => {
           const [headsN, headsD] = pick(random, EVEN_FLIP_HEADS);
           return evenFlips({ headsN, headsD, ask: random() < 0.6 ? "even" : "odd" });
+        },
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-fair-pattern",
+        title: "Runs of random bits or spinner colours",
+        practice: "fair-coin",
+        generate: (random) => mockFairPattern({ type: "mock-fair-pattern", context: random() < 0.5 ? "bits" : "spinner", pattern: pick(random, MOCK_FAIR_PATTERNS) }),
+      },
+      {
+        id: "mock-weather",
+        title: "A run of wet and dry days",
+        practice: "biased-coin",
+        generate: (random) => {
+          const [wetN, wetD] = pick(random, MOCK_WET_CHANCES);
+          return mockWeather({ type: "mock-weather", pattern: pick(random, MOCK_WEATHER_PATTERNS), wetN, wetD });
+        },
+      },
+      {
+        id: "mock-streak",
+        title: "k clean jumps or days in a row",
+        practice: "streak",
+        generate: (random) => {
+          if (random() < 0.5) {
+            const [pN, pD] = pick(random, MOCK_JUMP_CHANCES);
+            return mockStreak({ type: "mock-streak", context: "game", pN, pD, k: int(random, 2, 4) });
+          }
+          const [pN, pD] = pick(random, MOCK_CLEAN_CHANCES);
+          return mockStreak({ type: "mock-streak", context: "machine", pN, pD, k: int(random, 3, 5) });
         },
       },
     ],
@@ -1598,6 +2293,37 @@ export const STATES_LESSONS: QuantLessonDef[] = [
           }),
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-stock",
+        title: "A share price hitting a sell order",
+        practice: "unfair-chance",
+        generate: (random) =>
+          withinTypingRange(() => {
+            const [upN, upD] = pick(random, UNFAIR_ODDS);
+            const target = int(random, 4, 8);
+            return mockStock({ type: "mock-stock", low: int(random, 12, 90), start: int(random, 1, target - 1), target, upN, upD, ask: random() < 0.5 ? "high" : "low" });
+          }),
+      },
+      {
+        id: "mock-frog",
+        title: "A frog hopping between two banks",
+        practice: "fair-duration",
+        generate: (random) => {
+          const stones = int(random, 4, 10);
+          return mockFrog({ type: "mock-frog", start: int(random, 1, stones - 1), stones });
+        },
+      },
+      {
+        id: "mock-two-clear",
+        title: "Winning a tied set by two clear points",
+        practice: "deuce",
+        generate: (random) => {
+          const [pN, pD] = pick(random, MOCK_RALLY_CHANCES);
+          return mockTwoClear({ type: "mock-two-clear", sport: random() < 0.5 ? "volleyball" : "table-tennis", pN, pD, ask: random() < 0.6 ? "win" : "points" });
+        },
+      },
+    ],
   },
   {
     id: "optimal-stopping",
@@ -1720,6 +2446,34 @@ export const STATES_LESSONS: QuantLessonDef[] = [
             const ask = random() < 0.5 ? "value" : "keep";
             if (ask === "keep" && paidRerollTies(sides, q(costN, costD))) continue;
             return paidReroll({ sides, costN, costD, ask });
+          }
+        },
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-ticket",
+        title: "One redraw from a hat of tickets",
+        practice: "one-reroll",
+        generate: (random) => mockTicketRedraw({ type: "mock-ticket", tickets: pick(random, [5, 7, 9, 10, 12, 15, 20] as const) }),
+      },
+      {
+        id: "mock-wheel",
+        title: "When to bank before the wheel hits Bust",
+        practice: "bust-game",
+        generate: (random) => mockBustWheel({ type: "mock-wheel", slices: pick(random, [6, 8, 10, 12] as const), busts: random() < 0.6 ? 1 : 2 }),
+      },
+      {
+        id: "mock-paid-machine",
+        title: "Paying to run a payout machine again",
+        practice: "paid-reroll",
+        generate: (random) => {
+          for (;;) {
+            const [costN, costD] = pick(random, MOCK_MACHINE_COSTS);
+            const top = pick(random, [5, 7, 9, 10, 15, 20] as const);
+            const ask = random() < 0.5 ? "value" : "keep";
+            if (ask === "keep" && paidRerollTies(top, q(costN, costD))) continue;
+            return mockPaidMachine({ type: "mock-paid-machine", top, costN, costD, ask });
           }
         },
       },

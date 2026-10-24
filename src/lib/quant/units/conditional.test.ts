@@ -1,7 +1,7 @@
 import test from "node:test";
 import { CONDITIONAL_LESSONS } from "./conditional";
 import { DECK } from "../build";
-import { checkAgainstIndependentWorking, draws, faces, sequences, share } from "../test-helpers";
+import { checkAgainstIndependentWorking, draws, faces, sequences, share, solve } from "../test-helpers";
 import type { QuantProblem } from "../build";
 
 // The conditions and questions, written again here so a slip in either copy shows up.
@@ -60,6 +60,38 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "conditional-probability": {
+      if (p.type === "mock-pairs") {
+        // Every ordered pair written out (no doubles when the first tile stays out), then P(both) ÷ P(clue).
+        const n = +p.sides;
+        const pairs = p.draw === "tiles" ? draws(faces(n), 2) : sequences(faces(n), 2);
+        const tests: Record<string, (r: number[]) => boolean> = {
+          "has-top": (r) => Math.max(...r) === n,
+          "has-one": (r) => Math.min(...r) === 1,
+          "first-odd": (r) => r[0] % 2 !== 0,
+          "total-high": (r) => sum(r) > n + 2,
+          "both-low": (r) => Math.max(...r) < 5,
+          "both-odd": (r) => (r[0] * r[1]) % 2 === 1,
+          "even-total": (r) => r[0] % 2 === r[1] % 2,
+          "first-bigger": (r) => r[0] - r[1] > 0,
+          same: (r) => r[0] - r[1] === 0,
+          "even-product": (r) => r[0] % 2 === 0 || r[1] % 2 === 0,
+          "next-door": (r) => (r[0] - r[1]) ** 2 === 1,
+        };
+        const test = (id: string) => (/^total-\d+$/.test(id) ? (r: number[]) => sum(r) === Number(id.slice(6)) : tests[id]);
+        return conditionalShare(pairs, test(String(p.known)), test(String(p.asked)));
+      }
+      if (p.type === "mock-drawer") {
+        // Every ordered draw of the first three or four items from the full drawer, kept when the first two match.
+        const counts = String(p.counts).split("-").map(Number);
+        const items = counts.flatMap((c, kind) => Array<number>(c).fill(kind));
+        const d = +p.drawn;
+        const asked: Record<string, (s: number[]) => boolean> = {
+          next: (s) => s[2] === d,
+          pair: (s) => s[2] === s[3],
+          both: (s) => s[2] === d && s[3] === d,
+        };
+        return conditionalShare(draws(items, p.ask === "next" ? 3 : 4), (s) => s[0] === d && s[1] === d, asked[String(p.ask)]);
+      }
       if (String(problem.key).startsWith("next-")) {
         // Brute force: remove a concrete first two cards, then look at every ordered next draw.
         const draw = String(p.draw);
@@ -89,6 +121,24 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
     }
     case "splitting-cases": {
       const key = String(problem.key);
+      if (p.type === "mock-sources") {
+        // Line up 10,000 items, the first share × 100 from the first source, and count the bad ones.
+        const fromA = +p.share * 100;
+        let bad = 0;
+        for (let i = 0; i < 10000; i++) {
+          const a = i < fromA;
+          const place = a ? i : i - fromA;
+          const size = a ? fromA : 10000 - fromA;
+          if (place < (size * (a ? +p.rateA : +p.rateB)) / 100) bad++;
+        }
+        return bad / 10000;
+      }
+      if (p.type === "mock-shots") {
+        // Two states: Ana to shoot (x) or Ben to shoot (y), each Ana's chance of winning from there.
+        const c = +p.chanceN / +p.chanceD;
+        const [x] = solve([[1, -(1 - c)], [-(1 - c), 1]], [c, 0]);
+        return p.who === "first" ? x : 1 - x;
+      }
       if (p.totalA !== undefined) {
         // Sum A's chance of winning in round 1, 2, 3, … from the dice directly.
         const rolls = sequences(faces(6), 2);
@@ -161,6 +211,42 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return ((fromA * +p.faultA) / 100 + (fromB * +p.faultB) / 100) / 10000;
     }
     case "bayes-rule": {
+      if (p.type === "mock-flagged") {
+        // One entry per item, then the share of the flagged ones that are bad.
+        const items = Array.from({ length: +p.total }, (_, i) => {
+          const bad = i < +p.bad;
+          return { bad, flagged: bad ? i < +p.caught : i - +p.bad < +p.wrong };
+        });
+        return share(items.filter((x) => x.flagged), (x) => x.bad);
+      }
+      if (p.type === "mock-trick") {
+        // Every die and every sequence of its faces, all equally likely; keep the runs of all sixes.
+        const dice = [...Array(+p.ordinary).fill(faces(6)), ...Array(+p.trick).fill([6, 6, 6, 6, 6, 6])] as number[][];
+        const outcomes = dice.flatMap((die, i) => sequences(die, +p.rolls).map((rolls) => ({ trick: i >= +p.ordinary, rolls })));
+        return share(outcomes.filter((o) => o.rolls.every((r) => r === 6)), (o) => o.trick);
+      }
+      if (p.type === "mock-bags") {
+        // Every bag and every run of k + 1 marbles drawn with replacement, weighted, then condition on k reds.
+        const sets: Record<string, [number, number][]> = {
+          quarters: [[1, 4], [2, 4], [3, 4]],
+          thirds: [[1, 3], [2, 3]],
+          fifths: [[1, 5], [3, 5], [5, 5]],
+          sixths: [[2, 6], [3, 6], [4, 6]],
+          "half-or-more": [[1, 2], [3, 4]],
+        };
+        const bags = sets[String(p.set)].map(([red, all]) => [...Array(red).fill("r"), ...Array(all - red).fill("w")] as string[]);
+        const k = +p.draws;
+        let seen = 0, next = 0;
+        for (const bag of bags) {
+          const weight = 1 / bags.length / bag.length ** (k + 1);
+          for (const run of sequences(bag, k + 1)) {
+            if (run.slice(0, k).some((m) => m !== "r")) continue;
+            seen += weight;
+            if (run[k] === "r") next += weight;
+          }
+        }
+        return next / seen;
+      }
       if (String(problem.key).startsWith("bag-")) {
         // Enumerate every coin and every sequence of k + 1 flips, weighted, then condition on the first k.
         const sets: Record<string, number[]> = {

@@ -1138,6 +1138,387 @@ function sdOfTotal(params: { kind: string; parts: number; sd: number }) {
   );
 }
 
+// ─── Mock-test types ─────────────────────────────────────────────────────────────────────
+// Each mirrors one practice type above, with the same working, in a setting practice never uses.
+
+/** "9", "8 or 9", "7, 8 or 9": the slots just below the top one. */
+const slotList = (from: number, to: number) => {
+  const slots = range(from, to).map(String);
+  return slots.length === 1 ? slots[0] : `${slots.slice(0, -1).join(", ")} or ${slots.at(-1)}`;
+};
+
+/** Mirrors the die game: a prize wheel with one top slot, a few smaller prizes, and a cost on the rest. */
+function prizeWheel(params: { slots: number; top: number; small: number; smallSlots: number; cost: number }) {
+  const { slots: n, top, small, smallSlots: m, cost } = params;
+  const rest = n - 1 - m;
+  const wheel = (topTone: Tone, smallTone: Tone, restTone: Tone) =>
+    faces(n, [
+      { faces: [n], tone: topTone },
+      { faces: range(n - m, n - 1), tone: smallTone },
+      { faces: range(1, rest), tone: restTone },
+    ], `The wheel’s ${n} slots`);
+  return problem(
+    `mock-wheel-${n}-${top}-${small}-${m}-${cost}`,
+    `A prize wheel has ${n} equal slots numbered 1 to ${n}. Landing on ${n} pays $${top}, landing on ${slotList(n - m, n - 1)} pays $${small}, and any other number costs you $${cost}. On average, how much do you make per spin?`,
+    q(top + m * small - rest * cost, n),
+    "dollars",
+    [
+      {
+        label: `Slot ${n}`,
+        work: `$${top} × 1/${n}`,
+        result: formatDollars(q(top, n)),
+        icon: "multiply",
+        explain: `The top slot comes up 1 time in ${n} and pays $${top}.`,
+        visual: wheel("win", "muted", "muted"),
+      },
+      {
+        label: m === 1 ? `Slot ${n - 1}` : m === 2 ? `Slots ${n - 2} and ${n - 1}` : `Slots ${n - m} to ${n - 1}`,
+        work: `$${small} × ${m}/${n}`,
+        result: formatDollars(q(m * small, n)),
+        icon: "multiply",
+        explain: `${m === 1 ? "One slot pays" : `${m} slots each pay`} $${small}, so together they come up ${m} times in ${n}.`,
+        visual: wheel("known", "win", "muted"),
+      },
+      {
+        label: `Slots 1 to ${rest}`,
+        work: `−$${cost} × ${rest}/${n}`,
+        result: formatDollars(q(-rest * cost, n)),
+        icon: "multiply",
+        explain: `The other ${rest} slots each cost $${cost}. A cost counts as a negative amount.`,
+        visual: wheel("known", "known", "lose"),
+      },
+      {
+        label: "Average per spin",
+        work: `(${top} + ${m * small} − ${rest * cost}) ÷ ${n}`,
+        icon: "add",
+        explain: "Add the three parts. That’s what one spin makes on average.",
+        visual: wheel("win", "win", "lose"),
+      },
+    ],
+    { type: "mock-wheel", ...params },
+    wheel("win", "win", "lose"),
+  );
+}
+
+/** Mirrors the card game’s price: a raffle with a top prize, some smaller ones, and the rest blank. */
+function raffle(params: { tickets: number; top: number; topCount: number; second: number; secondCount: number }) {
+  const { tickets, top, topCount: a, second, secondCount: b } = params;
+  const blank = tickets - a - b;
+  const tiers = (topTone: Tone, secondTone: Tone): QuantVisual => ({
+    type: "bars",
+    bars: [
+      { label: `$${top}`, value: a, tone: topTone, text: a === 1 ? "1 ticket" : `${a} tickets` },
+      { label: `$${second}`, value: b, tone: secondTone, text: `${b} tickets` },
+      { label: "$0", value: blank, tone: "muted", text: `${blank} tickets` },
+    ],
+    caption: "Tickets by prize",
+  });
+  return problem(
+    `mock-raffle-${tickets}-${top}-${a}-${second}-${b}`,
+    `A raffle sells all ${tickets} of its tickets. ${a === 1 ? "One ticket wins" : "Two tickets each win"} $${top}, ${b} more win $${second} each, and the rest win nothing. What ticket price would make the raffle a fair bet?`,
+    q(a * top + b * second, tickets),
+    "dollars",
+    [
+      {
+        label: "Top prize",
+        work: `$${top} × ${a}/${tickets}`,
+        result: formatDollars(q(a * top, tickets)),
+        icon: "multiply",
+        explain: `${a} of the ${tickets} tickets ${a === 1 ? "wins" : "win"} $${top}.`,
+        visual: tiers("win", "muted"),
+      },
+      {
+        label: "Smaller prize",
+        work: `$${second} × ${b}/${tickets}`,
+        result: formatDollars(q(b * second, tickets)),
+        icon: "multiply",
+        explain: `${b} tickets win $${second}. The other ${blank} win nothing, so they add $0.`,
+        visual: tiers("known", "alt"),
+      },
+      {
+        label: "Fair price is the average payout",
+        work: `(${a * top} + ${b * second}) ÷ ${tickets}`,
+        icon: "add",
+        explain: "At a fair price you break even on average, so the price is what one ticket pays on average.",
+        visual: tiers("win", "alt"),
+      },
+    ],
+    { type: "mock-raffle", ...params },
+    tiers("win", "alt"),
+  );
+}
+
+/** Mirrors the elevator: people each choose one of n options; how many options get chosen. */
+const CHOICE_SCENES = [
+  {
+    id: "flavours",
+    one: "flavour",
+    label: "Flavour",
+    prompt: (n: number, k: number) =>
+      `An ice-cream stand has ${n} flavours. ${k} friends each order one scoop, choosing a flavour at random and independently of each other. On average, how many different flavours do they order?`,
+    who: "friends",
+    picked: "ordered",
+  },
+  {
+    id: "topics",
+    one: "topic",
+    label: "Topic",
+    prompt: (n: number, k: number) =>
+      `A teacher offers ${n} essay topics, and each of ${k} students picks one at random, independently. What’s the expected number of topics that at least one student picks?`,
+    who: "students",
+    picked: "picked",
+  },
+] as const;
+
+function differentChoices(params: { scene: string; options: number; people: number }) {
+  const scene = CHOICE_SCENES.find((s) => s.id === params.scene)!;
+  const { options: n, people: k } = params;
+  const none = pow(q(n - 1, n), k);
+  const hit = sub(q(1), none);
+  const each = (chance: typeof none, tone: Tone, caption: string): QuantVisual => ({
+    type: "bars",
+    bars: range(1, n).map((i) => ({ label: `${scene.label} ${i}`, value: value(chance), tone, text: formatFraction(chance) })),
+    caption,
+  });
+  return problem(
+    `mock-choices-${scene.id}-${n}-${k}`,
+    scene.prompt(n, k),
+    mul(q(n), hit),
+    "number",
+    [
+      {
+        label: `A given ${scene.one} is never ${scene.picked}`,
+        work: `(${n - 1}/${n})${sup(k)}`,
+        result: formatFraction(none),
+        icon: "multiply",
+        explain: `Each of the ${k} ${scene.who} misses a given ${scene.one} with chance ${n - 1}/${n}, independently, so multiply that ${k} times.`,
+        visual: each(none, "muted", `Chance each ${scene.one} is never ${scene.picked}`),
+      },
+      {
+        label: `A given ${scene.one} is ${scene.picked} at least once`,
+        work: `1 − ${formatFraction(none)}`,
+        result: formatFraction(hit),
+        icon: "subtract",
+        explain: `A ${scene.one} is either never ${scene.picked} or ${scene.picked} at least once, so take the first chance from 1.`,
+        visual: each(hit, "hit", `Chance each ${scene.one} is ${scene.picked} at least once`),
+      },
+      {
+        label: `Across all ${n} ${scene.one}s`,
+        work: `${n} × ${formatFraction(hit)}`,
+        icon: "add",
+        explain: `The number of different ${scene.one}s is one yes-or-no piece per ${scene.one}. Add the ${n} equal chances.`,
+        visual: each(hit, "hit", `Add one chance per ${scene.one}`),
+      },
+    ],
+    { type: "mock-choices", ...params },
+    each(q(1, n), "muted", `${n} ${scene.one}s, each equally likely for each of the ${scene.who}`),
+  );
+}
+
+/** Mirrors where the first ace turns up: marbles drawn until the first red, or bulbs tested until a faulty one. */
+const FIRST_HIT_SCENES = [
+  {
+    id: "marbles",
+    hit: "red marble",
+    hits: "red marbles",
+    other: "blue marble",
+    others: "blue marbles",
+    prompt: (r: number, b: number) =>
+      `A bag holds ${r} red and ${b} blue marbles. You take them out one at a time, at random, without putting any back. On average, on which draw does the first red marble come out?`,
+    last: "The first red marble’s draw",
+    groups: ["Red", "Blue"],
+  },
+  {
+    id: "bulbs",
+    hit: "faulty bulb",
+    hits: "faulty bulbs",
+    other: "good bulb",
+    others: "good bulbs",
+    prompt: (r: number, b: number) =>
+      `A box of ${r + b} bulbs has ${r} faulty ones mixed in. You test the bulbs one by one, in a random order, and stop at the first faulty one. How many bulbs do you expect to test?`,
+    last: "Bulbs tested",
+    groups: ["Faulty", "Good"],
+  },
+] as const;
+
+function firstHit(params: { scene: string; hits: number; others: number }) {
+  const scene = FIRST_HIT_SCENES.find((s) => s.id === params.scene)!;
+  const { hits: r, others: b } = params;
+  const before = q(b, r + 1);
+  const bag = (otherTone: Tone): QuantVisual => ({
+    type: "marbles",
+    groups: [
+      { count: r, tone: "hit", label: scene.groups[0] },
+      { count: b, tone: otherTone, label: scene.groups[1] },
+    ],
+  });
+  return problem(
+    `mock-first-${scene.id}-${r}-${b}`,
+    scene.prompt(r, b),
+    add(q(1), before),
+    "number",
+    [
+      {
+        label: `Each ${scene.other} comes before all ${r} ${scene.hits}`,
+        work: `1 time in ${r + 1}`,
+        result: `1/${r + 1}`,
+        icon: "split",
+        explain: `The ${r} ${scene.hits} split the order into ${r + 1} gaps. Each ${scene.other} is equally likely to fall in any gap, and only the first is before them all.`,
+        visual: bag("known"),
+      },
+      {
+        label: `${scene.others[0].toUpperCase()}${scene.others.slice(1)} before the first ${scene.hit}`,
+        work: `${b} × 1/${r + 1}`,
+        result: formatResult(before, "number"),
+        icon: "add",
+        explain: `Add one chance for each of the ${b} ${scene.others} to count how many come first, on average.`,
+        visual: bag("known"),
+      },
+      {
+        label: scene.last,
+        work: `1 + ${formatResult(before, "number")}`,
+        icon: "add",
+        explain: `The first ${scene.hit} comes straight after those, so add 1 for it.`,
+        visual: bag("muted"),
+      },
+    ],
+    { type: "mock-first", ...params },
+    bag("muted"),
+  );
+}
+
+/** Mirrors the win-or-lose bet: a trade or a weather contract with two outcomes. */
+const TWO_WAY_SCENES = [
+  {
+    id: "trade",
+    up: "Price up",
+    down: "Price down",
+    prompt: (win: number, lose: number, p: string) =>
+      `A trade makes $${win} if the price ticks up, which happens with chance ${p}, and loses $${lose} if it ticks down. What’s the variance of the trade’s profit, in squared dollars?`,
+  },
+  {
+    id: "rain",
+    up: "Rain",
+    down: "No rain",
+    prompt: (win: number, lose: number, p: string) =>
+      `A contract pays you $${win} if it rains tomorrow and costs you $${lose} if it doesn’t. The chance of rain is ${p}. In squared dollars, what’s the variance of your payoff?`,
+  },
+] as const;
+
+function twoWayVariance(params: { scene: string; win: number; lose: number; chanceN: number; chanceD: number }) {
+  const scene = TWO_WAY_SCENES.find((s) => s.id === params.scene)!;
+  const { win, lose } = params;
+  const p = q(params.chanceN, params.chanceD);
+  const miss = sub(q(1), p);
+  const mean = sub(mul(p, q(win)), mul(miss, q(lose)));
+  const squares = add(mul(p, q(win * win)), mul(miss, q(lose * lose)));
+  const outcomes = (squared: boolean): QuantVisual => ({
+    type: "bars",
+    bars: [
+      { label: `${scene.up}: +$${win}`, value: squared ? win * win : win, tone: "win", text: squared ? `${win}², chance ${formatFraction(p)}` : `chance ${formatFraction(p)}` },
+      { label: `${scene.down}: −$${lose}`, value: squared ? lose * lose : lose, tone: "lose", text: squared ? `${lose}², chance ${formatFraction(miss)}` : `chance ${formatFraction(miss)}` },
+    ],
+    caption: squared ? "Each outcome squared" : `Average result: ${formatResult(mean, "number")}`,
+  });
+  return problem(
+    `mock-two-way-${scene.id}-${win}-${lose}-${params.chanceN}-${params.chanceD}`,
+    scene.prompt(win, lose, formatFraction(p)),
+    sub(squares, mul(mean, mean)),
+    "number",
+    [
+      {
+        label: "Average",
+        work: `${formatFraction(p)} × ${win} − ${formatFraction(miss)} × ${lose}`,
+        result: formatResult(mean, "number"),
+        icon: "multiply",
+        explain: "Weight each outcome by its chance and add, with the loss counted as negative.",
+        visual: outcomes(false),
+      },
+      {
+        label: "Average of the squares",
+        work: `${formatFraction(p)} × ${win}² + ${formatFraction(miss)} × ${lose}²`,
+        result: formatResult(squares, "number"),
+        icon: "multiply",
+        explain: "Square each outcome first, then weight by its chance. A squared loss is positive.",
+        visual: outcomes(true),
+      },
+      {
+        label: "Variance",
+        work: `${formatResult(squares, "number")} − (${formatResult(mean, "number")})²`,
+        icon: "subtract",
+        explain: "The variance is the average of the squares minus the square of the average.",
+        visual: outcomes(true),
+      },
+    ],
+    { type: "mock-two-way", ...params },
+    outcomes(false),
+  );
+}
+
+/** Mirrors the count of heads: free throws made, or faulty chips in a batch. */
+const TRIAL_SCENES = [
+  {
+    id: "free-throws",
+    one: "One shot",
+    many: "shots",
+    yes: "Makes it",
+    no: "Misses",
+    chances: [q(1, 2), q(3, 5), q(2, 3), q(3, 4), q(4, 5)],
+    prompt: (n: number, p: string) =>
+      `A player makes each free throw with chance ${p}, independently of her other shots. She takes ${n} free throws. What’s the variance of the number she makes?`,
+  },
+  {
+    id: "chips",
+    one: "One chip",
+    many: "chips",
+    yes: "Faulty",
+    no: "Fine",
+    chances: [q(1, 4), q(1, 5), q(1, 10), q(1, 20)],
+    prompt: (n: number, p: string) =>
+      `Each chip a machine makes is faulty with chance ${p}, independently of the others. In a batch of ${n} chips, what’s the variance of the number that are faulty?`,
+  },
+] as const;
+
+function trialCountVariance(params: { scene: string; trials: number; chanceN: number; chanceD: number }) {
+  const scene = TRIAL_SCENES.find((s) => s.id === params.scene)!;
+  const n = params.trials;
+  const p = q(params.chanceN, params.chanceD);
+  const one = mul(p, sub(q(1), p));
+  const trial: QuantVisual = {
+    type: "bars",
+    bars: [
+      { label: `${scene.yes}: 1`, value: value(p), tone: "hit", text: `chance ${formatFraction(p)}` },
+      { label: `${scene.no}: 0`, value: value(sub(q(1), p)), tone: "muted", text: `chance ${formatFraction(sub(q(1), p))}` },
+    ],
+    caption: `${scene.one} counts 1 or 0`,
+  };
+  return problem(
+    `mock-trials-${scene.id}-${n}-${params.chanceN}-${params.chanceD}`,
+    scene.prompt(n, formatFraction(p)),
+    mul(q(n), one),
+    "number",
+    [
+      {
+        label: `${scene.one}’s variance`,
+        work: `${formatFraction(p)} × ${formatFraction(sub(q(1), p))}`,
+        result: formatFraction(one),
+        icon: "multiply",
+        explain: "Each one counts 1 or 0. For a yes-or-no count, the variance is the chance of yes times the chance of no.",
+        visual: trial,
+      },
+      {
+        label: `${n} independent ${scene.many} add`,
+        work: `${n} × ${formatFraction(one)}`,
+        icon: "add",
+        explain: `The ${scene.many} don’t affect each other, so their variances add: one ${scene.one.slice(4)}’s variance for each of the ${n}.`,
+        visual: times({ label: scene.one, value: formatFraction(one) }, { label: scene.many[0].toUpperCase() + scene.many.slice(1), value: `${n}` }),
+      },
+    ],
+    { type: "mock-trials", ...params },
+    trial,
+  );
+}
+
 export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
   {
     id: "expected-value",
@@ -1290,6 +1671,36 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
         },
       },
     ],
+    mockFamilies: [
+      {
+        id: "prize-wheel",
+        practice: "die-game",
+        title: "A prize wheel with prizes and a cost",
+        generate: (random) => {
+          const slots = pick(random, [8, 10, 12]);
+          return prizeWheel({
+            slots,
+            top: pick(random, [20, 30, 40, 50, 60]),
+            small: pick(random, [2, 4, 5, 6]),
+            smallSlots: int(random, 1, 3),
+            cost: int(random, 1, 3),
+          });
+        },
+      },
+      {
+        id: "raffle",
+        practice: "card-price",
+        title: "A fair price for a raffle ticket",
+        generate: (random) =>
+          raffle({
+            tickets: pick(random, [20, 25, 40, 50, 100]),
+            top: pick(random, [50, 100, 200, 500]),
+            topCount: int(random, 1, 2),
+            second: pick(random, [5, 10, 20]),
+            secondCount: pick(random, [3, 4, 5, 10]),
+          }),
+      },
+    ],
   },
   {
     id: "linearity",
@@ -1438,6 +1849,20 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
           const [sets, size] = pick(random, [[3, 2], [4, 2], [5, 2], [6, 2], [3, 3], [4, 3], [5, 3]] as const);
           return completeSets({ sets, size, removed: int(random, 2, Math.floor((sets * size) / 2)) });
         },
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "different-choices",
+        practice: "elevator",
+        title: "Different flavours or topics chosen",
+        generate: (random) => differentChoices({ scene: pick(random, CHOICE_SCENES).id, options: int(random, 3, 6), people: int(random, 2, 5) }),
+      },
+      {
+        id: "first-hit",
+        practice: "first-card",
+        title: "Draws until the first red marble",
+        generate: (random) => firstHit({ scene: pick(random, FIRST_HIT_SCENES).id, hits: int(random, 2, 6), others: int(random, 3, 12) }),
       },
     ],
   },
@@ -1597,6 +2022,27 @@ export const EXPECTED_VALUE_LESSONS: QuantLessonDef[] = [
         title: "Standard deviation of a total",
         generate: (random) =>
           sdOfTotal({ kind: pick(random, TOTALS).id, parts: pick(random, [4, 9, 16, 25, 36, 49, 64, 100]), sd: pick(random, [2, 3, 5, 10, 20]) }),
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "two-way-payoff",
+        practice: "bet",
+        title: "Variance of a trade with two outcomes",
+        generate: (random) => {
+          const p = pick(random, [q(1, 2), q(1, 3), q(1, 4), q(1, 5), q(2, 5), q(3, 5), q(3, 4)]);
+          return twoWayVariance({ scene: pick(random, TWO_WAY_SCENES).id, win: pick(random, [2, 3, 4, 6, 8]), lose: pick(random, [1, 2, 3, 4]), chanceN: p.n, chanceD: p.d });
+        },
+      },
+      {
+        id: "count-of-successes",
+        practice: "count-heads",
+        title: "Variance of shots made or chips faulty",
+        generate: (random) => {
+          const scene = pick(random, TRIAL_SCENES);
+          const p = pick(random, scene.chances);
+          return trialCountVariance({ scene: scene.id, trials: pick(random, [10, 20, 25, 40, 50, 80, 100]), chanceN: p.n, chanceD: p.d });
+        },
       },
     ],
   },

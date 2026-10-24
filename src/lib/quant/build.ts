@@ -62,6 +62,16 @@ export type QuantFamily = {
 };
 
 /**
+ * A question type kept for the mock test: the same method and difficulty as one of the
+ * lesson's practice types, in a scenario practice never uses, so a mock is never a question
+ * the player has already practised.
+ */
+export type MockFamily = QuantFamily & {
+  /** The practice type it mirrors; a miss in a mock brings that type back in review. */
+  practice: string;
+};
+
+/**
  * One section of a lesson. A lesson reads top to bottom, one section at a time, like a short
  * textbook section broken into screens: a concrete problem, the working, the rule, a check.
  */
@@ -112,6 +122,8 @@ export type QuantLessonDef = {
   example: QuantProblem;
   /** The question types, easier first. A practice set draws across them. */
   families: QuantFamily[];
+  /** Question types only the mock test uses, each mirroring one of `families`. */
+  mockFamilies: MockFamily[];
 };
 
 export function int(random: Random, min: number, max: number) {
