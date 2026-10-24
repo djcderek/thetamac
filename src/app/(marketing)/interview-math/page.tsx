@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { TrainingCta } from "@/components/marketing/training-cta";
+import { QuantCourseLink } from "@/components/marketing/quant-course-link";
 import { INTERVIEW_MATH_GUIDES } from "@/content/interview-math/guides";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
@@ -165,6 +166,8 @@ export default function InterviewMathHubPage() {
           ))}
         </div>
       </section>
+
+      <QuantCourseLink className="mb-10" />
 
       <section className="border-t border-border pt-4">
         <h2 className="text-xl font-semibold mb-3">FAQ</h2>

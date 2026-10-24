@@ -11,6 +11,7 @@ const staticRouteUpdatedAt: Record<string, string> = {
   "/about": "2026-05-19",
   "/leaderboard": "2026-03-04",
   "/quant": "2026-10-23",
+  "/quant-interview-prep": "2026-10-24",
   "/multiplayer": "2026-03-04",
   "/training/focused": "2026-03-04",
   "/upgrade": "2026-03-04",
@@ -54,6 +55,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: getRouteLastModified("/leaderboard"),
       changeFrequency: "hourly",
       priority: 0.9,
+    },
+    {
+      url: `${siteUrl}/quant-interview-prep`,
+      lastModified: getRouteLastModified("/quant-interview-prep"),
+      changeFrequency: "monthly",
+      priority: 0.8,
     },
     {
       url: `${siteUrl}/quant`,

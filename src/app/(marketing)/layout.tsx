@@ -64,6 +64,9 @@ export default function MarketingLayout({
             <Link href="/interview-math" className="hover:text-foreground transition-colors">
               Interview Prep
             </Link>
+            <Link href="/quant-interview-prep" className="hover:text-foreground transition-colors">
+              Quant Interview Prep
+            </Link>
             <Link href="/leaderboard" className="hover:text-foreground transition-colors">
               Leaderboard
             </Link>

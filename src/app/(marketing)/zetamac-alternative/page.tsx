@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { TrainingCta } from "@/components/marketing/training-cta";
+import { QuantCourseLink } from "@/components/marketing/quant-course-link";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
 const pagePath = "/zetamac-alternative";
@@ -218,6 +219,8 @@ export default function ZetamacAlternativePage() {
           ))}
         </div>
       </section>
+
+      <QuantCourseLink className="mb-10" />
 
       <p className="text-sm text-muted-foreground">
         New to structured training? Start with{" "}
