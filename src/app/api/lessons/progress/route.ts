@@ -4,7 +4,14 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { checkPremiumAccess } from "@/lib/subscription";
 import { trainingRatelimit, checkRateLimit } from "@/lib/rate-limit";
-import { LESSON_IDS, LESSON_SOLO, getLesson, isFreeLesson, mergeLessonProgress } from "@/lib/lessons";
+import { LESSON_IDS, LESSON_SOLO, getLesson, isFreeLesson, isLessonMastered, mergeLessonProgress } from "@/lib/lessons";
+import {
+  QUANT_LESSON_IDS,
+  QUANT_SOLO,
+  getQuantLesson,
+  isFreeQuantLesson,
+  isQuantLessonMastered,
+} from "@/lib/quant/lessons";
 
 export const dynamic = "force-dynamic";
 
@@ -42,13 +49,28 @@ export async function GET() {
 
 const resultSchema = z
   .object({
-    lessonId: z.enum(LESSON_IDS),
-    // Only a finished lesson is saved: every solo problem was answered.
-    soloCount: z.literal(LESSON_SOLO),
-    soloFirstTry: z.number().int().min(0).max(LESSON_SOLO),
+    // Arithmetic lessons (Learning) and quant lessons share the progress table; their IDs differ.
+    lessonId: z.enum([...LESSON_IDS, ...QUANT_LESSON_IDS]),
+    soloCount: z.number().int(),
+    soloFirstTry: z.number().int().min(0),
     soloAverageSeconds: z.number().positive().max(600).nullable(),
   })
-  .refine((result) => (result.soloFirstTry === 0) === (result.soloAverageSeconds === null));
+  .refine((result) => (result.soloFirstTry === 0) === (result.soloAverageSeconds === null))
+  // Only a finished lesson is saved: every solo problem was answered.
+  .refine((result) => {
+    const solo = getQuantLesson(result.lessonId) ? QUANT_SOLO : LESSON_SOLO;
+    return result.soloCount === solo && result.soloFirstTry <= solo;
+  });
+
+/** The lesson's free/Pro status and mastery rule, whichever kind it is. */
+function lessonRules(lessonId: string) {
+  const quant = getQuantLesson(lessonId);
+  if (quant) {
+    return { free: isFreeQuantLesson(quant.id), mastered: (r: z.infer<typeof resultSchema>) => isQuantLessonMastered(quant, r) };
+  }
+  const lesson = getLesson(lessonId)!;
+  return { free: isFreeLesson(lesson.id), mastered: (r: z.infer<typeof resultSchema>) => isLessonMastered(lesson, r) };
+}
 
 /** Saves a finished lesson: the best run so far, and mastery once it's reached. */
 export async function POST(request: Request) {
@@ -72,18 +94,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid lesson result" }, { status: 400 });
     }
     const result = parsed.data;
-    const lesson = getLesson(result.lessonId)!;
+    const rules = lessonRules(result.lessonId);
 
-    if (!isFreeLesson(lesson.id) && !(await checkPremiumAccess(userId)).isPremium) {
+    if (!rules.free && !(await checkPremiumAccess(userId)).isPremium) {
       return NextResponse.json({ error: "This lesson is part of Pro" }, { status: 402 });
     }
 
-    const where = { userId_lessonId: { userId, lessonId: lesson.id } };
+    const where = { userId_lessonId: { userId, lessonId: result.lessonId } };
     const saved = await db.lessonProgress.findUnique({ where });
-    const next = mergeLessonProgress(lesson, saved, result, new Date());
+    const next = mergeLessonProgress(saved, result, rules.mastered(result), new Date());
     await db.lessonProgress.upsert({
       where,
-      create: { userId, lessonId: lesson.id, ...next, lastPlayedAt: new Date() },
+      create: { userId, lessonId: result.lessonId, ...next, lastPlayedAt: new Date() },
       update: { ...next, lastPlayedAt: new Date() },
     });
 

@@ -13,6 +13,7 @@ import {
   Trophy,
   Info,
   Zap,
+  Dices,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useSidebar } from "@/components/sidebar-provider";
@@ -24,6 +25,7 @@ const MotionLink = motion.create(Link);
 // Mirrors the desktop sidebar ordering exactly
 const primaryNavigation = [
   { name: "Training", href: "/", icon: Brain },
+  { name: "Quant", href: "/quant", icon: Dices },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Multiplayer", href: "/multiplayer", icon: Swords },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },

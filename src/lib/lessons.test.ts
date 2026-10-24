@@ -11,6 +11,7 @@ import {
   isFreeLesson,
   isLessonMastered,
   mergeLessonProgress,
+  type LessonResult,
 } from "./lessons";
 
 // A seeded random, so a failure can be replayed.
@@ -100,15 +101,17 @@ test("mastery needs nearly all of the solo problems right first time, within the
 test("saved progress keeps the best run and stays mastered", () => {
   const lesson = getLesson("times-9")!;
   const day = (n: number) => new Date(Date.UTC(2026, 9, n));
-  const first = mergeLessonProgress(lesson, null, { soloCount: 7, soloFirstTry: 5, soloAverageSeconds: 3 }, day(1));
+  const merge = (saved: Parameters<typeof mergeLessonProgress>[0], result: LessonResult, now: Date) =>
+    mergeLessonProgress(saved, result, isLessonMastered(lesson, result), now);
+  const first = merge(null, { soloCount: 7, soloFirstTry: 5, soloAverageSeconds: 3 }, day(1));
   assert.deepEqual(first, { plays: 1, bestFirstTry: 5, bestAverageSeconds: 3, masteredAt: null });
 
-  const mastered = mergeLessonProgress(lesson, first, { soloCount: 7, soloFirstTry: 7, soloAverageSeconds: 3.5 }, day(2));
+  const mastered = merge(first, { soloCount: 7, soloFirstTry: 7, soloAverageSeconds: 3.5 }, day(2));
   assert.deepEqual(mastered, { plays: 2, bestFirstTry: 7, bestAverageSeconds: 3.5, masteredAt: day(2) });
 
   // A worse run counts as a play but changes nothing else; a faster equal run improves the time.
-  const worse = mergeLessonProgress(lesson, mastered, { soloCount: 7, soloFirstTry: 2, soloAverageSeconds: 9 }, day(3));
+  const worse = merge(mastered, { soloCount: 7, soloFirstTry: 2, soloAverageSeconds: 9 }, day(3));
   assert.deepEqual(worse, { ...mastered, plays: 3 });
-  const faster = mergeLessonProgress(lesson, worse, { soloCount: 7, soloFirstTry: 7, soloAverageSeconds: 2.1 }, day(4));
+  const faster = merge(worse, { soloCount: 7, soloFirstTry: 7, soloAverageSeconds: 2.1 }, day(4));
   assert.deepEqual(faster, { ...worse, plays: 4, bestAverageSeconds: 2.1 });
 });

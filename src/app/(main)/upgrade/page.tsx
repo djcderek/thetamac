@@ -4,6 +4,7 @@ import { Check, ArrowLeft } from "lucide-react";
 
 import { getCurrentUserPremiumStatus, subscriptionNeedsAttention } from "@/lib/subscription";
 import { getUpgradeUrl, type UpgradeFeature } from "@/lib/upgrade";
+import { QUANT_LESSONS } from "@/lib/quant/lessons";
 
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
@@ -16,7 +17,7 @@ import { UpgradeTelemetry } from "./upgrade-telemetry";
 function normalizeFeature(feature?: string | string[] | null): UpgradeFeature | undefined {
   if (!feature || Array.isArray(feature)) return undefined;
   if (feature === "analytics" || feature === "coins" || feature === "review" || feature === "lessons" ||
-    feature === "daily") {
+    feature === "daily" || feature === "quant") {
     return feature;
   }
   return undefined;
@@ -41,6 +42,7 @@ export const metadata: Metadata = {
 const freeFeatures = [
   "Timed runs and Practice sets",
   "The first 4 Learning lessons",
+  "Quant Foundations: counting and probability basics",
   "Track your progress",
   "Leaderboard access",
   "Multiplayer racing",
@@ -52,6 +54,7 @@ const proFeatures = [
   "Today: a daily five minutes built from your own misses and slow spots",
   "Review: your past misses come back until they stick",
   "All 12 Learning lessons",
+  `All ${QUANT_LESSONS.length} quant lessons, from counting to continuous probability`,
   "Advanced analytics & charts",
   "Weak point training",
   "Skill breakdowns & trends",
