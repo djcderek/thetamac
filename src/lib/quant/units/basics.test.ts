@@ -72,6 +72,12 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "equally-likely": {
+      if (p.type === "mock-drum") return share(faces(+p.balls), (n) => (p.ask === "least" ? n >= +p.cut : n <= +p.cut));
+      if (p.type === "mock-tiles") {
+        const pairs = sequences(faces(+p.tiles), 2);
+        if (p.ask === "same") return share(pairs, ([a, b]) => a === b);
+        return share(pairs, ([a, b]) => (p.ask === "exactly" ? a + b === +p.total : a + b >= +p.total));
+      }
       if (p.type === "increasing") return share(sequences(faces(+p.sides), +p.rolls), (r) => r.every((x, i) => i === 0 || x > r[i - 1]));
       if (p.type === "bigger-die") return share(sequences(faces(Math.max(+p.big, +p.small)), 2).filter(([a, b]) => a <= +p.big && b <= +p.small), ([a, b]) => a > b);
       if (p.type === "poker-chance") return pokerShares()[p.hand as string];
@@ -104,6 +110,11 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return counts[p.event as string] / 52;
     }
     case "complements": {
+      if (p.type === "mock-spins") return share(sequences(faces(+p.sections), +p.spins), (spins) => spins.some((s) => s <= +p.gold));
+      if (p.type === "mock-shared") {
+        const different = distinctStrings(+p.size, +p.people) / sequences(faces(+p.size), +p.people).length;
+        return p.ask === "share" ? 1 - different : different;
+      }
       const sizes: Record<string, number> = { months: 12, weekdays: 7, dice: 6 };
       if (p.type === "shared") {
         const size = sizes[p.things as string];
@@ -134,6 +145,17 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return 1 - (dist.get(0) ?? 0);
     }
     case "or-events": {
+      if (p.type === "mock-or-percent") return tickets(+p.aPercent, +p.bPercent, "either");
+      if (p.type === "mock-or-ticket") {
+        const tests: Record<string, (n: number) => boolean> = {
+          "even-three": (n) => n % 2 === 0 || n % 3 === 0,
+          "three-five": (n) => n % 3 === 0 || n % 5 === 0,
+          "four-six": (n) => n % 4 === 0 || n % 6 === 0,
+          "odd-five": (n) => n % 2 === 1 || n % 5 === 0,
+          "square-even": (n) => [1, 4, 9, 16, 25, 36, 49].includes(n) || n % 2 === 0,
+        };
+        return share(faces(+p.tickets), tests[p.event as string]);
+      }
       if (p.type === "three") {
         // Every triple of tickets 1–100, counting those where at least one wins.
         let wins = 0;
@@ -162,6 +184,17 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return share(DECK, tests[p.event as string]);
     }
     case "and-events": {
+      if (p.type === "mock-stages") {
+        // The chance of failing somewhere, stage by stage: a new failure can only come from runs still clean.
+        const each = +p.percent / 100;
+        let failed = 0;
+        for (let stage = 0; stage < +p.stages; stage++) failed += (1 - failed) * (1 - each);
+        return 1 - failed;
+      }
+      if (p.type === "mock-draws") {
+        const box = [...Array(+p.good).fill("good"), ...Array(+p.bad).fill("bad")].map((kind, i) => ({ kind, i }));
+        return share(draws(box, +p.draws), (drawn) => drawn.every((x) => x.kind === "good"));
+      }
       if (p.type === "all-tries") {
         // The distribution of successes, built one try at a time; take the chance all succeed.
         const each = +p.percent / 100;

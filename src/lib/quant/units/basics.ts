@@ -1199,6 +1199,437 @@ function threeCards(params: { type: "three-cards"; event: string }): QuantProble
   );
 }
 
+// ─── Mock test types ───────────────────────────────────────────────────────────────────
+// Each works like one practice type, in a setting practice never uses.
+
+type MockLikelyParams =
+  | { type: "mock-drum"; balls: number; cut: number; ask: "least" | "most" }
+  | { type: "mock-tiles"; tiles: number; ask: "exactly" | "at-least" | "same"; total: number };
+
+function mockLikely(params: MockLikelyParams): QuantProblem {
+  if (params.type === "mock-drum") {
+    const { balls, cut, ask } = params;
+    const [from, to] = ask === "least" ? [cut, balls] : [1, cut];
+    const ways = to - from + 1;
+    return problem(
+      `mock-drum-${balls}-${cut}-${ask}`,
+      `A lottery drum holds ${balls} balls numbered 1 to ${balls}, and one is drawn at random. What’s the chance its number is ${cut} or ${ask === "least" ? "more" : "less"}?`,
+      q(ways, balls),
+      "probability",
+      [
+        {
+          label: `Balls from ${from} to ${to}`,
+          work: ask === "least" ? `${balls} − ${cut} + 1` : `1 to ${cut}`,
+          result: `${ways}`,
+          icon: "count",
+          explain: `Count the balls you want: every number from ${from} up to ${to}.`,
+          visual: { type: "number-line", min: 1, max: balls, shade: [{ from, to, tone: "hit", text: `${ways} balls` }] },
+        },
+        {
+          label: "Chance",
+          work: `${ways} of ${balls} balls`,
+          icon: "divide",
+          explain: `Each of the ${balls} balls is equally likely to come out, so the chance is the balls you want out of all ${balls}.`,
+        },
+      ],
+      params,
+      { type: "number-line", min: 1, max: balls, shade: [], caption: `Balls numbered 1 to ${balls}` },
+    );
+  }
+  const { tiles, ask, total } = params;
+  const all = tiles * tiles;
+  const wanted = (a: number, b: number) => (ask === "same" ? a === b : ask === "exactly" ? a + b === total : a + b >= total);
+  const waysFor = (t: number) => faces(tiles).filter((a) => t - a >= 1 && t - a <= tiles).length;
+  const ways = faces(tiles).reduce((sum, a) => sum + faces(tiles).filter((b) => wanted(a, b)).length, 0);
+  const totals = Array.from({ length: 2 * tiles - total + 1 }, (_, i) => total + i);
+  const caption = "Rows: first draw. Columns: second draw.";
+  return problem(
+    `mock-tiles-${tiles}-${ask}-${total}`,
+    `A bag holds ${tiles} tiles numbered 1 to ${tiles}. You draw one, note its number, put it back and draw again. What’s the chance ${
+      ask === "same" ? "you draw the same number both times" : `the two numbers add up to ${total}${ask === "at-least" ? " or more" : ""}`
+    }?`,
+    q(ways, all),
+    "probability",
+    [
+      {
+        label: ask === "same" ? "Same number twice" : ask === "exactly" ? `Ways to make ${total}` : `Ways to make ${total} or more`,
+        work:
+          ask === "same"
+            ? `1-1 up to ${tiles}-${tiles}`
+            : ask === "exactly"
+              ? faces(tiles).filter((a) => total - a >= 1 && total - a <= tiles).map((a) => `${a}+${total - a}`).join(", ")
+              : totals.map((t) => `${waysFor(t)} (${t})`).join(" + "),
+        result: `${ways}`,
+        icon: "count",
+        explain:
+          ask === "same"
+            ? "List the pairs where both draws match: one for each number on the tiles."
+            : ask === "exactly"
+              ? `List the pairs that add to ${total}, first draw then second. Swapping the order gives a different pair.`
+              : `Count the pairs for each total from ${total} to ${2 * tiles}, then add them up.`,
+        visual: diceGrid(tiles, [{ test: wanted, tone: "hit" }], caption),
+      },
+      {
+        label: "Ways in all",
+        work: `${tiles} × ${tiles}`,
+        result: `${all}`,
+        icon: "multiply",
+        explain: `Each draw has ${tiles} results, and the tile goes back in between, so there are ${all} equally likely pairs.`,
+        visual: diceGrid(tiles, [{ test: () => true, tone: "known" }, { test: wanted, tone: "hit" }], caption),
+      },
+      { label: "Chance", work: `${ways}/${all}`, icon: "divide", explain: `The chance is the pairs you want out of all ${all} pairs.` },
+    ],
+    params,
+    diceGrid(tiles, [], caption),
+  );
+}
+
+const faces = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+
+type MockComplementParams =
+  | { type: "mock-spins"; sections: number; gold: number; spins: number }
+  | { type: "mock-shared"; context: string; people: number; size: number; ask: "share" | "different" };
+
+const MOCK_SHARED_CONTEXTS: Record<string, { setup: (n: number, size: number) => string; share: (n: number) => string; different: (n: number) => string; one: string }> = {
+  lift: {
+    setup: (n, size) => `${n} strangers get into a lift on the ground floor of a building with ${size} floors above it. Each gets out at one of those floors, chosen at random and independently of the others.`,
+    share: (n) => (n === 2 ? "What’s the chance the two get out at the same floor?" : "What’s the chance at least two of them get out at the same floor?"),
+    different: (n) => (n === 2 ? "What’s the chance the two get out at different floors?" : "What’s the chance they all get out at different floors?"),
+    one: "floor",
+  },
+  digits: {
+    setup: (n) => `${n} people each write down a digit from 0 to 9, chosen at random and independently.`,
+    share: (n) => (n === 2 ? "What’s the chance they both write the same digit?" : "What’s the chance at least two of them write the same digit?"),
+    different: (n) => (n === 2 ? "What’s the chance the two digits are different?" : `What’s the chance all ${n} digits are different?`),
+    one: "digit",
+  },
+};
+
+function mockComplements(params: MockComplementParams): QuantProblem {
+  if (params.type === "mock-spins") {
+    const { sections, gold, spins } = params;
+    const miss = q(sections - gold, sections);
+    const none = pow(miss, spins);
+    const chain = missChain(spins, "Not gold", formatFraction(miss), "Gold", frac(gold, sections));
+    return problem(
+      `mock-spins-${sections}-${gold}-${spins}`,
+      `A spinner has ${sections} equal sections, and ${gold} of them ${gold === 1 ? "is" : "are"} gold. You spin it ${timesWord(spins)}. What’s the chance it lands on gold at least once?`,
+      sub(q(1), none),
+      "probability",
+      [
+        {
+          label: "Not gold on one spin",
+          work: `1 − ${gold}/${sections}`,
+          result: formatFraction(miss),
+          icon: "flip",
+          explain: "Flip the question: find the chance of missing gold on one spin, which is easier than counting every way to hit it.",
+          visual: {
+            type: "slots",
+            op: "",
+            slots: faces(sections).map((i) => ({ label: `${i}`, value: i <= gold ? "Gold" : "Grey", tone: (i <= gold ? "hit" : "alt") as Tone })),
+            caption: `${sections - gold} of ${sections} sections miss`,
+          },
+        },
+        {
+          label: `Not gold on any of the ${spins} spins`,
+          work: `(${formatFraction(miss)})${sup(spins)}`,
+          result: formatFraction(none),
+          icon: "repeat",
+          explain: `The spins don’t affect each other, so missing every time is the one-spin chance multiplied ${spins} times.`,
+          visual: chain.type === "tree" ? { ...chain, root: { ...chain.root, label: "Spin 1" }, caption: `Missing on all ${spins} spins is the one path that never hits gold` } : chain,
+        },
+        {
+          label: "At least once",
+          work: `1 − ${formatFraction(none)}`,
+          icon: "subtract",
+          explain: "Either every spin misses gold or at least one lands on it, so take the all-miss chance away from 1.",
+        },
+      ],
+      params,
+    );
+  }
+  const { context, people, size, ask } = params;
+  const c = MOCK_SHARED_CONTEXTS[context];
+  const factors = Array.from({ length: people }, (_, i) => size - i);
+  const different = q(product(factors), size ** people);
+  const steps: Parameters<typeof problem>[4] = [
+    {
+      label: "Each new one avoids all the earlier ones",
+      work: factors.map((f) => `${f}/${size}`).join(" × "),
+      result: formatFraction(different),
+      icon: "multiply",
+      explain: `Take them one at a time. The first can land on any ${c.one}, the second must avoid 1, the third must avoid 2, and so on.`,
+      visual: { type: "slots", slots: factors.map((f, i) => ({ label: `${i + 1}${["st", "nd", "rd"][i] ?? "th"}`, value: `${f}/${size}`, tone: "hit" as Tone })), op: "×" },
+    },
+  ];
+  if (ask === "share") {
+    steps.push({ label: "At least two match", work: `1 − ${formatFraction(different)}`, icon: "subtract", explain: "Either all are different or at least two match, so take “all different” from 1." });
+  }
+  return problem(
+    `mock-shared-${context}-${size}-${people}-${ask}`,
+    `${c.setup(people, size)} ${ask === "share" ? c.share(people) : c.different(people)}`,
+    ask === "share" ? sub(q(1), different) : different,
+    "probability",
+    steps,
+    params,
+  );
+}
+
+type MockOrParams =
+  | { type: "mock-or-ticket"; tickets: number; event: string }
+  | { type: "mock-or-percent"; context: string; aPercent: number; bPercent: number };
+
+/** Two properties of a ticket number, for “A or B” chances on one draw. */
+export const MOCK_TICKET_EVENTS: { id: string; a: string; b: string; aLabel: string; bLabel: string; testA: (n: number) => boolean; testB: (n: number) => boolean }[] = [
+  { id: "even-three", a: "even", b: "a multiple of 3", aLabel: "Even", bLabel: "Multiple of 3", testA: (n) => n % 2 === 0, testB: (n) => n % 3 === 0 },
+  { id: "three-five", a: "a multiple of 3", b: "a multiple of 5", aLabel: "Multiple of 3", bLabel: "Multiple of 5", testA: (n) => n % 3 === 0, testB: (n) => n % 5 === 0 },
+  { id: "four-six", a: "a multiple of 4", b: "a multiple of 6", aLabel: "Multiple of 4", bLabel: "Multiple of 6", testA: (n) => n % 4 === 0, testB: (n) => n % 6 === 0 },
+  { id: "odd-five", a: "odd", b: "a multiple of 5", aLabel: "Odd", bLabel: "Multiple of 5", testA: (n) => n % 2 === 1, testB: (n) => n % 5 === 0 },
+  { id: "square-even", a: "a perfect square", b: "even", aLabel: "Perfect square", bLabel: "Even", testA: (n) => Number.isInteger(Math.sqrt(n)), testB: (n) => n % 2 === 0 },
+];
+
+const MOCK_EITHER_CONTEXTS: { id: string; text: (a: number, b: number) => string; a: [string, string]; b: [string, string] }[] = [
+  {
+    id: "feeds",
+    text: (a, b) => `A trading desk has a main data feed and a backup feed, which fail independently. On a given day the main feed fails with chance ${a}% and the backup with chance ${b}%. What’s the chance at least one of them fails that day?`,
+    a: ["Main fails", "Main works"],
+    b: ["Backup fails", "Backup works"],
+  },
+  {
+    id: "shops",
+    text: (a, b) => `You need a spare part. Shop A has it in stock with chance ${a}%, and shop B has it with chance ${b}%, independently of shop A. What’s the chance at least one of the two shops has it?`,
+    a: ["A has it", "A doesn’t"],
+    b: ["B has it", "B doesn’t"],
+  },
+  {
+    id: "offers",
+    text: (a, b) => `You interview at two firms that decide independently. The first offers you a job with chance ${a}%, and the second with chance ${b}%. What’s the chance you get at least one offer?`,
+    a: ["Offer 1", "No offer 1"],
+    b: ["Offer 2", "No offer 2"],
+  },
+];
+
+/** Two independent events as a tree, with each branch named in full. */
+function namedTree(a: [string, string], aPercent: number, b: [string, string], bPercent: number, tone: (a: boolean, b: boolean) => Tone): QuantVisual {
+  const branch = (hitA: boolean): TreeNode => ({
+    label: a[hitA ? 0 : 1],
+    edge: `${hitA ? aPercent : 100 - aPercent}%`,
+    tone: "muted",
+    children: [true, false].map((hitB) => ({ label: b[hitB ? 0 : 1], edge: `${hitB ? bPercent : 100 - bPercent}%`, tone: tone(hitA, hitB) })),
+  });
+  return { type: "tree", root: { label: "Start", children: [branch(true), branch(false)] } };
+}
+
+function mockOr(params: MockOrParams): QuantProblem {
+  if (params.type === "mock-or-ticket") {
+    const { tickets } = params;
+    const event = MOCK_TICKET_EVENTS.find((e) => e.id === params.event)!;
+    const numbers = faces(tickets);
+    const na = numbers.filter(event.testA).length;
+    const nb = numbers.filter(event.testB).length;
+    const nboth = numbers.filter((n) => event.testA(n) && event.testB(n)).length;
+    const either = na + nb - nboth;
+    const sets = (highlight: ("a" | "b" | "both" | "outside")[]): QuantVisual => {
+      const blank = highlight.length === 0;
+      const show = (n: number) => (blank ? "?" : String(n));
+      return {
+        type: "venn",
+        a: { label: blank ? event.aLabel : `${event.aLabel} (${na})`, count: show(na - nboth) },
+        b: { label: blank ? event.bLabel : `${event.bLabel} (${nb})`, count: show(nb - nboth) },
+        both: show(nboth),
+        outside: show(tickets - either),
+        highlight,
+      };
+    };
+    return problem(
+      `mock-or-ticket-${tickets}-${event.id}`,
+      `A box holds ${tickets} raffle tickets numbered 1 to ${tickets}, and one is pulled out at random. What’s the chance its number is ${event.a} or ${event.b}?`,
+      q(either, tickets),
+      "probability",
+      [
+        {
+          label: `Chance it’s ${event.a}`,
+          work: `${na}/${tickets}`,
+          icon: "count",
+          explain: `Count the numbers from 1 to ${tickets} that are ${event.a}.`,
+          visual: sets(["a", "both"]),
+        },
+        {
+          label: `Chance it’s ${event.b}`,
+          work: `${nb}/${tickets}`,
+          icon: "count",
+          explain: `Count the numbers from 1 to ${tickets} that are ${event.b}.`,
+          visual: sets(["b", "both"]),
+        },
+        {
+          label: "Chance it’s both",
+          work: `${nboth}/${tickets}`,
+          icon: "filter",
+          explain: "These numbers are in both counts, so adding the two counts would count them twice.",
+          visual: sets(["both"]),
+        },
+        {
+          label: "Either: add, then take off both",
+          work: `(${na} + ${nb} − ${nboth}) ÷ ${tickets}`,
+          icon: "subtract",
+          explain: `Add the two counts, take off the overlap once, then divide by the ${tickets} tickets.`,
+          visual: sets(["a", "b", "both"]),
+        },
+      ],
+      params,
+      sets([]),
+    );
+  }
+  const context = MOCK_EITHER_CONTEXTS.find((c) => c.id === params.context)!;
+  const { aPercent, bPercent } = params;
+  const pa = q(aPercent, 100), pb = q(bPercent, 100);
+  const both = mul(pa, pb);
+  const tree = (tone: (a: boolean, b: boolean) => Tone) => namedTree(context.a, aPercent, context.b, bPercent, tone);
+  return problem(
+    `mock-or-percent-${context.id}-${aPercent}-${bPercent}`,
+    context.text(aPercent, bPercent),
+    sub(add(pa, pb), both),
+    "percent",
+    [
+      {
+        label: "Chance both happen",
+        work: `${aPercent}% × ${bPercent}%`,
+        result: formatPercent(both),
+        icon: "multiply",
+        explain: "The two don’t affect each other, so the chance both happen is the product of their chances.",
+        visual: tree((a, b) => (a && b ? "both" : "muted")),
+      },
+      {
+        label: "At least one: add, then take off both",
+        work: `${aPercent}% + ${bPercent}% − ${formatPercent(both)}`,
+        icon: "subtract",
+        explain: "Adding the two chances counts the case where both happen twice, so take it off once.",
+        visual: tree((a, b) => (a && b ? "both" : a || b ? "hit" : "muted")),
+      },
+    ],
+    params,
+    tree(() => "muted"),
+  );
+}
+
+type MockAndParams =
+  | { type: "mock-draws"; context: string; good: number; bad: number; draws: number }
+  | { type: "mock-stages"; context: string; stages: number; percent: number };
+
+const MOCK_DRAW_CONTEXTS: Record<
+  string,
+  { prompt: (good: number, bad: number, draws: number) => string; is: string; first: (good: number, total: number) => string; gone: string; every: string; labels: [string, string] }
+> = {
+  bulbs: {
+    prompt: (good, bad, draws) => `A box holds ${good} working bulbs and ${bad} dead ones. You take out ${numberWord(draws)} at random, without putting any back. What’s the chance ${draws === 2 ? "both" : "all three"} work?`,
+    is: "working",
+    first: (good, total) => `${good} of the ${total} bulbs work`,
+    gone: "One working bulb",
+    every: "Every bulb you take must work",
+    labels: ["Working", "Dead"],
+  },
+  names: {
+    prompt: (good, bad, draws) => `A hat holds the names of ${good} analysts and ${bad} traders. ${draws === 2 ? "Two" : "Three"} names are drawn at random, one at a time, and not put back. What’s the chance ${draws === 2 ? "both" : "all three"} are analysts?`,
+    is: "an analyst",
+    first: (good, total) => `${good} of the ${total} names are analysts`,
+    gone: "One analyst’s name",
+    every: "Every name drawn must be an analyst",
+    labels: ["Analysts", "Traders"],
+  },
+  chocolates: {
+    prompt: (good, bad, draws) => `A box has ${good} dark and ${bad} milk chocolates, wrapped so they look the same. You pick ${numberWord(draws)} at random and eat them. What’s the chance ${draws === 2 ? "both" : "all three"} are dark?`,
+    is: "dark",
+    first: (good, total) => `${good} of the ${total} chocolates are dark`,
+    gone: "One dark chocolate",
+    every: "Every chocolate you pick must be dark",
+    labels: ["Dark", "Milk"],
+  },
+};
+
+const MOCK_STAGE_CONTEXTS: Record<string, { text: (n: number, p: number) => string; one: string }> = {
+  checks: {
+    text: (n, p) => `An order must clear ${n} automated checks before it is sent. Each check passes it with chance ${p}%, independently of the others. What’s the chance it clears ${n === 2 ? "both" : `all ${n}`}?`,
+    one: "Each check passes",
+  },
+  lights: {
+    text: (n, p) => `On the drive to work you pass ${n} traffic lights. Each is green when you reach it with chance ${p}%, independently of the others. What’s the chance ${n === 2 ? "both are" : `all ${n} are`} green?`,
+    one: "Each light is green",
+  },
+  seeds: {
+    text: (n, p) => `You plant ${n} seeds, and each one sprouts with chance ${p}%, independently. What’s the chance every seed sprouts?`,
+    one: "Each seed sprouts",
+  },
+};
+
+function mockAnd(params: MockAndParams): QuantProblem {
+  if (params.type === "mock-draws") {
+    const { context, good, bad, draws } = params;
+    const c = MOCK_DRAW_CONTEXTS[context];
+    const total = good + bad;
+    let chance = q(1);
+    const factors: string[] = [];
+    for (let i = 0; i < draws; i++) {
+      chance = mul(chance, q(good - i, total - i));
+      factors.push(`${good - i}/${total - i}`);
+    }
+    const groups = [
+      { count: good, tone: "hit" as Tone, label: c.labels[0] },
+      { count: bad, tone: "alt" as Tone, label: c.labels[1] },
+    ];
+    return problem(
+      `mock-draws-${context}-${good}-${bad}-${draws}`,
+      c.prompt(good, bad, draws),
+      chance,
+      "probability",
+      [
+        ...factors.map((factor, i) => ({
+          label: i === 0 ? `First is ${c.is}` : `${i === 1 ? "Second" : "Third"} is ${c.is} too`,
+          work: i === 0 ? `${good} of ${total}` : `${good - i} of the ${total - i} left`,
+          result: factor,
+          icon: (i === 0 ? "count" : "repeat") as "count" | "repeat",
+          explain:
+            i === 0
+              ? `${c.first(good, total)}, so the first is ${c.is} with chance ${factor}.`
+              : `${c.gone} is out and not put back, so ${good - i} ${good - i === 1 ? "is" : "are"} left out of ${total - i}.`,
+          visual: { type: "marbles" as const, groups, taken: Array.from({ length: i + 1 }, () => "hit" as Tone) },
+        })),
+        {
+          label: draws === 2 ? "Both" : "All three",
+          work: factors.join(" × "),
+          icon: "multiply",
+          explain: `${c.every}, so multiply the chance for each draw.`,
+        },
+      ],
+      params,
+      { type: "marbles", groups },
+    );
+  }
+  const c = MOCK_STAGE_CONTEXTS[params.context];
+  const { stages, percent } = params;
+  return problem(
+    `mock-stages-${params.context}-${stages}-${percent}`,
+    c.text(stages, percent),
+    pow(q(percent, 100), stages),
+    "percent",
+    [
+      {
+        label: c.one,
+        work: `${percent}%`,
+        icon: "target",
+        explain: "Every one of them has to succeed, and none of them affects the others.",
+      },
+      {
+        label: stages === 2 ? "Both succeed" : `All ${stages} succeed`,
+        work: `(${percent}%)${sup(stages)}`,
+        icon: "multiply",
+        explain: `Multiply the chance once for each of the ${stages}, since each success has to come on top of all the ones before it.`,
+        visual: { type: "slots", slots: Array.from({ length: stages }, (_, i) => ({ label: `${i + 1}`, value: percentText(percent), tone: "hit" as Tone })), op: "×" },
+      },
+    ],
+    params,
+  );
+}
+
 export const BASICS_LESSONS: QuantLessonDef[] = [
   {
     id: "equally-likely",
@@ -1352,6 +1783,29 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
       { id: "poker-hands", title: "Poker hands", generate: (random) => moreLikely({ type: "poker-chance", hand: pick(random, Object.keys(POKER_CHANCES)) }) },
       { id: "shuffle-order", title: "Which card comes first in a shuffle", generate: (random) => moreLikely({ type: "shuffle-order", order: pick(random, Object.keys(SHUFFLE_ORDERS)) }) },
     ],
+    mockFamilies: [
+      {
+        id: "mock-drum",
+        title: "One ball from a lottery drum",
+        practice: "one-die",
+        generate: (random) => {
+          const balls = pick(random, [10, 12, 15, 20, 25, 30, 40, 50]);
+          return mockLikely({ type: "mock-drum", balls, cut: int(random, 2, balls - 1), ask: random() < 0.6 ? "least" : "most" });
+        },
+      },
+      {
+        id: "mock-two-tiles",
+        title: "Two draws of a numbered tile",
+        practice: "two-dice-total",
+        generate: (random) => {
+          const tiles = pick(random, [4, 5, 6, 7, 8]);
+          const roll = random();
+          if (roll < 0.2) return mockLikely({ type: "mock-tiles", tiles, ask: "same", total: 0 });
+          if (roll < 0.6) return mockLikely({ type: "mock-tiles", tiles, ask: "exactly", total: int(random, 3, 2 * tiles - 1) });
+          return mockLikely({ type: "mock-tiles", tiles, ask: "at-least", total: int(random, tiles + 2, 2 * tiles - 1) });
+        },
+      },
+    ],
   },
   {
     id: "complements",
@@ -1479,6 +1933,27 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
         },
       },
     ],
+    mockFamilies: [
+      {
+        id: "mock-spinner",
+        title: "At least once in repeated spins",
+        practice: "repeated-rolls",
+        generate: (random) => {
+          const [sections, gold] = pick(random, [[3, 1], [4, 1], [5, 1], [5, 2], [7, 2], [7, 3]] as const);
+          return mockComplements({ type: "mock-spins", sections, gold, spins: int(random, 2, 4) });
+        },
+      },
+      {
+        id: "mock-same-pick",
+        title: "Shared lift floors and digits",
+        practice: "shared-birthdays",
+        generate: (random) => {
+          const context = pick(random, Object.keys(MOCK_SHARED_CONTEXTS));
+          const size = context === "lift" ? pick(random, [5, 6, 8, 10]) : 10;
+          return mockComplements({ type: "mock-shared", context, people: int(random, 2, 5), size, ask: random() < 0.7 ? "share" : "different" });
+        },
+      },
+    ],
   },
   {
     id: "or-events",
@@ -1596,6 +2071,26 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
             a: pick(random, [10, 20, 30, 40, 50]),
             b: pick(random, [10, 20, 25, 40, 60]),
             c: pick(random, [10, 30, 50, 70]),
+          }),
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-or-ticket",
+        title: "One raffle ticket: this or that",
+        practice: "or-cards",
+        generate: (random) => mockOr({ type: "mock-or-ticket", tickets: pick(random, [20, 24, 30, 36, 40, 50, 60]), event: pick(random, MOCK_TICKET_EVENTS).id }),
+      },
+      {
+        id: "mock-or-backups",
+        title: "Either of two independent chances",
+        practice: "or-two-chances",
+        generate: (random) =>
+          mockOr({
+            type: "mock-or-percent",
+            context: pick(random, MOCK_EITHER_CONTEXTS).id,
+            aPercent: pick(random, [10, 20, 30, 40, 50, 60]),
+            bPercent: pick(random, [10, 20, 25, 40, 50, 70]),
           }),
       },
     ],
@@ -1728,6 +2223,22 @@ export const BASICS_LESSONS: QuantLessonDef[] = [
         title: "Every try succeeds",
         generate: (random) =>
           allTries({ type: "all-tries", context: pick(random, TRIES).id, tries: int(random, 2, 5), percent: pick(random, [60, 70, 75, 80, 90, 95]) }),
+      },
+    ],
+    mockFamilies: [
+      {
+        id: "mock-no-return",
+        title: "Drawing without putting back",
+        practice: "marbles",
+        generate: (random) =>
+          mockAnd({ type: "mock-draws", context: pick(random, Object.keys(MOCK_DRAW_CONTEXTS)), good: int(random, 3, 7), bad: int(random, 2, 6), draws: int(random, 2, 3) }),
+      },
+      {
+        id: "mock-every-stage",
+        title: "Every stage succeeds",
+        practice: "every-try",
+        generate: (random) =>
+          mockAnd({ type: "mock-stages", context: pick(random, Object.keys(MOCK_STAGE_CONTEXTS)), stages: int(random, 2, 5), percent: pick(random, [60, 70, 75, 80, 90, 95]) }),
       },
     ],
   },

@@ -204,7 +204,7 @@ export default function QuantInterviewPrepPage() {
               <p className="text-[15px] leading-6">
                 <span className="font-semibold">Mock tests.</span>{" "}
                 <span className="text-muted-foreground">
-                  {MOCK_QUESTIONS} questions from across the course in {MOCK_MINUTES} minutes, marked at the end and scored out of 100, with a breakdown by topic.
+                  {MOCK_QUESTIONS} questions from across the course, none of them from practice, in {MOCK_MINUTES} minutes, marked at the end and scored out of 100, with a breakdown by topic.
                 </span>
               </p>
             </li>

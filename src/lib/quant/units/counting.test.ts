@@ -84,6 +84,15 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
   const p = problem.params;
   switch (lessonId) {
     case "multiplying-choices": {
+      if (p.type === "mock-build") return countTuples([+p.colours, +p.wheels, +p.trims]);
+      if (p.type === "mock-extras") {
+        // List every order, with 0 standing for "no case" or "no plan".
+        let orders = 0;
+        for (let s = 1; s <= +p.sizes; s++) for (let c = 0; c <= +p.cases; c++) for (let l = 0; l <= +p.plans; l++) orders++;
+        return orders;
+      }
+      if (p.type === "mock-lock") return sequences(faces(+p.letters), +p.wheels).length;
+      if (p.type === "mock-bin") return strings([...Array(+p.letters).fill(26), ...Array(+p.digits).fill(9)]);
       if (p.type === "subsets" || p.type === "toppings") {
         let count = 0;
         for (let mask = 0; mask < 1 << +p.items; mask++) if (p.type === "subsets" || mask !== 0) count++;
@@ -106,6 +115,14 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return meals;
     }
     case "permutations": {
+      if (p.type === "mock-prizes") return draws(faces(+p.teams), +p.prizes).length;
+      if (p.type === "mock-playlist") return draws(faces(+p.tracks), +p.plays).length;
+      if (p.type === "mock-flags") return arrangements(new Map([["r", +p.red], ["b", +p.blue], ["w", +p.white]]));
+      if (p.type === "mock-digits") {
+        // Every ordering of the digits, kept once each as a number.
+        const digits = String(p.digits).split("");
+        return new Set(draws(faces(digits.length), digits.length).map((order) => order.map((i) => digits[i - 1]).join(""))).size;
+      }
       if (p.type === "together") {
         // Person 1 is Ana and person 2 is Ben.
         const together = orders(+p.people).filter((o) => Math.abs(o.indexOf(1) - o.indexOf(2)) === 1).length;
@@ -155,6 +172,17 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return seen.size;
     }
     case "combinations": {
+      if (p.type === "mock-panel") {
+        // People 0 … first−1 are from the first group.
+        return subsets(+p.first + +p.second, +p.size, (members) => members.filter((i) => i < +p.first).length === +p.picked);
+      }
+      if (p.type === "mock-vases" || p.type === "mock-jars") {
+        // Every list of amounts per box adding up to the total, with the smallest allowed amount.
+        const least = p.type === "mock-jars" ? 1 : 0;
+        const fill = (left: number, boxes: number): number =>
+          boxes === 0 ? (left === 0 ? 1 : 0) : Array.from({ length: left + 1 }, (_, give) => give).filter((give) => give >= least).reduce((acc, give) => acc + fill(left - give, boxes - 1), 0);
+        return fill(+p.items, +p.boxes);
+      }
       if (p.type === "named-groups") {
         // Every way to give each person one of the three jobs, keeping the right group sizes.
         const n = +p.a + +p.b + +p.c;
@@ -218,6 +246,14 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
       return hands((card) => (suit(card) <= 1 ? 0 : 1), 5, ([red]) => red === 5, 2);
     }
     case "inclusion-exclusion": {
+      if (p.type === "mock-onto") return sequences(faces(+p.options), +p.jobs).filter((sent) => faces(+p.options).every((o) => sent.includes(o))).length;
+      if (p.type === "mock-overlap") {
+        // Members in a row: A is the first `a`, and B is a run of `b` overlapping A by `both`.
+        const inA = (i: number) => i < +p.a;
+        const inB = (i: number) => i >= +p.a - +p.both && i < +p.a - +p.both + +p.b;
+        const either = faces(+p.total).filter((i) => inA(i - 1) || inB(i - 1)).length;
+        return p.ask === "either" ? either : +p.total - either;
+      }
       if (p.type === "onto") return sequences(faces(+p.options), +p.people).filter((picks) => new Set(picks).size === +p.options).length;
       if (p.type === "capped") {
         const values = Array.from({ length: +p.high - +p.low + 1 }, (_, i) => +p.low + i);

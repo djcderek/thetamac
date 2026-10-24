@@ -1,5 +1,5 @@
 import { add, div, formatFraction, formatPercent, mul, pow, q, sub, value, type Rational } from "../rational";
-import { DECK, choose, int, isFace, isRed, pick, problem, sup, type Card, type QuantLessonDef, type QuantProblem, type Random } from "../build";
+import { DECK, choose, commas, int, isFace, isRed, pick, problem, sup, type Card, type QuantLessonDef, type QuantProblem, type Random } from "../build";
 import type { CardId, QuantVisual, Tone, TreeNode } from "../visual";
 
 const SUIT_LETTER = { hearts: "H", spades: "S", diamonds: "D", clubs: "C" } as const;
@@ -1111,6 +1111,617 @@ const TOTAL_PAIRS = [
   [7, 11],
 ] as const;
 
+// ─── Mock-test types ─────────────────────────────────────────────────────────────────────
+// Each mirrors one practice type above, with the same working, in a setting practice never uses.
+
+const upTo = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+
+/** Two numbers from 1 to n: a spinner spun twice, or numbered tiles drawn with or without putting the first back. */
+const PAIR_DRAWS = {
+  spinner: (n: number) => `A spinner has ${n} equal sections numbered 1 to ${n}. You spin it twice`,
+  "tiles-back": (n: number) => `A bag holds ${n} tiles numbered 1 to ${n}. You draw one, put it back, and draw again`,
+  tiles: (n: number) => `A bag holds ${n} tiles numbered 1 to ${n}. You draw two, one after the other, without putting the first back`,
+} as const;
+type PairDraw = keyof typeof PAIR_DRAWS;
+
+const pairsKnown = (n: number): Filter<number[]>[] => [
+  ...[n - 1, n, n + 1, n + 2].map((total) => ({ id: `total-${total}`, text: `their total is ${total}`, test: (r: number[]) => r[0] + r[1] === total })),
+  { id: "has-top", text: `at least one of them is ${n}`, test: (r) => r.includes(n) },
+  { id: "has-one", text: "at least one of them is 1", test: (r) => r.includes(1) },
+  { id: "first-odd", text: "the first number is odd", test: (r) => r[0] % 2 === 1 },
+  { id: "total-high", text: `their total is at least ${n + 3}`, test: (r) => r[0] + r[1] >= n + 3 },
+  { id: "both-low", text: "neither is more than 4", test: (r) => r[0] <= 4 && r[1] <= 4 },
+];
+const pairsAsked = (n: number): Filter<number[]>[] => [
+  { id: "both-odd", text: "both numbers are odd", test: (r) => r[0] % 2 === 1 && r[1] % 2 === 1 },
+  { id: "even-total", text: "their total is even", test: (r) => (r[0] + r[1]) % 2 === 0 },
+  { id: "has-top", text: `at least one of them is ${n}`, test: (r) => r.includes(n) },
+  { id: "first-bigger", text: "the first number is bigger than the second", test: (r) => r[0] > r[1] },
+  { id: "same", text: "the two numbers match", test: (r) => r[0] === r[1] },
+  { id: "even-product", text: "their product is even", test: (r) => (r[0] * r[1]) % 2 === 0 },
+  { id: "next-door", text: "the two numbers differ by exactly 1", test: (r) => Math.abs(r[0] - r[1]) === 1 },
+];
+
+/** Every (clue, question) pair for one way of drawing two numbers that makes a real question. */
+function numberPairQuestions(draw: PairDraw, n: number) {
+  const outcomes = upTo(n).flatMap((a) => upTo(n).map((b) => [a, b])).filter((r) => draw !== "tiles" || r[0] !== r[1]);
+  return pairsKnown(n).flatMap((known) => {
+    const fit = outcomes.filter(known.test);
+    if (fit.length < 2 || fit.length === outcomes.length) return [];
+    return pairsAsked(n)
+      .filter((asked) => asked.text !== known.text)
+      .filter((asked) => {
+        const share = fit.filter(asked.test).length / fit.length;
+        return share > 0.02 && share < 0.98;
+      })
+      .map((asked) => () => numberPairClue(draw, n, outcomes, known, asked));
+  });
+}
+
+/** Mirrors the two-dice clue: keep the pairs that fit what you’re told, then count inside them. */
+function numberPairClue(draw: PairDraw, n: number, outcomes: number[][], known: Filter<number[]>, asked: Filter<number[]>) {
+  const fit = outcomes.filter(known.test);
+  const both = fit.filter(asked.test);
+  const caption = draw === "tiles" ? "No doubles: the first tile isn’t put back" : undefined;
+  const grid = (marks: Marks<number[]>): QuantVisual => ({
+    type: "dice-grid",
+    sides: n,
+    marks: marks.map((m) => ({ cells: m.items.map((r) => [r[0], r[1]] as [number, number]), tone: m.tone })),
+    ...(caption ? { caption } : {}),
+  });
+  return problem(
+    `mock-pairs-${draw}-${n}-${known.id}-${asked.id}`,
+    `${PAIR_DRAWS[draw](n)}. A friend sees both numbers and tells you ${known.text}. What’s the chance ${asked.text}?`,
+    q(both.length, fit.length),
+    "probability",
+    [
+      {
+        label: `Pairs where ${known.text}`,
+        work: `${fit.length} of ${outcomes.length}`,
+        icon: "filter",
+        explain: `There are ${outcomes.length} equally likely ordered pairs. Your friend’s clue rules out all but these ${fit.length}.`,
+        visual: grid([{ items: fit, tone: "known" }]),
+      },
+      {
+        label: `Of those, ${asked.text}`,
+        work: `${both.length} of ${fit.length}`,
+        icon: "count",
+        explain: `Count inside the ${fit.length} that are left: ${both.length} of them also ${both.length === 1 ? "fits" : "fit"}. The pairs ruled out don’t count, so divide by ${fit.length}.`,
+        visual: grid([
+          { items: fit, tone: "known" },
+          { items: both, tone: "hit" },
+        ]),
+      },
+    ],
+    { type: "mock-pairs", draw, sides: n, known: known.id, asked: asked.id },
+    grid([]),
+  );
+}
+
+const NUMBER_PAIR_QUESTIONS = (["spinner", "tiles-back", "tiles"] as const).flatMap((draw) => [6, 7, 8].flatMap((n) => numberPairQuestions(draw, n)));
+
+/** Loose things of three kinds, two of one kind already taken out. */
+const DRAWERS = [
+  {
+    id: "socks",
+    kinds: ["black", "grey", "white"],
+    thing: "sock",
+    setup: (list: string) => `A drawer holds ${list} socks, all loose. In the dark you take out two socks`,
+    match: "make a matching pair",
+  },
+  {
+    id: "sweets",
+    kinds: ["lemon", "cherry", "lime"],
+    thing: "sweet",
+    setup: (list: string) => `A jar holds ${list} sweets. Without looking, you take out two sweets`,
+    match: "are the same flavour",
+  },
+] as const;
+
+/** Mirrors the next card after a pair: two of a kind are gone, so that kind is two short. */
+function drawerNext(params: { scene: string; counts: number[]; drawn: number; ask: "next" | "pair" | "both" }) {
+  const scene = DRAWERS.find((d) => d.id === params.scene)!;
+  const { counts, drawn, ask } = params;
+  const total = counts.reduce((s, c) => s + c, 0);
+  const kind = scene.kinds[drawn];
+  const left = counts.map((c, i) => (i === drawn ? c - 2 : c));
+  const list = `${counts[0]} ${scene.kinds[0]}, ${counts[1]} ${scene.kinds[1]} and ${counts[2]} ${scene.kinds[2]}`;
+  const tones: Tone[] = ["hit", "alt", "both"];
+  const drawer = (tone: (i: number) => Tone): QuantVisual => ({
+    type: "marbles",
+    groups: counts.map((c, i) => ({ count: c, tone: tone(i), label: scene.kinds[i][0].toUpperCase() + scene.kinds[i].slice(1) })),
+    taken: [tone(drawn), tone(drawn)],
+  });
+  const plain = drawer((i) => tones[i]);
+  const focus = drawer((i) => (i === drawn ? "hit" : "muted"));
+  const leftStep = {
+    label: `${scene.thing[0].toUpperCase()}${scene.thing.slice(1)}s left`,
+    work: `${total} − 2`,
+    result: `${total - 2}`,
+    icon: "subtract" as const,
+    explain: `Two ${scene.thing}s are out, so the next ones come from the ${total - 2} still there. Both were ${kind}, so ${kind} is two short.`,
+    visual: plain,
+  };
+  const opening = `${scene.setup(list)}, and both are ${kind}.`;
+  if (ask === "next") {
+    return problem(
+      `mock-drawer-${scene.id}-${counts.join("-")}-${drawn}-next`,
+      `${opening} What’s the chance the next ${scene.thing} you take out is ${kind} too?`,
+      q(left[drawn], total - 2),
+      "probability",
+      [
+        leftStep,
+        {
+          label: `${kind[0].toUpperCase()}${kind.slice(1)} ${scene.thing}s left`,
+          work: `${counts[drawn]} − 2`,
+          result: `${left[drawn]}`,
+          icon: "count",
+          explain: `There were ${counts[drawn]} ${kind} ${scene.thing}s and 2 of them are gone.`,
+          visual: focus,
+        },
+        {
+          label: "Chance",
+          work: `${left[drawn]} of ${total - 2}`,
+          icon: "divide",
+          explain: `Each of the ${total - 2} ${scene.thing}s still there is equally likely to come out next.`,
+          visual: focus,
+        },
+      ],
+      { type: "mock-drawer", ...params, counts: counts.join("-") },
+      plain,
+    );
+  }
+  const all = choose(total - 2, 2);
+  const fitting = ask === "both" ? choose(left[drawn], 2) : left.reduce((s, c) => s + choose(c, 2), 0);
+  const work = ask === "both" ? `C(${left[drawn]}, 2)` : `${left.map((c) => `C(${c}, 2)`).join(" + ")} = ${left.map((c) => choose(c, 2)).join(" + ")}`;
+  const marked = ask === "both" ? focus : plain;
+  return problem(
+    `mock-drawer-${scene.id}-${counts.join("-")}-${drawn}-${ask}`,
+    `${opening} You then take out two more. What’s the chance those two ${ask === "both" ? `are both ${kind} as well` : scene.match}?`,
+    q(fitting, all),
+    "probability",
+    [
+      leftStep,
+      {
+        label: ask === "both" ? `Pairs that are both ${kind}` : "Pairs of one kind",
+        work,
+        result: `${fitting}`,
+        icon: "count",
+        explain:
+          ask === "both"
+            ? `${left[drawn]} ${kind} ${scene.thing}s are left. Count the ways to choose 2 of them.`
+            : `Count pairs kind by kind. ${kind[0].toUpperCase()}${kind.slice(1)} has only ${left[drawn]} left; the other two kinds are untouched.`,
+        visual: marked,
+      },
+      {
+        label: `Pairs from the ${total - 2} left`,
+        work: `C(${total - 2}, 2)`,
+        result: `${all}`,
+        icon: "count",
+        explain: `The next two are any 2 of the ${total - 2} left, and every pair is equally likely.`,
+        visual: marked,
+      },
+      {
+        label: "Chance",
+        work: `${fitting} ÷ ${all}`,
+        icon: "divide",
+        explain: "The pairs that fit, out of all the pairs.",
+        visual: marked,
+      },
+    ],
+    { type: "mock-drawer", ...params, counts: counts.join("-") },
+    plain,
+  );
+}
+
+function drawerFamily(random: Random) {
+  const drawn = int(random, 0, 2);
+  const counts = [0, 1, 2].map((i) => (i === drawn ? int(random, 4, 8) : int(random, 2, 6)));
+  const ask = pick(random, ["next", "next", "pair", "both"] as const);
+  return drawerNext({ scene: pick(random, DRAWERS).id, counts, drawn, ask });
+}
+
+/** Two couriers or two airlines: the machines problem in another setting. */
+const SPLIT_SCENES = [
+  {
+    id: "parcels",
+    root: "A random parcel",
+    a: "Courier X",
+    b: "Courier Y",
+    bad: "Late",
+    good: "On time",
+    items: "parcels",
+    viaA: "go with courier X",
+    viaB: "go with courier Y",
+    once: "Each parcel goes with exactly one courier",
+    prompt: (share: number, a: number, b: number) =>
+      `A shop sends ${share}% of its parcels with courier X, and ${a}% of those arrive late. The rest go with courier Y, which delivers ${b}% of its parcels late. You pick one of the shop’s parcels at random. What’s the chance it arrived late?`,
+  },
+  {
+    id: "flights",
+    root: "A random flight",
+    a: "Larger airline",
+    b: "Smaller airline",
+    bad: "Delayed",
+    good: "On time",
+    items: "flights",
+    viaA: "are run by the larger airline",
+    viaB: "are run by the smaller one",
+    once: "Each flight is run by exactly one airline",
+    prompt: (share: number, a: number, b: number) =>
+      `Two airlines fly one route. The larger runs ${share}% of the flights and ${a}% of its flights are delayed. The smaller runs the others, and ${b}% of those are delayed. What’s the chance a flight picked at random from the route is delayed?`,
+  },
+] as const;
+
+/** Mirrors the two machines: weight each case’s rate by its share, then add. */
+function twoSources(params: { scene: string; share: number; rateA: number; rateB: number }) {
+  const scene = SPLIT_SCENES.find((s) => s.id === params.scene)!;
+  const { share, rateA, rateB } = params;
+  const other = 100 - share;
+  const caseA = q(share * rateA, 10000);
+  const caseB = q(other * rateB, 10000);
+  const bad = scene.bad.toLowerCase();
+  const cases = [
+    { label: scene.a, edge: `${share}%`, yes: { label: scene.bad, edge: `${rateA}%` }, no: { label: scene.good, edge: `${100 - rateA}%` } },
+    { label: scene.b, edge: `${other}%`, yes: { label: scene.bad, edge: `${rateB}%` }, no: { label: scene.good, edge: `${100 - rateB}%` } },
+  ];
+  const tree = (tones: Tone[]) => caseTree(scene.root, cases, tones);
+  return problem(
+    `mock-sources-${scene.id}-${share}-${rateA}-${rateB}`,
+    scene.prompt(share, rateA, rateB),
+    add(caseA, caseB),
+    "percent",
+    [
+      {
+        label: `${scene.a} and ${bad}`,
+        work: `${share}% × ${rateA}%`,
+        result: formatPercent(caseA),
+        icon: "multiply",
+        explain: `${share}% of the ${scene.items} ${scene.viaA}, and ${rateA}% of those are ${bad}. Multiply for the share of all ${scene.items} that are both.`,
+        visual: tree(["hit", "muted"]),
+      },
+      {
+        label: `${scene.b} and ${bad}`,
+        work: `${other}% × ${rateB}%`,
+        result: formatPercent(caseB),
+        icon: "multiply",
+        explain: `The other ${other}% ${scene.viaB}, and ${rateB}% of those are ${bad}.`,
+        visual: tree(["known", "hit"]),
+      },
+      {
+        label: "Add the cases",
+        work: `${formatPercent(caseA)} + ${formatPercent(caseB)}`,
+        icon: "add",
+        explain: `${scene.once}, so the two ${bad} shares don’t overlap. Add them.`,
+        visual: tree(["hit", "hit"]),
+      },
+    ],
+    { type: "mock-sources", ...params },
+    tree([]),
+  );
+}
+
+/** Two players who take turns at a shot with the same chance each time. */
+const SHOT_SCENES = [
+  { id: "free-throws", setup: "take turns shooting free throws", each: "Each shot goes in", goal: "The first to score wins" },
+  { id: "darts", setup: "take turns throwing a dart at a board", each: "Each dart hits the bullseye", goal: "The first to hit the bullseye wins" },
+  { id: "wheel", setup: "take turns spinning a wheel", each: "Each spin lands on gold", goal: "The first to land on gold wins" },
+] as const;
+const SHOT_CHANCES = [q(1, 5), q(1, 4), q(1, 3), q(2, 5), q(1, 2), q(3, 5), q(1, 10)] as const;
+
+/** Mirrors take turns: either the first player wins at once, or both miss and it starts again. */
+function shotsInTurn(params: { scene: string; chanceN: number; chanceD: number; who: "first" | "second" }) {
+  const scene = SHOT_SCENES.find((s) => s.id === params.scene)!;
+  const p = q(params.chanceN, params.chanceD);
+  const miss = sub(q(1), p);
+  const round = mul(miss, miss);
+  const first = div(p, sub(q(1), round));
+  const chance = formatFraction(p);
+  const tree = (anaWins: Tone, benWins: Tone, again: Tone): QuantVisual => ({
+    type: "tree",
+    root: {
+      label: "A round",
+      children: [
+        { label: "Ana wins", edge: chance, tone: anaWins },
+        {
+          label: "Ana misses",
+          edge: formatFraction(miss),
+          children: [
+            { label: "Ben wins", edge: chance, tone: benWins },
+            { label: "Both miss: start again", edge: formatFraction(miss), tone: again },
+          ],
+        },
+      ],
+    },
+  });
+  const steps: Parameters<typeof problem>[4] = [
+    {
+      label: "Ana wins on her first go",
+      work: chance,
+      icon: "target",
+      explain: `Ana goes first, so she wins straight away with chance ${chance}.`,
+      visual: tree("hit", "muted", "muted"),
+    },
+    {
+      label: "Both miss, and it starts again",
+      work: `(${formatFraction(miss)})²`,
+      result: formatFraction(round),
+      icon: "repeat",
+      explain: "If Ana misses and then Ben misses, nobody has won and it’s Ana’s go again, just as at the start.",
+      visual: tree("muted", "muted", "known"),
+    },
+    {
+      label: "Ana’s chance",
+      work: `${chance} ÷ (1 − ${formatFraction(round)})`,
+      result: formatFraction(first),
+      icon: "divide",
+      explain: `Call Ana’s chance \`p\`. She wins at once, or both miss and she’s back to chance \`p\`: {{p = ${chance} + ${formatFraction(round)} × p}} Solve for \`p\`.`,
+      visual: tree("hit", "muted", "known"),
+    },
+  ];
+  if (params.who === "second") {
+    steps.push({
+      label: "Ben’s chance",
+      work: `1 − ${formatFraction(first)}`,
+      icon: "subtract",
+      explain: "Someone wins in the end, so Ben wins exactly when Ana doesn’t.",
+      visual: tree("muted", "hit", "known"),
+    });
+  }
+  return problem(
+    `mock-shots-${scene.id}-${params.chanceN}-${params.chanceD}-${params.who}`,
+    `Ana and Ben ${scene.setup}, Ana first. ${scene.each} with chance ${chance}, whoever takes it, independently of every other go. ${scene.goal}. What’s the chance ${params.who === "first" ? "Ana" : "Ben"} wins?`,
+    params.who === "first" ? first : sub(q(1), first),
+    "probability",
+    steps,
+    { type: "mock-shots", ...params },
+    tree("muted", "muted", "muted"),
+  );
+}
+
+/** A count of flagged items: spam caught by a filter, or fraud caught by a bank’s checks. */
+const ALERT_SCENES = [
+  {
+    id: "spam",
+    yes: "Spam",
+    no: "Genuine",
+    flagged: "Flagged",
+    clear: "Not flagged",
+    prompt: (total: string, bad: number, caught: number, wrong: number, good: string) =>
+      `A company receives ${total} emails, and ${bad} of them are spam. Its filter flags ${caught} of the ${bad} spam emails, and also flags ${wrong} of the ${good} genuine ones by mistake. An email has been flagged. What’s the chance it’s spam?`,
+    caught: "spam emails the filter flags",
+    wrong: "genuine emails it flags",
+    pool: "emails",
+  },
+  {
+    id: "fraud",
+    yes: "Fraud",
+    no: "Honest",
+    flagged: "Blocked",
+    clear: "Let through",
+    prompt: (total: string, bad: number, caught: number, wrong: number, good: string) =>
+      `A bank handles ${total} card payments, and ${bad} of them are fraud. Its checks block ${caught} of the fraudulent payments, and also block ${wrong} of the ${good} honest ones. A payment has been blocked. What’s the chance it was fraud?`,
+    caught: "fraudulent payments the checks block",
+    wrong: "honest payments they block",
+    pool: "payments",
+  },
+] as const;
+
+/** Mirrors the positive test: of everything flagged, the share that is really what was flagged for. */
+function flaggedCount(params: { scene: string; total: number; bad: number; caught: number; wrong: number }) {
+  const scene = ALERT_SCENES.find((s) => s.id === params.scene)!;
+  const { total, bad, caught, wrong } = params;
+  const good = total - bad;
+  const tree = (showCaught: boolean, showWrong: boolean): QuantVisual => ({
+    type: "tree",
+    root: {
+      label: `${commas(total)} ${scene.pool}`,
+      children: [
+        {
+          label: scene.yes,
+          edge: commas(bad),
+          children: [
+            { label: scene.flagged, edge: `${caught}`, tone: showCaught ? "hit" : "muted" },
+            { label: scene.clear, edge: `${bad - caught}`, tone: "muted" },
+          ],
+        },
+        {
+          label: scene.no,
+          edge: commas(good),
+          children: [
+            { label: scene.flagged, edge: `${wrong}`, tone: showWrong ? "known" : "muted" },
+            { label: scene.clear, edge: commas(good - wrong), tone: "muted" },
+          ],
+        },
+      ],
+    },
+  });
+  return problem(
+    `mock-flagged-${scene.id}-${total}-${bad}-${caught}-${wrong}`,
+    scene.prompt(commas(total), bad, caught, wrong, commas(good)),
+    q(caught, caught + wrong),
+    "probability",
+    [
+      {
+        label: `${scene.flagged} and ${scene.yes.toLowerCase()}`,
+        work: `${caught} of the ${bad}`,
+        result: `${caught}`,
+        icon: "count",
+        explain: `These are the ${scene.caught}: the true alarms.`,
+        visual: tree(true, false),
+      },
+      {
+        label: `${scene.flagged} but ${scene.no.toLowerCase()}`,
+        work: `${wrong} of the ${commas(good)}`,
+        result: `${wrong}`,
+        icon: "count",
+        explain: `These are the ${scene.wrong}. There are far more of them to begin with, so a small error rate still adds a lot.`,
+        visual: tree(true, true),
+      },
+      {
+        label: `Chance it’s ${scene.yes.toLowerCase()}`,
+        work: `${caught}/(${caught} + ${wrong})`,
+        icon: "divide",
+        explain: `All you know is that it was ${scene.flagged.toLowerCase()}, so it’s one of these ${caught + wrong}. ${caught} of them are ${scene.yes.toLowerCase()}.`,
+        visual: tree(true, true),
+      },
+    ],
+    { type: "mock-flagged", ...params },
+    tree(false, false),
+  );
+}
+
+function flaggedFamily(random: Random) {
+  const total = pick(random, [500, 1000, 2000, 5000]);
+  const bad = pick(random, [10, 20, 25, 40, 50].filter((n) => n * 10 <= total));
+  const caught = Math.round(bad * pick(random, [0.8, 0.9, 0.96]));
+  const wrong = Math.max(1, Math.round((total - bad) * pick(random, [0.01, 0.02, 0.03, 0.05])));
+  return flaggedCount({ scene: pick(random, ALERT_SCENES).id, total, bad, caught, wrong });
+}
+
+/** Mirrors the two-headed coin: ordinary dice and trick dice with a 6 on every face. */
+function trickDie(params: { ordinary: number; trick: number; rolls: number }) {
+  const { ordinary, trick, rolls } = params;
+  const runs = 6 ** rolls;
+  const trickSixes = trick * runs;
+  const ordinarySixes = ordinary;
+  const picks = runs * (ordinary + trick);
+  const seen = rolls === 1 ? "a 6" : rolls === 2 ? "a 6 both times" : `a 6 all ${rolls} times`;
+  const sixes = rolls === 1 ? "A 6" : "All 6s";
+  const tree = (trickTone: Tone, ordinaryTone: Tone): QuantVisual => ({
+    type: "tree",
+    root: {
+      label: "Take a die",
+      children: [
+        { label: "Trick", edge: `${trick}/${ordinary + trick}`, children: [{ label: sixes, edge: "1", tone: trickTone }] },
+        {
+          label: "Ordinary",
+          edge: `${ordinary}/${ordinary + trick}`,
+          children: [
+            { label: sixes, edge: `1/${runs}`, tone: ordinaryTone },
+            { label: rolls === 1 ? "Not a 6" : "Not all 6s", edge: `${runs - 1}/${runs}`, tone: "muted" },
+          ],
+        },
+      ],
+    },
+  });
+  return problem(
+    `mock-trick-${ordinary}-${trick}-${rolls}`,
+    `A box holds ${ordinary === 1 ? "1 ordinary die" : `${ordinary} ordinary dice`} and ${trick === 1 ? "1 trick die" : `${trick} trick dice`} with a 6 on every face. You take one at random and roll it ${rolls === 1 ? "once" : rolls === 2 ? "twice" : `${rolls} times`}. It shows ${seen}. What’s the chance you took a trick die?`,
+    q(trickSixes, trickSixes + ordinarySixes),
+    "probability",
+    [
+      {
+        label: `Count ${commas(picks)} picks`,
+        work: `${runs} of each die`,
+        result: "",
+        icon: "idea",
+        explain: `Say you did this ${commas(picks)} times and took each die ${runs} times. Counting picks keeps every number whole.`,
+        visual: tree("muted", "muted"),
+      },
+      {
+        label: `Trick die and ${rolls === 1 ? "a 6" : "all 6s"}`,
+        work: `${trick} × ${runs}`,
+        result: `${trickSixes}`,
+        icon: "count",
+        explain: "A trick die can only show 6, so every one of its picks matches what you saw.",
+        visual: tree("hit", "muted"),
+      },
+      {
+        label: `Ordinary die and ${rolls === 1 ? "a 6" : "all 6s"}`,
+        work: `${ordinary * runs} × 1/${runs}`,
+        result: `${ordinarySixes}`,
+        icon: "count",
+        explain: `An ordinary die shows ${rolls === 1 ? "a 6" : `a 6 ${rolls === 2 ? "twice" : "three times"} in a row`} only 1 time in ${runs}, so just ${ordinary} of its ${ordinary * runs} picks match.`,
+        visual: tree("hit", "alt"),
+      },
+      {
+        label: "Chance it’s a trick die",
+        work: `${trickSixes}/(${trickSixes} + ${ordinarySixes})`,
+        icon: "divide",
+        explain: `Of the ${trickSixes + ordinarySixes} picks that match what you saw, ${trickSixes} used a trick die.`,
+        visual: tree("hit", "alt"),
+      },
+    ],
+    { type: "mock-trick", ...params },
+    tree("muted", "muted"),
+  );
+}
+
+/** Bags of red and white marbles, as [red, total] per bag. */
+const RED_BAGS = [
+  { id: "quarters", bags: [[1, 4], [2, 4], [3, 4]] },
+  { id: "thirds", bags: [[1, 3], [2, 3]] },
+  { id: "fifths", bags: [[1, 5], [3, 5], [5, 5]] },
+  { id: "sixths", bags: [[2, 6], [3, 6], [4, 6]] },
+  { id: "half-or-more", bags: [[1, 2], [3, 4]] },
+] as const;
+
+/** Mirrors the next flip: weight each bag by how well it explains the reds, then ask about one more draw. */
+function nextFromBag(params: { set: string; draws: number }) {
+  const set = RED_BAGS.find((b) => b.id === params.set)!;
+  const bags = set.bags;
+  const n = bags.length;
+  const k = params.draws;
+  const chance = bags.map(([red, all]) => q(red, all));
+  const raised = ([red, all]: readonly number[]) => (k === 1 ? `${red}/${all}` : `(${red}/${all})${sup(k)}`);
+  const joint = chance.map((c) => mul(q(1, n), pow(c, k)));
+  const total = joint.reduce((sum, j) => add(sum, j), q(0));
+  const weighted = joint.reduce((sum, j, i) => add(sum, mul(j, chance[i])), q(0));
+  const reds = k === 1 ? "Red" : `${k} reds`;
+  const holds = bags.map(([red, all], i) => `${i === 0 ? "Bag" : "bag"} ${i + 1} holds ${red} red and ${all === red ? "no" : all - red} white`);
+  const describe = `${holds.slice(0, -1).join(", ")}, and ${holds.at(-1)}`;
+  const tree = (tones: Tone[]): QuantVisual => ({
+    type: "tree",
+    root: {
+      label: "Pick a bag",
+      children: bags.map((bag, i) => ({
+        label: `Bag ${i + 1}`,
+        edge: `1/${n}`,
+        children: [{ label: reds, edge: raised(bag), tone: tones[i] ?? ("muted" as Tone) }],
+      })),
+    },
+  });
+  const steps: Parameters<typeof problem>[4] = bags.map((bag, i) => ({
+    label: `Bag ${i + 1}, then ${k === 1 ? "red" : `${k} reds`}`,
+    work: `1/${n} × ${raised(bag)}`,
+    result: formatFraction(joint[i]),
+    icon: "multiply" as const,
+    explain:
+      k === 1
+        ? `Pick this bag (1 in ${n}), then draw red from it. Multiply along the branch.`
+        : `Pick this bag (1 in ${n}), then draw red ${k} times running. The marble goes back each time, so the draws multiply.`,
+    visual: tree(bags.map((_, j) => (j <= i ? "known" : "muted"))),
+  }));
+  steps.push(
+    {
+      label: `Every way to see ${k === 1 ? "red" : `${k} reds`}`,
+      work: joint.map(formatFraction).join(" + "),
+      result: formatFraction(total),
+      icon: "add",
+      explain: "Add the branches that end in what you saw. Only these are still possible.",
+      visual: tree(bags.map(() => "known")),
+    },
+    {
+      label: "Chance the next draw is red",
+      work: `(${joint.map((j, i) => `${formatFraction(j)} × ${formatFraction(chance[i])}`).join(" + ")}) ÷ ${formatFraction(total)}`,
+      icon: "multiply",
+      explain: "Weight each bag’s chance of red by how likely that bag is now, given the reds you saw.",
+      visual: tree(bags.map(() => "hit")),
+    },
+  );
+  const seen = k === 1 ? "It’s red" : k === 2 ? "Both are red" : `All ${k} are red`;
+  return problem(
+    `mock-bags-${set.id}-${k}`,
+    `There are ${n === 2 ? "two" : "three"} bags of red and white marbles. ${describe}. You choose a bag at random and draw ${k === 1 ? "a marble" : `${k} marbles`} from it, putting each one back before the next draw. ${seen}. If you draw once more from the same bag, what’s the chance of red?`,
+    div(weighted, total),
+    "probability",
+    steps,
+    { type: "mock-bags", ...params },
+    tree([]),
+  );
+}
+
 export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
   {
     id: "conditional-probability",
@@ -1216,6 +1827,10 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
       { id: "card-clue", title: "One card, given a clue", generate: (random) => pick(random, CARD_PROBLEMS)() },
       { id: "children", title: "Boys and girls in a family", generate: (random) => pick(random, CHILDREN_PROBLEMS)() },
       { id: "next-draw", title: "The next cards, after a pair or a suit", generate: (random) => nextDraw({ draw: pick(random, NEXT_DRAWS).id }) },
+    ],
+    mockFamilies: [
+      { id: "number-pair-clue", practice: "dice-clue", title: "Two numbers drawn, given a clue", generate: (random) => pick(random, NUMBER_PAIR_QUESTIONS)() },
+      { id: "after-two-alike", practice: "next-draw", title: "The next pick after two of a kind", generate: drawerFamily },
     ],
   },
   {
@@ -1399,6 +2014,29 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
       { id: "which-first", title: "Which comes first", generate: (random) => whichFirst({ race: pick(random, RACES).id }) },
       { id: "random-rolls", title: "A random number of tries", generate: (random) => randomRolls({ trial: pick(random, RANDOM_TRIALS).id }) },
     ],
+    mockFamilies: [
+      {
+        id: "two-sources",
+        practice: "two-machines",
+        title: "Two couriers or airlines, some late",
+        generate: (random) =>
+          twoSources({
+            scene: pick(random, SPLIT_SCENES).id,
+            share: pick(random, [55, 60, 65, 70, 80, 85]),
+            rateA: pick(random, [2, 3, 4, 5, 8]),
+            rateB: pick(random, [6, 9, 10, 12, 15]),
+          }),
+      },
+      {
+        id: "shots-in-turn",
+        practice: "take-turns",
+        title: "Take turns at a shot until one lands",
+        generate: (random) => {
+          const p = pick(random, SHOT_CHANCES);
+          return shotsInTurn({ scene: pick(random, SHOT_SCENES).id, chanceN: p.n, chanceD: p.d, who: random() < 0.7 ? "first" : "second" });
+        },
+      },
+    ],
   },
   {
     id: "bayes-rule",
@@ -1550,6 +2188,21 @@ export const CONDITIONAL_LESSONS: QuantLessonDef[] = [
         id: "next-flip",
         title: "The chance the next flip is heads",
         generate: (random) => coinBagFamily(random, ["third-sure", "quarters", "third-half", "half-sure"], "next"),
+      },
+    ],
+    mockFamilies: [
+      { id: "flagged", practice: "medical-test", title: "Flagged by a spam filter or fraud check", generate: flaggedFamily },
+      {
+        id: "trick-die",
+        practice: "two-headed",
+        title: "Ordinary die or trick die",
+        generate: (random) => realChance(() => trickDie({ ordinary: int(random, 1, 5), trick: int(random, 1, 2), rolls: int(random, 1, 3) })),
+      },
+      {
+        id: "next-from-bag",
+        practice: "next-flip",
+        title: "The next marble from the same bag",
+        generate: (random) => realChance(() => nextFromBag({ set: pick(random, RED_BAGS).id, draws: int(random, 1, 3) })),
       },
     ],
   },
