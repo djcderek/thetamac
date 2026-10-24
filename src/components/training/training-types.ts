@@ -23,6 +23,10 @@ export type ScoreDistribution = {
   players?: number;
   /** The settings the runs share, e.g. "Medium · 2:00 · + − × ÷". */
   setupLabel?: string;
+  comparison?: "exact" | "historical";
+  historicalRuns?: number;
+  guestRuns?: number;
+  unavailableReason?: "not_enough_runs" | "too_short" | "custom_ranges";
 };
 
 export interface Problem {

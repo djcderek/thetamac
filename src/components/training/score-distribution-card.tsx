@@ -133,9 +133,14 @@ export function ScoreDistributionCard({
 
           <div className="text-xs text-muted-foreground">
             {data.setupLabel
-              ? `Everyone's full timed runs on ${data.setupLabel}`
+              ? `${data.comparison === "historical" ? "Estimated comparison" : "Full timed runs"} on ${data.setupLabel}`
               : "Scores from every timed run on the default settings"}
           </div>
+          {data.comparison === "historical" && (
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Includes historical runs matched by recorded duration; their selected timer and number ranges weren’t saved.
+            </p>
+          )}
         </div>
       ) : (
         <div className="mt-4 rounded-2xl bg-background p-3 text-sm text-muted-foreground">
