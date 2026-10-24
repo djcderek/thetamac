@@ -3,11 +3,11 @@ import { DEFAULT_TIMED_TRAINING_SETTINGS } from "./training-settings";
 
 export const STANDARD_TIMED_LIMIT_SECONDS = 120;
 /**
- * The most correct answers a real default run can have: 1.25 a second over 2:00. The best
- * genuine runs are around 130; anything above this is treated as forged and left out of
- * rankings, distributions and placements.
+ * The most correct answers a real default run can have: 200 over 2:00, about 1.67 a second.
+ * The best genuine runs are around 130; anything above this is treated as forged and left
+ * out of rankings, distributions and placements.
  */
-export const MAX_STANDARD_SCORE = 150;
+export const MAX_STANDARD_SCORE = 200;
 /** Correct answers per second above which a run on any other timed setup is treated as forged. */
 export const MAX_CORRECT_PER_SECOND = 2;
 
