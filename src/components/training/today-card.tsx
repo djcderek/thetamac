@@ -62,12 +62,26 @@ export function WeekDots({ week, className }: { week: boolean[]; className?: str
   );
 }
 
+/** Quant question types due in review, as a second row of Today that opens /quant/review. */
+export function QuantReviewRow({ count }: { count: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-background py-2 pl-4 pr-2">
+      <p className="min-w-0 text-[15px] font-medium leading-5">
+        Quant review · {count} question {count === 1 ? "type" : "types"}
+      </p>
+      <Link href="/quant/review" className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "min-h-10 shrink-0")}>
+        Review
+      </Link>
+    </div>
+  );
+}
+
 /**
  * Today's session, above the training setup. Pro starts it; free accounts see what theirs
  * would hold and where to unlock it.
  */
 export function TodayCard({ daily, onStart }: { daily: DailySummary; onStart: () => void }) {
-  const { locked, doneToday, streak, week, counts } = daily;
+  const { locked, doneToday, streak, week, counts, quantDue } = daily;
   const parts = describeDaily(counts);
 
   let detail: string;
@@ -131,6 +145,8 @@ export function TodayCard({ daily, onStart }: { daily: DailySummary; onStart: ()
           </Button>
         )}
       </div>
+
+      {quantDue > 0 && <QuantReviewRow count={quantDue} />}
     </motion.section>
   );
 }

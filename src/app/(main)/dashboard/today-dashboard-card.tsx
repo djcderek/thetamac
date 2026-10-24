@@ -6,7 +6,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart";
-import { WeekDots, compareToBaseline, describeDaily } from "@/components/training/today-card";
+import { QuantReviewRow, WeekDots, compareToBaseline, describeDaily } from "@/components/training/today-card";
 import { getUpgradeUrl } from "@/lib/upgrade";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { captureAnalyticsEvent } from "@/lib/analytics-client";
@@ -22,7 +22,7 @@ function dayLabel(day: number, format: Intl.DateTimeFormatOptions) {
  * done), and, for Pro, average time across recent daily sessions.
  */
 export function TodayDashboardCard({ daily }: { daily: DailySummary }) {
-  const { locked, doneToday, streak, week, counts, history, trend } = daily;
+  const { locked, doneToday, streak, week, counts, history, trend, quantDue } = daily;
   const parts = describeDaily(counts);
   const comparison = trend ? compareToBaseline(trend.latestSeconds, trend.baselineSeconds) : null;
   const chart = history.map((session) => ({
@@ -89,6 +89,7 @@ export function TodayDashboardCard({ daily }: { daily: DailySummary }) {
             </p>
           )}
         </div>
+        {quantDue > 0 && <QuantReviewRow count={quantDue} />}
         <div className="mt-auto flex flex-wrap items-end justify-between gap-4">
           {!locked && <WeekDots week={week} />}
           {action}

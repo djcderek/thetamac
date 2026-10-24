@@ -32,6 +32,7 @@ import { QuantFigure } from "@/components/quant/visuals";
 import { StepIcon } from "@/components/quant/step-icon";
 import { AnswerBox } from "@/components/quant/answer-box";
 import { LessonReader } from "@/components/quant/lesson-reader";
+import { recordQuantAttempt } from "@/components/quant/quant-attempts";
 import { markPuzzle, markType, usePuzzleMarks, useTypeMarks } from "@/components/quant/type-progress";
 import { MathExpr, MathText } from "@/components/quant/math";
 
@@ -295,6 +296,10 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     const clean = result === "right" && current.wrongTries === 0 && !current.hinted;
     if (current.puzzle) markPuzzle(current.puzzle, clean);
     else if (family) markType(lesson.id, family, clean);
+    // Saved for review; guided questions show the steps, so they say nothing either way.
+    const isGuided = !current.single && !current.puzzle && current.index < QUANT_GUIDED;
+    const reviewFamily = current.puzzle ? `puzzle:${current.puzzle}` : family;
+    if (signedIn && !isGuided && reviewFamily) recordQuantAttempt({ lessonId: lesson.id, family: reviewFamily, correct: clean, seconds });
     const attempts = current.attempts.map((a, i) => (i === current.index ? { ...a, result, firstTry: clean, seconds } : a));
     return { ...current, attempts, phase: result };
   };
