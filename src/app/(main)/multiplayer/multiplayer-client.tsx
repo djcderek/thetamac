@@ -14,7 +14,7 @@ export function MultiplayerClient() {
   if (mode === "duel") {
     return (
       <div className="flex flex-col min-h-screen bg-background animate-in fade-in duration-300">
-        <div className="border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-10 sm:sticky sm:top-0">
+        <div className="border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-10 sm:sticky sm:top-14 md:top-16">
            <div className="container flex h-14 max-w-screen-2xl items-center px-4">
              <Button variant="ghost" size="sm" onClick={() => setMode(null)} className="gap-2 text-muted-foreground hover:text-foreground">
                <ArrowLeft className="w-4 h-4" />
@@ -32,7 +32,7 @@ export function MultiplayerClient() {
   if (mode === "racing") {
     return (
       <div className="flex flex-col min-h-screen bg-background animate-in fade-in duration-300">
-        <div className="border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-10 sm:sticky sm:top-0">
+        <div className="border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-10 sm:sticky sm:top-14 md:top-16">
            <div className="container flex h-14 max-w-screen-2xl items-center px-4">
              <Button variant="ghost" size="sm" onClick={() => setMode(null)} className="gap-2 text-muted-foreground hover:text-foreground">
                <ArrowLeft className="w-4 h-4" />
