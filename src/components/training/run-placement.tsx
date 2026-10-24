@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { animate, motion, useReducedMotion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
 import type { ScoreDistribution } from "@/components/training/training-types";
+import { NormalCurve } from "@/components/training/normal-curve";
 import { MIN_RUNS, MIN_PLAYERS, MIN_PACE_SECONDS, MIN_PACE_ANSWERS } from "@/lib/run-placement";
 
 function ordinal(value: number): string {
@@ -13,9 +14,9 @@ function ordinal(value: number): string {
 }
 
 /**
- * Where the run ranks, at the centre of the results: the percentile counting up, what it
- * means in words, and the curve of everyone's runs on the same settings with this one
- * marked. When a comparison isn't available, explain why instead of silently hiding it.
+ * Where the run ranks, at the centre of the results: the percentile counting up, the
+ * settings it's compared on, and a bell curve with the share of runs it beats shaded in.
+ * When a comparison isn't available, explain why instead of silently hiding it.
  */
 export function RunPlacement({ data }: { data: ScoreDistribution }) {
   if (data.percentile !== null) {
@@ -56,9 +57,6 @@ function PlacedRun({ data }: { data: ScoreDistribution & { percentile: number } 
 
   const pace = data.basis === "pace";
   const historical = data.comparison === "historical";
-  const buckets = data.buckets;
-  const first = buckets[0];
-  const last = buckets[buckets.length - 1];
 
   return (
     <motion.section
@@ -83,30 +81,13 @@ function PlacedRun({ data }: { data: ScoreDistribution & { percentile: number } 
         Compared with runs on <span className="text-foreground">{data.setupLabel}</span>
       </p>
 
-      {buckets.length > 1 && data.maxCount > 0 && (
-        <div className="mt-5">
-          {/* Everyone's runs on these settings; this run's bar in brand. */}
-          <div className="flex h-20 items-end gap-px sm:gap-[3px]" aria-hidden="true">
-            {buckets.map((bucket, i) => {
-              const mine = i === data.userBucketIndex;
-              const height = bucket.count === 0 && !mine ? 0 : Math.max(6, Math.round((bucket.count / data.maxCount) * 100));
-              return (
-                <motion.span
-                  key={bucket.from}
-                  className={mine ? "flex-1 rounded-[2px] bg-brand" : "flex-1 rounded-[2px] bg-muted-foreground/25 dark:bg-muted-foreground/35"}
-                  initial={reduceMotion ? false : { height: 0 }}
-                  animate={{ height: `${height}%` }}
-                  transition={{ ...settleSpring, delay: 0.1 + (i / buckets.length) * 0.35 }}
-                />
-              );
-            })}
-          </div>
-          <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-muted-foreground" aria-hidden="true">
-            <span>{first.from}</span>
-            <span>{last.to}</span>
-          </div>
-        </div>
-      )}
+      {/* The percentile as area under a bell curve: the shaded part is the share of runs beaten. */}
+      <div className="mx-auto mt-6 max-w-md">
+        <NormalCurve percentile={data.percentile} />
+        <p className="mt-3 text-[13px] text-muted-foreground">
+          The shaded area is the {Math.round(data.percentile)}% of runs you beat.
+        </p>
+      </div>
     </motion.section>
   );
 }

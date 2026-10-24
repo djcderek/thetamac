@@ -1,9 +1,9 @@
 "use client";
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ScoreDistribution } from "@/components/training/training-types";
 import { formatPlacement } from "@/lib/placement";
 import { MIN_PLAYERS, MIN_RUNS } from "@/lib/run-placement";
+import { NormalCurve } from "@/components/training/normal-curve";
 
 export function ScoreDistributionCard({
   data,
@@ -14,7 +14,6 @@ export function ScoreDistributionCard({
   heading: string;
   scoreLabel: string;
 }) {
-  const hasBuckets = data.buckets.length > 0 && data.maxCount > 0;
 
   return (
     <div className="rounded-[22px] bg-secondary p-5 text-left">
@@ -48,88 +47,11 @@ export function ScoreDistributionCard({
         ) : null}
       </div>
 
-      {hasBuckets ? (
+      {data.percentile !== null ? (
         <div className="mt-4 rounded-2xl bg-background p-3">
-          {/* Bars share the width so every bucket, including the player's, is visible; fixed-width
-              bars scrolled high scores out of view. */}
-          <div className="flex gap-px px-1 pb-2 sm:gap-[3px]">
-            {data.buckets.map((bucket, idx) => {
-              const isUserBucket = idx === data.userBucketIndex;
-              const heightPctRaw = data.maxCount
-                ? Math.round((bucket.count / data.maxCount) * 100)
-                : 0;
-              const heightPct = bucket.count === 0 && !isUserBucket ? 0 : Math.max(4, heightPctRaw);
-              const showTickLabel =
-                isUserBucket ||
-                idx === 0 ||
-                idx === data.buckets.length - 1 ||
-                bucket.from % 10 === 0;
-
-              return (
-                <Tooltip key={`${bucket.from}-${bucket.to}`}>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={[
-                        "flex min-w-0 max-w-[18px] flex-1 flex-col items-center",
-                        "cursor-default select-none",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-0",
-                      ].join(" ")}
-                      tabIndex={0}
-                      aria-label={`${bucket.from}–${bucket.to}: ${bucket.count} runs${
-                        isUserBucket ? ", you are here" : ""
-                      }`}
-                    >
-                      <div className="flex h-28 w-full items-end sm:h-36">
-                        <div
-                          className={[
-                            "w-full rounded-sm transition-[height,background-color] duration-300",
-                            bucket.count === 0 && !isUserBucket ? "min-h-0" : "min-h-[2px]",
-                            isUserBucket
-                              ? "bg-brand"
-                              : "bg-muted-foreground/25 dark:bg-muted-foreground/35",
-                          ].join(" ")}
-                          style={{ height: `${heightPct}%` }}
-                        />
-                      </div>
-
-                      {showTickLabel ? (
-                        <span
-                          className={[
-                            "mt-2 whitespace-nowrap text-[10px] font-mono tabular-nums leading-none",
-                            isUserBucket
-                              ? "font-semibold text-brand"
-                              : "text-muted-foreground",
-                          ].join(" ")}
-                        >
-                          {bucket.from}
-                        </span>
-                      ) : (
-                        <span className="mt-2 h-[10px]" aria-hidden="true" />
-                      )}
-
-                      {isUserBucket ? (
-                        <span
-                          className="mt-1 h-1 w-1 bg-brand"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" sideOffset={8}>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono tabular-nums">
-                        {bucket.from}–{bucket.to}
-                      </span>
-                      <span className="opacity-80">
-                        {bucket.count} run{bucket.count === 1 ? "" : "s"}
-                      </span>
-                      {isUserBucket ? <span className="font-semibold">You</span> : null}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </div>
+          {/* The percentile as area under a bell curve: the shaded part is the share of runs beaten. */}
+          <NormalCurve percentile={data.percentile} surface="background" className="mx-auto mt-5 max-w-md" />
+          <p className="mb-2 mt-3 text-xs text-muted-foreground">The shaded area is the {Math.round(data.percentile)}% of runs you beat.</p>
 
           <div className="text-xs text-muted-foreground">
             {data.setupLabel
