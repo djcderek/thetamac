@@ -805,7 +805,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
         The {lesson.families.length} kinds of question in this lesson, one at a time, with new numbers every time.
       </StageHeader>
       {lessonLocked && lockedPanel}
-      <ol className="space-y-1.5">
+      <ol className="divide-y divide-border">
         {lesson.families.map((family, index) => {
           const mark = typeMarks[family.id];
           return (
@@ -815,8 +815,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
                 disabled={lessonLocked}
                 onClick={() => start(family.id)}
                 className={cn(
-                  "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors disabled:opacity-60",
-                  index % 2 === 0 ? "bg-secondary/60 enabled:hover:bg-control-hover" : "enabled:hover:bg-control-hover",
+                  "group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors enabled:hover:bg-secondary disabled:opacity-60",
                 )}
               >
                 <span className="grid size-7 shrink-0 place-items-center">
@@ -846,8 +845,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
             <p className="text-[19px] font-semibold tracking-tight">Puzzles</p>
             <p className="mt-1 text-[15px] leading-6 text-muted-foreground">Classic one-off questions this lesson&apos;s method solves.</p>
           </div>
-          <ol className="space-y-1.5">
-            {lesson.puzzles.map((puzzle, index) => {
+          <ol className="divide-y divide-border">
+            {lesson.puzzles.map((puzzle) => {
               const mark = puzzleMarks[puzzle.id];
               return (
                 <li key={puzzle.id}>
@@ -856,9 +855,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
                     disabled={lessonLocked}
                     onClick={() => startPuzzle(puzzle.id)}
                     className={cn(
-                      "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors disabled:opacity-60",
-                      index % 2 === 0 ? "bg-secondary/60 enabled:hover:bg-control-hover" : "enabled:hover:bg-control-hover",
-                    )}
+                      "group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors enabled:hover:bg-secondary disabled:opacity-60",
+                        )}
                   >
                     <span className="grid size-7 shrink-0 place-items-center">
                       {mark === "solved" ? (
