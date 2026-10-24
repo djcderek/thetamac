@@ -1611,20 +1611,8 @@ export default function TrainingPage() {
               players: data.players,
               setupLabel: describeTimedSetup(difficulty, selectedOperations, timedModeLimit),
             });
-          } else if (data.reason === "not_enough_runs") {
-            setScorePercentile({
-              percentile: null,
-              bucket: null,
-              total: data.runs,
-              score: correct,
-              buckets: [],
-              maxCount: 0,
-              userBucketIndex: null,
-              basis: "score",
-              players: data.players,
-              setupLabel: describeTimedSetup(difficulty, selectedOperations, timedModeLimit),
-            });
           }
+          // No placement (too few runs on these settings, or too short a stop): nothing shows.
         }
       } catch (error) {
         console.error("Failed to place the run", error);
