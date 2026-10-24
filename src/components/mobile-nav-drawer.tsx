@@ -19,6 +19,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useSidebar } from "@/components/sidebar-provider";
 import { drawerSpring } from "@/lib/motion";
 import { LogoMark } from "@/components/brand/logo-mark";
+import { dismissQuantNotice, useQuantNotice } from "@/components/quant/quant-new-notice";
 
 const MotionLink = motion.create(Link);
 
@@ -40,6 +41,16 @@ const secondaryNavigation = [
 export function MobileNavDrawer() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebar();
+  const quantNotice = useQuantNotice();
+  // The Quant row's "New" tag shows for one opening of the drawer; closing it counts as seen.
+  const noticeShown = useRef(false);
+  useEffect(() => {
+    if (isOpen && quantNotice) noticeShown.current = true;
+    if (!isOpen && noticeShown.current) {
+      noticeShown.current = false;
+      dismissQuantNotice();
+    }
+  }, [isOpen, quantNotice]);
   const drawerRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -155,6 +166,9 @@ export function MobileNavDrawer() {
                 >
                   <item.icon className="w-5 h-5 shrink-0" />
                   <span>{item.name}</span>
+                  {item.href === "/quant" && quantNotice && (
+                    <span className="ml-auto rounded-full bg-brand/15 px-2 py-0.5 text-[12px] font-semibold text-brand">New</span>
+                  )}
                 </MotionLink>
               );
             })}

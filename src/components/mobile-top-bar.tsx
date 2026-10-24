@@ -7,10 +7,12 @@ import { UserMenu } from "@/components/auth/user-menu";
 import { useMobileTopBarPinning } from "@/components/mobile-top-bar-pinning";
 import { LogoMark } from "@/components/brand/logo-mark";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
+import { useQuantNotice } from "@/components/quant/quant-new-notice";
 
 export function MobileTopBar() {
   const { toggle, isOpen } = useSidebar();
   const { isPinned } = useMobileTopBarPinning();
+  const quantNotice = useQuantNotice();
 
   return (
     <header
@@ -35,12 +37,13 @@ export function MobileTopBar() {
         <UserMenu variant="header" />
         <button
           onClick={toggle}
-          className="rounded-full bg-secondary p-2 text-foreground transition-colors hover:bg-accent"
-          aria-label="Open navigation menu"
+          className="relative rounded-full bg-secondary p-2 text-foreground transition-colors hover:bg-accent"
+          aria-label={quantNotice ? "Open navigation menu (new: quant course)" : "Open navigation menu"}
           aria-expanded={isOpen}
           aria-controls="mobile-nav-drawer"
         >
           <Menu className="w-5 h-5" />
+          {quantNotice && <span aria-hidden="true" className="absolute right-0.5 top-0.5 size-2 rounded-full border-2 border-secondary bg-brand" />}
         </button>
       </div>
     </header>

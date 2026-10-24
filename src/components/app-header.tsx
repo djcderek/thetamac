@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight } from "lucide-react";
-import { motion } from "motion/react";
+import { ArrowUpRight, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { snapSpring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/auth/user-menu";
 import { FeatureRequestDialog } from "@/components/feature-request-dialog";
 import { LogoMark } from "@/components/brand/logo-mark";
+import { dismissQuantNotice, useQuantNotice } from "@/components/quant/quant-new-notice";
 
 // Kurb-style top bar: wordmark left, pill navigation centered, account on the right.
 // It replaces the dashboard-template left sidebar on desktop; phones keep MobileTopBar.
@@ -25,8 +26,37 @@ export function isNavItemActive(href: string, pathname: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/** The one-time note under the Quant tab: what's new, and a way to close it for good. */
+function QuantNotice() {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0, transition: { duration: 0.25, delay: 0.6 } }}
+      exit={{ opacity: 0, transition: { duration: 0.12 } }}
+      className="absolute left-1/2 top-full z-50 mt-3 w-max -translate-x-1/2"
+    >
+      <span aria-hidden="true" className="absolute -top-1 left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-foreground" />
+      <div role="status" className="relative flex items-center gap-1 rounded-2xl bg-foreground py-1.5 pl-3.5 pr-1.5 text-[13px] text-background shadow-lg">
+        <Link href="/quant" onClick={dismissQuantNotice} className="font-medium">
+          <span className="text-brand">New</span> · A probability course for quant interviews
+        </Link>
+        <button
+          type="button"
+          onClick={dismissQuantNotice}
+          aria-label="Dismiss"
+          className="grid size-7 place-items-center rounded-full text-background/70 transition-colors hover:bg-background/15 hover:text-background"
+        >
+          <X aria-hidden="true" className="size-3.5" />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 export function AppHeader() {
   const pathname = usePathname();
+  const quantNotice = useQuantNotice();
 
   return (
     <header className="sticky top-0 z-40 hidden border-b border-border bg-background/90 backdrop-blur-xl md:block">
@@ -39,10 +69,12 @@ export function AppHeader() {
         <nav aria-label="Main" className="flex items-center gap-1 rounded-full border border-border p-1">
           {primaryNavigation.map((item) => {
             const active = isNavItemActive(item.href, pathname);
-            return (
+            const isQuant = item.href === "/quant";
+            const link = (
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={isQuant ? dismissQuantNotice : undefined}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "relative isolate rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200",
@@ -59,7 +91,21 @@ export function AppHeader() {
                   />
                 )}
                 {item.name}
+                {isQuant && quantNotice && (
+                  <>
+                    <span aria-hidden="true" className="absolute right-1.5 top-1 size-1.5 rounded-full bg-brand" />
+                    <span className="sr-only">, new</span>
+                  </>
+                )}
               </Link>
+            );
+            return isQuant ? (
+              <div key={item.href} className="relative">
+                {link}
+                <AnimatePresence>{quantNotice && <QuantNotice />}</AnimatePresence>
+              </div>
+            ) : (
+              link
             );
           })}
         </nav>
