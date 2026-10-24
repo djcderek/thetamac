@@ -63,7 +63,6 @@ export function QuantQuestion({
 
   useEffect(() => {
     startedAt.current = performance.now();
-    inputRef.current?.focus();
   }, []);
 
   const finish = (result: "right" | "missed", tries = wrongTries) => {

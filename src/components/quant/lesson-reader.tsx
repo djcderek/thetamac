@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Play, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { runEnter, settleSpring, snapSpring } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ const subscribeRead = (listener: () => void) => {
   readListeners.add(listener);
   return () => readListeners.delete(listener);
 };
+/** Whether this lesson has been read to the end in this browser. */
+export const useLessonRead = (lessonId: string) => useSyncExternalStore(subscribeRead, () => readDone(lessonId), () => false);
 
 // ─── Parts ───────────────────────────────────────────────────────────────────────────────
 
@@ -217,6 +219,52 @@ function CheckQuestion({ part, picked, onPick }: { part: Extract<LessonPart, { t
   );
 }
 
+/**
+ * A rule stated twice: formally, set like a textbook's boxed result, then in words. `compact`
+ * is the smaller version beside practice questions.
+ */
+export function RuleStatement({ part, compact = false }: { part: Extract<LessonPart, { type: "rule" }>; compact?: boolean }) {
+  return (
+    <div className="space-y-3">
+      <div className={cn("rounded-[18px] border border-border bg-background leading-7", compact ? "px-4 py-3 text-[15px]" : "px-5 py-4 text-[16px]")}>
+        {part.lines.map((line, i) => (
+          <div key={i}>
+            {line.lead && (
+              <p>
+                <MathText text={line.lead} />
+              </p>
+            )}
+            <Tex tex={line.tex} display />
+          </div>
+        ))}
+        {part.where && !compact && (
+          <ul className="mt-1 space-y-1.5 border-t border-border pt-3 text-[15px] leading-6 text-muted-foreground">
+            {part.where.map((item) => (
+              <li key={item} className="flex gap-2">
+                <span aria-hidden="true" className="mt-[11px] size-1 shrink-0 rounded-full bg-current" />
+                <span>
+                  <MathText text={item} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className={cn("rounded-[18px] bg-secondary", compact ? "px-4 py-3" : "px-5 py-4")}>
+        <p className="text-[13px] font-medium text-muted-foreground">In words</p>
+        <p className={cn("mt-1 font-medium", compact ? "text-[15px] leading-6" : "text-[17px] leading-7")}>
+          <MathText text={part.plain} />
+        </p>
+        {part.note && !compact && (
+          <p className="mt-2 text-[15px] leading-6 text-muted-foreground">
+            <MathText text={part.note} />
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Part({
   part,
   lesson,
@@ -245,42 +293,7 @@ function Part({
       return (
         <div className="space-y-4">
           <Heading>{part.name}</Heading>
-          {/* The formal statement, set like a textbook's boxed result. */}
-          <div className="rounded-[18px] border border-border px-5 py-4 text-[16px] leading-7">
-            {part.lines.map((line, i) => (
-              <div key={i}>
-                {line.lead && (
-                  <p>
-                    <MathText text={line.lead} />
-                  </p>
-                )}
-                <Tex tex={line.tex} display />
-              </div>
-            ))}
-            {part.where && (
-              <ul className="mt-1 space-y-1.5 border-t border-border pt-3 text-[15px] leading-6 text-muted-foreground">
-                {part.where.map((item) => (
-                  <li key={item} className="flex gap-2">
-                    <span aria-hidden="true" className="mt-[11px] size-1 shrink-0 rounded-full bg-current" />
-                    <span>
-                      <MathText text={item} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="rounded-[18px] bg-secondary px-5 py-4">
-            <p className="text-[13px] font-medium text-muted-foreground">In words</p>
-            <p className="mt-1 text-[17px] font-medium leading-7">
-              <MathText text={part.plain} />
-            </p>
-            {part.note && (
-              <p className="mt-2 text-[15px] leading-6 text-muted-foreground">
-                <MathText text={part.note} />
-              </p>
-            )}
-          </div>
+          <RuleStatement part={part} />
         </div>
       );
     case "check":
@@ -338,12 +351,12 @@ function Part({
  * to it, and a question waits for an answer before moving on. Someone who has read it before
  * sees the whole lesson at once.
  */
-export function LessonReader({ lesson, onPractice }: { lesson: QuantLesson; onPractice: () => void }) {
+export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What comes after the lesson: the way into practice. */ next: ReactNode }) {
   const reduceMotion = useReducedMotion();
   const topic = QUANT_TOPICS.find((t) => t.id === lesson.topic)!;
   const free = isFreeQuantLesson(lesson.id);
   const parts = lesson.parts;
-  const done = useSyncExternalStore(subscribeRead, () => readDone(lesson.id), () => false);
+  const done = useLessonRead(lesson.id);
   const [revealed, setRevealed] = useState(1);
   const [picks, setPicks] = useState<Record<number, number>>({});
   const shown = done ? parts.length : revealed;
@@ -370,7 +383,7 @@ export function LessonReader({ lesson, onPractice }: { lesson: QuantLesson; onPr
   return (
     <article className="relative">
       {/* How far through the lesson you are. */}
-      <div className="top-0 z-10 bg-background px-5 pb-2 pt-3 sm:px-6 md:sticky md:[mask-image:linear-gradient(to_bottom,black_80%,transparent)]" aria-hidden="true">
+      <div className="sticky top-14 z-10 bg-background pb-3 pt-3 md:top-16" aria-hidden="true">
         <div className="h-1 overflow-hidden rounded-full bg-control">
           <motion.div
             className="h-full rounded-full bg-primary"
@@ -381,7 +394,7 @@ export function LessonReader({ lesson, onPractice }: { lesson: QuantLesson; onPr
         </div>
       </div>
 
-      <div className="space-y-9 px-5 pb-8 pt-3 sm:px-6">
+      <div className="space-y-9 pb-8 pt-3">
         <header>
           <p className="text-[13px] font-medium text-muted-foreground">
             Unit {topic.number} · {topic.title}
@@ -409,7 +422,7 @@ export function LessonReader({ lesson, onPractice }: { lesson: QuantLesson; onPr
             ref={(el) => {
               refs.current[i] = el;
             }}
-            className="scroll-mt-32 md:scroll-mt-12"
+            className="scroll-mt-24 md:scroll-mt-28"
             initial={reduceMotion || done ? false : { opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={runEnter}
@@ -431,20 +444,18 @@ export function LessonReader({ lesson, onPractice }: { lesson: QuantLesson; onPr
               initial={reduceMotion ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={runEnter}
-              className="flex flex-wrap items-center gap-3 border-t border-border pt-6"
+              className="space-y-3"
             >
-              <Button onClick={onPractice} className="rounded-full">
-                <Play aria-hidden="true" />
-                Practise this
-              </Button>
+              {next}
               <Button
                 variant="ghost"
+                size="sm"
                 className="rounded-full text-muted-foreground"
                 onClick={() => {
                   setDone(lesson.id, false);
                   setRevealed(1);
                   setPicks({});
-                  refs.current[0]?.closest("article")?.scrollIntoView({ block: "start" });
+                  window.scrollTo({ top: 0 });
                 }}
               >
                 <RotateCcw aria-hidden="true" />

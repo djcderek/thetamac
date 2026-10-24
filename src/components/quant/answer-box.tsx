@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent, RefObject } from "react";
+import { useEffect, type FormEvent, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { AnswerKind } from "@/lib/quant/rational";
@@ -40,6 +40,11 @@ export function AnswerBox({
   disabled: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
 }) {
+  // Ready to type, without scrolling the question out of view to reach the field.
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true });
+  }, [inputRef]);
+
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-2">
       <div className="relative">
@@ -61,7 +66,6 @@ export function AnswerBox({
           onChange={(e) => onChange(e.target.value)}
           placeholder={PLACEHOLDERS[kind]}
           className="h-14 w-full rounded-2xl bg-secondary px-10 text-center text-2xl font-semibold tabular-nums outline-none transition-shadow placeholder:text-[15px] placeholder:font-normal placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-60"
-          autoFocus
         />
         {kind === "percent" && (
           <span aria-hidden="true" className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground">

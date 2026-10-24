@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { BookOpen, ListChecks, Puzzle, Check, ChevronLeft, CircleDashed, ChevronRight, Clock, Lightbulb, List, Lock, Play, RotateCcw, X } from "lucide-react";
+import { BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, CircleDashed, Clock, Lightbulb, List, Lock, Play, Puzzle, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { runEnter, snapSpring } from "@/lib/motion";
+import { runEnter, settleSpring, snapSpring } from "@/lib/motion";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getUpgradeUrl } from "@/lib/upgrade";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -16,11 +16,13 @@ import {
   QUANT_LESSONS,
   QUANT_MASTERY_FIRST_TRY,
   QUANT_SOLO,
+  QUANT_TOPICS,
   createFamilyProblem,
   createQuantLessonProblems,
   getQuantLesson,
   isFreeQuantLesson,
   isQuantLessonMastered,
+  type LessonPart,
   type QuantLessonId,
   type QuantProblem,
 } from "@/lib/quant/lessons";
@@ -31,7 +33,7 @@ import { Walkthrough } from "@/components/quant/walkthrough";
 import { QuantFigure } from "@/components/quant/visuals";
 import { StepIcon } from "@/components/quant/step-icon";
 import { AnswerBox } from "@/components/quant/answer-box";
-import { LessonReader } from "@/components/quant/lesson-reader";
+import { LessonReader, RuleStatement, useLessonRead } from "@/components/quant/lesson-reader";
 import { recordQuantAttempt } from "@/components/quant/quant-attempts";
 import { markPuzzle, markType, usePuzzleMarks, useTypeMarks } from "@/components/quant/type-progress";
 import { MathExpr, MathText } from "@/components/quant/math";
@@ -57,62 +59,60 @@ type Run = {
   wrongTries: number;
   lastWrong: string;
   attempts: Attempt[];
-  /** Practising one question type: endless fresh questions of it, not a scored set. */
+  /** Drilling one question type: endless fresh questions of it, not a scored set. */
   single?: string;
   /** The steps were opened for this question, so it doesn't count as right first time. */
   hinted?: boolean;
   /** Solving one classic puzzle. */
   puzzle?: string;
 };
-type LeftTab = "lesson" | "questions" | "walkthrough";
 
-const noSubscribe = () => () => {};
-function readSplit() {
-  try {
-    const saved = Number(localStorage.getItem("quant-split"));
-    return saved >= 30 && saved <= 70 ? saved : 50;
-  } catch {
-    return 50;
-  }
-}
-type MobileTab = LeftTab | "practice";
+/** A lesson is read, then practised as a scored set, then drilled type by type. */
+type Stage = "learn" | "practice" | "drill";
+const STAGES: { id: Stage; label: string }[] = [
+  { id: "learn", label: "Learn" },
+  { id: "practice", label: "Practise" },
+  { id: "drill", label: "Drill" },
+];
 
 // ─── Small pieces ────────────────────────────────────────────────────────────────────────
 
-function Tabs<T extends string>({ tabs, value, onChange, id }: { tabs: { id: T; label: string; icon: ReactNode }[]; value: T; onChange: (tab: T) => void; id: string }) {
+/** The three steps of a lesson, in order, each ticked once it's done. */
+function StageBar({ stage, onChange, done, locked }: { stage: Stage; onChange: (stage: Stage) => void; done: Record<Stage, boolean>; locked: boolean }) {
   return (
-    <div role="tablist" className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={value === tab.id}
-          onClick={() => onChange(tab.id)}
-          className={cn(
-            "relative isolate flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium transition-colors sm:px-3.5",
-            value === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {value === tab.id && (
-            <motion.span layoutId={`${id}-tab`} transition={snapSpring} aria-hidden="true" className="absolute inset-0 -z-10 rounded-full bg-control" />
-          )}
-          {/* Phones show four tabs, so labels only. */}
-          <span className="max-sm:hidden">{tab.icon}</span>
-          {tab.label}
-        </button>
+    <nav aria-label="Lesson steps" className="flex items-center">
+      {STAGES.map((s, i) => (
+        <div key={s.id} className="flex items-center">
+          {i > 0 && <span aria-hidden="true" className="mx-0.5 h-px w-3 bg-border sm:mx-1 sm:w-5" />}
+          <button
+            type="button"
+            onClick={() => onChange(s.id)}
+            aria-current={stage === s.id ? "step" : undefined}
+            className={cn(
+              "relative isolate flex h-9 items-center gap-2 rounded-full pl-1.5 pr-3.5 text-[14px] font-medium transition-colors",
+              stage === s.id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {stage === s.id && <motion.span layoutId="stage-pill" transition={snapSpring} aria-hidden="true" className="absolute inset-0 -z-10 rounded-full bg-control" />}
+            <span
+              className={cn(
+                "grid size-6 place-items-center rounded-full text-[12px] font-semibold tabular-nums transition-colors duration-300",
+                done[s.id] ? "bg-success text-background" : stage === s.id ? "bg-foreground text-background" : "bg-control text-muted-foreground",
+              )}
+            >
+              {done[s.id] ? (
+                <Check aria-label="Done" className="size-3.5" strokeWidth={3} />
+              ) : locked && s.id !== "learn" ? (
+                <Lock aria-label="Pro" className="size-3" />
+              ) : (
+                i + 1
+              )}
+            </span>
+            {s.label}
+          </button>
+        </div>
       ))}
-    </div>
-  );
-}
-
-function Pane({ header, children, className, style }: { header: ReactNode; children: ReactNode; className?: string; style?: CSSProperties }) {
-  return (
-    <section style={style} className={cn("flex min-h-0 flex-col overflow-hidden rounded-[20px] border border-border bg-background", className)}>
-      {/* Phones use the shared tab bar above the panes instead of each pane's header. */}
-      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2 max-md:hidden">{header}</div>
-      <div className="min-h-0 flex-1 md:overflow-y-auto">{children}</div>
-    </section>
+    </nav>
   );
 }
 
@@ -131,19 +131,90 @@ function HintStep({ step, hideResult }: { step: QuantProblem["steps"][number]; h
   );
 }
 
-// ─── The workspace ───────────────────────────────────────────────────────────────────────
+function StageHeader({ eyebrow, title, children }: { eyebrow: string; title: string; children?: ReactNode }) {
+  return (
+    <header>
+      <p className="text-[13px] font-medium text-muted-foreground">{eyebrow}</p>
+      <h1 className="mt-1.5 text-[28px] font-semibold leading-tight tracking-[-0.03em]">{title}</h1>
+      {children && <div className="mt-2 text-[17px] leading-7 text-muted-foreground">{children}</div>}
+    </header>
+  );
+}
+
+/** The lesson's rule beside the questions, so the method is in view while using it. */
+function RuleAside({ rule, onReread }: { rule: Extract<LessonPart, { type: "rule" }> | undefined; onReread: () => void }) {
+  return (
+    <div className="space-y-3">
+      {rule && (
+        <>
+          <p className="px-1 text-[13px] font-medium text-muted-foreground">From the lesson</p>
+          <p className="px-1 text-[17px] font-semibold tracking-[-0.01em]">{rule.name}</p>
+          <RuleStatement part={rule} compact />
+        </>
+      )}
+      <Button variant="ghost" size="sm" onClick={onReread} className="text-muted-foreground">
+        <BookOpen aria-hidden="true" />
+        Reread the lesson
+      </Button>
+    </div>
+  );
+}
+
+/** On a phone the rule folds away above the question. */
+function RuleFold({ rule, onReread }: { rule: Extract<LessonPart, { type: "rule" }> | undefined; onReread: () => void }) {
+  const reduceMotion = useReducedMotion();
+  const [open, setOpen] = useState(false);
+  if (!rule) return null;
+  return (
+    <div className="rounded-[18px] bg-secondary md:hidden">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+        <span className="min-w-0">
+          <span className="block text-[12px] font-medium text-muted-foreground">From the lesson</span>
+          <span className="block truncate text-[15px] font-semibold">{rule.name}</span>
+        </span>
+        <ChevronDown aria-hidden="true" className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-300", open && "rotate-180")} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={settleSpring}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 px-3 pb-3">
+              <RuleStatement part={rule} compact />
+              <Button variant="ghost" size="sm" onClick={onReread} className="text-muted-foreground">
+                <BookOpen aria-hidden="true" />
+                Reread the lesson
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── The lesson ──────────────────────────────────────────────────────────────────────────
 
 /**
- * A lesson as a two-pane workspace, like a coding problem page: the lesson and walkthroughs
- * on the left, practice on the right with a result console. Phones switch between them with tabs.
+ * A lesson in three steps. Learn: read it, a section at a time. Practise: a scored set, the
+ * first questions guided, with the rule kept beside them. Drill: any question type or puzzle
+ * on its own. Each step leads into the next, and the steps are in the URL (?step=) so Back works.
  */
 export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
   const lesson = getQuantLesson(lessonId)!;
   const reduceMotion = useReducedMotion();
   const { lessons, setLessons, locked, signedIn } = useQuantProgress();
   const typeMarks = useTypeMarks(lessonId);
-  const initialPuzzle = useSearchParams().get("puzzle");
   const puzzleMarks = usePuzzleMarks();
+  const read = useLessonRead(lessonId);
+  const params = useSearchParams();
+  const initialPuzzle = params.get("puzzle");
+  const step = params.get("step");
+  const stage: Stage = step === "practice" || step === "drill" ? step : initialPuzzle ? "drill" : "learn";
   // One sample prompt per type, the same on every render (a fixed seed).
   const [familySamples] = useState(() =>
     lesson.families.map((family, i) => {
@@ -153,15 +224,17 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     }),
   );
   const lessonLocked = locked && !isFreeQuantLesson(lesson.id);
+  const topic = QUANT_TOPICS.find((t) => t.id === lesson.topic)!;
+  const rule = lesson.parts.find((p): p is Extract<LessonPart, { type: "rule" }> => p.type === "rule");
   const position = QUANT_LESSONS.indexOf(lesson);
   const previous = QUANT_LESSONS[position - 1] ?? null;
   const next = QUANT_LESSONS[position + 1] ?? null;
 
-  const [leftTab, setLeftTab] = useState<LeftTab>("lesson");
-  const [mobileTab, setMobileTab] = useState<MobileTab>("lesson");
   const [run, setRun] = useState<Run | null>(null);
   const [finished, setFinished] = useState<{ attempts: Attempt[]; mastered: boolean; newlyMastered: boolean; average: number | null } | null>(null);
-  const [reviewIndex, setReviewIndex] = useState(0);
+  // The question whose solution is open, by key; a missed question opens its own.
+  const [solutionFor, setSolutionFor] = useState<string | null>(null);
+  const [openResult, setOpenResult] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [now, setNow] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -169,12 +242,6 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
   // The same start time as state, for the on-screen timer.
   const [questionStart, setQuestionStart] = useState(0);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // The split between the panes on desktop, remembered per browser (50/50 until read).
-  const savedSplit = useSyncExternalStore(noSubscribe, readSplit, () => 50);
-  const [dragSplit, setSplit] = useState<number | null>(null);
-  const split = dragSplit ?? savedSplit;
-  const panes = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
@@ -187,6 +254,15 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     return () => clearInterval(timer);
   }, [run?.phase, run?.index]);
 
+  const goTo = useCallback(
+    (to: Stage) => {
+      if (to === stage && !initialPuzzle) return;
+      // Next.js keeps useSearchParams in step with pushState, and Back returns to the last step.
+      window.history.pushState(null, "", to === "learn" ? `/quant/${lesson.id}` : `/quant/${lesson.id}?step=${to}`);
+      window.scrollTo({ top: 0, behavior: "instant" });
+    },
+    [stage, initialPuzzle, lesson.id],
+  );
 
   const reloadProgress = useCallback(() => {
     fetch("/api/lessons/progress", { cache: "no-store" })
@@ -195,41 +271,29 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
       .catch(() => {});
   }, [setLessons]);
 
-  const start = (single?: string) => {
+  const begin = (problems: QuantProblem[], extra: Pick<Run, "single" | "puzzle">) => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    const problems = single ? [createFamilyProblem(lesson, single)] : createQuantLessonProblems(lesson);
-    setRun({
-      problems,
-      index: 0,
-      phase: "answering",
-      wrongTries: 0,
-      lastWrong: "",
-      attempts: problems.map((problem) => ({ problem, result: null, firstTry: false, seconds: null })),
-      single,
-    });
+    setRun({ problems, index: 0, phase: "answering", wrongTries: 0, lastWrong: "", attempts: problems.map((problem) => ({ problem, result: null, firstTry: false, seconds: null })), ...extra });
     setFinished(null);
+    setSolutionFor(null);
+    setOpenResult(null);
     setInput("");
-    setReviewIndex(0);
-    setMobileTab("practice");
     shownAt.current = performance.now();
     setQuestionStart(shownAt.current);
     setNow(shownAt.current);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
+
+  const start = (single?: string) => {
+    begin(single ? [createFamilyProblem(lesson, single)] : createQuantLessonProblems(lesson), { single });
+    goTo(single ? "drill" : "practice");
     captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonStarted, { lesson_id: lesson.id, topic: lesson.topic, signed_in: signedIn });
   };
 
   const startPuzzle = (puzzleId: string) => {
     const puzzle = lesson.puzzles.find((p) => p.id === puzzleId);
     if (!puzzle) return;
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    const problem = { ...puzzle.problem, family: `puzzle:${puzzle.id}` };
-    setRun({ problems: [problem], index: 0, phase: "answering", wrongTries: 0, lastWrong: "", attempts: [{ problem, result: null, firstTry: false, seconds: null }], puzzle: puzzle.id });
-    setFinished(null);
-    setInput("");
-    setReviewIndex(0);
-    setMobileTab("practice");
-    shownAt.current = performance.now();
-    setQuestionStart(shownAt.current);
-    setNow(shownAt.current);
+    begin([{ ...puzzle.problem, family: `puzzle:${puzzle.id}` }], { puzzle: puzzle.id });
   };
 
   // A link to a puzzle (from the Puzzles page) opens straight into it.
@@ -252,6 +316,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     const wasMastered = !!lessons?.progress[lesson.id]?.mastered;
     setFinished({ attempts: done.attempts, mastered: mastered || wasMastered, newlyMastered: mastered && !wasMastered, average });
     setRun(null);
+    setSolutionFor(null);
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "instant" : "smooth" });
     captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonCompleted, { lesson_id: lesson.id, topic: lesson.topic, solo_first_try: soloFirstTry, mastered, signed_in: signedIn });
     if (signedIn) {
       fetch("/api/lessons/progress", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lessonId: lesson.id, ...result }) })
@@ -262,7 +328,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
 
   const advance = (current: Run) => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    // A puzzle: on to the lesson's next puzzle, or back to the start when it's the last.
+    setSolutionFor(null);
+    // A puzzle: on to the lesson's next puzzle, or back to the list when it's the last.
     if (current.puzzle) {
       const at = lesson.puzzles.findIndex((p) => p.id === current.puzzle);
       const nextPuzzle = lesson.puzzles[at + 1];
@@ -287,7 +354,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     shownAt.current = performance.now();
     setQuestionStart(shownAt.current);
     setNow(shownAt.current);
-    requestAnimationFrame(() => inputRef.current?.focus());
+    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
   };
 
   const record = (current: Run, result: "right" | "missed"): Run => {
@@ -301,21 +368,27 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     const reviewFamily = current.puzzle ? `puzzle:${current.puzzle}` : family;
     if (signedIn && !isGuided && reviewFamily) recordQuantAttempt({ lessonId: lesson.id, family: reviewFamily, correct: clean, seconds });
     const attempts = current.attempts.map((a, i) => (i === current.index ? { ...a, result, firstTry: clean, seconds } : a));
+    if (result === "missed") setSolutionFor(current.problems[current.index].key);
     return { ...current, attempts, phase: result };
   };
 
   const markRight = (current: Run) => {
     const next = record(current, "right");
     setRun(next);
-    setReviewIndex(current.index);
-    // A set moves on by itself; one type waits, so the walkthrough can be read.
+    // A set moves on by itself; a drill waits, so the working can be read.
     if (!current.single && !current.puzzle) advanceTimer.current = setTimeout(() => advance(next), RIGHT_PAUSE_MS);
   };
 
   const reveal = () => {
     if (!run || run.phase !== "answering") return;
     setRun(record(run, "missed"));
-    setReviewIndex(run.index);
+  };
+
+  const openSolution = () => {
+    if (!run) return;
+    // Reading the working holds the set on this question until Next.
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    setSolutionFor(run.problems[run.index].key);
   };
 
   const changeInput = (value: string) => {
@@ -332,7 +405,6 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     const wrongTries = run.wrongTries + 1;
     if (wrongTries >= WRONG_TRIES) {
       setRun(record({ ...run, wrongTries, lastWrong: input }, "missed"));
-      setReviewIndex(run.index);
     } else {
       setRun({ ...run, wrongTries, lastWrong: input });
       inputRef.current?.select();
@@ -342,188 +414,25 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
   const nextPuzzleLabel = (puzzleId: string) =>
     lesson.puzzles.findIndex((p) => p.id === puzzleId) + 1 < lesson.puzzles.length ? "Next puzzle" : "Done";
 
-  const openWalkthrough = (index: number) => {
-    setReviewIndex(index);
-    setLeftTab("walkthrough");
-    setMobileTab("walkthrough");
-  };
-
-  const startDrag = (event: React.PointerEvent) => {
-    const box = panes.current?.getBoundingClientRect();
-    if (!box) return;
-    (event.target as HTMLElement).setPointerCapture(event.pointerId);
-    const move = (e: PointerEvent) => setSplit(Math.min(70, Math.max(30, ((e.clientX - box.left) / box.width) * 100)));
-    const up = (e: PointerEvent) => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      try {
-        localStorage.setItem("quant-split", String(Math.round(Math.min(70, Math.max(30, ((e.clientX - box.left) / box.width) * 100)))));
-      } catch {}
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  };
-
-  // The questions you can review: answered ones in this run, or all of the finished one.
-  const attempts = run?.attempts ?? finished?.attempts ?? [];
-  const reviewable = attempts.map((a, i) => ({ ...a, i })).filter((a) => a.result !== null);
-  const reviewing = reviewable.find((a) => a.i === reviewIndex) ?? reviewable.at(-1) ?? null;
-
-  // ── Left pane: lesson / walkthrough ──
-  const walkthroughBody = (
-    <div className="px-5 py-6 sm:px-6">
-      {reviewing ? (
-        <div className="space-y-5">
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Question">
-            {reviewable.map((a) => (
-              <button
-                key={a.i}
-                type="button"
-                onClick={() => setReviewIndex(a.i)}
-                aria-pressed={a.i === reviewing.i}
-                className={cn(
-                  "grid size-9 place-items-center rounded-full text-[14px] font-semibold tabular-nums transition-colors",
-                  a.i === reviewing.i ? "bg-foreground text-background" : "bg-control hover:bg-control-hover",
-                  a.i !== reviewing.i && (a.result === "right" ? "text-success" : "text-destructive"),
-                )}
-              >
-                {a.i + 1}
-              </button>
-            ))}
-          </div>
-          <p className="text-[17px] leading-7">
-            <MathText text={reviewing.problem.prompt} />
-          </p>
-          <Walkthrough key={reviewing.problem.key} problem={reviewing.problem} startWithAll={reviewing.result === "missed"} />
-        </div>
-      ) : (
-        <div className="grid place-items-center gap-3 px-4 py-16 text-center">
-          <StepIcon name="idea" />
-          <p className="text-[17px] font-semibold">Solutions show up here</p>
-          <p className="max-w-xs text-[15px] leading-6 text-muted-foreground">
-            Answer a practice question, or show its answer, to see it worked out step by step.
-          </p>
-          {!run && !lessonLocked && (
-            <Button variant="secondary" onClick={() => start()} className="mt-2">
-              Start practice
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  // ── Left pane: the lesson's question types, each practisable on its own ──
-  const questionsBody = (
-    <div className="space-y-4 px-5 py-6 sm:px-6">
-      <div>
-        <p className="text-[19px] font-semibold tracking-tight">Question types</p>
-        <p className="mt-1 text-[15px] leading-6 text-muted-foreground">
-          {lesson.families.length} kinds of question in this lesson. Practise any one on its own, with new numbers every time.
-        </p>
-      </div>
-      <ol className="space-y-1.5">
-        {lesson.families.map((family, index) => {
-          const mark = typeMarks[family.id];
-          const active = run?.single === family.id;
-          return (
-            <li key={family.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (lessonLocked) {
-                    setMobileTab("practice");
-                    return;
-                  }
-                  start(family.id);
-                }}
-                className={cn(
-                  "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
-                  active ? "bg-secondary" : index % 2 === 0 ? "bg-secondary/60 hover:bg-control-hover" : "hover:bg-control-hover",
-                )}
-              >
-                <span className="grid size-7 shrink-0 place-items-center">
-                  {mark === "solved" ? (
-                    <Check aria-label="Solved" className="h-4 w-4 text-success" strokeWidth={2.5} />
-                  ) : mark === "tried" ? (
-                    <CircleDashed aria-label="Tried" className="h-4 w-4 text-warning" />
-                  ) : (
-                    <span className="text-[13px] font-semibold tabular-nums text-muted-foreground">{index + 1}</span>
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-medium">{family.title}</span>
-                  <span className="block truncate text-[13px] text-muted-foreground">{familySamples[index]}</span>
-                </span>
-                <span className="shrink-0 text-[13px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-                  {lessonLocked ? <Lock aria-label="Pro" className="h-3.5 w-3.5" /> : active ? "Practising" : "Practise"}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-      {lesson.puzzles.length > 0 && (
-        <div className="space-y-3 pt-4">
-          <div>
-            <p className="text-[19px] font-semibold tracking-tight">Puzzles</p>
-            <p className="mt-1 text-[15px] leading-6 text-muted-foreground">Classic one-off questions this lesson&apos;s method solves.</p>
-          </div>
-          <ol className="space-y-1.5">
-            {lesson.puzzles.map((puzzle, index) => {
-              const mark = puzzleMarks[puzzle.id];
-              const active = run?.puzzle === puzzle.id;
-              return (
-                <li key={puzzle.id}>
-                  <button
-                    type="button"
-                    onClick={() => (lessonLocked ? setMobileTab("practice") : startPuzzle(puzzle.id))}
-                    className={cn(
-                      "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
-                      active ? "bg-secondary" : index % 2 === 0 ? "bg-secondary/60 hover:bg-control-hover" : "hover:bg-control-hover",
-                    )}
-                  >
-                    <span className="grid size-7 shrink-0 place-items-center">
-                      {mark === "solved" ? (
-                        <Check aria-label="Solved" className="h-4 w-4 text-success" strokeWidth={2.5} />
-                      ) : mark === "tried" ? (
-                        <CircleDashed aria-label="Tried" className="h-4 w-4 text-warning" />
-                      ) : (
-                        <Puzzle aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[15px] font-medium">{puzzle.title}</span>
-                      <span className="block truncate text-[13px] text-muted-foreground">{puzzle.problem.prompt}</span>
-                    </span>
-                    <span className="shrink-0 text-[13px]">
-                      {lessonLocked ? <Lock aria-label="Pro" className="h-3.5 w-3.5 text-muted-foreground" /> : <DifficultyLabel difficulty={puzzle.difficulty} />}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      )}
-    </div>
-  );
-
-  // ── Right pane: practice ──
   const saved = lessons?.progress[lesson.id];
-  const problem = run ? run.problems[run.index] : null;
-  // Only a scored set guides its first questions; one type or a puzzle shows steps on request.
-  const guided = run ? !run.single && !run.puzzle && run.index < QUANT_GUIDED : false;
-  const seconds = run && run.phase === "answering" ? Math.max(0, Math.floor((now - questionStart) / 1000)) : null;
+  const typesSolved = lesson.families.filter((f) => typeMarks[f.id] === "solved").length;
+  const done: Record<Stage, boolean> = {
+    learn: read,
+    practice: !!saved?.mastered,
+    drill: typesSolved === lesson.families.length,
+  };
+  const practiceRun = run && !run.single && !run.puzzle ? run : null;
+  const drillRun = run && (run.single || run.puzzle) ? run : null;
 
-  const practiceBody = lessonLocked ? (
-    <div className="grid place-items-center gap-3 px-6 py-16 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-control">
+  // ── The upgrade panel, where practice would be ──
+  const lockedPanel = (
+    <div className="grid place-items-center gap-3 rounded-[22px] bg-secondary px-6 py-12 text-center">
+      <span className="grid size-12 place-items-center rounded-full bg-background">
         <Lock aria-hidden="true" className="h-5 w-5" />
       </span>
       <p className="text-[19px] font-semibold tracking-tight">Practice is part of Pro</p>
       <p className="max-w-sm text-[15px] leading-6 text-muted-foreground">
-        The lesson and its worked example are open to everyone. Pro opens practice for all {QUANT_LESSONS.length} lessons.
+        Every lesson is open to read. Pro opens practice and drills for all {QUANT_LESSONS.length} lessons.
       </p>
       <Link
         href={getUpgradeUrl({ feature: "quant", source: "quant_lesson" })}
@@ -534,9 +443,214 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
         Unlock with Pro
       </Link>
     </div>
+  );
+
+  // ── Learn: the lesson, ending in the way into practice ──
+  const setSize = QUANT_GUIDED + QUANT_SOLO;
+  const learnNext = lessonLocked ? (
+    lockedPanel
+  ) : (
+    <div className="rounded-[22px] bg-secondary p-5 sm:p-6">
+      <p className="text-[13px] font-medium text-muted-foreground">Next · Practise</p>
+      <p className="mt-1 text-[19px] font-semibold tracking-[-0.015em]">Try it on {setSize} questions</p>
+      <p className="mt-1 text-[15px] leading-6 text-muted-foreground">
+        The first {QUANT_GUIDED} walk you through the steps. The other {QUANT_SOLO} are on your own, with the rule beside them.
+      </p>
+      <Button variant="brand" size="lg" onClick={() => start()} className="mt-4 w-full sm:w-auto">
+        <Play aria-hidden="true" className="h-4 w-4 fill-current" />
+        Start practice
+      </Button>
+    </div>
+  );
+
+  // ── A question being answered: the same card for the set, a drill and a puzzle ──
+  const problem = run ? run.problems[run.index] : null;
+  // Only the set guides its first questions; a drill or a puzzle shows the steps on request.
+  const guided = run ? !run.single && !run.puzzle && run.index < QUANT_GUIDED : false;
+  const seconds = run && run.phase === "answering" ? Math.max(0, Math.floor((now - questionStart) / 1000)) : null;
+  const solutionOpen = !!problem && solutionFor === problem.key;
+
+  const runner = run && problem && (
+    <section className="overflow-clip rounded-[20px] border border-border bg-background">
+      <div className="space-y-5 px-5 py-6 sm:px-6">
+        <div className="flex min-h-8 items-center justify-between gap-3">
+          {run.single || run.puzzle ? (
+            <p className="min-w-0 truncate text-[13px] font-medium text-muted-foreground">
+              {run.puzzle ? `Puzzle · ${lesson.puzzles.find((p) => p.id === run.puzzle)?.title}` : `Drill · ${lesson.families.find((f) => f.id === run.single)?.title}`}
+            </p>
+          ) : (
+            // Where you are in the set: done ones in their result colour, the current one in ink.
+            <div className="flex flex-wrap gap-1.5" aria-label={`Question ${run.index + 1} of ${run.problems.length}`}>
+              {run.attempts.map((a, i) => (
+                <span
+                  key={a.problem.key}
+                  className={cn(
+                    "grid size-8 place-items-center rounded-full text-[13px] font-semibold tabular-nums transition-colors duration-300",
+                    i === run.index ? "bg-foreground text-background" : a.result === "right" ? "bg-success/15 text-success" : a.result === "missed" ? "bg-destructive/15 text-destructive" : "bg-control text-muted-foreground",
+                  )}
+                >
+                  {i + 1}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {seconds !== null && (
+              <span className="flex items-center gap-1 px-1 text-[14px] tabular-nums text-muted-foreground">
+                <Clock aria-hidden="true" className="h-3.5 w-3.5" />
+                {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
+              </span>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => { if (advanceTimer.current) clearTimeout(advanceTimer.current); setRun(null); }} className="text-muted-foreground">
+              {run.single || run.puzzle ? (
+                <>
+                  <List aria-hidden="true" />
+                  All
+                </>
+              ) : (
+                <>
+                  <span aria-hidden="true" className="size-2.5 rounded-[2px] bg-current" />
+                  Stop
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={problem.key} initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={runEnter} className="space-y-5">
+            {run.single || run.puzzle ? (
+              !run.hinted &&
+              run.phase === "answering" && (
+                <Button variant="ghost" size="sm" onClick={() => setRun({ ...run, hinted: true })} className="-ml-2 -mt-2 text-muted-foreground">
+                  <Lightbulb aria-hidden="true" />
+                  Show the steps
+                </Button>
+              )
+            ) : (
+              <p className="text-[13px] font-medium text-muted-foreground">{guided ? "Guided · the steps are shown" : "On your own"}</p>
+            )}
+            <p data-problem className="text-[19px] leading-8">
+              <MathText text={problem.prompt} />
+            </p>
+            {problem.visual && (
+              <div className="rounded-[18px] bg-secondary px-3 py-4">
+                <QuantFigure visual={problem.visual} />
+              </div>
+            )}
+            {(guided || run.hinted) && !solutionOpen && (
+              <ol aria-label="Steps" className="space-y-3 rounded-[18px] border border-border px-4 py-4">
+                {problem.steps.map((s, i) => (
+                  <HintStep key={i} step={s} hideResult={i === problem.steps.length - 1 && run.phase === "answering"} />
+                ))}
+              </ol>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        <AnswerBox kind={problem.kind} value={input} onChange={changeInput} onSubmit={submit} disabled={run.phase !== "answering"} inputRef={inputRef} />
+
+        {/* The solution opens in place, under the answer. */}
+        <AnimatePresence initial={false}>
+          {solutionOpen && (
+            <motion.div
+              key={problem.key}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0, transition: { duration: 0.12 } }}
+              transition={settleSpring}
+              className="overflow-hidden"
+            >
+              <div className="space-y-4 border-t border-border pt-5">
+                <p className="text-[13px] font-medium text-muted-foreground">Solution</p>
+                <Walkthrough problem={problem} startWithAll={run.phase === "missed"} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* The result console, as on a coding judge. It stays in view at the bottom of the screen. */}
+      <div className="sticky bottom-0 border-t border-border bg-background px-5 py-4 sm:px-6" role="status">
+        {run.phase === "answering" ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className={cn("text-[14px] leading-5", run.wrongTries > 0 ? "font-medium text-destructive" : "text-muted-foreground")}>
+              {run.wrongTries > 0 ? `${run.lastWrong} isn’t right. One more try.` : `Answer as ${ANSWER_HINTS[problem.kind]}. Right answers go through as you type.`}
+            </p>
+            <Button variant="ghost" size="sm" onClick={reveal} className="shrink-0 text-muted-foreground">
+              Show answer
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className={cn("text-[17px] font-semibold", run.phase === "right" ? "text-success" : "text-destructive")}>
+                {run.phase === "right" ? "Correct" : run.lastWrong ? "Wrong answer" : "Answer shown"}
+              </p>
+              <p className="text-[14px] tabular-nums text-muted-foreground">
+                {run.phase === "right" ? (
+                  <>
+                    {formatAnswer(problem.answer, problem.kind)} · {run.attempts[run.index].seconds?.toFixed(1)}s
+                  </>
+                ) : (
+                  <>
+                    {run.lastWrong && <>You entered {run.lastWrong}. </>}Expected {formatAnswer(problem.answer, problem.kind)}.
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {!solutionOpen && (
+                <Button variant="secondary" size="sm" onClick={openSolution}>
+                  <Lightbulb aria-hidden="true" />
+                  Solution
+                </Button>
+              )}
+              {(run.phase === "missed" || run.single || run.puzzle || solutionOpen) && (
+                <Button size="sm" onClick={() => advance(run)} autoFocus>
+                  {run.puzzle ? nextPuzzleLabel(run.puzzle) : run.single ? "Another one" : run.index + 1 >= run.problems.length ? "Finish" : "Next"}
+                  <ChevronRight aria-hidden="true" />
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  // The question with the rule beside it (desktop) or folded above it (phone).
+  const withRule = (body: ReactNode) => (
+    <div className="mx-auto w-full max-w-[1040px] md:grid md:grid-cols-[minmax(0,1fr)_300px] md:gap-8">
+      <div className="min-w-0 space-y-3">
+        <RuleFold rule={rule} onReread={() => goTo("learn")} />
+        {body}
+      </div>
+      <aside className="max-md:hidden">
+        <div className="sticky top-24">
+          <RuleAside rule={rule} onReread={() => goTo("learn")} />
+        </div>
+      </aside>
+    </div>
+  );
+
+  // ── Practise: the set's intro, the set, or how it went ──
+  const missedTypes = finished
+    ? [...new Set(finished.attempts.filter((a) => !a.firstTry && a.problem.family).map((a) => a.problem.family!))]
+        .map((id) => lesson.families.find((f) => f.id === id))
+        .filter((f): f is NonNullable<typeof f> => !!f)
+    : [];
+
+  const practiceStage = lessonLocked ? (
+    <div className="mx-auto max-w-[680px] space-y-6">
+      <StageHeader eyebrow={lesson.title} title="Practise" />
+      {lockedPanel}
+    </div>
+  ) : practiceRun ? (
+    withRule(runner)
   ) : finished ? (
-    <div className="space-y-6 px-5 py-6 sm:px-6">
-      <div className="text-center">
+    <div className="mx-auto max-w-[680px] space-y-6">
+      <div className="pt-2 text-center">
         {finished.newlyMastered && (
           <motion.div
             initial={{ scale: 0.4, opacity: 0 }}
@@ -566,19 +680,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
           <dd className="font-semibold tabular-nums">{finished.average === null ? "–" : `${finished.average.toFixed(1)}s`}</dd>
         </div>
       </dl>
-      <ol className="space-y-1.5">
-        {finished.attempts.map((a, i) => (
-          <li key={a.problem.key}>
-            <button type="button" onClick={() => openWalkthrough(i)} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-control-hover">
-              <span className={cn("grid size-7 shrink-0 place-items-center rounded-full", a.result === "right" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
-                {a.result === "right" ? <Check aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} /> : <X aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[15px]">{a.problem.prompt}</span>
-              <span className="shrink-0 text-[13px] text-muted-foreground">Solution</span>
-            </button>
-          </li>
-        ))}
-      </ol>
+
       <div className="space-y-2">
         {next && finished.mastered && !(locked && !isFreeQuantLesson(next.id)) ? (
           <Link href={`/quant/${next.id}`} className={cn(buttonVariants({ variant: "brand", size: "lg" }), "w-full")}>
@@ -599,228 +701,242 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
         )}
         {!signedIn && (
           <p className="pt-1 text-center text-[15px] text-muted-foreground">
-            <Link href={`/auth/signin?callbackUrl=${encodeURIComponent(`/quant/${lesson.id}`)}`} className="font-medium text-foreground underline underline-offset-4">
+            <Link href={`/auth/signin?callbackUrl=${encodeURIComponent(`/quant/${lesson.id}?step=practice`)}`} className="font-medium text-foreground underline underline-offset-4">
               Sign in
             </Link>{" "}
             to save your progress.
           </p>
         )}
       </div>
-    </div>
-  ) : run && problem ? (
-    <div className="flex min-h-full flex-col">
-      <div className="flex-1 space-y-5 px-5 py-6 sm:px-6">
-        {/* Question navigator: done ones in their result colour, the current one in ink. */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5" aria-label={run.single ? `Question ${run.index + 1}` : `Question ${run.index + 1} of ${run.problems.length}`}>
-            {run.attempts.map((a, i) => (run.single && i < run.attempts.length - 8 ? null : (
-              <span
-                key={a.problem.key}
-                className={cn(
-                  "grid size-8 place-items-center rounded-full text-[13px] font-semibold tabular-nums",
-                  i === run.index ? "bg-foreground text-background" : a.result === "right" ? "bg-success/15 text-success" : a.result === "missed" ? "bg-destructive/15 text-destructive" : "bg-control text-muted-foreground",
-                )}
-              >
-                {i + 1}
-              </span>
-            )))}
-          </div>
-          {seconds !== null && (
-            <span className="flex shrink-0 items-center gap-1 text-[14px] tabular-nums text-muted-foreground">
-              <Clock aria-hidden="true" className="h-3.5 w-3.5" />
-              {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
-            </span>
-          )}
-        </div>
 
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={problem.key} initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={runEnter} className="space-y-5">
-            {run.single || run.puzzle ? (
-              <div className="flex items-center justify-between gap-3">
-                <p className="min-w-0 truncate text-[13px] font-medium text-muted-foreground">
-                  {run.puzzle
-                    ? `Puzzle · ${lesson.puzzles.find((p) => p.id === run.puzzle)?.title}`
-                    : `Practising · ${lesson.families.find((f) => f.id === run.single)?.title}`}
-                </p>
-                {!run.hinted && run.phase === "answering" && (
-                  <Button variant="ghost" size="sm" onClick={() => setRun({ ...run, hinted: true })} className="shrink-0 text-muted-foreground">
-                    <Lightbulb aria-hidden="true" />
-                    Show the steps
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <p className="text-[13px] font-medium text-muted-foreground">{guided ? "Guided · the steps are shown" : "On your own"}</p>
-            )}
-            <p data-problem className="text-[19px] leading-8">
-              <MathText text={problem.prompt} />
-            </p>
-            {problem.visual && (
-              <div className="rounded-[18px] bg-secondary px-3 py-4">
-                <QuantFigure visual={problem.visual} />
-              </div>
-            )}
-            {(guided || run.hinted) && (
-              <ol aria-label="Steps" className="space-y-3 rounded-[18px] border border-border px-4 py-4">
-                {problem.steps.map((step, i) => (
-                  <HintStep key={i} step={step} hideResult={i === problem.steps.length - 1 && run.phase === "answering"} />
-                ))}
-              </ol>
-            )}
-          </motion.div>
-        </AnimatePresence>
-
-        <AnswerBox kind={problem.kind} value={input} onChange={changeInput} onSubmit={submit} disabled={run.phase !== "answering"} inputRef={inputRef} />
-      </div>
-
-      {/* The result console, as on a coding judge. */}
-      <div className="sticky bottom-0 border-t border-border bg-background px-5 py-4 sm:px-6" role="status">
-        {run.phase === "right" ? (
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[17px] font-semibold text-success">Accepted</p>
-              <p className="text-[14px] tabular-nums text-muted-foreground">
-                {formatAnswer(problem.answer, problem.kind)} · {run.attempts[run.index].seconds?.toFixed(1)}s
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={() => openWalkthrough(run.index)}>
-                Solution
-              </Button>
-              {(run.single || run.puzzle) && (
-                <Button size="sm" onClick={() => advance(run)} autoFocus>
-                  {run.puzzle ? nextPuzzleLabel(run.puzzle) : "Another one"}
-                  <ChevronRight aria-hidden="true" />
-                </Button>
-              )}
-            </div>
-          </div>
-        ) : run.phase === "missed" ? (
-          <div className="space-y-3">
-            <div>
-              <p className="text-[17px] font-semibold text-destructive">{run.lastWrong ? "Wrong answer" : "Answer shown"}</p>
-              <p className="text-[14px] tabular-nums text-muted-foreground">
-                {run.lastWrong && <>You entered {run.lastWrong}. </>}Expected {formatAnswer(problem.answer, problem.kind)}.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => openWalkthrough(run.index)} className="flex-1">
-                See the solution
-              </Button>
-              <Button onClick={() => advance(run)} autoFocus className="flex-1">
-                {run.puzzle ? nextPuzzleLabel(run.puzzle) : run.single ? "Another one" : run.index + 1 >= run.problems.length ? "Finish" : "Next question"}
+      {/* What to do about the misses: drill those types. */}
+      {missedTypes.length > 0 && (
+        <div className="space-y-2">
+          <p className="px-1 text-[15px] font-semibold">Drill what you missed</p>
+          <div className="flex flex-wrap gap-2">
+            {missedTypes.map((family) => (
+              <Button key={family.id} variant="secondary" size="sm" onClick={() => start(family.id)}>
+                {family.title}
                 <ChevronRight aria-hidden="true" />
               </Button>
-            </div>
+            ))}
           </div>
-        ) : (
-          <div className="flex items-center justify-between gap-3">
-            <p className={cn("text-[14px] leading-5", run.wrongTries > 0 ? "font-medium text-destructive" : "text-muted-foreground")}>
-              {run.wrongTries > 0 ? `${run.lastWrong} isn't right. One more try.` : `Answer as ${ANSWER_HINTS[problem.kind]}. Right answers go through as you type.`}
-            </p>
-            <Button variant="ghost" size="sm" onClick={reveal} className="shrink-0 text-muted-foreground">
-              Show answer
-            </Button>
-          </div>
-        )}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <p className="px-1 text-[15px] font-semibold">Your answers</p>
+        <ol className="space-y-1.5">
+          {finished.attempts.map((a, i) => (
+            <li key={a.problem.key} className={cn("rounded-2xl transition-colors", openResult === i && "bg-secondary")}>
+              <button
+                type="button"
+                onClick={() => setOpenResult(openResult === i ? null : i)}
+                aria-expanded={openResult === i}
+                className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-control-hover"
+              >
+                <span className={cn("grid size-7 shrink-0 place-items-center rounded-full", a.result === "right" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
+                  {a.result === "right" ? <Check aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} /> : <X aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[15px]">{a.problem.prompt}</span>
+                <ChevronDown aria-hidden="true" className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-300", openResult === i && "rotate-180")} />
+              </button>
+              <AnimatePresence initial={false}>
+                {openResult === i && (
+                  <motion.div
+                    initial={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={settleSpring}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-4 px-4 pb-5 pt-2">
+                      <p className="text-[17px] leading-7">
+                        <MathText text={a.problem.prompt} />
+                      </p>
+                      <Walkthrough problem={a.problem} startWithAll />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </li>
+          ))}
+        </ol>
       </div>
     </div>
   ) : (
-    <div className="space-y-6 px-5 py-6 sm:px-6">
-      <div>
-        <p className="text-[19px] font-semibold tracking-tight">Practice</p>
-        <p className="mt-1 text-[15px] leading-6 text-muted-foreground">
-          {QUANT_GUIDED + QUANT_SOLO} questions. The first {QUANT_GUIDED} show the steps, then {QUANT_SOLO} on your own. Get {QUANT_MASTERY_FIRST_TRY} of
-          those right first time, in under {lesson.targetSeconds}s each, to master it.
-        </p>
-      </div>
+    <div className="mx-auto max-w-[680px] space-y-6">
+      <StageHeader eyebrow={lesson.title} title="Practise">
+        {setSize} questions. The first {QUANT_GUIDED} show the steps, then {QUANT_SOLO} on your own. Get {QUANT_MASTERY_FIRST_TRY} of those right first time, in under{" "}
+        {lesson.targetSeconds}s each, to master the lesson.
+      </StageHeader>
       {saved && (
         <p className={cn("text-[15px] font-medium", saved.mastered ? "text-success" : "text-muted-foreground")}>
           {saved.mastered ? "Mastered" : `Best so far: ${saved.bestFirstTry} of ${QUANT_SOLO}`}
         </p>
       )}
-      <Button variant="brand" size="lg" onClick={() => start()} className="w-full">
-        <Play aria-hidden="true" className="h-4 w-4 fill-current" />
-        Start practice
-      </Button>
-    </div>
-  );
-
-  const leftTabs = [
-    { id: "lesson" as const, label: "Lesson", icon: <BookOpen aria-hidden="true" className="h-4 w-4" /> },
-    { id: "questions" as const, label: "Questions", icon: <ListChecks aria-hidden="true" className="h-4 w-4" /> },
-    { id: "walkthrough" as const, label: "Solution", icon: <Lightbulb aria-hidden="true" className="h-4 w-4" /> },
-  ];
-
-  return (
-    <div className="flex flex-col px-3 pb-3 md:h-[calc(100dvh-4rem)] md:px-4">
-      {/* Top bar: back to the list, previous and next lessons, and where you are. */}
-      <div className="flex h-14 shrink-0 items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1">
-          <Link href="/quant" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "px-2.5")}>
-            <List aria-hidden="true" />
-            <span className="hidden sm:inline">Lessons</span>
-          </Link>
-          <Link href={previous ? `/quant/${previous.id}` : "#"} aria-disabled={!previous} aria-label="Previous lesson" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "px-2", !previous && "pointer-events-none opacity-40")}>
-            <ChevronLeft aria-hidden="true" />
-          </Link>
-          <Link href={next ? `/quant/${next.id}` : "#"} aria-disabled={!next} aria-label="Next lesson" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "px-2", !next && "pointer-events-none opacity-40")}>
-            <ChevronRight aria-hidden="true" />
-          </Link>
-          <span className="ml-1 truncate text-[15px] font-medium">
-            <span className="tabular-nums text-muted-foreground">{position + 1}.</span> {lesson.title}
-          </span>
-        </div>
-        {run && (
-          <Button variant="secondary" size="sm" onClick={() => setRun(null)} className="shrink-0">
-            <span aria-hidden="true" className="size-2.5 rounded-[2px] bg-current" />
-            Stop
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="brand" size="lg" onClick={() => start()} className="w-full sm:w-auto">
+          <Play aria-hidden="true" className="h-4 w-4 fill-current" />
+          Start practice
+        </Button>
+        {!read && (
+          <Button variant="ghost" size="lg" onClick={() => goTo("learn")} className="w-full text-muted-foreground sm:w-auto">
+            <BookOpen aria-hidden="true" />
+            Read the lesson first
           </Button>
         )}
       </div>
-
-      {/* Phones: one pane at a time, picked by these tabs. */}
-      <div className="sticky top-14 z-10 -mx-3 mb-3 border-b border-border bg-background/95 px-3 py-2 backdrop-blur md:hidden">
-        <Tabs
-          id="mobile"
-          value={mobileTab}
-          onChange={(tab) => {
-            setMobileTab(tab);
-            if (tab !== "practice") setLeftTab(tab);
-          }}
-          tabs={[leftTabs[0], leftTabs[1], { id: "practice" as const, label: "Practice", icon: <Play aria-hidden="true" className="h-4 w-4" /> }, leftTabs[2]]}
-        />
-      </div>
-
-      {/* Desktop: lesson and practice side by side, with a draggable divider. */}
-      <div ref={panes} className="min-h-0 flex-1 md:flex">
-        <Pane
-          style={{ "--split": `${split}%` } as CSSProperties}
-          className={cn("min-w-0 shrink-0 md:w-[var(--split)]", mobileTab === "practice" && "max-md:hidden")}
-          header={<Tabs id="left" value={leftTab} onChange={setLeftTab} tabs={leftTabs} />}>
-          {leftTab === "lesson" ? <LessonReader lesson={lesson} onPractice={() => (run || lessonLocked ? setMobileTab("practice") : start())} /> : leftTab === "questions" ? questionsBody : walkthroughBody}
-        </Pane>
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize panes"
-          onPointerDown={startDrag}
-          className="group hidden w-3 shrink-0 cursor-col-resize items-center justify-center md:flex"
-        >
-          <span className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-muted-foreground" />
+      {rule && (
+        <div className="space-y-3 pt-2">
+          <p className="px-1 text-[13px] font-medium text-muted-foreground">You’ll use · {rule.name}</p>
+          <RuleStatement part={rule} compact />
         </div>
-        <Pane
-          className={cn("min-w-0 flex-1", mobileTab !== "practice" && "max-md:hidden")}
-          header={
-            <span className="flex items-center gap-1.5 px-3 text-[14px] font-medium">
-              <Play aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-              Practice
-            </span>
-          }
-        >
-          {practiceBody}
-        </Pane>
+      )}
+    </div>
+  );
+
+  // ── Drill: every question type and puzzle in the lesson, each on its own ──
+  const drillStage = drillRun ? (
+    withRule(runner)
+  ) : (
+    <div className="mx-auto max-w-[680px] space-y-6">
+      <StageHeader eyebrow={lesson.title} title="Drill">
+        The {lesson.families.length} kinds of question in this lesson, one at a time, with new numbers every time.
+      </StageHeader>
+      {lessonLocked && lockedPanel}
+      <ol className="space-y-1.5">
+        {lesson.families.map((family, index) => {
+          const mark = typeMarks[family.id];
+          return (
+            <li key={family.id}>
+              <button
+                type="button"
+                disabled={lessonLocked}
+                onClick={() => start(family.id)}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors disabled:opacity-60",
+                  index % 2 === 0 ? "bg-secondary/60 enabled:hover:bg-control-hover" : "enabled:hover:bg-control-hover",
+                )}
+              >
+                <span className="grid size-7 shrink-0 place-items-center">
+                  {mark === "solved" ? (
+                    <Check aria-label="Solved" className="h-4 w-4 text-success" strokeWidth={2.5} />
+                  ) : mark === "tried" ? (
+                    <CircleDashed aria-label="Tried" className="h-4 w-4 text-warning" />
+                  ) : (
+                    <span className="text-[13px] font-semibold tabular-nums text-muted-foreground">{index + 1}</span>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-medium">{family.title}</span>
+                  <span className="block truncate text-[13px] text-muted-foreground">{familySamples[index]}</span>
+                </span>
+                <span className="shrink-0 text-[13px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                  {lessonLocked ? <Lock aria-label="Pro" className="h-3.5 w-3.5" /> : "Drill"}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      {lesson.puzzles.length > 0 && (
+        <div className="space-y-3 pt-4">
+          <div className="px-1">
+            <p className="text-[19px] font-semibold tracking-tight">Puzzles</p>
+            <p className="mt-1 text-[15px] leading-6 text-muted-foreground">Classic one-off questions this lesson&apos;s method solves.</p>
+          </div>
+          <ol className="space-y-1.5">
+            {lesson.puzzles.map((puzzle, index) => {
+              const mark = puzzleMarks[puzzle.id];
+              return (
+                <li key={puzzle.id}>
+                  <button
+                    type="button"
+                    disabled={lessonLocked}
+                    onClick={() => startPuzzle(puzzle.id)}
+                    className={cn(
+                      "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors disabled:opacity-60",
+                      index % 2 === 0 ? "bg-secondary/60 enabled:hover:bg-control-hover" : "enabled:hover:bg-control-hover",
+                    )}
+                  >
+                    <span className="grid size-7 shrink-0 place-items-center">
+                      {mark === "solved" ? (
+                        <Check aria-label="Solved" className="h-4 w-4 text-success" strokeWidth={2.5} />
+                      ) : mark === "tried" ? (
+                        <CircleDashed aria-label="Tried" className="h-4 w-4 text-warning" />
+                      ) : (
+                        <Puzzle aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium">{puzzle.title}</span>
+                      <span className="block truncate text-[13px] text-muted-foreground">{puzzle.problem.prompt}</span>
+                    </span>
+                    <span className="shrink-0 text-[13px]">
+                      {lessonLocked ? <Lock aria-label="Pro" className="h-3.5 w-3.5 text-muted-foreground" /> : <DifficultyLabel difficulty={puzzle.difficulty} />}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="px-4 pb-16 md:px-6">
+      {/* Top bar: the course, the lesson's steps, and the lessons either side (desktop). */}
+      <div className="-mx-4 mb-4 flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 md:mx-auto md:mb-0 md:max-w-[1040px] md:border-0 md:px-0 md:py-4">
+        <Link href="/quant" aria-label="All lessons" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 px-2.5")}>
+          <List aria-hidden="true" />
+          <span className="max-md:hidden">
+            Unit {topic.number} · {position + 1} of {QUANT_LESSONS.length}
+          </span>
+        </Link>
+        <StageBar stage={stage} onChange={goTo} done={done} locked={lessonLocked} />
+        <div className="flex items-center max-md:hidden">
+          <Link
+            href={previous ? `/quant/${previous.id}` : "#"}
+            aria-disabled={!previous}
+            aria-label={previous ? `Previous lesson: ${previous.title}` : "Previous lesson"}
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "px-2", !previous && "pointer-events-none opacity-40")}
+          >
+            <ChevronLeft aria-hidden="true" />
+          </Link>
+          <Link
+            href={next ? `/quant/${next.id}` : "#"}
+            aria-disabled={!next}
+            aria-label={next ? `Next lesson: ${next.title}` : "Next lesson"}
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-mr-2 px-2", !next && "pointer-events-none opacity-40")}
+          >
+            <ChevronRight aria-hidden="true" />
+          </Link>
+        </div>
       </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={stage}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.1 } }}
+          transition={runEnter}
+          className="md:pt-4"
+        >
+          {stage === "learn" ? (
+            <div className="mx-auto max-w-[680px]">
+              <LessonReader lesson={lesson} next={learnNext} />
+            </div>
+          ) : stage === "practice" ? (
+            practiceStage
+          ) : (
+            drillStage
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
