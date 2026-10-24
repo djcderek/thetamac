@@ -1,9 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { STANDARD_TIMED_LIMIT_SECONDS, standardTimedSessionSql } from "@/lib/standard-timed-sessions";
-import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
+import { standardTimedSessionSql } from "@/lib/standard-timed-sessions";
 import { GUEST_FULL_RUN_SHARE, MAX_LEGACY_GUEST_TOTAL, type TimedSetup } from "@/lib/run-placement";
-import { placementCohortSummarySql, placementSessionCandidatesSql } from "@/lib/placement-cohort";
+import { isStandardSetup, placementCohortSummarySql, placementSessionCandidatesSql } from "@/lib/placement-cohort";
 
 /**
  * The timed leaderboard's totals, worked out in the database. Loading every run and adding
@@ -175,10 +174,7 @@ export async function loadSetupScoreCounts(setup: TimedSetup): Promise<{
   historicalRuns: number;
   guestRuns: number;
 }> {
-  const isStandard =
-    setup.difficulty === DEFAULT_TIMED_TRAINING_SETTINGS.difficulty &&
-    setup.timeLimitSeconds === STANDARD_TIMED_LIMIT_SECONDS &&
-    setup.operations.length === DEFAULT_TIMED_TRAINING_SETTINGS.operations.length;
+  const isStandard = isStandardSetup(setup);
   const sessions = placementSessionCandidatesSql(setup);
   const runs = isStandard
     ? Prisma.sql`

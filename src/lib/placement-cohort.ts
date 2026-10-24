@@ -1,14 +1,30 @@
 import { Prisma } from "@prisma/client";
 import { FULL_RUN_SLACK_SECONDS, MIN_PLAYERS, MIN_RUNS, type TimedSetup } from "./run-placement";
+import { STANDARD_TIMED_LIMIT_SECONDS } from "./standard-timed-sessions";
+import { DEFAULT_TIMED_TRAINING_SETTINGS } from "./training-settings";
 
-/** A recorded setup is exact; legacy settings are estimates bounded by elapsed duration. */
+/** The default setup (Medium, all operations, 2:00): the one the leaderboard ranks. */
+export function isStandardSetup(setup: TimedSetup): boolean {
+  return (
+    setup.difficulty === DEFAULT_TIMED_TRAINING_SETTINGS.difficulty &&
+    setup.timeLimitSeconds === STANDARD_TIMED_LIMIT_SECONDS &&
+    setup.operations.length === DEFAULT_TIMED_TRAINING_SETTINGS.operations.length
+  );
+}
+
+/**
+ * A recorded setup is exact; legacy settings are estimates bounded by elapsed duration. On the
+ * default setup, legacy runs always count as default runs, as they do on the leaderboard,
+ * with only the full-length bound.
+ */
 export function placementSessionCandidatesSql(
   setup: TimedSetup,
   source: Prisma.Sql = Prisma.sql`training_sessions`,
 ): Prisma.Sql {
+  const standard = isStandardSetup(setup);
   return Prisma.sql`
     SELECT s."userId" AS player, s."correctAnswers" AS score,
-      (s."timeLimitSeconds" IS NULL AND s."customRanges" IS NULL) AS historical,
+      ${standard ? Prisma.sql`false` : Prisma.sql`(s."timeLimitSeconds" IS NULL AND s."customRanges" IS NULL)`} AS historical,
       false AS guest
     FROM ${source} s
     WHERE s."gameMode" = 'timed'
@@ -22,7 +38,7 @@ export function placementSessionCandidatesSql(
       AND (
         (s."timeLimitSeconds" = ${setup.timeLimitSeconds} AND s."customRanges" = false)
         OR (s."timeLimitSeconds" IS NULL AND s."customRanges" IS NULL
-          AND s."duration" <= ${setup.timeLimitSeconds + FULL_RUN_SLACK_SECONDS})
+          ${standard ? Prisma.empty : Prisma.sql`AND s."duration" <= ${setup.timeLimitSeconds + FULL_RUN_SLACK_SECONDS}`})
       )
   `;
 }

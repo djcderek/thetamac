@@ -79,3 +79,18 @@ test("many exact runs from one player still need the historical cohort", { skip:
   assert.equal(rows.reduce((sum, r) => sum + r.count, 0), 38);
   assert.ok(rows.every((r) => r.players === 9 && r.historicalRuns === 8));
 });
+
+test("on the default setup, older runs always count as default runs", { skip: !url }, async () => {
+  const standard: TimedSetup = { difficulty: "medium", operations: ["+", "-", "×", "÷"], timeLimitSeconds: 120 };
+  const rows = await query([
+    // Plenty of exact runs, which would leave older runs out on any other setup.
+    ...Array.from({ length: 30 }, (_, i) => session({ userId: `exact-${i % 8}`, difficulty: "medium", timeLimitSeconds: 120, customRanges: false })),
+    // Older runs: counted, not labelled estimates, and a run that went long still counts.
+    session({ userId: "old-a", difficulty: "medium", duration: 121, correctAnswers: 30 }),
+    session({ userId: "old-b", difficulty: "medium", duration: 140, correctAnswers: 31 }),
+    // Still too short to be a full run.
+    session({ userId: "old-c", difficulty: "medium", duration: 100, correctAnswers: 32 }),
+  ], standard);
+  assert.equal(rows.reduce((sum, r) => sum + r.count, 0), 32);
+  assert.ok(rows.every((r) => r.players === 10 && r.historicalRuns === 0));
+});
