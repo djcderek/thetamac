@@ -11,6 +11,7 @@ import type { QuantFamily, QuantTopic } from "@/lib/quant/lessons";
 import { useQuantProgress } from "@/components/quant/quant-list";
 import { QuantQuestion } from "@/components/quant/quant-question";
 import { markType } from "@/components/quant/type-progress";
+import { trackQuantUpgradeClick } from "@/components/quant/quant-analytics";
 import { recordQuantAttempt } from "@/components/quant/quant-attempts";
 
 /** Question types that can't come up again straight away. */
@@ -105,6 +106,7 @@ export function QuantShuffle() {
             <Link
               key={topic.id}
               href={getUpgradeUrl({ feature: "quant", source: "quant_shuffle", next: "/quant/shuffle" })}
+              onClick={() => trackQuantUpgradeClick("quant_shuffle", { unit: topic.id })}
               className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-control px-3.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-control-hover"
             >
               <Lock aria-hidden="true" className="size-3.5" />
@@ -145,7 +147,10 @@ export function QuantShuffle() {
       {locked && (
         <p className="mt-5 px-1 text-[15px] leading-6 text-muted-foreground">
           Free covers the two Foundations units.{" "}
-          <Link href={getUpgradeUrl({ feature: "quant", source: "quant_shuffle", next: "/quant/shuffle" })} className="font-medium text-foreground underline-offset-2 hover:underline">
+          <Link
+            href={getUpgradeUrl({ feature: "quant", source: "quant_shuffle", next: "/quant/shuffle" })}
+            onClick={() => trackQuantUpgradeClick("quant_shuffle", { unit: "all" })}
+            className="font-medium text-foreground underline-offset-2 hover:underline">
             Pro adds all {QUANT_LESSONS.length} lessons
           </Link>
           .

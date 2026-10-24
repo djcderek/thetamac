@@ -35,8 +35,9 @@ import { StepIcon } from "@/components/quant/step-icon";
 import { AnswerBox } from "@/components/quant/answer-box";
 import { LessonReader, RuleStatement } from "@/components/quant/lesson-reader";
 import { recordQuantAttempt } from "@/components/quant/quant-attempts";
-import { markPuzzle, markType, useLessonRead, usePuzzleMarks, useQuantAccountSync, useTypeMarks } from "@/components/quant/type-progress";
+import { markPuzzle, markType, useLessonRead, useLessonReadHere, usePuzzleMarks, useQuantAccountSync, useTypeMarks } from "@/components/quant/type-progress";
 import { MathExpr, MathText } from "@/components/quant/math";
+import { trackQuantUpgradeClick, useQuantGateViewed } from "@/components/quant/quant-analytics";
 
 /** How long a right answer stays on screen before the next question. */
 const RIGHT_PAUSE_MS = 900;
@@ -207,10 +208,12 @@ function RuleFold({ rule, onReread }: { rule: Extract<LessonPart, { type: "rule"
 export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
   const lesson = getQuantLesson(lessonId)!;
   const reduceMotion = useReducedMotion();
-  const { lessons, setLessons, locked, signedIn } = useQuantProgress();
+  const { lessons, setLessons, locked, signedIn, ready } = useQuantProgress();
   const typeMarks = useTypeMarks(lessonId);
   const puzzleMarks = usePuzzleMarks();
   const read = useLessonRead(lessonId);
+  // Read to the end in this browser: the end-of-lesson panel (and its lock) is showing.
+  const readHere = useLessonReadHere(lessonId);
   useQuantAccountSync();
   const params = useSearchParams();
   const initialPuzzle = params.get("puzzle");
@@ -285,17 +288,29 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     window.scrollTo({ top: 0, behavior: "instant" });
   };
 
-  const start = (single?: string) => {
+  /** The scored set, or (with a type) a drill of that type. `via` is the button it came from. */
+  const start = (single: string | undefined, via: string) => {
     begin(single ? [createFamilyProblem(lesson, single)] : createQuantLessonProblems(lesson), { single });
     goTo(single ? "drill" : "practice");
-    captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonStarted, { lesson_id: lesson.id, topic: lesson.topic, signed_in: signedIn });
+    if (single) {
+      captureAnalyticsEvent(ANALYTICS_EVENTS.quantDrillStarted, { lesson_id: lesson.id, topic: lesson.topic, kind: "type", family: single, via, signed_in: signedIn });
+    } else {
+      captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonStarted, { lesson_id: lesson.id, topic: lesson.topic, via, read: read, signed_in: signedIn });
+    }
   };
 
-  const startPuzzle = (puzzleId: string) => {
+  const startPuzzle = (puzzleId: string, via: string) => {
     const puzzle = lesson.puzzles.find((p) => p.id === puzzleId);
     if (!puzzle) return;
     begin([{ ...puzzle.problem, family: `puzzle:${puzzle.id}` }], { puzzle: puzzle.id });
+    captureAnalyticsEvent(ANALYTICS_EVENTS.quantDrillStarted, { lesson_id: lesson.id, topic: lesson.topic, kind: "puzzle", puzzle_id: puzzle.id, via, signed_in: signedIn });
   };
+
+  // Which step is open, on arrival and on every change (including Back).
+  useEffect(() => {
+    captureAnalyticsEvent(ANALYTICS_EVENTS.quantLessonStepViewed, { lesson_id: lesson.id, topic: lesson.topic, step: stage, signed_in: signedIn });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, lesson.id]);
 
   // A link to a puzzle (from the Puzzles page) opens straight into it.
   const openedPuzzle = useRef(false);
@@ -304,7 +319,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     openedPuzzle.current = true;
     // Not cleared on re-render: the guard above makes this run once, and later renders
     // (the session arriving) mustn't cancel it.
-    setTimeout(() => startPuzzle(initialPuzzle), 0);
+    setTimeout(() => startPuzzle(initialPuzzle, "puzzles_page"), 0);
   });
 
   const finish = (done: Run) => {
@@ -334,7 +349,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     if (current.puzzle) {
       const at = lesson.puzzles.findIndex((p) => p.id === current.puzzle);
       const nextPuzzle = lesson.puzzles[at + 1];
-      if (nextPuzzle) startPuzzle(nextPuzzle.id);
+      if (nextPuzzle) startPuzzle(nextPuzzle.id, "next_puzzle");
       else setRun(null);
       return;
     }
@@ -426,6 +441,10 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
   const drillRun = run && (run.single || run.puzzle) ? run : null;
 
   // ── The upgrade panel, where practice would be ──
+  // The lock shows where practice would be: at the end of the lesson, or on the Practise and Drill steps.
+  const lockSurface = stage === "learn" ? "quant_lesson_end" : `quant_${stage}`;
+  const lockShown = ready && lessonLocked && (stage !== "learn" || readHere);
+  useQuantGateViewed(lockSurface, lockShown, signedIn, { lesson_id: lesson.id, topic: lesson.topic });
   const lockedPanel = (
     <div className="grid place-items-center gap-3 rounded-[22px] bg-secondary px-6 py-12 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-background">
@@ -436,8 +455,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
         Every lesson is open to read. Pro opens practice and drills for all {QUANT_LESSONS.length} lessons.
       </p>
       <Link
-        href={getUpgradeUrl({ feature: "quant", source: "quant_lesson", next: `/quant/${lesson.id}?step=${stage === "drill" ? "drill" : "practice"}` })}
-        onClick={() => captureAnalyticsEvent(ANALYTICS_EVENTS.upgradeCtaClicked, { feature: "quant", surface: "quant_practice", action: "open_pricing", lesson_id: lesson.id })}
+        href={getUpgradeUrl({ feature: "quant", source: lockSurface, next: `/quant/${lesson.id}?step=${stage === "drill" ? "drill" : "practice"}` })}
+        onClick={() => trackQuantUpgradeClick(lockSurface, { lesson_id: lesson.id, topic: lesson.topic })}
         className={cn(buttonVariants({ variant: "brand", size: "lg" }), "mt-2")}
       >
         <Lock aria-hidden="true" className="h-4 w-4" />
@@ -457,7 +476,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
       <p className="mt-1 text-[15px] leading-6 text-muted-foreground">
         The first {QUANT_GUIDED} walk you through the steps. The other {QUANT_SOLO} are on your own, with the rule beside them.
       </p>
-      <Button variant="brand" size="lg" onClick={() => start()} className="mt-4 w-full sm:w-auto">
+      <Button variant="brand" size="lg" onClick={() => start(undefined, "lesson_end")} className="mt-4 w-full sm:w-auto">
         <Play aria-hidden="true" className="h-4 w-4 fill-current" />
         Start practice
       </Button>
@@ -689,13 +708,17 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
             <ChevronRight aria-hidden="true" />
           </Link>
         ) : (
-          <Button variant="brand" size="lg" onClick={() => start()} className="w-full">
+          <Button variant="brand" size="lg" onClick={() => start(undefined, "results")} className="w-full">
             <RotateCcw aria-hidden="true" />
             Practise again
           </Button>
         )}
         {next && locked && !isFreeQuantLesson(next.id) && (
-          <Link href={getUpgradeUrl({ feature: "quant", source: "quant_results", next: `/quant/${next.id}` })} className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "w-full")}>
+          <Link
+            href={getUpgradeUrl({ feature: "quant", source: "quant_results", next: `/quant/${next.id}` })}
+            onClick={() => trackQuantUpgradeClick("quant_results", { lesson_id: lesson.id, next_lesson_id: next.id })}
+            className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "w-full")}
+          >
             <Lock aria-hidden="true" className="h-4 w-4" />
             Unlock the next lessons with Pro
           </Link>
@@ -716,7 +739,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
           <p className="px-1 text-[15px] font-semibold">Drill what you missed</p>
           <div className="flex flex-wrap gap-2">
             {missedTypes.map((family) => (
-              <Button key={family.id} variant="secondary" size="sm" onClick={() => start(family.id)}>
+              <Button key={family.id} variant="secondary" size="sm" onClick={() => start(family.id, "results_missed")}>
                 {family.title}
                 <ChevronRight aria-hidden="true" />
               </Button>
@@ -777,7 +800,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="brand" size="lg" onClick={() => start()} className="w-full sm:w-auto">
+        <Button variant="brand" size="lg" onClick={() => start(undefined, "practice_intro")} className="w-full sm:w-auto">
           <Play aria-hidden="true" className="h-4 w-4 fill-current" />
           Start practice
         </Button>
@@ -814,7 +837,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
               <button
                 type="button"
                 disabled={lessonLocked}
-                onClick={() => start(family.id)}
+                onClick={() => start(family.id, "drill_list")}
                 className={cn(
                   "group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors enabled:hover:bg-secondary disabled:opacity-60",
                 )}
@@ -854,7 +877,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
                   <button
                     type="button"
                     disabled={lessonLocked}
-                    onClick={() => startPuzzle(puzzle.id)}
+                    onClick={() => startPuzzle(puzzle.id, "drill_list")}
                     className={cn(
                       "group flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors enabled:hover:bg-secondary disabled:opacity-60",
                         )}

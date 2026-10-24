@@ -43,6 +43,15 @@ This runbook configures the PostHog workspace after the application instrumentat
 4. Retention comparison between users of each secondary surface and otherwise similar activated users.
 5. A table of proposed opportunities scored by observed reach, retention difference, survey demand, paid intent, implementation effort, and confidence.
 
+### 5. Quant
+
+1. Lesson funnel: `quant_lesson_step_viewed` (`step=learn`) → `quant_lesson_read` → `quant_lesson_started` → `quant_lesson_completed`. Break down `quant_lesson_read` by `method` (`read` to the end, or `show_all`) and `quant_lesson_started` by `via` (`lesson_end`, `practice_intro`, `results`) and `read`.
+2. Drills: `quant_drill_started` by `kind` (`type` or `puzzle`) and `via` (`drill_list`, `results_missed`, `puzzles_page`, `next_puzzle`).
+3. Mock tests: `quant_mock_started` → `quant_mock_completed`, by `plan`. Trends for `score`, `rating`, `timed_out` and `answered`; `mock_number` shows whether people come back for another.
+4. Review: `quant_review_started` → `quant_review_completed`, with `due_count`, `reviewed` and `right_first_time`.
+5. Quant locks: `premium_gate_viewed` with `feature=quant` → `upgrade_cta_clicked` → `upgrade_page_viewed` → `checkout_initiated` → `subscription_activated`, broken down by `surface`. Lock surfaces: `quant_lesson_end`, `quant_practice`, `quant_drill`, `quant_review`, `quant_mock`, `quant_mock_results`; upgrade clicks also come from `quant_results`, `quant_shuffle` and `quant_list`. The surface matches the upgrade link's `source`, which `upgrade_page_viewed` and `checkout_initiated` report as `entry_source`.
+6. Free-mock conversion: free `quant_mock_completed` → `premium_gate_viewed` (`surface=quant_mock_results` or `quant_mock`) → `checkout_initiated` within seven days.
+
 ## Cohorts
 
 - **Activated trainers:** at least two `training_completed` events within seven days.

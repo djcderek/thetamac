@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { Check, ChevronLeft, RotateCcw, Shuffle } from "lucide-react";
@@ -13,6 +13,9 @@ import { useSession } from "next-auth/react";
 import { QuantQuestion } from "@/components/quant/quant-question";
 import { markPuzzle, markType } from "@/components/quant/type-progress";
 import { recordQuantAttempt } from "@/components/quant/quant-attempts";
+import { trackQuantUpgradeClick, useQuantGateViewed } from "@/components/quant/quant-analytics";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { captureAnalyticsEvent } from "@/lib/analytics-client";
 
 type DueType = { lessonId: string; family: string; title: string; misses: number };
 export type QuantReviewSummary = {
@@ -82,10 +85,22 @@ export function QuantReview() {
       .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
       .then((data: QuantReviewSummary) => {
         setSummary(data);
-        setItems(data.due.map(itemFor).filter((item): item is Item => item !== null));
+        const due = data.due.map(itemFor).filter((item): item is Item => item !== null);
+        setItems(due);
+        if (due.length) captureAnalyticsEvent(ANALYTICS_EVENTS.quantReviewStarted, { due_count: due.length, waiting_count: data.waitingCount });
       })
       .catch(() => setFailed(true));
   }, [signedIn]);
+
+  // A free account with misses waiting sees the lock.
+  useQuantGateViewed("quant_review", !!summary?.locked, signedIn, { due_count: summary?.dueCount ?? 0 });
+  const finished = items.length > 0 && index >= items.length;
+  const reported = useRef(false);
+  useEffect(() => {
+    if (!finished || reported.current) return;
+    reported.current = true;
+    captureAnalyticsEvent(ANALYTICS_EVENTS.quantReviewCompleted, { reviewed: items.length, right_first_time: results.filter(Boolean).length });
+  }, [finished, items.length, results]);
 
   if (status === "loading") return <Shell>{null}</Shell>;
   if (!signedIn) {
@@ -125,7 +140,11 @@ export function QuantReview() {
               ? `${summary.dueCount === 1 ? "" : "Including "}“${summary.example.title}”, missed ${summary.example.misses === 1 ? "once" : `${summary.example.misses} times`}. Pro brings ${summary.dueCount === 1 ? "it" : "each one"} back with new numbers until it sticks.`
               : "Your misses are saved as you practise. Pro brings each one back with new numbers until it sticks."}
           </p>
-          <Link href={getUpgradeUrl({ feature: "review", source: "quant_review", next: "/quant/review" })} className={cn(buttonVariants({ size: "sm" }), "mt-4")}>
+          <Link
+            href={getUpgradeUrl({ feature: "review", source: "quant_review", next: "/quant/review" })}
+            onClick={() => trackQuantUpgradeClick("quant_review", { due_count: summary.dueCount })}
+            className={cn(buttonVariants({ size: "sm" }), "mt-4")}
+          >
             Unlock review
           </Link>
         </Panel>
@@ -133,7 +152,6 @@ export function QuantReview() {
     );
   }
 
-  const finished = items.length > 0 && index >= items.length;
   if (!items.length || finished) {
     const right = results.filter(Boolean).length;
     return (
