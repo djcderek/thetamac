@@ -43,6 +43,13 @@ export function TrainingHeader({ active = false }: { active?: boolean }) {
               Track your progress over time or test your skills through leaderboards, multiplayer
               duels, and racing modes.
             </p>
+            <p className="mt-2 leading-6">
+              Preparing for a trading or quant interview? The{" "}
+              <Link href="/quant-interview-prep" className="font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground">
+                quant course
+              </Link>{" "}
+              teaches the probability and expected value those interviews ask.
+            </p>
             <Link
               href="/mental-math-practice"
               className="mt-3 inline-flex font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground"

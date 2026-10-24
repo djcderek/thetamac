@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { TrainingCta } from "@/components/marketing/training-cta";
+import { QuantCourseLink } from "@/components/marketing/quant-course-link";
 import { TRAINING_SEO_FAQ } from "@/content/training-faq";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
@@ -134,6 +135,8 @@ export default function MentalMathPracticePage() {
           </div>
         </div>
       </section>
+
+      <QuantCourseLink className="mb-10" />
 
       <section aria-labelledby="mental-math-faq">
         <div className="mb-4 flex items-center justify-between gap-4">

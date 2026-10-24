@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { TrainingCta } from "@/components/marketing/training-cta";
+import { QuantCourseLink } from "@/components/marketing/quant-course-link";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
 const pagePath = "/case-interview-math-practice";
@@ -116,6 +117,8 @@ export default function CaseInterviewMathPracticePage() {
           </article>
         ))}
       </section>
+
+      <QuantCourseLink className="mb-10" />
 
       <section className="border-t border-border pt-4">
         <h2 className="text-xl font-semibold mb-3">Use This 10-Minute Drill</h2>
