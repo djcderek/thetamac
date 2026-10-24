@@ -1,19 +1,30 @@
 import { getCached } from "@/lib/server-cache";
-import { loadScoreCounts } from "@/lib/leaderboard-queries";
+import { loadSetupScoreCounts } from "@/lib/leaderboard-queries";
 import { summarizeScoreCounts, type DistributionResult } from "@/lib/score-summary";
-import { MAX_LEGACY_GUEST_TOTAL } from "@/lib/run-placement";
+import { canonicalOperations, type TimedSetup } from "@/lib/run-placement";
+import { STANDARD_TIMED_LIMIT_SECONDS } from "@/lib/standard-timed-sessions";
+import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
 
 export { summarizeScoreCounts, type DistributionBucket, type DistributionResult } from "@/lib/score-summary";
 
 
-// The distribution is the same for every viewer and counts every timed run, so it is cached
-// briefly. A new score shifts it by at most one run, which the placement card tolerates.
+// The default setup's distribution: the same full-length runs a placement on it compares
+// against (signed-in, older and guest runs; stopped runs left out), so the leaderboard chart
+// and a player's percentile always agree. It's the same for every viewer, so it's cached
+// briefly; a new score shifts it by at most one run.
 const DISTRIBUTION_TTL_SECONDS = 30;
 
 export function getTrainingDistribution(): Promise<DistributionResult> {
   return getCached("training-distribution", DISTRIBUTION_TTL_SECONDS, loadTrainingDistribution);
 }
 
+const DEFAULT_SETUP: TimedSetup = {
+  difficulty: DEFAULT_TIMED_TRAINING_SETTINGS.difficulty,
+  operations: canonicalOperations(DEFAULT_TIMED_TRAINING_SETTINGS.operations),
+  timeLimitSeconds: STANDARD_TIMED_LIMIT_SECONDS,
+};
+
 async function loadTrainingDistribution(): Promise<DistributionResult> {
-  return summarizeScoreCounts(await loadScoreCounts(MAX_LEGACY_GUEST_TOTAL));
+  const { counts } = await loadSetupScoreCounts(DEFAULT_SETUP);
+  return summarizeScoreCounts(counts);
 }

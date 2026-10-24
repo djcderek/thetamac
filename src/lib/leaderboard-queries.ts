@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { standardTimedSessionSql } from "@/lib/standard-timed-sessions";
+import { MAX_STANDARD_SCORE, standardTimedSessionSql } from "@/lib/standard-timed-sessions";
 import { GUEST_FULL_RUN_SHARE, MAX_LEGACY_GUEST_TOTAL, type TimedSetup } from "@/lib/run-placement";
 import { isStandardSetup, placementCohortSummarySql, placementSessionCandidatesSql } from "@/lib/placement-cohort";
 
@@ -42,6 +42,8 @@ function guestRunsCte(window: RunWindow, unverifiedLimit: number) {
       SELECT g."guestId", g."displayName", g."identityVerified", g."correctAnswers", g."bestStreak", g."averageTime", g."createdAt"
       FROM guest_training_scores g
       WHERE g."guestId" ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        -- Guest runs are always on the default setup; past this a score isn't humanly possible.
+        AND g."correctAnswers" <= ${MAX_STANDARD_SCORE}
         AND (
           g."identityVerified"
           OR (
@@ -121,23 +123,6 @@ export async function loadPersonalBests(guestLimit: number): Promise<PersonalBes
     `,
   ]);
   return [...sessions, ...guests];
-}
-
-/** How many standard timed runs (signed-in and guest) ended on each score. */
-export async function loadScoreCounts(guestLimit: number): Promise<{ score: number; count: number }[]> {
-  return db.$queryRaw<{ score: number; count: number }[]>`
-    ${guestRunsCte({}, guestLimit)}
-    SELECT score, COUNT(*)::int AS count
-    FROM (
-      SELECT s."correctAnswers" AS score
-      FROM training_sessions s
-      WHERE ${standardTimedSessionSql} AND s."completedAt" IS NOT NULL
-      UNION ALL
-      SELECT "correctAnswers" FROM guest_runs
-    ) runs
-    GROUP BY score
-    ORDER BY score
-  `;
 }
 
 /**

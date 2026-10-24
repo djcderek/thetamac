@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { FULL_RUN_SLACK_SECONDS, MIN_PLAYERS, MIN_RUNS, type TimedSetup } from "./run-placement";
-import { STANDARD_TIMED_LIMIT_SECONDS } from "./standard-timed-sessions";
+import { MAX_CORRECT_PER_SECOND, MAX_STANDARD_SCORE, STANDARD_TIMED_LIMIT_SECONDS } from "./standard-timed-sessions";
 import { DEFAULT_TIMED_TRAINING_SETTINGS } from "./training-settings";
 
 /** The default setup (Medium, all operations, 2:00): the one the leaderboard ranks. */
@@ -31,6 +31,7 @@ export function placementSessionCandidatesSql(
       AND s."completedAt" IS NOT NULL
       AND s."totalProblems" > 0
       AND s."correctAnswers" BETWEEN 0 AND s."totalProblems"
+      AND s."correctAnswers" <= ${standard ? MAX_STANDARD_SCORE : setup.timeLimitSeconds * MAX_CORRECT_PER_SECOND}
       AND s."difficulty" = ${setup.difficulty}
       AND s."operations" @> ${setup.operations}::text[]
       AND s."operations" <@ ${setup.operations}::text[]

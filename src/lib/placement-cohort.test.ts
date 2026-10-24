@@ -94,3 +94,13 @@ test("on the default setup, older runs always count as default runs", { skip: !u
   assert.equal(rows.reduce((sum, r) => sum + r.count, 0), 32);
   assert.ok(rows.every((r) => r.players === 10 && r.historicalRuns === 0));
 });
+
+test("scores too high to be real are left out", { skip: !url }, async () => {
+  const standard: TimedSetup = { difficulty: "medium", operations: ["+", "-", "×", "÷"], timeLimitSeconds: 120 };
+  const rows = await query([
+    session({ userId: "real", difficulty: "medium", timeLimitSeconds: 120, customRanges: false, totalProblems: 140, correctAnswers: 129 }),
+    session({ userId: "forged", difficulty: "medium", timeLimitSeconds: 120, customRanges: false, totalProblems: 400, correctAnswers: 342 }),
+  ], standard);
+  assert.deepEqual(rows.map(({ score }) => score), [129]);
+});
+
