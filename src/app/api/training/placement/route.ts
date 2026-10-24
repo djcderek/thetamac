@@ -22,8 +22,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid run" }, { status: 400 });
   }
   try {
-    const { counts, players } = await getCached(`placement:${setupKey(setup)}`, SETUP_TTL_SECONDS, () => loadSetupScoreCounts(setup));
-    return NextResponse.json(placeRun(counts, players, { correct: score, elapsedSeconds: elapsed, timeLimitSeconds: setup.timeLimitSeconds }));
+    const { counts, players, historicalRuns, guestRuns } = await getCached(`placement:v2:${setupKey(setup)}`, SETUP_TTL_SECONDS, () => loadSetupScoreCounts(setup));
+    return NextResponse.json({
+      ...placeRun(counts, players, { correct: score, elapsedSeconds: elapsed, timeLimitSeconds: setup.timeLimitSeconds }),
+      comparison: historicalRuns > 0 ? "historical" : "exact",
+      historicalRuns,
+      guestRuns,
+    });
   } catch (error) {
     console.error("Error placing training run:", error);
     return NextResponse.json({ error: "Failed to place run" }, { status: 500 });

@@ -1609,14 +1609,41 @@ export default function TrainingPage() {
               userBucketIndex: data.userBucketIndex,
               basis: data.basis,
               players: data.players,
+              comparison: data.comparison,
+              historicalRuns: data.historicalRuns,
+              guestRuns: data.guestRuns,
+              setupLabel: describeTimedSetup(difficulty, selectedOperations, timedModeLimit),
+            });
+          } else {
+            setScorePercentile({
+              percentile: null,
+              bucket: null,
+              total: data.runs,
+              score: correct,
+              buckets: [],
+              maxCount: 0,
+              userBucketIndex: null,
+              players: data.players,
+              unavailableReason: data.reason,
               setupLabel: describeTimedSetup(difficulty, selectedOperations, timedModeLimit),
             });
           }
-          // No placement (too few runs on these settings, or too short a stop): nothing shows.
         }
       } catch (error) {
         console.error("Failed to place the run", error);
       }
+    } else if (gameMode === "timed" && showAdvanced && trainingRunIdRef.current === endingRunId) {
+      setScorePercentile({
+        percentile: null,
+        bucket: null,
+        total: null,
+        score: correct,
+        buckets: [],
+        maxCount: 0,
+        userBucketIndex: null,
+        unavailableReason: "custom_ranges",
+        setupLabel: describeTimedSetup(difficulty, selectedOperations, timedModeLimit),
+      });
     }
   };
 
@@ -2195,7 +2222,7 @@ export default function TrainingPage() {
             <TrainingSetup
               scorePercentile={scorePercentile}
               showLastRunPlacementCard={
-                !!scorePercentile &&
+                scorePercentile?.percentile != null &&
                 gameMode === "timed" &&
                 !showAdvanced &&
                 scorePercentile.setupLabel === describeTimedSetup(difficulty, selectedOperations, timedModeLimit)

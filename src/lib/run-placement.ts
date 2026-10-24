@@ -28,6 +28,13 @@ export const MIN_PACE_ANSWERS = 3;
 /** A run counts as played to the end when it lasted at least its limit less this. */
 export const FULL_RUN_SLACK_SECONDS = 3;
 
+export type PlacementComparison = "exact" | "historical";
+
+/** Exact settings take precedence once they provide a useful comparison. */
+export function hasEnoughPlacementRuns(runs: number, players: number): boolean {
+  return runs >= MIN_RUNS && players >= MIN_PLAYERS;
+}
+
 /** Operations in a fixed order, so the same set is always the same setup. */
 export function canonicalOperations(operations: readonly string[]): Operation[] {
   return OPERATIONS.filter((op) => operations.includes(op));
@@ -87,7 +94,7 @@ export function placeRun(
   run: { correct: number; elapsedSeconds: number | null; timeLimitSeconds: number },
 ): Placement {
   const runs = counts.reduce((sum, { count }) => sum + count, 0);
-  if (runs < MIN_RUNS || players < MIN_PLAYERS) return { available: false, reason: "not_enough_runs", runs, players };
+  if (!hasEnoughPlacementRuns(runs, players)) return { available: false, reason: "not_enough_runs", runs, players };
 
   const stopped = run.elapsedSeconds !== null && run.elapsedSeconds < run.timeLimitSeconds - FULL_RUN_SLACK_SECONDS;
   if (stopped && (run.elapsedSeconds! < MIN_PACE_SECONDS || run.correct < MIN_PACE_ANSWERS)) {
@@ -110,7 +117,11 @@ export function placeRun(
   };
 }
 
-export type PlacementResponse = Placement;
+export type PlacementResponse = Placement & {
+  comparison: PlacementComparison;
+  historicalRuns: number;
+  guestRuns: number;
+};
 
 const LIMIT_LABELS: Record<number, string> = { 60: "1:00", 120: "2:00", 180: "3:00", 300: "5:00" };
 const OPERATION_LABELS: Record<Operation, string> = { "+": "+", "-": "−", "×": "×", "÷": "÷" };

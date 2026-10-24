@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { STANDARD_TIMED_LIMIT_SECONDS, standardTimedSessionSql } from "@/lib/standard-timed-sessions";
-import { DEFAULT_TIMED_TRAINING_SETTINGS } from "@/lib/training-settings";
-import { FULL_RUN_SLACK_SECONDS, GUEST_FULL_RUN_SHARE, MAX_LEGACY_GUEST_TOTAL, type TimedSetup } from "@/lib/run-placement";
+import { standardTimedSessionSql } from "@/lib/standard-timed-sessions";
+import { GUEST_FULL_RUN_SHARE, MAX_LEGACY_GUEST_TOTAL, type TimedSetup } from "@/lib/run-placement";
+import { isStandardSetup, placementCohortSummarySql, placementSessionCandidatesSql } from "@/lib/placement-cohort";
 
 /**
  * The timed leaderboard's totals, worked out in the database. Loading every run and adding
@@ -161,51 +161,45 @@ export async function loadGuestNames(
 }
 
 /**
- * Scores of full-length timed runs on one setup: difficulty, the exact set of operations,
- * time limit, preset ranges. A stopped run is saved like a finished one, so a signed-in run
- * shorter than its limit is left out. Guest runs are only ever on the default setup, so they
- * count there; they store no duration, so a guest run counts as full when its answering time
- * (average time per correct answer, times correct answers) covers most of the limit.
+ * Prefer runs with recorded matching settings. If that cohort is too small, supplement it
+ * with legacy runs on the same difficulty and operations whose recorded duration is within
+ * three seconds of this limit. Their timer/range settings are unknown, so the response must
+ * label that comparison as estimated. Never mix other explicitly recorded settings in.
+ * Eligible guest scores belong only to the default setup and use the existing full-run
+ * answering-time heuristic because guest records do not contain elapsed duration.
  */
-export async function loadSetupScoreCounts(setup: TimedSetup): Promise<{ counts: { score: number; count: number }[]; players: number }> {
-  const isStandard =
-    setup.difficulty === DEFAULT_TIMED_TRAINING_SETTINGS.difficulty &&
-    setup.timeLimitSeconds === STANDARD_TIMED_LIMIT_SECONDS &&
-    setup.operations.length === DEFAULT_TIMED_TRAINING_SETTINGS.operations.length;
-  const sessions = Prisma.sql`
-    SELECT s."userId" AS player, s."correctAnswers" AS score
-    FROM training_sessions s
-    WHERE s."gameMode" = 'timed'
-      AND s."completedAt" IS NOT NULL
-      AND s."totalProblems" > 0
-      AND s."difficulty" = ${setup.difficulty}
-      AND s."operations" @> ${setup.operations}::text[]
-      AND s."operations" <@ ${setup.operations}::text[]
-      AND s."duration" >= ${setup.timeLimitSeconds - FULL_RUN_SLACK_SECONDS}
-      AND (
-        (s."timeLimitSeconds" = ${setup.timeLimitSeconds} AND s."customRanges" = false)
-        ${isStandard ? Prisma.sql`OR (s."timeLimitSeconds" IS NULL AND s."customRanges" IS NULL)` : Prisma.empty}
-      )
-  `;
+export async function loadSetupScoreCounts(setup: TimedSetup): Promise<{
+  counts: { score: number; count: number }[];
+  players: number;
+  historicalRuns: number;
+  guestRuns: number;
+}> {
+  const isStandard = isStandardSetup(setup);
+  const sessions = placementSessionCandidatesSql(setup);
   const runs = isStandard
     ? Prisma.sql`
         ${guestRunsCte({}, MAX_LEGACY_GUEST_TOTAL)},
-        runs AS (
+        candidates AS (
           ${sessions}
           UNION ALL
-          SELECT "guestId" AS player, "correctAnswers" AS score
+          SELECT "guestId" AS player, "correctAnswers" AS score, false AS historical, true AS guest
           FROM guest_runs
           WHERE "correctAnswers" > 0
             AND "averageTime" * "correctAnswers" >= ${setup.timeLimitSeconds * GUEST_FULL_RUN_SHARE}
         )
       `
-    : Prisma.sql`WITH runs AS (${sessions})`;
-  const [counts, [{ players }]] = await Promise.all([
-    db.$queryRaw<{ score: number; count: number }[]>`
-      ${runs}
-      SELECT score, COUNT(*)::int AS count FROM runs GROUP BY score ORDER BY score
-    `,
-    db.$queryRaw<{ players: number }[]>`${runs} SELECT COUNT(DISTINCT player)::int AS players FROM runs`,
-  ]);
-  return { counts, players };
+    : Prisma.sql`WITH candidates AS (${sessions})`;
+  // One statement keeps the histogram, distinct-player threshold and source counts on
+  // the same database snapshot. A prolific player cannot meet the player threshold alone.
+  const rows = await db.$queryRaw<{
+    score: number; count: number; players: number; historicalRuns: number; guestRuns: number;
+  }[]>`
+    ${runs} ${placementCohortSummarySql()}
+  `;
+  return {
+    counts: rows.map(({ score, count }) => ({ score, count })),
+    players: rows[0]?.players ?? 0,
+    historicalRuns: rows[0]?.historicalRuns ?? 0,
+    guestRuns: rows[0]?.guestRuns ?? 0,
+  };
 }

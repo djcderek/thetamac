@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { animate, motion, useReducedMotion } from "motion/react";
 import { settleSpring } from "@/lib/motion";
 import type { ScoreDistribution } from "@/components/training/training-types";
+import { MIN_RUNS, MIN_PLAYERS, MIN_PACE_SECONDS, MIN_PACE_ANSWERS } from "@/lib/run-placement";
 
 function ordinal(value: number): string {
   const lastTwo = value % 100;
@@ -14,12 +15,32 @@ function ordinal(value: number): string {
 /**
  * Where the run ranks, at the centre of the results: the percentile counting up, what it
  * means in words, and the curve of everyone's runs on the same settings with this one
- * marked. Only shown when there's a placement; without one the results go without.
+ * marked. When a comparison isn't available, explain why instead of silently hiding it.
  */
-export function RunPlacement({ data }: { data: ScoreDistribution & { percentile: number } }) {
+export function RunPlacement({ data }: { data: ScoreDistribution }) {
+  if (data.percentile !== null) {
+    return <PlacedRun data={{ ...data, percentile: data.percentile }} />;
+  }
+  const custom = data.unavailableReason === "custom_ranges";
+  const short = data.unavailableReason === "too_short";
+  return (
+    <section aria-label="Placement" className="mt-6 rounded-[26px] bg-secondary px-5 py-5 sm:px-7">
+      <p className="text-[15px] font-medium">{custom ? "Custom-range placement unavailable" : short ? "A little more time for a pace estimate" : "Not enough comparable runs yet"}</p>
+      <p className="mt-2 text-[13px] leading-6 text-muted-foreground">
+        {custom
+          ? "Custom number ranges vary between runs, so we can’t give them a comparable percentile yet."
+          : short
+            ? `Play for at least ${MIN_PACE_SECONDS} seconds and answer ${MIN_PACE_ANSWERS} problems correctly for an estimated pace placement.`
+            : `${data.total ?? 0} runs from ${data.players ?? 0} players on ${data.setupLabel}. Placement appears once there are ${MIN_RUNS} comparable runs from ${MIN_PLAYERS} players.`}
+      </p>
+    </section>
+  );
+}
+
+function PlacedRun({ data }: { data: ScoreDistribution & { percentile: number } }) {
   const reduceMotion = useReducedMotion();
-  const target = Math.max(1, Math.min(99, Math.round(data.percentile)));
-  const top = Math.round(data.percentile) >= 99;
+  const target = Math.max(0, Math.min(99, Math.round(data.percentile)));
+  const top = data.percentile >= 99;
   const [shown, setShown] = useState(reduceMotion ? target : 1);
 
   useEffect(() => {
@@ -34,7 +55,7 @@ export function RunPlacement({ data }: { data: ScoreDistribution & { percentile:
   }, [target, reduceMotion]);
 
   const pace = data.basis === "pace";
-  const better = Math.round(data.percentile);
+  const historical = data.comparison === "historical";
   const buckets = data.buckets;
   const first = buckets[0];
   const last = buckets[buckets.length - 1];
@@ -47,7 +68,7 @@ export function RunPlacement({ data }: { data: ScoreDistribution & { percentile:
       transition={settleSpring}
       className="mt-6 rounded-[26px] bg-secondary px-5 pb-4 pt-5 sm:px-7"
     >
-      <p className="text-[13px] font-medium text-muted-foreground">{pace ? "On pace for" : "Your placement"}</p>
+      <p className="text-[13px] font-medium text-muted-foreground">{pace ? "Estimated pace placement" : historical ? "Estimated percentile" : "Your placement"}</p>
       <p className="mt-1 text-[48px] font-semibold leading-none tracking-[-0.045em] tabular-nums sm:text-[56px]">
         {top ? (
           "Top 1%"
@@ -59,7 +80,7 @@ export function RunPlacement({ data }: { data: ScoreDistribution & { percentile:
         )}
       </p>
       <p className="mx-auto mt-2 max-w-sm text-[15px] leading-6 text-muted-foreground">
-        {pace ? "At this pace, better than" : "Better than"} {better}% of runs on <span className="whitespace-nowrap text-foreground">{data.setupLabel}</span>
+        Compared with runs on <span className="text-foreground">{data.setupLabel}</span>
       </p>
 
       {buckets.length > 1 && data.maxCount > 0 && (
@@ -86,9 +107,6 @@ export function RunPlacement({ data }: { data: ScoreDistribution & { percentile:
           </div>
         </div>
       )}
-      <p className="mt-3 text-[12px] tabular-nums text-muted-foreground">
-        {pace ? `Your pace over the full time: ${data.score}` : `Your score: ${data.score}`} · {data.total} runs from {data.players} players
-      </p>
     </motion.section>
   );
 }

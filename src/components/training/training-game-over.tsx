@@ -204,8 +204,8 @@ export function TrainingGameOver({
                 : totalSolved === 1 ? "problem solved" : "problems solved"}
           </p>
           {/* How the run ranks against everyone's on the same settings, when there's enough to say. */}
-          {!lesson && !practice && !daily && scorePercentile?.percentile != null && (
-            <RunPlacement data={{ ...scorePercentile, percentile: scorePercentile.percentile }} />
+          {!lesson && !practice && !daily && scorePercentile && (
+            <RunPlacement data={scorePercentile} />
           )}
           {daily && (
             <motion.div

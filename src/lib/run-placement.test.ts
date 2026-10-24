@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MIN_PLAYERS, MIN_RUNS, canonicalOperations, parseTimedSetup, percentileOf, placeRun, projectScore, setupKey } from "./run-placement";
+import { MIN_PLAYERS, MIN_RUNS, canonicalOperations, hasEnoughPlacementRuns, parseTimedSetup, percentileOf, placeRun, projectScore, setupKey } from "./run-placement";
 
 // 100 runs, one at each score from 1 to 100.
 const flat = Array.from({ length: 100 }, (_, i) => ({ score: i + 1, count: 1 }));
+
+test("a comparable cohort needs both runs and distinct players", () => {
+  assert.equal(hasEnoughPlacementRuns(30, 8), true);
+  assert.equal(hasEnoughPlacementRuns(29, 8), false);
+  assert.equal(hasEnoughPlacementRuns(300, 7), false);
+});
 
 test("settings parse into one canonical setup, and bad ones are refused", () => {
   const setup = parseTimedSetup({ difficulty: "medium", operations: "÷,+,×,-", timeLimitSeconds: "120" })!;
