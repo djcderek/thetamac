@@ -17,6 +17,12 @@ export type ScoreDistribution = {
   buckets: ScoreBucket[];
   maxCount: number;
   userBucketIndex: number | null;
+  /** "pace": a stopped run, placed by its pace over the full time. */
+  basis?: "score" | "pace";
+  /** Different players behind the runs compared against. */
+  players?: number;
+  /** The settings the runs share, e.g. "Medium · 2:00 · + − × ÷". */
+  setupLabel?: string;
 };
 
 export interface Problem {
