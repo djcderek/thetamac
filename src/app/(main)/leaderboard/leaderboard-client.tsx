@@ -365,7 +365,7 @@ export function LeaderboardClient({
   const renderRankingRow = (entry: LeaderboardEntry) => (
     <tr key={entry.id} className={cn("border-t border-border", entry.isYou && "bg-background/70")}>
       <td className="py-3 pl-5 pr-2 text-[15px] tabular-nums text-muted-foreground">{entry.rank}</td>
-      <td className="min-w-0 px-2 py-3">
+      <td className="min-w-0 px-2 py-3 sm:max-w-0">
         {/* Phones have no Change column, so the change sits under the name. */}
         <PlayerCell
           entry={entry}
@@ -758,7 +758,7 @@ export function LeaderboardClient({
                       No qualifying timed training scores yet.
                     </div>
                   ) : (
-                    <table className="w-full table-fixed sm:table-auto">
+                    <table className="w-full table-fixed">
                       <thead>
                         <tr className="border-b border-border">
                           <th className="w-14 p-3 text-left text-xs font-medium text-muted-foreground sm:w-20 sm:p-4 sm:text-sm">Rank</th>
@@ -879,7 +879,7 @@ export function LeaderboardClient({
                     <thead>
                       <tr className="text-[13px] text-muted-foreground">
                         <th className="w-14 py-3.5 pl-5 pr-2 text-left font-medium sm:w-16">Rank</th>
-                        <th className="px-2 py-3.5 text-left font-medium">Player</th>
+                        <th className="px-2 py-3.5 text-left font-medium sm:w-full">Player</th>
                         <th className="w-20 whitespace-nowrap py-3.5 pl-2 pr-5 text-right font-medium sm:w-auto sm:pr-2">
                           {mode === "training" ? (
                             <>
