@@ -5,6 +5,7 @@ import { Check, ArrowLeft } from "lucide-react";
 import { getCurrentUserPremiumStatus, subscriptionNeedsAttention } from "@/lib/subscription";
 import { getUpgradeUrl, safeNextPath, type UpgradeFeature } from "@/lib/upgrade";
 import { QUANT_LESSONS } from "@/lib/quant/lessons";
+import { loadMockPlan } from "@/lib/quant/plan-server";
 
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
@@ -50,20 +51,41 @@ const freeFeatures = [
   "Standard cosmetics",
 ];
 
-const proFeatures = [
-  "Everything in Free",
-  "Today: a daily five minutes built from your own misses and slow spots",
-  "Review: your past misses come back until they stick",
-  "All 12 Learning lessons",
-  `All ${QUANT_LESSONS.length} quant lessons, from counting to continuous probability`,
-  "Timed quant mock tests, scored like a first-round interview screen",
-  "Advanced analytics & charts",
-  "Weak point training",
-  "Skill breakdowns & trends",
-  "Premium cosmetics access",
-  "Bonus coin rewards",
-  "Cancel anytime",
+// Each tagged with the feature it belongs to, so an upgrade from that feature lists it first.
+const proFeatures: { text: string; feature?: UpgradeFeature }[] = [
+  { text: "Today: a daily five minutes built from your own misses and slow spots", feature: "daily" },
+  { text: "Review: your past misses come back until they stick", feature: "review" },
+  { text: "All 12 Learning lessons", feature: "lessons" },
+  { text: `All ${QUANT_LESSONS.length} quant lessons, from counting to continuous probability`, feature: "quant" },
+  { text: "Timed quant mock tests, scored like a first-round interview screen", feature: "quant" },
+  { text: "Advanced analytics & charts", feature: "analytics" },
+  { text: "Weak point training" },
+  { text: "Skill breakdowns & trends", feature: "analytics" },
+  { text: "Premium cosmetics access" },
+  { text: "Bonus coin rewards", feature: "coins" },
+  { text: "Cancel anytime" },
 ];
+
+/** "Everything in Free", then the lines for the feature the upgrade came from, then the rest. */
+function proFeatureList(feature?: UpgradeFeature) {
+  const first = proFeatures.filter((line) => feature && line.feature === feature);
+  const rest = proFeatures.filter((line) => !first.includes(line));
+  return ["Everything in Free", ...[...first, ...rest].map((line) => line.text)];
+}
+
+/**
+ * The line under the heading. From the quant course it says what Pro opens there, and from a
+ * mock plan how many of the plan's lessons that is.
+ */
+async function headerLine(feature: UpgradeFeature | undefined, source: string | undefined, userId: string | null | undefined) {
+  if (feature !== "quant") return "Every drill is free. Pro remembers what you miss and brings it back, plus the analytics and perks.";
+  const plan = source === "quant_mock_plan" && userId ? await loadMockPlan(userId) : null;
+  const locked = plan?.steps.filter((step) => !step.free && !step.done).length ?? 0;
+  if (locked > 0) {
+    return `Pro opens practice for ${locked === 1 ? "the lesson" : `the ${locked} lessons`} in your plan and the rest of the course, with unlimited mock tests.`;
+  }
+  return `Pro opens practice and drills for all ${QUANT_LESSONS.length} quant lessons, with unlimited mock tests.`;
+}
 
 export default async function UpgradePage({
   searchParams,
@@ -90,6 +112,7 @@ export default async function UpgradePage({
   // Kept through sign-in and checkout, so Stripe returns here with `next` still on it.
   const upgradeUrl = getUpgradeUrl({ feature: activeFeature, source, next });
   const returning = upgraded && isPremium && Boolean(next);
+  const intro = await headerLine(activeFeature, source, isPremium ? null : userId);
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,7 +136,7 @@ export default async function UpgradePage({
           Free to practice. <span className="text-brand">Pro</span> to go deeper.
         </h1>
         <p className="mx-auto mt-4 max-w-md text-[17px] leading-7 text-muted-foreground">
-          Every drill is free. Pro remembers what you miss and brings it back, plus the analytics and perks.
+          {intro}
         </p>
       </div>
 
@@ -173,7 +196,7 @@ export default async function UpgradePage({
               <p className="relative mb-6 text-xs text-muted-foreground">or $5.99/year (save 50%)</p>
 
               <ul className="relative">
-                {proFeatures.map((feature) => (
+                {proFeatureList(activeFeature).map((feature) => (
                   <li key={feature} className="flex items-start gap-3 border-t border-border py-3">
                     <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" />
                     <span className="text-sm text-foreground">{feature}</span>

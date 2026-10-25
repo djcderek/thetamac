@@ -19,10 +19,11 @@ function stepNote(step: MockPlanStep) {
 /**
  * The plan from the latest mock: the lessons behind its misses, each ticked off after
  * PLAN_RIGHT right answers, then another mock. On the free plan the Pro lessons show a lock,
- * and `upgrade` adds the button that opens them.
+ * and `upgrade` adds the button that opens them, which comes back to the first one's practice.
  */
 export function MockPlanCard({ plan, pro, upgrade = false, className }: { plan: MockPlan; pro: boolean; upgrade?: boolean; className?: string }) {
-  const lockedCount = plan.steps.filter((s) => locked(s, pro)).length;
+  const lockedSteps = plan.steps.filter((s) => locked(s, pro));
+  const lockedCount = lockedSteps.length;
   const finished = plan.done === plan.steps.length;
   const lessons = plan.steps.length === 1 ? "lesson" : "lessons";
 
@@ -85,7 +86,7 @@ export function MockPlanCard({ plan, pro, upgrade = false, className }: { plan: 
             unlimited mocks.
           </p>
           <Link
-            href={getUpgradeUrl({ feature: "quant", source: "quant_mock_plan", next: "/quant/mock" })}
+            href={getUpgradeUrl({ feature: "quant", source: "quant_mock_plan", next: `/quant/${lockedSteps[0].lessonId}?step=practice` })}
             onClick={() => trackQuantUpgradeClick("quant_mock_plan", { score: plan.score, locked_steps: lockedCount })}
             className={cn(buttonVariants({ variant: "brand", size: "lg" }), "mt-4")}
           >
