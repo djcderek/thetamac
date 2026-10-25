@@ -272,19 +272,19 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
     case "optimal-stopping": {
       if (p.type === "mock-ticket") {
         // Try every keep-threshold for the first ticket, averaging over both draws, and take the best.
-        const n = +p.tickets;
+        const n = +p.tickets, step = +p.step;
         let best = -Infinity;
         for (let keepFrom = 1; keepFrom <= n + 1; keepFrom++) {
           let sum = 0;
-          for (const first of faces(n)) for (const second of faces(n)) sum += first >= keepFrom ? first : second;
+          for (const first of faces(n)) for (const second of faces(n)) sum += step * (first >= keepFrom ? first : second);
           best = Math.max(best, sum / (n * n));
         }
         return best;
       }
       if (p.type === "mock-wheel") {
         // List the slices and find the first total where one more spin doesn't gain on average.
-        const n = +p.slices, busts = +p.busts;
-        const slices = faces(n).map((s) => (s > n - busts ? null : s));
+        const n = +p.slices, busts = +p.busts, step = +p.step;
+        const slices = faces(n).map((s) => (s > n - busts ? null : step * s));
         for (let points = 0; points < 1000; points++) {
           const change = slices.reduce((sum: number, s) => sum + (s === null ? -points : s), 0) / n;
           if (change <= 1e-9) return points;

@@ -18,11 +18,6 @@ function breakEvenChance(risk: number, win: number) {
   return low;
 }
 
-/** The money wheel's full layout, segment by segment: what each one shows and pays to 1. */
-const MONEY_WHEEL_LAYOUT: [string, number, number][] = [["1", 24, 1], ["2", 15, 2], ["5", 7, 5], ["10", 4, 10], ["20", 2, 20], ["joker", 1, 40], ["logo", 1, 40]];
-const MONEY_WHEEL_SEGMENTS = MONEY_WHEEL_LAYOUT.flatMap(([mark, count]) => Array<string>(count).fill(mark));
-const MONEY_WHEEL_PAYS = Object.fromEntries(MONEY_WHEEL_LAYOUT.map(([mark, , pays]) => [mark, pays]));
-
 /**
  * The Kelly stake from the first-order condition: growth p log(1 + bf) + (1 − p) log(1 − f) peaks
  * where its slope p b ÷ (1 + bf) − (1 − p) ÷ (1 − f) is zero, found by bisection.
@@ -99,7 +94,8 @@ function independentAnswer(lessonId: string, problem: QuantProblem): number {
     case "house-edge": {
       if (p.type === "mock-wheel") {
         // Spin the whole wheel once: average a $1 bet's profit over every segment.
-        return -averageProfit(MONEY_WHEEL_SEGMENTS, (mark) => (mark === p.bet ? MONEY_WHEEL_PAYS[mark] : -1));
+        const segments = Array.from({ length: +p.segments }, (_, i) => i < +p.count);
+        return -averageProfit(segments, (covered) => (covered ? +p.pays : -1));
       }
       if (p.type === "mock-prize") {
         // Average over every card or duck you could get, as a share of the price.
