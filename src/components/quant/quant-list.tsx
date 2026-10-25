@@ -15,6 +15,8 @@ import { QUANT_LESSONS, QUANT_PUZZLES, QUANT_TOPICS, isFreeQuantLesson, type Qua
 import type { QuantDifficulty } from "@/lib/quant/build";
 import type { LessonsSummary } from "@/components/training/training-types";
 import { DifficultyLabel } from "@/components/quant/difficulty";
+import { MockPlanRow } from "@/components/quant/mock-plan";
+import type { MockPlan } from "@/lib/quant/plan";
 
 type Status = "solved" | "tried" | "todo";
 const DIFFICULTIES: QuantDifficulty[] = ["Easy", "Medium", "Hard"];
@@ -217,6 +219,15 @@ function UpgradeCard() {
 /** The course as a problem list: filter by unit, difficulty and status, or search by name. */
 export function QuantList() {
   const { lessons, locked, signedIn } = useQuantProgress();
+  // The plan from the player's latest mock, shown above the list while it has steps left.
+  const [plan, setPlan] = useState<MockPlan | null>(null);
+  useEffect(() => {
+    if (!signedIn) return;
+    fetch("/api/quant/plan", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { plan: MockPlan | null } | null) => data && setPlan(data.plan))
+      .catch(() => {});
+  }, [signedIn]);
   // How many missed question types are due, for the Review button (signed-in players).
   const [reviewDue, setReviewDue] = useState<number | null>(null);
   useEffect(() => {
@@ -277,6 +288,11 @@ export function QuantList() {
             <ChevronRight aria-hidden="true" />
           </Link>
         </div>
+        {plan && (
+          <div className="mt-5">
+            <MockPlanRow plan={plan} pro={!locked} />
+          </div>
+        )}
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">

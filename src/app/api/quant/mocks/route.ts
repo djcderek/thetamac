@@ -6,13 +6,17 @@ import { checkPremiumAccess } from "@/lib/subscription";
 import { trainingRatelimit, checkRateLimit } from "@/lib/rate-limit";
 import { MOCK_FREE, MOCK_MINUTES, isMockShape, practiceTypeOf, scoreMock } from "@/lib/quant/mock";
 import { mockTopics } from "@/lib/quant/mock-progress";
+import { loadMockPlan } from "@/lib/quant/plan-server";
 
 export const dynamic = "force-dynamic";
 
 /** Past mocks sent: enough for the progress chart; the list shows the latest few. */
 const HISTORY_SIZE = 20;
 
-/** Past mocks, newest first, and whether another can be taken (Pro, or a free one left). */
+/**
+ * Past mocks, newest first; whether another can be taken (Pro, or a free one left); the plan
+ * from the latest; and the lessons read, so a new mock's plan can be built on the spot.
+ */
 export async function GET() {
   try {
     const session = await auth();
@@ -20,7 +24,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
-    const [{ isPremium }, count, history] = await Promise.all([
+    const [{ isPremium }, count, history, plan, reads] = await Promise.all([
       checkPremiumAccess(userId),
       db.quantMock.count({ where: { userId } }),
       db.quantMock.findMany({
@@ -29,6 +33,8 @@ export async function GET() {
         take: HISTORY_SIZE,
         select: { id: true, score: true, correct: true, total: true, seconds: true, createdAt: true, questions: true },
       }),
+      loadMockPlan(userId),
+      db.quantRead.findMany({ where: { userId }, select: { lessonId: true } }),
     ]);
     const freeLeft = isPremium ? null : Math.max(0, MOCK_FREE - count);
     return NextResponse.json({
@@ -37,6 +43,8 @@ export async function GET() {
       freeLeft,
       // Each mock's right and total by unit, for the progress chart; the questions stay here.
       history: history.map(({ questions, ...mock }) => ({ ...mock, topics: mockTopics(questions) })),
+      plan,
+      read: reads.map((r) => r.lessonId),
     });
   } catch (error) {
     console.error("Error loading quant mocks:", error);
