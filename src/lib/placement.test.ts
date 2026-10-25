@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { formatPlacement } from "./placement";
 
-test("placement uses correct ordinals and calls out the top", () => {
+test("placement uses correct ordinals and calls out the top and bottom", () => {
   assert.equal(formatPlacement(null), "Not enough data yet");
   assert.equal(formatPlacement(100), "Top 1%");
   assert.equal(formatPlacement(99.2), "Top 1%");
@@ -12,5 +12,7 @@ test("placement uses correct ordinals and calls out the top", () => {
   assert.equal(formatPlacement(11), "11th percentile");
   assert.equal(formatPlacement(12.6), "13th percentile");
   assert.equal(formatPlacement(38.5), "39th percentile");
-  assert.equal(formatPlacement(0), "1st percentile");
+  assert.equal(formatPlacement(2), "2nd percentile");
+  assert.equal(formatPlacement(1.4), "Bottom 1%");
+  assert.equal(formatPlacement(0), "Bottom 1%");
 });

@@ -1033,40 +1033,35 @@ function mockSpinner(params: { type: "mock-spinner"; setting: "spinner" | "drum"
   );
 }
 
-/** A money wheel’s 54 segments: the bets on it, how many segments each covers, and what it pays. */
-const MONEY_WHEEL: { id: string; mark: string; count: number; pays: number }[] = [
-  { id: "1", mark: "“1”", count: 24, pays: 1 },
-  { id: "2", mark: "“2”", count: 15, pays: 2 },
-  { id: "5", mark: "“5”", count: 7, pays: 5 },
-  { id: "10", mark: "“10”", count: 4, pays: 10 },
-  { id: "20", mark: "“20”", count: 2, pays: 20 },
-  { id: "joker", mark: "a joker", count: 1, pays: 40 },
-];
-
-function mockWheel(params: { type: "mock-wheel"; bet: string }) {
-  const bet = MONEY_WHEEL.find((b) => b.id === params.bet)!;
-  const others = 54 - bet.count;
-  const win = q(bet.pays * bet.count, 54);
-  const lose = q(others, 54);
+/**
+ * A bet on a money wheel of equal segments. As on real wheels, a segment is marked with what it
+ * pays to 1, and a mark covers a few segments fewer than would make the bet fair.
+ */
+function mockWheel(params: { type: "mock-wheel"; segments: number; count: number; pays: number }) {
+  const { segments: n, pays } = params;
+  const bet = { count: params.count, pays, mark: params.count === 1 ? "a star" : `“${pays}”` };
+  const others = n - bet.count;
+  const win = q(bet.pays * bet.count, n);
+  const lose = q(others, n);
   return problem(
-    `mock-wheel-${bet.id}`,
+    `mock-wheel-${n}-${bet.count}-${pays}`,
     bet.count === 1
-      ? `A money wheel has 54 equal segments, and just one of them shows ${bet.mark}. A $1 bet on the joker pays ${bet.pays} to 1 if the wheel stops there. What’s the house edge on that bet?`
-      : `A money wheel has 54 equal segments, and ${bet.count} of them are marked ${bet.mark}. A $1 bet on ${bet.mark} pays ${bet.pays} to 1 if the wheel stops on one of them. What’s the house edge on that bet?`,
-    q(others - bet.pays * bet.count, 54),
+      ? `A money wheel has ${n} equal segments, and just one of them shows ${bet.mark}. A $1 bet on the star pays ${bet.pays} to 1 if the wheel stops there. What’s the house edge on that bet?`
+      : `A money wheel has ${n} equal segments, and ${bet.count} of them are marked ${bet.mark}. A $1 bet on ${bet.mark} pays ${bet.pays} to 1 if the wheel stops on one of them. What’s the house edge on that bet?`,
+    q(others - bet.pays * bet.count, n),
     "percent",
     [
       {
         label: "Win times its chance",
-        work: `$${bet.pays} × ${bet.count}/54`,
+        work: `$${bet.pays} × ${bet.count}/${n}`,
         result: formatDollars(win),
         icon: "multiply",
-        explain: `The bet wins $${bet.pays} on ${bet.count === 1 ? "that one segment" : `any of its ${bet.count} segments`}, out of 54 equally likely stops.`,
+        explain: `The bet wins $${bet.pays} on ${bet.count === 1 ? "that one segment" : `any of its ${bet.count} segments`}, out of ${n} equally likely stops.`,
         visual: edgeBars(win, lose, "win"),
       },
       {
         label: "Loss times its chance",
-        work: `$1 × ${others}/54`,
+        work: `$1 × ${others}/${n}`,
         result: formatDollars(lose),
         icon: "multiply",
         explain: `The other ${others} segments lose the $1.`,
@@ -1074,7 +1069,7 @@ function mockWheel(params: { type: "mock-wheel"; bet: string }) {
       },
       {
         label: "Average loss per $1",
-        work: `(${others} − ${bet.pays * bet.count}) ÷ 54`,
+        work: `(${others} − ${bet.pays * bet.count}) ÷ ${n}`,
         icon: "subtract",
         explain: "What you lose on average, less what you win on average, is the house’s share of every $1 staked.",
         visual: edgeBars(win, lose, "edge"),
@@ -1087,7 +1082,7 @@ function mockWheel(params: { type: "mock-wheel"; bet: string }) {
         { label: "Its segments", value: bet.count, tone: "win", text: `${bet.count}` },
         { label: "Other segments", value: others, tone: "lose", text: `${others}` },
       ],
-      caption: "Segments out of 54",
+      caption: `Segments out of ${n}`,
     },
   );
 }
@@ -1751,7 +1746,15 @@ export const BETTING_LESSONS: QuantLessonDef[] = [
         id: "mock-wheel",
         practice: "roulette-numbers",
         title: "A bet on a money wheel",
-        generate: (random) => mockWheel({ type: "mock-wheel", bet: pick(random, MONEY_WHEEL).id }),
+        generate: (random) => {
+          for (;;) {
+            const segments = pick(random, [24, 30, 36, 40, 48, 50, 54, 60]);
+            const pays = pick(random, [1, 2, 3, 4, 5, 7, 9, 11, 19, 39]);
+            // The most segments that still leave the house an edge, or one fewer, up to a 25% edge.
+            const count = Math.floor((segments - 1) / (pays + 1)) - (random() < 0.5 ? 0 : 1);
+            if (count >= 1 && segments - count * (pays + 1) <= segments / 4) return mockWheel({ type: "mock-wheel", segments, count, pays });
+          }
+        },
       },
       {
         id: "mock-prize",

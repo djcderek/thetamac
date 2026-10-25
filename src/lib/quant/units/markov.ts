@@ -1607,38 +1607,45 @@ function mockTwoClear(params: { type: "mock-two-clear"; sport: "volleyball" | "t
   );
 }
 
-/** Tickets numbered 1 to n in a hat: draw, and you may put it back and draw once more. */
-function mockTicketRedraw(params: { type: "mock-ticket"; tickets: number }): QuantProblem {
-  const n = params.tickets;
-  const fresh = q(n + 1, 2);
-  const keepFrom = Math.floor(value(fresh)) + 1;
+/**
+ * Tickets in a hat paying $1 to $n, or $step up to $step × n: draw, and you may put it back
+ * and draw once more.
+ */
+function mockTicketRedraw(params: { type: "mock-ticket"; tickets: number; step: number }): QuantProblem {
+  const { tickets: n, step } = params;
+  const fresh = q(step * (n + 1), 2);
+  const keepFrom = Math.floor((n + 1) / 2) + 1;
   const keepCount = n - keepFrom + 1;
-  const keptAverage = q(keepFrom + n, 2);
+  const keptAverage = q(step * (keepFrom + n), 2);
+  // What ticket t says: its number, or the amount it pays.
+  const ticket = (t: number) => (step === 1 ? `${t}` : `$${step * t}`);
   const tickets = (keep: boolean, caption: string): QuantVisual => ({
     type: "bars",
-    bars: range(1, n).map((t) => ({ label: `${t}`, value: t, tone: keep && t >= keepFrom ? ("hit" as const) : ("muted" as const) })),
+    bars: range(1, n).map((t) => ({ label: `${step * t}`, value: step * t, tone: keep && t >= keepFrom ? ("hit" as const) : ("muted" as const) })),
     caption,
   });
   return problem(
-    `mock-ticket-${n}`,
-    `A hat holds ${n} tickets numbered 1 to ${n}. You draw one at random and win its number in dollars. If you don’t like it, you may put it back and draw once more, but the second ticket is final. With the best strategy, what’s your expected payout?`,
-    rerollValue(n, 1),
+    `mock-ticket-${n}-${step}`,
+    step === 1
+      ? `A hat holds ${n} tickets numbered 1 to ${n}. You draw one at random and win its number in dollars. If you don’t like it, you may put it back and draw once more, but the second ticket is final. With the best strategy, what’s your expected payout?`
+      : `A hat holds ${n} tickets showing $${step}, $${2 * step}, $${3 * step} and so on up to $${step * n}, one of each. You draw one at random and win the amount on it. You may put it back and draw again once, but then you must keep the second ticket. With the best strategy, what do you expect to win?`,
+    mul(q(step), rerollValue(n, 1)),
     "dollars",
     [
       {
         label: "A second draw is worth",
-        work: `(1 + ${n}) ÷ 2`,
+        work: `(${step} + ${step * n}) ÷ 2`,
         result: formatDollars(fresh),
         icon: "idea",
         explain: "Work from the end. The second ticket must be kept, so drawing again is worth an average ticket.",
-        visual: tickets(false, `Each ticket pays its number. A fresh draw averages ${formatDollars(fresh)}.`),
+        visual: tickets(false, `Each ticket pays ${step === 1 ? "its number" : "the amount on it"}. A fresh draw averages ${formatDollars(fresh)}.`),
       },
       {
-        label: `Keep ${keepFrom} or more, since they beat ${formatDollars(fresh)}`,
+        label: `Keep ${ticket(keepFrom)} or more, since they beat ${formatDollars(fresh)}`,
         work: `${keepCount} of ${n} tickets, averaging ${formatResult(keptAverage, "number")}`,
         icon: "filter",
-        explain: `Keep the first ticket only if it pays more than drawing again. ${keepFrom} and up beat ${formatDollars(fresh)}; put anything lower back.`,
-        visual: tickets(true, `Keep the orange tickets (${keepFrom} and up). Draw again on the grey ones.`),
+        explain: `Keep the first ticket only if it pays more than drawing again. ${ticket(keepFrom)} and up beat ${formatDollars(fresh)}; put anything lower back.`,
+        visual: tickets(true, `Keep the orange tickets (${ticket(keepFrom)} and up). Draw again on the grey ones.`),
       },
       {
         label: "Expected payout",
@@ -1659,17 +1666,20 @@ function mockTicketRedraw(params: { type: "mock-ticket"; tickets: number }): Qua
       },
     ],
     params,
-    tickets(false, `${n} tickets, each paying its number in dollars.`),
+    tickets(false, step === 1 ? `${n} tickets, each paying its number in dollars.` : `${n} tickets, from $${step} to $${step * n}.`),
   );
 }
 
-/** A wheel of numbered slices and Bust slices: spin to add points, or stop and bank them. */
-function mockBustWheel(params: { type: "mock-wheel"; slices: number; busts: number }): QuantProblem {
-  const { slices: n, busts: b } = params;
+/**
+ * A wheel of numbered slices (1, 2, 3… or 10, 20, 30…) and Bust slices: spin to add points, or
+ * stop and bank them.
+ */
+function mockBustWheel(params: { type: "mock-wheel"; slices: number; busts: number; step: number }): QuantProblem {
+  const { slices: n, busts: b, step } = params;
   const top = n - b;
   const bust = q(b, n);
   const keep = sub(q(1), bust);
-  const gain = q(top + 1, 2);
+  const gain = q(step * (top + 1), 2);
   const threshold = div(mul(keep, gain), bust);
   const stopAt = Math.ceil(value(threshold) - 1e-12);
   const exact = threshold.d === 1;
@@ -1677,15 +1687,15 @@ function mockBustWheel(params: { type: "mock-wheel"; slices: number; busts: numb
   const wheel: QuantVisual = {
     type: "bars",
     bars: [
-      ...range(1, top).map((s) => ({ label: `${s}`, value: s, tone: "win" as const })),
-      ...range(1, b).map(() => ({ label: "Bust", value: top, tone: "lose" as const })),
+      ...range(1, top).map((s) => ({ label: `${step * s}`, value: step * s, tone: "win" as const })),
+      ...range(1, b).map(() => ({ label: "Bust", value: step * top, tone: "lose" as const })),
     ],
     caption: `Green slices add their number. A red Bust slice wipes your points.`,
   };
   const end = Math.ceil((stopAt * 1.5) / 10) * 10;
   return problem(
-    `mock-wheel-${n}-${b}`,
-    `A wheel has ${n} equal slices. ${b === 1 ? "One says Bust" : `${b === 2 ? "Two" : b} say Bust`}, and the rest are numbered 1 to ${top}. You spin again and again, adding each number to your points, but landing on Bust wipes your points to 0 and ends the game. You may stop before any spin and bank your points. To score the most on average, what’s the lowest total at which you should stop?`,
+    `mock-wheel-${n}-${b}-${step}`,
+    `A wheel has ${n} equal slices. ${b === 1 ? "One says Bust" : `${b === 2 ? "Two" : "Three"} say Bust`}, and the rest ${step === 1 ? `are numbered 1 to ${top}` : `show ${step}, ${2 * step}, ${3 * step} and so on up to ${step * top}`}. You spin again and again, adding each number to your points, but landing on Bust wipes your points to 0 and ends the game. You may stop before any spin and bank your points. To score the most on average, what’s the lowest total at which you should stop?`,
     q(stopAt),
     "count",
     [
@@ -1694,7 +1704,7 @@ function mockBustWheel(params: { type: "mock-wheel"; slices: number; busts: numb
         work: `${formatFraction(keep)} × ${formatResult(gain, "number")}`,
         result: formatResult(mul(keep, gain), "number"),
         icon: "multiply",
-        explain: `If you miss ${bustText}, you add a number from 1 to ${top}, which averages ${formatResult(gain, "number")}.`,
+        explain: `If you miss ${bustText}, you add a number from ${step} to ${step * top}, which averages ${formatResult(gain, "number")}.`,
         visual: wheel,
       },
       {
@@ -2455,13 +2465,20 @@ export const STATES_LESSONS: QuantLessonDef[] = [
         id: "mock-ticket",
         title: "One redraw from a hat of tickets",
         practice: "one-reroll",
-        generate: (random) => mockTicketRedraw({ type: "mock-ticket", tickets: pick(random, [5, 7, 9, 10, 12, 15, 20] as const) }),
+        generate: (random) => mockTicketRedraw({ type: "mock-ticket", tickets: int(random, 4, 20), step: pick(random, [1, 1, 5, 10]) }),
       },
       {
         id: "mock-wheel",
         title: "When to bank before the wheel hits Bust",
         practice: "bust-game",
-        generate: (random) => mockBustWheel({ type: "mock-wheel", slices: pick(random, [6, 8, 10, 12] as const), busts: random() < 0.6 ? 1 : 2 }),
+        generate: (random) => {
+          for (;;) {
+            const slices = int(random, 5, 12);
+            const busts = pick(random, [1, 1, 2, 3]);
+            // At most a third of the wheel is Bust, or stopping comes almost at once.
+            if (busts * 3 <= slices) return mockBustWheel({ type: "mock-wheel", slices, busts, step: random() < 0.3 ? 10 : 1 });
+          }
+        },
       },
       {
         id: "mock-paid-machine",
