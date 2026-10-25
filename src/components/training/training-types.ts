@@ -77,6 +77,8 @@ export type DailySummary = {
   items: { problem: Problem; section: DailySectionId; lessonId?: string }[];
   /** Quant question types due in review; they run on /quant/review, not in the session. */
   quantDue: number;
+  /** The next lesson in the latest quant mock's plan that the player can practise; null when none is left. */
+  quantPlan: { lessonId: string; title: string; read: boolean; done: number; total: number } | null;
   /** Recent sessions' average seconds, oldest first (local day numbers). */
   history: { day: number; averageSeconds: number }[];
   /** The latest session's average against the first few; null until there are enough. */

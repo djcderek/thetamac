@@ -77,11 +77,34 @@ export function QuantReviewRow({ count }: { count: number }) {
 }
 
 /**
+ * The next lesson in the quant mock plan, as another row of Today. The href is built here rather
+ * than with planStepHref, which would bring the whole quant course into the training page.
+ */
+export function QuantPlanRow({ plan }: { plan: NonNullable<DailySummary["quantPlan"]> }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-background py-2 pl-4 pr-2">
+      <div className="min-w-0">
+        <p className="truncate text-[15px] font-medium leading-5">{plan.title}</p>
+        <p className="text-[13px] tabular-nums text-muted-foreground">
+          Quant plan · {plan.done} of {plan.total} done
+        </p>
+      </div>
+      <Link
+        href={`/quant/${plan.lessonId}${plan.read ? "?step=practice" : ""}`}
+        className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "min-h-10 shrink-0")}
+      >
+        {plan.read ? "Practise" : "Start"}
+      </Link>
+    </div>
+  );
+}
+
+/**
  * Today's session, above the training setup. Pro starts it; free accounts see what theirs
  * would hold and where to unlock it.
  */
 export function TodayCard({ daily, onStart }: { daily: DailySummary; onStart: () => void }) {
-  const { locked, doneToday, streak, week, counts, quantDue } = daily;
+  const { locked, doneToday, streak, week, counts, quantDue, quantPlan } = daily;
   const parts = describeDaily(counts);
 
   let detail: string;
@@ -146,6 +169,7 @@ export function TodayCard({ daily, onStart }: { daily: DailySummary; onStart: ()
         )}
       </div>
 
+      {quantPlan && <QuantPlanRow plan={quantPlan} />}
       {quantDue > 0 && <QuantReviewRow count={quantDue} />}
     </motion.section>
   );
