@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PLAN_RIGHT, buildMockPlan, missedLessonIds, planDuration, planStepHref } from "./plan";
+import { PLAN_RIGHT, buildMockPlan, missedLessonIds, nextPlanStep, planDuration, planStepHref } from "./plan";
 import { QUANT_LESSONS, isFreeQuantLesson } from "./lessons";
 
 const free = QUANT_LESSONS.find((l) => isFreeQuantLesson(l.id))!;
@@ -47,4 +47,17 @@ test("durations read naturally", () => {
   assert.equal(planDuration(25), "25 min");
   assert.equal(planDuration(60), "1 hr");
   assert.equal(planDuration(72), "1 hr 10 min");
+});
+
+test("the next step skips what's done, and Pro lessons on the free plan", () => {
+  const missed = [free, early, late].map((l) => ({ lessonId: l.id, correct: false }));
+  const fresh = buildMockPlan({ id: "m", score: 40, questions: missed }, new Map(), new Set())!;
+  assert.equal(nextPlanStep(fresh, true)?.lessonId, free.id);
+  assert.equal(nextPlanStep(fresh, false)?.lessonId, free.id);
+  const freeDone = buildMockPlan({ id: "m", score: 40, questions: missed }, new Map([[free.id, PLAN_RIGHT]]), new Set())!;
+  assert.equal(nextPlanStep(freeDone, true)?.lessonId, early.id);
+  assert.equal(nextPlanStep(freeDone, false), null);
+  const allDone = buildMockPlan({ id: "m", score: 40, questions: missed }, new Map([free, early, late].map((l) => [l.id, PLAN_RIGHT])), new Set())!;
+  assert.equal(nextPlanStep(allDone, true), null);
+  assert.equal(nextPlanStep(null, true), null);
 });

@@ -9,6 +9,8 @@ import { getQuantLesson } from "@/lib/quant/lessons";
 type QuantSummary = {
   started: boolean;
   next: { lessonId: string; step: "learn" | "practice" } | null;
+  /** Set while `next` comes from the latest mock's plan. */
+  plan: { done: number; total: number } | null;
   mastered: number;
   total: number;
   lastMock: { score: number; rating: string } | null;
@@ -16,7 +18,8 @@ type QuantSummary = {
 
 /**
  * The quant course on the dashboard, in one row, for players who've started it: the lesson to
- * pick up, lessons mastered and the last mock. Nothing shows for anyone who hasn't.
+ * pick up (the next in their mock plan, while it has one), lessons mastered and the last mock.
+ * Nothing shows for anyone who hasn't.
  */
 export function QuantDashboardRow() {
   const [summary, setSummary] = useState<QuantSummary | null>(null);
@@ -31,7 +34,7 @@ export function QuantDashboardRow() {
   if (!summary?.started) return null;
   const lesson = summary.next ? getQuantLesson(summary.next.lessonId) : null;
   const details = [
-    `${summary.mastered} of ${summary.total} lessons mastered`,
+    summary.plan ? `${summary.plan.done} of ${summary.plan.total} done in your plan` : `${summary.mastered} of ${summary.total} lessons mastered`,
     summary.lastMock ? `last mock ${summary.lastMock.score} (${summary.lastMock.rating})` : null,
   ].filter(Boolean);
 
@@ -40,7 +43,11 @@ export function QuantDashboardRow() {
       <div className="min-w-0">
         <p className="text-[13px] font-medium text-muted-foreground">Quant</p>
         <p className="truncate text-[17px] font-semibold tracking-[-0.01em]">
-          {lesson ? `${summary.next!.step === "practice" ? "Practise" : "Continue with"} ${lesson.title}` : "Every lesson mastered"}
+          {lesson
+            ? summary.plan
+              ? `Next in your plan: ${lesson.title}`
+              : `${summary.next!.step === "practice" ? "Practise" : "Continue with"} ${lesson.title}`
+            : "Every lesson mastered"}
         </p>
         <p className="text-[14px] text-muted-foreground">{details.join(" · ")}</p>
       </div>
@@ -48,7 +55,7 @@ export function QuantDashboardRow() {
         href={lesson ? `/quant/${lesson.id}${summary.next!.step === "practice" ? "?step=practice" : ""}` : "/quant/mock"}
         className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "min-h-10 shrink-0 bg-background")}
       >
-        {lesson ? (summary.next!.step === "practice" ? "Practise" : "Continue") : "Take a mock"}
+        {lesson ? (summary.next!.step === "practice" ? "Practise" : summary.plan ? "Start" : "Continue") : "Take a mock"}
       </Link>
     </section>
   );

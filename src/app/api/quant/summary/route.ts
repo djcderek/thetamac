@@ -4,12 +4,16 @@ import { db } from "@/lib/db";
 import { QUANT_LESSON_IDS } from "@/lib/quant/lessons";
 import { quantContinue } from "@/lib/quant/continue";
 import { mockRating } from "@/lib/quant/mock";
+import { nextPlanStep } from "@/lib/quant/plan";
+import { loadMockPlan } from "@/lib/quant/plan-server";
+import { checkPremiumAccess } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
 /**
  * The quant course at a glance, for the dashboard: where to pick it up, lessons mastered and
- * the last mock. `started` is false until the player has done anything in it.
+ * the last mock. `started` is false until the player has done anything in it. While the latest
+ * mock's plan has a lesson left that the player can practise, `next` is that lesson.
  */
 export async function GET() {
   try {
@@ -19,11 +23,13 @@ export async function GET() {
     }
     const userId = session.user.id;
     const quantIds = [...QUANT_LESSON_IDS];
-    const [attempt, reads, progress, mock] = await Promise.all([
+    const [attempt, reads, progress, mock, plan, { isPremium }] = await Promise.all([
       db.quantAttempt.findFirst({ where: { userId }, orderBy: { createdAt: "desc" }, select: { lessonId: true, createdAt: true } }),
       db.quantRead.findMany({ where: { userId }, select: { lessonId: true, readAt: true } }),
       db.lessonProgress.findMany({ where: { userId, lessonId: { in: quantIds } }, select: { lessonId: true, lastPlayedAt: true, masteredAt: true } }),
       db.quantMock.findFirst({ where: { userId }, orderBy: { createdAt: "desc" }, select: { score: true, createdAt: true } }),
+      loadMockPlan(userId),
+      checkPremiumAccess(userId),
     ]);
 
     const activity = [
@@ -32,11 +38,15 @@ export async function GET() {
       ...progress.map((p) => ({ lessonId: p.lessonId, at: p.lastPlayedAt })),
     ];
     const mastered = new Set(progress.filter((p) => p.masteredAt).map((p) => p.lessonId));
-    const next = quantContinue(activity, new Set(reads.map((r) => r.lessonId)), mastered);
+    const planStep = nextPlanStep(plan, isPremium);
+    const next = planStep
+      ? { lessonId: planStep.lessonId, step: planStep.read ? ("practice" as const) : ("learn" as const) }
+      : quantContinue(activity, new Set(reads.map((r) => r.lessonId)), mastered);
 
     return NextResponse.json({
       started: activity.length > 0 || mock !== null,
       next,
+      plan: planStep && plan ? { done: plan.done, total: plan.steps.length } : null,
       mastered: mastered.size,
       total: quantIds.length,
       lastMock: mock ? { score: mock.score, rating: mockRating(mock.score).label, at: mock.createdAt } : null,

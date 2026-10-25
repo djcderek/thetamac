@@ -84,6 +84,14 @@ export function buildMockPlan(
   };
 }
 
+/**
+ * The plan's next step for the dashboard and Today: the first not done that the player can
+ * practise (free accounts skip Pro lessons; the Quant page shows those with a lock). Null once
+ * none is left, so a finished plan stops steering.
+ */
+export const nextPlanStep = (plan: MockPlan | null, pro: boolean) =>
+  plan?.steps.find((step) => !step.done && (pro || step.free)) ?? null;
+
 /** Where a step starts: the lesson if it hasn't been read, else straight into its practice. */
 export const planStepHref = (step: Pick<MockPlanStep, "lessonId" | "read">) =>
   step.read ? `/quant/${step.lessonId}?step=practice` : `/quant/${step.lessonId}`;

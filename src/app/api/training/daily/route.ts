@@ -8,6 +8,8 @@ import { localDayNumber, resolveTimeZone } from "@/lib/streak";
 import { REVIEW_LOOKBACK_DAYS } from "@/lib/review-schedule";
 import { isLessonId } from "@/lib/lessons";
 import { buildQuantReview } from "@/lib/quant/review";
+import { nextPlanStep } from "@/lib/quant/plan";
+import { loadMockPlan } from "@/lib/quant/plan-server";
 import {
   DAILY_SIZE,
   buildDailyPlan,
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
     const today = localDayNumber(now, timeZone);
 
     const since = new Date(now.getTime() - REVIEW_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-    const [{ isPremium }, attempts, lessons, days, quantRows] = await Promise.all([
+    const [{ isPremium }, attempts, lessons, days, quantRows, quantPlan] = await Promise.all([
       checkPremiumAccess(userId),
       db.problemAttempt.findMany({
         where: { userId, createdAt: { gte: since } },
@@ -65,6 +67,7 @@ export async function GET(request: Request) {
         take: MAX_QUANT_ATTEMPTS,
         select: { lessonId: true, family: true, correct: true, createdAt: true },
       }),
+      loadMockPlan(userId),
     ]);
 
     const plan = buildDailyPlan({
@@ -74,6 +77,7 @@ export async function GET(request: Request) {
       now,
     });
     const dayNumbers = days.map((row) => row.day);
+    const planStep = nextPlanStep(quantPlan, isPremium);
 
     return NextResponse.json({
       locked: !isPremium,
@@ -88,6 +92,11 @@ export async function GET(request: Request) {
       items: isPremium ? plan : [],
       // Quant question types due in review, which Today points to (they run on /quant/review).
       quantDue: buildQuantReview(quantRows, now).due.length,
+      // The next lesson in the latest quant mock's plan, which Today also points to.
+      quantPlan:
+        planStep && quantPlan
+          ? { lessonId: planStep.lessonId, title: planStep.title, read: planStep.read, done: quantPlan.done, total: quantPlan.steps.length }
+          : null,
       // Recent sessions' average time, oldest first, and the latest against the first days.
       history: days
         .filter((row) => row.averageSeconds !== null)
