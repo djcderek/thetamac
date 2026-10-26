@@ -28,6 +28,7 @@ import { captureAnalyticsEvent } from "@/lib/analytics-client";
 import type { DailySummary } from "@/components/training/training-types";
 import { TodayDashboardCard } from "./today-dashboard-card";
 import { QuantDashboardRow } from "./quant-dashboard-row";
+import { QuantDashboardAnalytics } from "./quant-dashboard-analytics";
 
 interface UserStats {
   totalProblems: number;
@@ -387,6 +388,8 @@ export function DashboardClient() {
             </CardContent>
           </Card>
         </div>
+
+        <QuantDashboardAnalytics />
 
         {/* Suggestions */}
         <Card>

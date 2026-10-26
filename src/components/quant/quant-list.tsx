@@ -17,6 +17,7 @@ import type { LessonsSummary } from "@/components/training/training-types";
 import { DifficultyLabel } from "@/components/quant/difficulty";
 import { MockPlanRow } from "@/components/quant/mock-plan";
 import type { MockPlan } from "@/lib/quant/plan";
+import { MOCK_MINUTES, MOCK_QUESTIONS, mockRating } from "@/lib/quant/mock";
 
 type Status = "solved" | "tried" | "todo";
 const DIFFICULTIES: QuantDifficulty[] = ["Easy", "Medium", "Hard"];
@@ -196,6 +197,41 @@ function StudyPlan({
   );
 }
 
+type MockState = { latest: { score: number } | null; freeLeft: number | null; locked: boolean };
+
+/**
+ * The mock test, as its own row under the header: what it is, the last score, and the way in.
+ * Signed out, or before the mocks load, it's the plain invitation.
+ */
+function MockRow({ mock }: { mock: MockState | null }) {
+  const latest = mock?.latest ?? null;
+  const detail = mock?.locked
+    ? "Your free mock is used. Pro has unlimited mocks."
+    : mock?.freeLeft
+      ? "Questions from across the course, scored out of 100. Your first one is free."
+      : "Questions from across the course, scored out of 100.";
+  return (
+    <section aria-label="Mock test" className="flex flex-col gap-3 rounded-[22px] bg-secondary px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] tabular-nums text-muted-foreground">
+          Mock test · {MOCK_QUESTIONS} questions · {MOCK_MINUTES} min
+        </p>
+        <p className="mt-0.5 text-[17px] font-semibold tracking-[-0.01em]">
+          {latest ? `Last score ${latest.score}, ${mockRating(latest.score).label}` : "See how you’d do in a first round"}
+        </p>
+        <p className="mt-0.5 text-[14px] leading-5 text-muted-foreground">{detail}</p>
+      </div>
+      <Link
+        href="/quant/mock"
+        className={cn(buttonVariants({ variant: mock?.locked ? "secondary" : "default", size: "sm" }), "min-h-10 w-full shrink-0 sm:w-auto", mock?.locked && "bg-background")}
+      >
+        <Timer aria-hidden="true" />
+        {mock?.locked ? "Your results" : latest ? "Take another" : "Take a mock"}
+      </Link>
+    </section>
+  );
+}
+
 function UpgradeCard() {
   return (
     <div className="rounded-[22px] bg-secondary p-5">
@@ -219,13 +255,19 @@ function UpgradeCard() {
 /** The course as a problem list: filter by unit, difficulty and status, or search by name. */
 export function QuantList() {
   const { lessons, locked, signedIn } = useQuantProgress();
-  // The plan from the player's latest mock, shown above the list while it has steps left.
+  // The player's mocks: the latest score for the mock row, and the plan it left, shown above
+  // the list while it has steps left.
   const [plan, setPlan] = useState<MockPlan | null>(null);
+  const [mock, setMock] = useState<MockState | null>(null);
   useEffect(() => {
     if (!signedIn) return;
-    fetch("/api/quant/plan", { cache: "no-store" })
+    fetch("/api/quant/mocks", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((data: { plan: MockPlan | null } | null) => data && setPlan(data.plan))
+      .then((data: { plan: MockPlan | null; history: { score: number }[]; freeLeft: number | null; locked: boolean } | null) => {
+        if (!data) return;
+        setPlan(data.plan);
+        setMock({ latest: data.history[0] ?? null, freeLeft: data.freeLeft, locked: data.locked });
+      })
       .catch(() => {});
   }, [signedIn]);
   // How many missed question types are due, for the Review button (signed-in players).
@@ -274,10 +316,6 @@ export function QuantList() {
               )}
             </Link>
           )}
-          <Link href="/quant/mock" className={buttonVariants({ variant: "secondary", size: "sm" })}>
-            <Timer aria-hidden="true" />
-            Mock test
-          </Link>
           <Link href="/quant/shuffle" className={buttonVariants({ variant: "secondary", size: "sm" })}>
             <Shuffle aria-hidden="true" />
             Shuffle questions
@@ -288,11 +326,10 @@ export function QuantList() {
             <ChevronRight aria-hidden="true" />
           </Link>
         </div>
-        {plan && (
-          <div className="mt-5">
-            <MockPlanRow plan={plan} pro={!locked} />
-          </div>
-        )}
+        <div className="mt-5 space-y-3">
+          <MockRow mock={mock} />
+          {plan && <MockPlanRow plan={plan} pro={!locked} />}
+        </div>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
