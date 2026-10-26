@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ArrowUpRight, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { snapSpring } from "@/lib/motion";
@@ -57,6 +58,9 @@ function QuantNotice() {
 export function AppHeader() {
   const pathname = usePathname();
   const quantNotice = useQuantNotice();
+  // Pro accounts get a badge by the avatar instead.
+  const { data: session, status } = useSession();
+  const showUpgrade = status !== "loading" && !session?.user?.isPremium;
 
   return (
     <header className="sticky top-0 z-40 hidden border-b border-border bg-background/90 backdrop-blur-xl md:block">
@@ -111,13 +115,15 @@ export function AppHeader() {
         </nav>
 
         <div className="flex items-center gap-2 justify-self-end">
-          <Link
-            href="/upgrade"
-            className="mr-1 inline-flex items-center gap-1 text-sm font-medium text-foreground transition-colors hover:text-brand"
-          >
-            Upgrade
-            <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
-          </Link>
+          {showUpgrade && (
+            <Link
+              href="/upgrade"
+              className="mr-1 inline-flex items-center gap-1 text-sm font-medium text-foreground transition-colors hover:text-brand"
+            >
+              Upgrade
+              <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </Link>
+          )}
           <FeatureRequestDialog triggerVariant="ghost" triggerSize="icon-sm" iconOnly />
           <UserMenu variant="header" />
         </div>

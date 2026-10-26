@@ -52,7 +52,8 @@ const ANSWER_HINTS: Record<AnswerKind, string> = {
 };
 
 type Phase = "answering" | "right" | "missed";
-type Attempt = { problem: QuantProblem; result: "right" | "missed" | null; firstTry: boolean; seconds: number | null };
+/** `help` says why a right answer wasn't first time: a hint, or a wrong try before it. */
+type Attempt = { problem: QuantProblem; result: "right" | "missed" | null; firstTry: boolean; help: "hint" | "retry" | null; seconds: number | null };
 type Run = {
   problems: QuantProblem[];
   index: number;
@@ -277,7 +278,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
 
   const begin = (problems: QuantProblem[], extra: Pick<Run, "single" | "puzzle">) => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    setRun({ problems, index: 0, phase: "answering", wrongTries: 0, lastWrong: "", attempts: problems.map((problem) => ({ problem, result: null, firstTry: false, seconds: null })), ...extra });
+    setRun({ problems, index: 0, phase: "answering", wrongTries: 0, lastWrong: "", attempts: problems.map((problem) => ({ problem, result: null, firstTry: false, help: null, seconds: null })), ...extra });
     setFinished(null);
     setSolutionFor(null);
     setOpenResult(null);
@@ -359,7 +360,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
       current = {
         ...current,
         problems: [...current.problems, fresh],
-        attempts: [...current.attempts, { problem: fresh, result: null, firstTry: false, seconds: null }],
+        attempts: [...current.attempts, { problem: fresh, result: null, firstTry: false, help: null, seconds: null }],
       };
     } else if (current.index + 1 >= current.problems.length) {
       finish(current);
@@ -383,7 +384,8 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
     const isGuided = !current.single && !current.puzzle && current.index < QUANT_GUIDED;
     const reviewFamily = current.puzzle ? `puzzle:${current.puzzle}` : family;
     if (signedIn && !isGuided && reviewFamily) recordQuantAttempt({ lessonId: lesson.id, family: reviewFamily, correct: clean, seconds });
-    const attempts = current.attempts.map((a, i) => (i === current.index ? { ...a, result, firstTry: clean, seconds } : a));
+    const help: Attempt["help"] = result !== "right" || clean ? null : current.hinted ? "hint" : "retry";
+    const attempts = current.attempts.map((a, i) => (i === current.index ? { ...a, result, firstTry: clean, help, seconds } : a));
     if (result === "missed") setSolutionFor(current.problems[current.index].key);
     return { ...current, attempts, phase: result };
   };
@@ -506,7 +508,7 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
                   key={a.problem.key}
                   className={cn(
                     "grid size-8 place-items-center rounded-full text-[13px] font-semibold tabular-nums transition-colors duration-300",
-                    i === run.index ? "bg-foreground text-background" : a.result === "right" ? "bg-success/15 text-success" : a.result === "missed" ? "bg-destructive/15 text-destructive" : "bg-control text-muted-foreground",
+                    i === run.index ? "bg-foreground text-background" : a.result === "right" ? (a.firstTry ? "bg-success/15 text-success" : "bg-warning/15 text-warning") : a.result === "missed" ? "bg-destructive/15 text-destructive" : "bg-control text-muted-foreground",
                   )}
                 >
                   {i + 1}
@@ -759,10 +761,11 @@ export function QuantWorkspace({ lessonId }: { lessonId: QuantLessonId }) {
                 aria-expanded={openResult === i}
                 className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-control-hover"
               >
-                <span className={cn("grid size-7 shrink-0 place-items-center rounded-full", a.result === "right" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
+                <span className={cn("grid size-7 shrink-0 place-items-center rounded-full", a.result !== "right" ? "bg-destructive/15 text-destructive" : a.firstTry ? "bg-success/15 text-success" : "bg-warning/15 text-warning")}>
                   {a.result === "right" ? <Check aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} /> : <X aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[15px]">{a.problem.prompt}</span>
+                {a.help && <span className="shrink-0 text-[13px] text-muted-foreground">{a.help === "hint" ? "After a hint" : "Second try"}</span>}
                 <ChevronDown aria-hidden="true" className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-300", openResult === i && "rotate-180")} />
               </button>
               <AnimatePresence initial={false}>
