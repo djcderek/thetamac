@@ -229,7 +229,7 @@ export default function QuantInterviewPrepPage() {
           <ul className="divide-y divide-border border-y border-border">
             {CLASSICS.map((puzzle) => (
               <li key={puzzle.id}>
-                <Link href={`/quant/${puzzle.lesson}?puzzle=${puzzle.id}`} className="group flex items-center justify-between gap-3 py-2.5 text-[15px]">
+                <Link href={`/quant/puzzles/${puzzle.id}`} className="group flex items-center justify-between gap-3 py-2.5 text-[15px]">
                   <span className="font-medium group-hover:underline">{puzzle.title}</span>
                   <span className="shrink-0 text-[13px] text-muted-foreground">{QUANT_LESSONS.find((l) => l.id === puzzle.lesson)!.title}</span>
                 </Link>

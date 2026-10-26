@@ -39,6 +39,7 @@ export function QuantQuestion({
   onNext,
   nextLabel = "Next",
   aside,
+  solution = true,
 }: {
   lesson: QuantLesson;
   typeTitle: string;
@@ -50,6 +51,8 @@ export function QuantQuestion({
   nextLabel?: string;
   /** Beside the label while answering, e.g. a Skip button. */
   aside?: ReactNode;
+  /** Offer the worked solution once answered; off where the page shows it already. */
+  solution?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const [phase, setPhase] = useState<"answering" | "right" | "missed">("answering");
@@ -181,7 +184,7 @@ export function QuantQuestion({
               </p>
             </div>
             <div className="flex gap-2">
-              {!showSteps && (
+              {solution && !showSteps && (
                 <Button variant="secondary" size="sm" onClick={() => setShowSteps(true)}>
                   <Lightbulb aria-hidden="true" />
                   Solution
