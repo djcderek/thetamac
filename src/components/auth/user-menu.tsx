@@ -159,7 +159,7 @@ export function UserMenu({ collapsed = false, variant = "default" }: UserMenuPro
           aria-label={isHeader ? "Account menu" : undefined}
           className={
             isHeader
-              ? "flex items-center rounded-full p-0.5 transition-colors hover:bg-secondary"
+              ? "flex items-center gap-1.5 rounded-full p-0.5 transition-colors hover:bg-secondary"
               : `flex items-center gap-3 w-full rounded-2xl hover:bg-secondary transition-colors ${
                   collapsed ? "justify-center px-2 py-2" : "px-3 py-2"
                 }`
@@ -171,6 +171,9 @@ export function UserMenu({ collapsed = false, variant = "default" }: UserMenuPro
               {initials}
             </AvatarFallback>
           </Avatar>
+          {isHeader && session.user.isPremium && (
+            <span className="rounded-full bg-secondary px-2 pr-2.5 text-[12px] font-semibold leading-6 text-foreground">Pro</span>
+          )}
           {!collapsed && !isHeader && (
             <div className="flex-1 text-left min-w-0">
               <p className="text-sm font-medium truncate">{session.user.name || "User"}</p>
