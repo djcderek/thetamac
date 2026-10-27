@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { blogPosts } from "@/content/blog/posts";
 import { INTERVIEW_MATH_GUIDES } from "@/content/interview-math/guides";
 import { QUANT_LESSON_IDS } from "@/lib/quant/ids";
+import { QUANT_PUZZLES } from "@/lib/quant/lessons";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.thetamac.com";
 const siteLastUpdated = new Date("2026-03-04");
@@ -12,6 +13,7 @@ const staticRouteUpdatedAt: Record<string, string> = {
   "/leaderboard": "2026-03-04",
   "/quant": "2026-10-23",
   "/quant-interview-prep": "2026-10-24",
+  "/quant/puzzles": "2026-10-26",
   "/multiplayer": "2026-03-04",
   "/training/focused": "2026-03-04",
   "/upgrade": "2026-03-04",
@@ -171,5 +173,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...publicRoutes, ...blogRoutes, ...interviewRoutes, ...quantRoutes];
+  const puzzleRoutes: MetadataRoute.Sitemap = QUANT_PUZZLES.map((puzzle) => ({
+    url: `${siteUrl}/quant/puzzles/${puzzle.id}`,
+    lastModified: getRouteLastModified("/quant/puzzles"),
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  return [...publicRoutes, ...blogRoutes, ...interviewRoutes, ...quantRoutes, ...puzzleRoutes];
 }

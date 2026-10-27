@@ -327,7 +327,8 @@ function Part({
 /**
  * A lesson read one section at a time: each Continue adds the next section below and scrolls
  * to it, and a question waits for an answer before moving on. Someone who has read it before
- * sees the whole lesson at once.
+ * sees the whole lesson at once. Sections not reached yet are rendered hidden, so the whole
+ * lesson is in the page's HTML.
  */
 export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What comes after the lesson: the way into practice. */ next: ReactNode }) {
   const reduceMotion = useReducedMotion();
@@ -400,26 +401,33 @@ export function LessonReader({ lesson, next }: { lesson: QuantLesson; /** What c
           </div>
         </header>
 
-        {parts.slice(0, shown).map((part, i) => (
-          <motion.div
-            key={i}
-            ref={(el) => {
-              refs.current[i] = el;
-            }}
-            className="scroll-mt-24 md:scroll-mt-28"
-            initial={reduceMotion || done ? false : { opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={runEnter}
-          >
-            <Part
-              part={part}
-              lesson={lesson}
-              picked={picks[i] ?? null}
-              onPick={(choice) => setPicks((p) => ({ ...p, [i]: choice }))}
-              onStoryDone={() => {}}
-            />
-          </motion.div>
-        ))}
+        {parts.map((part, i) =>
+          i >= shown ? (
+            // Not reached yet: in the page for search engines, out of sight until Continue.
+            <div key={i} hidden>
+              <Part part={part} lesson={lesson} picked={null} onPick={() => {}} onStoryDone={() => {}} />
+            </div>
+          ) : (
+            <motion.div
+              key={i}
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
+              className="scroll-mt-24 md:scroll-mt-28"
+              initial={reduceMotion || done || i === 0 ? false : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={runEnter}
+            >
+              <Part
+                part={part}
+                lesson={lesson}
+                picked={picks[i] ?? null}
+                onPick={(choice) => setPicks((p) => ({ ...p, [i]: choice }))}
+                onStoryDone={() => {}}
+              />
+            </motion.div>
+          ),
+        )}
 
         <AnimatePresence mode="wait" initial={false}>
           {finished ? (

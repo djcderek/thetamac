@@ -29,7 +29,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-/** Every classic puzzle as one problem list, each opening in the lesson that teaches its method. */
+/** Every classic puzzle as one problem list, each opening on its own page. */
 export function QuantPuzzles() {
   const { locked } = useQuantProgress();
   const marks = usePuzzleMarks();
@@ -59,7 +59,7 @@ export function QuantPuzzles() {
         <div className="max-w-2xl">
           <h1 className="text-[34px] font-semibold leading-[1.05] tracking-[-0.035em] md:text-[44px]">Puzzles</h1>
           <p className="mt-3 text-[17px] leading-7 text-muted-foreground">
-            Classic one-off interview puzzles, each with a step-by-step solution. Every one opens in the lesson whose method solves it.
+            Classic one-off interview puzzles, each with a step-by-step solution and the lesson whose method solves it.
           </p>
         </div>
         <p className="text-[15px] tabular-nums text-muted-foreground">
@@ -112,7 +112,7 @@ export function QuantPuzzles() {
               <Link
                 key={puzzle.id}
                 role="row"
-                href={`/quant/${lesson.id}?puzzle=${puzzle.id}`}
+                href={`/quant/puzzles/${puzzle.id}`}
                 className={cn(
                   "grid grid-cols-[28px_minmax(0,1fr)] items-center gap-3 px-3 py-3.5 transition-colors hover:bg-secondary sm:grid-cols-[40px_minmax(0,1fr)_200px_80px]",
                 )}
